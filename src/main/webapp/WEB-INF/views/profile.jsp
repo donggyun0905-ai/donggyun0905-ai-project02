@@ -1,14 +1,9 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <title>내 프로필 - 스펙 오디세이</title>
-</head>
-<body>
+<c:set var="pageTitle" value="내 프로필 - 스펙 오디세이" scope="request" />
+<jsp:include page="/WEB-INF/views/common/header.jsp" />
+
 <h1>내 프로필</h1>
-<p><a href="${pageContext.request.contextPath}/logout">로그아웃</a></p>
 
 <h2>기본 정보</h2>
 <form action="${pageContext.request.contextPath}/profile" method="post">
@@ -166,5 +161,5 @@
     <button type="submit">회원 탈퇴</button>
 </form>
 
-</body>
-</html>
+<jsp:include page="/WEB-INF/views/common/footer.jsp" />
+

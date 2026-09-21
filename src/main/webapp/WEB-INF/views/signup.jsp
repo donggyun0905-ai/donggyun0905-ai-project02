@@ -1,12 +1,8 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <title>회원가입 - 스펙 오디세이</title>
-</head>
-<body>
+<c:set var="pageTitle" value="회원가입 - 스펙 오디세이" scope="request" />
+<jsp:include page="/WEB-INF/views/common/header.jsp" />
+
 <h1>회원가입</h1>
 
 <c:if test="${not empty errorMessage}">
@@ -24,5 +20,5 @@
 </form>
 
 <p><a href="${pageContext.request.contextPath}/login">이미 계정이 있으신가요? 로그인</a></p>
-</body>
-</html>
+
+<jsp:include page="/WEB-INF/views/common/footer.jsp" />

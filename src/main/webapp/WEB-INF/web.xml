@@ -11,4 +11,27 @@
         <welcome-file>index.jsp</welcome-file>
     </welcome-file-list>
 
+    <!-- 모든 JSP의 소스 인코딩을 UTF-8로 고정 — 선언이 없으면 Jasper가 ISO-8859-1로 읽어서
+         한글이 깨진다. 파일마다 pageEncoding을 넣는 대신 여기서 한 번에 관리한다. -->
+    <jsp-config>
+        <jsp-property-group>
+            <url-pattern>*.jsp</url-pattern>
+            <page-encoding>UTF-8</page-encoding>
+        </jsp-property-group>
+    </jsp-config>
+
+    <!-- 공통 에러 처리 (FR-111 취지 — 화면마다 제각각 처리하지 않게) -->
+    <error-page>
+        <error-code>404</error-code>
+        <location>/WEB-INF/views/error.jsp</location>
+    </error-page>
+    <error-page>
+        <error-code>500</error-code>
+        <location>/WEB-INF/views/error.jsp</location>
+    </error-page>
+    <error-page>
+        <exception-type>java.lang.Exception</exception-type>
+        <location>/WEB-INF/views/error.jsp</location>
+    </error-page>
+
 </web-app>

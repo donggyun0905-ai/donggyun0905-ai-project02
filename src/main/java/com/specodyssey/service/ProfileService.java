@@ -8,9 +8,8 @@ import com.specodyssey.dto.UserDto;
 import com.specodyssey.dto.UserProjectDto;
 import com.specodyssey.dto.UserSkillDto;
 import com.specodyssey.dto.UserSpecDto;
-import com.specodyssey.util.DBUtil;
+import com.specodyssey.util.TransactionUtil;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -127,25 +126,13 @@ public class ProfileService {
         });
     }
 
-    private <T> T runInTransaction(Long userId, SqlFunction<T> action) throws SQLException {
-        try (Connection conn = DBUtil.getConnection()) {
-            conn.setAutoCommit(false);
-            try {
-                T result = action.apply(conn);
-                userDao.touchProfileUpdatedAt(conn, userId);
-                conn.commit();
-                return result;
-            } catch (SQLException e) {
-                conn.rollback();
-                throw e;
-            } finally {
-                conn.setAutoCommit(true);
-            }
-        }
-    }
-
-    @FunctionalInterface
-    private interface SqlFunction<T> {
-        T apply(Connection conn) throws SQLException;
+    // FR-37: 트랜잭션 커밋 전에 profile_updated_at을 같이 갱신 — 재분석 트리거 판단 기준이기 때문이다.
+    // 트랜잭션 자체(커넥션·커밋·롤백)는 공용 TransactionUtil이 책임진다.
+    private <T> T runInTransaction(Long userId, TransactionUtil.SqlFunction<T> action) throws SQLException {
+        return TransactionUtil.runInTransaction(conn -> {
+            T result = action.apply(conn);
+            userDao.touchProfileUpdatedAt(conn, userId);
+            return result;
+        });
     }
 }
