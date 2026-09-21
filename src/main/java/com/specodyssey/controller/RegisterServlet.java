@@ -39,7 +39,7 @@ public class RegisterServlet extends HttpServlet {
         try {
             userService.register(loginId, password, email, major, grade, interestField);
             resp.sendRedirect(req.getContextPath() + "/login");
-        } catch (UserService.DuplicateLoginIdException e) {
+        } catch (UserService.DuplicateLoginIdException | UserService.InvalidInputException e) {
             req.setAttribute("errorMessage", e.getMessage());
             req.getRequestDispatcher("/WEB-INF/views/signup.jsp").forward(req, resp);
         } catch (SQLException e) {

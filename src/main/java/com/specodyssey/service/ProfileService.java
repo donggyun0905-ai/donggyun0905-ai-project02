@@ -23,6 +23,12 @@ import java.util.List;
  */
 public class ProfileService {
 
+    public static class DuplicateSkillException extends Exception {
+        public DuplicateSkillException(String message) {
+            super(message);
+        }
+    }
+
     private final UserDao userDao = new UserDao();
     private final UserSpecDao userSpecDao = new UserSpecDao();
     private final UserProjectDao userProjectDao = new UserProjectDao();
@@ -63,6 +69,13 @@ public class ProfileService {
         return runInTransaction(userId, conn -> userSpecDao.insert(conn, spec));
     }
 
+    public void updateSpec(Long userId, UserSpecDto spec) throws SQLException {
+        runInTransaction(userId, conn -> {
+            userSpecDao.update(conn, spec, userId);
+            return null;
+        });
+    }
+
     public void deleteSpec(Long userId, Long specId) throws SQLException {
         runInTransaction(userId, conn -> {
             userSpecDao.delete(conn, specId, userId);
@@ -75,6 +88,13 @@ public class ProfileService {
         return runInTransaction(userId, conn -> userProjectDao.insert(conn, project));
     }
 
+    public void updateProject(Long userId, UserProjectDto project) throws SQLException {
+        runInTransaction(userId, conn -> {
+            userProjectDao.update(conn, project, userId);
+            return null;
+        });
+    }
+
     public void deleteProject(Long userId, Long projectId) throws SQLException {
         runInTransaction(userId, conn -> {
             userProjectDao.delete(conn, projectId, userId);
@@ -82,9 +102,22 @@ public class ProfileService {
         });
     }
 
-    public Long addSkill(Long userId, UserSkillDto skill) throws SQLException {
+    public Long addSkill(Long userId, UserSkillDto skill) throws SQLException, DuplicateSkillException {
         skill.setUserId(userId);
+        if (userSkillDao.existsActiveRawInput(userId, skill.getRawInput())) {
+            throw new DuplicateSkillException("이미 등록된 기술입니다: " + skill.getRawInput());
+        }
         return runInTransaction(userId, conn -> userSkillDao.insert(conn, skill));
+    }
+
+    public void updateSkill(Long userId, UserSkillDto skill) throws SQLException, DuplicateSkillException {
+        if (userSkillDao.existsActiveRawInput(userId, skill.getRawInput(), skill.getId())) {
+            throw new DuplicateSkillException("이미 등록된 기술입니다: " + skill.getRawInput());
+        }
+        runInTransaction(userId, conn -> {
+            userSkillDao.update(conn, skill, userId);
+            return null;
+        });
     }
 
     public void deleteSkill(Long userId, Long userSkillId) throws SQLException {

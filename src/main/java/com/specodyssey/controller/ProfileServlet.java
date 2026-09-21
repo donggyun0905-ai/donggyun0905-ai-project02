@@ -55,7 +55,12 @@ public class ProfileServlet extends HttpServlet {
 
         Long desiredJobId = null;
         if ("SET".equals(desiredJobStatus) && desiredJobIdParam != null && !desiredJobIdParam.isBlank()) {
-            desiredJobId = Long.valueOf(desiredJobIdParam);
+            try {
+                desiredJobId = Long.valueOf(desiredJobIdParam);
+            } catch (NumberFormatException e) {
+                resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "잘못된 요청입니다.");
+                return;
+            }
         }
 
         try {

@@ -59,6 +59,21 @@ public class UserProjectDao {
         }
     }
 
+    public void update(Connection conn, UserProjectDto project, Long userId) throws SQLException {
+        String sql = "UPDATE USER_PROJECTS SET title = ?, description = ?, tech_stack = ?, " +
+                "start_date = ?, end_date = ? WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, project.getTitle());
+            pstmt.setString(2, project.getDescription());
+            pstmt.setString(3, project.getTechStack());
+            setNullableDate(pstmt, 4, project.getStartDate());
+            setNullableDate(pstmt, 5, project.getEndDate());
+            pstmt.setLong(6, project.getId());
+            pstmt.setLong(7, userId);
+            pstmt.executeUpdate();
+        }
+    }
+
     public void delete(Connection conn, Long projectId, Long userId) throws SQLException {
         String sql = "UPDATE USER_PROJECTS SET is_deleted = TRUE WHERE id = ? AND user_id = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {

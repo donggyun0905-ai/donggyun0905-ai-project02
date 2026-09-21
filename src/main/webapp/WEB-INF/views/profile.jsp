@@ -45,6 +45,23 @@
                 <input type="hidden" name="specId" value="${spec.id}">
                 <button type="submit">삭제</button>
             </form>
+            <details style="display:inline;">
+                <summary style="display:inline-block; cursor:pointer;">수정</summary>
+                <form action="${pageContext.request.contextPath}/profile/specs" method="post">
+                    <input type="hidden" name="action" value="update">
+                    <input type="hidden" name="specId" value="${spec.id}">
+                    <select name="specType">
+                        <option value="CERT" ${spec.specType == 'CERT' ? 'selected' : ''}>자격증</option>
+                        <option value="LANGUAGE" ${spec.specType == 'LANGUAGE' ? 'selected' : ''}>어학</option>
+                        <option value="AWARD" ${spec.specType == 'AWARD' ? 'selected' : ''}>수상</option>
+                    </select>
+                    <input type="text" name="title" value="${spec.title}" placeholder="명칭" required>
+                    <input type="text" name="issuer" value="${spec.issuer}" placeholder="발급기관">
+                    <input type="text" name="score" value="${spec.score}" placeholder="점수(어학 등)">
+                    <input type="date" name="acquiredDate" value="${spec.acquiredDate}">
+                    <button type="submit">저장</button>
+                </form>
+            </details>
         </li>
     </c:forEach>
 </ul>
@@ -75,6 +92,19 @@
                 <input type="hidden" name="projectId" value="${project.id}">
                 <button type="submit">삭제</button>
             </form>
+            <details>
+                <summary style="cursor:pointer;">수정</summary>
+                <form action="${pageContext.request.contextPath}/profile/projects" method="post">
+                    <input type="hidden" name="action" value="update">
+                    <input type="hidden" name="projectId" value="${project.id}">
+                    <p><input type="text" name="title" value="${project.title}" placeholder="프로젝트명" required></p>
+                    <p><textarea name="description" placeholder="설명">${project.description}</textarea></p>
+                    <p><input type="text" name="techStack" value="${project.techStack}" placeholder="사용 기술 (예: Java, Spring, MySQL)"></p>
+                    <p>시작일 <input type="date" name="startDate" value="${project.startDate}">
+                       종료일 <input type="date" name="endDate" value="${project.endDate}"></p>
+                    <button type="submit">저장</button>
+                </form>
+            </details>
         </li>
     </c:forEach>
 </ul>
@@ -98,6 +128,21 @@
                 <input type="hidden" name="userSkillId" value="${skill.id}">
                 <button type="submit">삭제</button>
             </form>
+            <details style="display:inline;">
+                <summary style="display:inline-block; cursor:pointer;">수정</summary>
+                <form action="${pageContext.request.contextPath}/profile/skills" method="post">
+                    <input type="hidden" name="action" value="update">
+                    <input type="hidden" name="userSkillId" value="${skill.id}">
+                    <input type="text" name="rawInput" value="${skill.rawInput}" placeholder="기술명 (예: Python, React)" required>
+                    <select name="proficiency">
+                        <option value="" ${empty skill.proficiency ? 'selected' : ''}>숙련도 선택 안함</option>
+                        <option value="BEGINNER" ${skill.proficiency == 'BEGINNER' ? 'selected' : ''}>입문</option>
+                        <option value="INTERMEDIATE" ${skill.proficiency == 'INTERMEDIATE' ? 'selected' : ''}>중급</option>
+                        <option value="ADVANCED" ${skill.proficiency == 'ADVANCED' ? 'selected' : ''}>고급</option>
+                    </select>
+                    <button type="submit">저장</button>
+                </form>
+            </details>
         </li>
     </c:forEach>
 </ul>
@@ -111,6 +156,14 @@
         <option value="ADVANCED">고급</option>
     </select>
     <button type="submit">기술 추가</button>
+</form>
+
+<h2 style="color:red;">회원 탈퇴</h2>
+<p>탈퇴하면 로그인·프로필 조회가 모두 불가능해집니다. 비밀번호를 입력하고 확인해주세요.</p>
+<form action="${pageContext.request.contextPath}/profile/withdraw" method="post"
+      onsubmit="return confirm('정말 탈퇴하시겠습니까?');">
+    <input type="password" name="password" placeholder="비밀번호" required>
+    <button type="submit">회원 탈퇴</button>
 </form>
 
 </body>

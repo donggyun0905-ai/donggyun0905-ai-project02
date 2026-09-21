@@ -62,6 +62,22 @@ public class UserSpecDao {
     }
 
     // 본인 소유가 아닌 id는 WHERE 조건에서 자연히 걸러진다 (0행 갱신)
+    public void update(Connection conn, UserSpecDto spec, Long userId) throws SQLException {
+        String sql = "UPDATE USER_SPECS SET spec_type = ?, title = ?, issuer = ?, score = ?, acquired_date = ? " +
+                "WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, spec.getSpecType());
+            pstmt.setString(2, spec.getTitle());
+            pstmt.setString(3, spec.getIssuer());
+            pstmt.setString(4, spec.getScore());
+            setNullableDate(pstmt, 5, spec.getAcquiredDate());
+            pstmt.setLong(6, spec.getId());
+            pstmt.setLong(7, userId);
+            pstmt.executeUpdate();
+        }
+    }
+
+    // 본인 소유가 아닌 id는 WHERE 조건에서 자연히 걸러진다 (0행 갱신)
     public void delete(Connection conn, Long specId, Long userId) throws SQLException {
         String sql = "UPDATE USER_SPECS SET is_deleted = TRUE WHERE id = ? AND user_id = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {

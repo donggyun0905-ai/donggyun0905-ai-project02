@@ -45,6 +45,55 @@ public class UserSkillDao {
         }
     }
 
+    public boolean existsActiveRawInput(Long userId, String rawInput) throws SQLException {
+        try (Connection conn = DBUtil.getConnection()) {
+            return existsActiveRawInput(conn, userId, rawInput);
+        }
+    }
+
+    public boolean existsActiveRawInput(Long userId, String rawInput, Long excludeId) throws SQLException {
+        try (Connection conn = DBUtil.getConnection()) {
+            return existsActiveRawInput(conn, userId, rawInput, excludeId);
+        }
+    }
+
+    // skill_id가 항상 NULL인 1주차 상태에서는 UNIQUE(user_id, skill_id)가 중복을 막지 못하므로
+    // raw_input 기준으로 애플리케이션 레벨 중복 체크를 한다 (대소문자·공백 무시).
+    public boolean existsActiveRawInput(Connection conn, Long userId, String rawInput) throws SQLException {
+        return existsActiveRawInput(conn, userId, rawInput, null);
+    }
+
+    // 수정 시에는 자기 자신의 행을 중복으로 걸러내지 않도록 excludeId를 제외한다.
+    public boolean existsActiveRawInput(Connection conn, Long userId, String rawInput, Long excludeId)
+            throws SQLException {
+        String sql = "SELECT 1 FROM USER_SKILLS " +
+                "WHERE user_id = ? AND is_deleted = FALSE AND LOWER(TRIM(raw_input)) = LOWER(TRIM(?)) " +
+                "AND (? IS NULL OR id <> ?)";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            pstmt.setString(2, rawInput);
+            setNullableLong(pstmt, 3, excludeId);
+            setNullableLong(pstmt, 4, excludeId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
+    // 기술명을 바꾸면 기존 임베딩 매칭 결과(skill_id·similarity_score)는 더 이상 유효하지 않으므로 초기화한다.
+    // 2주차 매칭 배치가 다음 주기에 다시 채운다.
+    public void update(Connection conn, UserSkillDto skill, Long userId) throws SQLException {
+        String sql = "UPDATE USER_SKILLS SET raw_input = ?, proficiency = ?, skill_id = NULL, similarity_score = NULL " +
+                "WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, skill.getRawInput());
+            pstmt.setString(2, skill.getProficiency());
+            pstmt.setLong(3, skill.getId());
+            pstmt.setLong(4, userId);
+            pstmt.executeUpdate();
+        }
+    }
+
     public List<UserSkillDto> findByUserId(Long userId) throws SQLException {
         String sql = "SELECT * FROM USER_SKILLS WHERE user_id = ? AND is_deleted = FALSE ORDER BY id";
         try (Connection conn = DBUtil.getConnection();
