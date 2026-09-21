@@ -77,8 +77,14 @@ class RoadmapDaoTest {
             assertNotNull(primary);
             assertEquals(id, primary.getId());
 
+            // 다른 사용자 id로는 갱신되지 않아야 한다 (소유자 확인)
             try (Connection conn = DBUtil.getConnection()) {
-                dao.updateActiveAndPrimary(conn, id, false, false);
+                dao.updateActiveAndPrimary(conn, id, userId + 999_999L, false, false);
+            }
+            assertNotNull(dao.findPrimaryByUserId(userId));
+
+            try (Connection conn = DBUtil.getConnection()) {
+                dao.updateActiveAndPrimary(conn, id, userId, false, false);
             }
             assertNull(dao.findPrimaryByUserId(userId));
         } finally {

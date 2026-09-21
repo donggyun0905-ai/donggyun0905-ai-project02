@@ -60,11 +60,13 @@ public class JobRecommendationDao {
     }
 
     // FR-39 후보 선택 → 곧바로 격차 분석·로드맵 흐름으로 연결
-    public void updateSelected(Connection conn, Long id, boolean selected) throws SQLException {
-        String sql = "UPDATE JOB_RECOMMENDATION SET is_selected = ? WHERE id = ? AND is_deleted = FALSE";
+    // userId로 소유자를 확인한다 — 없으면 다른 사용자의 추천 결과도 선택 처리할 수 있다.
+    public void updateSelected(Connection conn, Long id, Long userId, boolean selected) throws SQLException {
+        String sql = "UPDATE JOB_RECOMMENDATION SET is_selected = ? WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setBoolean(1, selected);
             pstmt.setLong(2, id);
+            pstmt.setLong(3, userId);
             pstmt.executeUpdate();
         }
     }

@@ -37,8 +37,10 @@ public class EvaluationSessionDao {
         }
     }
 
+    // 만료된 세션은 조회되지 않게 expires_at도 함께 확인한다.
     public EvaluationSessionDto findByToken(String sessionToken) throws SQLException {
-        String sql = "SELECT * FROM EVALUATION_SESSION WHERE session_token = ? AND is_deleted = FALSE";
+        String sql = "SELECT * FROM EVALUATION_SESSION WHERE session_token = ? " +
+                "AND (expires_at IS NULL OR expires_at > NOW()) AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, sessionToken);

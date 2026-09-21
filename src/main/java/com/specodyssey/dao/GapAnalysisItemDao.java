@@ -9,6 +9,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,13 +32,23 @@ public class GapAnalysisItemDao {
                 "VALUES (?, ?, ?, ?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setLong(1, item.getGapAnalysisId());
-            pstmt.setLong(2, item.getSkillId());
+            // skill_id는 컬럼이 NOT NULL이라, null이 오면 DAO에서 NPE로 터지는 대신
+            // DB가 SQLException(제약 위반)으로 깨끗하게 거부하게 한다 — TransactionUtil이 이걸 롤백한다.
+            setNullableLong(pstmt, 2, item.getSkillId());
             pstmt.setString(3, item.getStatus());
             pstmt.setBigDecimal(4, item.getSimilarityScore());
             pstmt.executeUpdate();
             try (ResultSet keys = pstmt.getGeneratedKeys()) {
                 return keys.next() ? keys.getLong(1) : null;
             }
+        }
+    }
+
+    private void setNullableLong(PreparedStatement pstmt, int index, Long value) throws SQLException {
+        if (value == null) {
+            pstmt.setNull(index, Types.BIGINT);
+        } else {
+            pstmt.setLong(index, value);
         }
     }
 

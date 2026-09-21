@@ -72,13 +72,16 @@ public class RoadmapDao {
     }
 
     // FR-37 재분석으로 새 버전이 생길 때 이전 버전은 비활성화, 대표 로드맵 지정은 호출부에서 트랜잭션으로 함께 처리
-    public void updateActiveAndPrimary(Connection conn, Long roadmapId, boolean active, boolean primary)
+    // userId로 소유자를 확인한다 — 없으면 다른 사용자의 로드맵도 갱신할 수 있다.
+    public void updateActiveAndPrimary(Connection conn, Long roadmapId, Long userId, boolean active, boolean primary)
             throws SQLException {
-        String sql = "UPDATE ROADMAP SET is_active = ?, is_primary = ? WHERE id = ? AND is_deleted = FALSE";
+        String sql = "UPDATE ROADMAP SET is_active = ?, is_primary = ? " +
+                "WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setBoolean(1, active);
             pstmt.setBoolean(2, primary);
             pstmt.setLong(3, roadmapId);
+            pstmt.setLong(4, userId);
             pstmt.executeUpdate();
         }
     }

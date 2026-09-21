@@ -67,6 +67,14 @@ class ShareLinkDaoTest {
             assertEquals("B회사 지원", dao.findByToken(token).getLabel());
             assertTrue(dao.findByToken(token).isScopeSkills());
 
+            // FR-86: 비활성화하면 토큰으로 더 이상 조회되지 않아야 한다
+            ShareLinkDto toDeactivate = dao.findByToken(token);
+            toDeactivate.setActive(false);
+            try (Connection conn = DBUtil.getConnection()) {
+                dao.update(conn, toDeactivate, userId);
+            }
+            assertNull(dao.findByToken(token));
+
             try (Connection conn = DBUtil.getConnection()) {
                 dao.delete(conn, id, userId);
             }

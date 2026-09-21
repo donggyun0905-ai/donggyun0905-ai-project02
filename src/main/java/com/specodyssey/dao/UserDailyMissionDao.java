@@ -62,15 +62,17 @@ public class UserDailyMissionDao {
         }
     }
 
-    public void updateCompleted(Connection conn, Long id, boolean completed, LocalDateTime completedAt,
+    // userId로 소유자를 확인한다 — 없으면 다른 사용자의 미션도 완료 처리할 수 있다.
+    public void updateCompleted(Connection conn, Long id, Long userId, boolean completed, LocalDateTime completedAt,
                                  Boolean correct) throws SQLException {
         String sql = "UPDATE USER_DAILY_MISSION SET is_completed = ?, completed_at = ?, is_correct = ? " +
-                "WHERE id = ? AND is_deleted = FALSE";
+                "WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setBoolean(1, completed);
             pstmt.setTimestamp(2, toTimestamp(completedAt));
             setNullableBoolean(pstmt, 3, correct);
             pstmt.setLong(4, id);
+            pstmt.setLong(5, userId);
             pstmt.executeUpdate();
         }
     }

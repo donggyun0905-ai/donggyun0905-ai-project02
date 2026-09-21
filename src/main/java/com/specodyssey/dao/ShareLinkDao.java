@@ -62,8 +62,10 @@ public class ShareLinkDao {
     }
 
     // 면접관이 토큰으로 접근할 때 조회 (FR-85)
+    // is_active·expires_at도 함께 확인한다 — 안 그러면 지원자가 링크를 비활성화(FR-86)해도 계속 열람 가능해진다.
     public ShareLinkDto findByToken(String token) throws SQLException {
-        String sql = "SELECT * FROM SHARE_LINK WHERE token = ? AND is_deleted = FALSE";
+        String sql = "SELECT * FROM SHARE_LINK WHERE token = ? AND is_active = TRUE " +
+                "AND (expires_at IS NULL OR expires_at > NOW()) AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, token);

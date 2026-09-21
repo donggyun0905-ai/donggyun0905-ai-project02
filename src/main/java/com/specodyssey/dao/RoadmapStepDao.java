@@ -65,13 +65,18 @@ public class RoadmapStepDao {
     }
 
     // FR-36 완료 체크 → 여정 진행도·스코어 적립 근거
-    public void updateCompleted(Connection conn, Long stepId, boolean completed, LocalDateTime completedAt)
+    // ROADMAP_STEP에는 user_id가 없어(부모 ROADMAP에만 있음) JOIN으로 소유자를 확인한다.
+    // 없으면 다른 사용자의 로드맵 단계도 완료 처리할 수 있고, 점수(+100)가 걸려있어 조작 경로가 된다.
+    public void updateCompleted(Connection conn, Long stepId, Long userId, boolean completed, LocalDateTime completedAt)
             throws SQLException {
-        String sql = "UPDATE ROADMAP_STEP SET is_completed = ?, completed_at = ? WHERE id = ? AND is_deleted = FALSE";
+        String sql = "UPDATE ROADMAP_STEP rs JOIN ROADMAP r ON rs.roadmap_id = r.id " +
+                "SET rs.is_completed = ?, rs.completed_at = ? " +
+                "WHERE rs.id = ? AND r.user_id = ? AND rs.is_deleted = FALSE";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setBoolean(1, completed);
             pstmt.setTimestamp(2, toTimestamp(completedAt));
             pstmt.setLong(3, stepId);
+            pstmt.setLong(4, userId);
             pstmt.executeUpdate();
         }
     }

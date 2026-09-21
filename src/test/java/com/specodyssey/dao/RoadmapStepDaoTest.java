@@ -87,8 +87,15 @@ class RoadmapStepDaoTest {
             assertFalse(steps.get(0).isCompleted());
 
             LocalDateTime now = LocalDateTime.now();
+
+            // 다른 사용자 id로는 갱신되지 않아야 한다 (JOIN을 통한 소유자 확인)
             try (Connection conn = DBUtil.getConnection()) {
-                dao.updateCompleted(conn, id, true, now);
+                dao.updateCompleted(conn, id, userId + 999_999L, true, now);
+            }
+            assertFalse(dao.findByRoadmapId(roadmapId).get(0).isCompleted());
+
+            try (Connection conn = DBUtil.getConnection()) {
+                dao.updateCompleted(conn, id, userId, true, now);
             }
             RoadmapStepDto updated = dao.findByRoadmapId(roadmapId).get(0);
             assertTrue(updated.isCompleted());

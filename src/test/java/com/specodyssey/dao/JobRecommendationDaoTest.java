@@ -59,8 +59,14 @@ class JobRecommendationDaoTest {
             assertEquals(1, recs.size());
             assertFalse(recs.get(0).isSelected());
 
+            // 다른 사용자 id로는 갱신되지 않아야 한다 (소유자 확인)
             try (Connection conn = DBUtil.getConnection()) {
-                dao.updateSelected(conn, id, true);
+                dao.updateSelected(conn, id, userId + 999_999L, true);
+            }
+            assertFalse(dao.findByUserId(userId).get(0).isSelected());
+
+            try (Connection conn = DBUtil.getConnection()) {
+                dao.updateSelected(conn, id, userId, true);
             }
             assertTrue(dao.findByUserId(userId).get(0).isSelected());
         } finally {

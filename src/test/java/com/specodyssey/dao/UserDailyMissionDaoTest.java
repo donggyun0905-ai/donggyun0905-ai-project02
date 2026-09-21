@@ -69,8 +69,14 @@ class UserDailyMissionDaoTest {
             assertEquals(1, missions.size());
             assertFalse(missions.get(0).isCompleted());
 
+            // 다른 사용자 id로는 갱신되지 않아야 한다 (소유자 확인)
             try (Connection conn = DBUtil.getConnection()) {
-                dao.updateCompleted(conn, id, true, LocalDateTime.now(), true);
+                dao.updateCompleted(conn, id, userId + 999_999L, true, LocalDateTime.now(), true);
+            }
+            assertFalse(dao.findByUserId(userId).get(0).isCompleted());
+
+            try (Connection conn = DBUtil.getConnection()) {
+                dao.updateCompleted(conn, id, userId, true, LocalDateTime.now(), true);
             }
             UserDailyMissionDto updated = dao.findByUserId(userId).get(0);
             assertTrue(updated.isCompleted());
