@@ -43,6 +43,18 @@ public class SkillDao {
         }
     }
 
+    // FR-32 로드맵 단계 표시용 — related_skill_id로 기술명을 조회한다.
+    public SkillDto findById(Long id) throws SQLException {
+        String sql = "SELECT * FROM SKILL WHERE id = ? AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, id);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        }
+    }
+
     private SkillDto mapRow(ResultSet rs) throws SQLException {
         SkillDto skill = new SkillDto();
         skill.setId(rs.getLong("id"));

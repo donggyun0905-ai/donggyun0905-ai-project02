@@ -11,6 +11,7 @@
     <a href="${pageContext.request.contextPath}/">스펙 오디세이</a>
     <c:if test="${not empty sessionScope.loginUser}">
         <a href="${pageContext.request.contextPath}/profile">내 프로필</a>
+        <a href="${pageContext.request.contextPath}/roadmap">로드맵</a>
         <a href="${pageContext.request.contextPath}/logout">로그아웃</a>
     </c:if>
 </header>

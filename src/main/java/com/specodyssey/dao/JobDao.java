@@ -30,6 +30,18 @@ public class JobDao {
         }
     }
 
+    // FR-32 로드맵 생성 시 목표 직무의 job_category(자격증 매칭 등)를 조회하는 데 쓰인다.
+    public JobDto findById(Long id) throws SQLException {
+        String sql = "SELECT * FROM JOB WHERE id = ? AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, id);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        }
+    }
+
     private JobDto mapRow(ResultSet rs) throws SQLException {
         JobDto job = new JobDto();
         job.setId(rs.getLong("id"));

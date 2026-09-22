@@ -43,6 +43,23 @@ public class CertificationDao {
         }
     }
 
+    // FR-32 로드맵 자격증 단계 후보 조회 — 난이도 낮은 순(ENTRY 티어에 맞는 것부터).
+    public List<CertificationDto> findByJobCategory(String jobCategory) throws SQLException {
+        String sql = "SELECT * FROM CERTIFICATION WHERE job_category = ? AND is_deleted = FALSE " +
+                "ORDER BY difficulty_level ASC, cert_name ASC";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, jobCategory);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                List<CertificationDto> certifications = new ArrayList<>();
+                while (rs.next()) {
+                    certifications.add(mapRow(rs));
+                }
+                return certifications;
+            }
+        }
+    }
+
     private CertificationDto mapRow(ResultSet rs) throws SQLException {
         CertificationDto cert = new CertificationDto();
         cert.setId(rs.getLong("id"));
