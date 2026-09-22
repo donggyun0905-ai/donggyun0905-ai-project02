@@ -69,11 +69,24 @@ CREATE DATABASE spec_odyssey CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```bash
 mysql -u <user> -p spec_odyssey < sql/01_schema.sql
 mysql -u <user> -p spec_odyssey < sql/02_seed.sql
+mysql -u <user> -p spec_odyssey < sql/03_schema_extended.sql
 ```
 
-### 2. 환경변수 설정
+### 2. DB 접속 정보 설정
 
-DB 접속 정보는 소스에 하드코딩하지 않고 환경변수로 분리되어 있습니다. Tomcat을 띄우기 전에 아래 세 값을 설정해야 합니다.
+DB 접속 정보는 소스에 하드코딩하지 않습니다. 둘 중 편한 방법으로 설정하세요.
+
+**방법 A — `.env` 파일 (추천, IntelliJ에서 바로 실행하고 싶을 때 편합니다)**
+
+```bash
+cp src/main/resources/.env.example src/main/resources/.env
+```
+
+복사한 `src/main/resources/.env`를 열어 실제 값으로 채웁니다. 이 파일은 `.gitignore`(`*.env`)에 걸려 있어 커밋되지 않으니 각자 로컬 값을 채우면 됩니다(팀원끼리 공유 금지 — 특히 비밀번호).
+
+**방법 B — 환경변수**
+
+`.env` 파일이 없을 때는 아래 환경변수로 대체됩니다 (CI 등에서 유용).
 
 | 변수 | 예시 |
 | --- | --- |
@@ -81,7 +94,7 @@ DB 접속 정보는 소스에 하드코딩하지 않고 환경변수로 분리�
 | `DB_USER` | `root` |
 | `DB_PASSWORD` | (본인 MySQL 비밀번호) |
 
-미설정 시 `DBUtil`이 기동 시점에 바로 에러를 던집니다 (fail-fast).
+`.env`와 환경변수가 둘 다 있으면 `.env` 값이 우선합니다. 둘 다 없으면 `DBUtil`이 기동 시점에 바로 에러를 던집니다 (fail-fast).
 
 ### 3. 빌드 & 배포
 
