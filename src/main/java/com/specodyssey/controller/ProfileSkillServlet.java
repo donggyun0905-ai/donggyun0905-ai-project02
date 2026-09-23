@@ -3,6 +3,7 @@ package com.specodyssey.controller;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.dto.UserSkillDto;
 import com.specodyssey.service.ProfileService;
+import com.specodyssey.service.RoadmapService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -23,6 +24,7 @@ import java.sql.SQLException;
 public class ProfileSkillServlet extends HttpServlet {
 
     private final ProfileService profileService = new ProfileService();
+    private final RoadmapService roadmapService = new RoadmapService();
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -48,6 +50,9 @@ public class ProfileSkillServlet extends HttpServlet {
                     return;
                 }
                 profileService.addSkill(userId, skill);
+                // 로드맵 SKILL 단계를 거치지 않고 프로필에서 직접 기술을 추가한 경우 — 일치하는
+                // 미완료 SKILL 단계가 있으면 로드맵도 같이 완료 처리한다.
+                roadmapService.syncSkillAddedFromProfile(userId, skill.getRawInput());
             }
         } catch (NumberFormatException e) {
             resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "잘못된 요청입니다.");

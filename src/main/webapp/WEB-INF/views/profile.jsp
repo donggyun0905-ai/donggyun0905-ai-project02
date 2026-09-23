@@ -5,6 +5,19 @@
 
 <h1>내 프로필</h1>
 
+<c:if test="${not empty currentTier}">
+    <section>
+        <img src="${pageContext.request.contextPath}${tierLogoPath}" alt="${currentTier.tierName}" height="86">
+        <p>
+            현재 등급: <strong>${currentTier.tierName}</strong> (${currentTier.titleName})<br>
+            누적 점수: <strong>${totalScore}점</strong>
+            <c:if test="${not empty currentTier.maxScore}">
+                / 다음 등급까지 ${currentTier.maxScore - totalScore + 1}점
+            </c:if>
+        </p>
+    </section>
+</c:if>
+
 <h2>기본 정보</h2>
 <form action="${pageContext.request.contextPath}/profile" method="post">
     <p><label>이메일 <input type="email" name="email" value="${user.email}"></label></p>
@@ -81,7 +94,12 @@
             <strong>${project.title}</strong>
             (${project.startDate} ~ ${project.endDate})<br>
             ${project.description}<br>
-            <c:if test="${not empty project.techStack}">기술스택: ${project.techStack}</c:if>
+            <c:if test="${not empty project.techStack}">기술스택: ${project.techStack}</c:if><br>
+            <c:forEach var="doc" items="${documents}">
+                <c:if test="${doc.projectId == project.id}">
+                    📎 <a href="${pageContext.request.contextPath}/documents/${doc.id}">${doc.originalName}</a>
+                </c:if>
+            </c:forEach>
             <form action="${pageContext.request.contextPath}/profile/projects" method="post" style="display:inline;">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="projectId" value="${project.id}">

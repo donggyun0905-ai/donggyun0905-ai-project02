@@ -10,6 +10,12 @@
 <header>
     <a href="${pageContext.request.contextPath}/">스펙 오디세이</a>
     <c:if test="${not empty sessionScope.loginUser}">
+        <c:if test="${not empty currentTier}">
+            <span class="tier-badge">
+                <img src="${pageContext.request.contextPath}${tierLogoPath}" alt="${currentTier.tierName}" height="30">
+                <strong>${currentTier.tierName}</strong>(${currentTier.titleName}) · ${totalScore}점
+            </span>
+        </c:if>
         <a href="${pageContext.request.contextPath}/profile">내 프로필</a>
         <a href="${pageContext.request.contextPath}/roadmap">로드맵</a>
         <a href="${pageContext.request.contextPath}/logout">로그아웃</a>

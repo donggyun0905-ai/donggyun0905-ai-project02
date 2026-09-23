@@ -1,6 +1,7 @@
 package com.specodyssey.service;
 
 import com.specodyssey.dao.CertificationDao;
+import com.specodyssey.dao.DocumentDao;
 import com.specodyssey.dao.GapAnalysisDao;
 import com.specodyssey.dao.GapAnalysisItemDao;
 import com.specodyssey.dao.JobDao;
@@ -8,8 +9,11 @@ import com.specodyssey.dao.JobRequiredSkillDao;
 import com.specodyssey.dao.RoadmapDao;
 import com.specodyssey.dao.RoadmapStepDao;
 import com.specodyssey.dao.SkillDao;
+import com.specodyssey.dao.UserProjectDao;
+import com.specodyssey.dao.UserSkillDao;
 import com.specodyssey.dao.UserSpecDao;
 import com.specodyssey.dto.CertificationDto;
+import com.specodyssey.dto.DocumentDto;
 import com.specodyssey.dto.GapAnalysisDto;
 import com.specodyssey.dto.GapAnalysisItemDto;
 import com.specodyssey.dto.JobDto;
@@ -17,6 +21,9 @@ import com.specodyssey.dto.JobRequiredSkillDto;
 import com.specodyssey.dto.RoadmapDto;
 import com.specodyssey.dto.RoadmapStepDto;
 import com.specodyssey.dto.SkillDto;
+import com.specodyssey.dto.UserProjectDto;
+import com.specodyssey.dto.UserSkillDto;
+import com.specodyssey.dto.UserSpecDto;
 import com.specodyssey.util.TransactionUtil;
 
 import java.sql.Connection;
@@ -68,8 +75,24 @@ public class RoadmapService {
     private final JobDao jobDao = new JobDao();
     private final SkillDao skillDao = new SkillDao();
     private final UserSpecDao userSpecDao = new UserSpecDao();
+    private final UserSkillDao userSkillDao = new UserSkillDao();
+    private final UserProjectDao userProjectDao = new UserProjectDao();
+    private final DocumentDao documentDao = new DocumentDao();
     private final RoadmapDao roadmapDao = new RoadmapDao();
     private final RoadmapStepDao roadmapStepDao = new RoadmapStepDao();
+    private final ScoreService scoreService = new ScoreService();
+
+    // TD-5 배점: 로드맵 단계 완료당 +100 (여정 서비스의 핵심이라 배점 최상)
+    private static final int ROADMAP_STEP_COMPLETE_POINTS = 100;
+    private static final String SIGNAL_TYPE_ROADMAP = "ROADMAP";
+
+    // SKILL 단계 완료 → USER_SKILLS 숙련도 자동 승급 기준 (팀 합의, 2026-09-23).
+    // 완료를 취소해도 이미 오른 숙련도는 안 내린다 — 점수 정책과 같은 원칙.
+    private static final int PROFICIENCY_INTERMEDIATE_THRESHOLD = 10;
+    private static final int PROFICIENCY_ADVANCED_THRESHOLD = 30;
+    private static final String PROFICIENCY_BEGINNER = "BEGINNER";
+    private static final String PROFICIENCY_INTERMEDIATE = "INTERMEDIATE";
+    private static final String PROFICIENCY_ADVANCED = "ADVANCED";
 
     public RoadmapDto getPrimaryRoadmap(Long userId) throws SQLException {
         return roadmapDao.findPrimaryByUserId(userId);
@@ -79,11 +102,242 @@ public class RoadmapService {
         return roadmapStepDao.findByRoadmapId(roadmapId);
     }
 
+    // 사용자가 로드맵의 "완료하기"를 거치지 않고 프로필에서 직접 자격증을 추가했을 때 호출한다
+    // (ProfileSpecServlet에서 스펙 추가가 CERT 타입일 때 호출). 대표 로드맵에 같은 자격증을 요구하는
+    // 미완료 CERT 단계가 있으면 그걸 바로 완료 처리한다 — 안 그러면 이미 딴 자격증을 로드맵이 계속
+    // "할 일"로 보여준다(팀 합의, 2026-09-23). completeStep을 그대로 타므로 점수도 정상 적립되고,
+    // USER_SPECS 재삽입은 syncCertification의 중복 가드가 막아준다(이미 방금 넣은 값이라 그대로 스킵).
+    public void syncCertAddedFromProfile(Long userId, String certTitle) throws SQLException {
+        if (certTitle == null || certTitle.isBlank()) {
+            return;
+        }
+        RoadmapDto primary = roadmapDao.findPrimaryByUserId(userId);
+        if (primary == null) {
+            return;
+        }
+        String normalizedTitle = certTitle.trim().toLowerCase();
+        for (RoadmapStepDto step : roadmapStepDao.findByRoadmapId(primary.getId())) {
+            if (!"CERT".equals(step.getStepType()) || step.isCompleted() || step.getCertificationId() == null) {
+                continue;
+            }
+            CertificationDto cert = certificationDao.findById(step.getCertificationId());
+            if (cert != null && cert.getCertName() != null
+                    && normalizedTitle.equals(cert.getCertName().trim().toLowerCase())) {
+                completeStep(userId, step.getId(), true);
+                return; // 대표 로드맵 안에서 같은 자격증 CERT 단계는 하나뿐이라 찾으면 바로 끝낸다.
+            }
+        }
+    }
+
+    // 사용자가 로드맵의 "완료하기"를 거치지 않고 프로필에서 직접 기술 스택을 추가했을 때 호출한다
+    // (ProfileSkillServlet에서 스킬 추가 시 호출). syncCertAddedFromProfile과 같은 이유 — 자격증뿐
+    // 아니라 스킬도 똑같이 겹칠 수 있다(팀 합의, 2026-09-23). completeStep을 그대로 태우면
+    // syncSkill이 raw_input 기준으로 기존 행을 찾아 skill_id를 채워 넣어서 중복 행도 안 생긴다.
+    public void syncSkillAddedFromProfile(Long userId, String rawSkillName) throws SQLException {
+        if (rawSkillName == null || rawSkillName.isBlank()) {
+            return;
+        }
+        RoadmapDto primary = roadmapDao.findPrimaryByUserId(userId);
+        if (primary == null) {
+            return;
+        }
+        String normalizedName = rawSkillName.trim().toLowerCase();
+        for (RoadmapStepDto step : roadmapStepDao.findByRoadmapId(primary.getId())) {
+            if (!"SKILL".equals(step.getStepType()) || step.isCompleted() || step.getRelatedSkillId() == null) {
+                continue;
+            }
+            SkillDto skill = skillDao.findById(step.getRelatedSkillId());
+            if (skill != null && skill.getSkillName() != null
+                    && normalizedName.equals(skill.getSkillName().trim().toLowerCase())) {
+                // rankMissingSkills는 GAP_ANALYSIS_ITEM당 한 단계만 만들어서 같은 스킬이 한 로드맵에
+                // 두 번 나올 수 없다 — 찾으면 바로 끝낸다 (CERT 쪽과 동일한 전제).
+                completeStep(userId, step.getId(), true);
+                return;
+            }
+        }
+    }
+
+    // FR-36 진행도. target_level이 기본 EXPERT라 길이 계속 늘어나는 구조(db-design.md 설계 판단)라서
+    // "전체 대비 %"는 분모가 계속 바뀌어 의미가 없다 — 그래서 "지금 걷고 있는 티어" 기준으로만 계산한다
+    // (팀 합의, 2026-09-23). ENTRY를 다 끝내면 CORE가 다음 "지금 할 일"로 풀린다.
+    public RoadmapProgress computeProgress(List<RoadmapStepDto> steps) {
+        long entryTotal = steps.stream().filter(s -> TIER_ENTRY.equals(s.getTier())).count();
+        long entryDone = steps.stream().filter(s -> TIER_ENTRY.equals(s.getTier()) && s.isCompleted()).count();
+        boolean entryComplete = entryTotal > 0 && entryDone == entryTotal;
+        int percent = entryTotal == 0 ? 0 : (int) Math.round(entryDone * 100.0 / entryTotal);
+        return new RoadmapProgress((int) entryTotal, (int) entryDone, percent, entryComplete);
+    }
+
+    public static final class RoadmapProgress {
+        private final int entryTotal;
+        private final int entryDone;
+        private final int entryPercent;
+        private final boolean entryComplete;
+
+        public RoadmapProgress(int entryTotal, int entryDone, int entryPercent, boolean entryComplete) {
+            this.entryTotal = entryTotal;
+            this.entryDone = entryDone;
+            this.entryPercent = entryPercent;
+            this.entryComplete = entryComplete;
+        }
+
+        public int getEntryTotal() {
+            return entryTotal;
+        }
+
+        public int getEntryDone() {
+            return entryDone;
+        }
+
+        public int getEntryPercent() {
+            return entryPercent;
+        }
+
+        public boolean isEntryComplete() {
+            return entryComplete;
+        }
+    }
+
+    // 완료 취소해도 이미 적립된 점수·스펙·숙련도는 깎지 않는다
+    // (TD-5: 상한 없는 게임식 누적, 완료 취소해도 실수로 배운 게 없어지진 않는다 — 팀 합의, 2026-09-23).
+    // 완료 처리 + 점수 적립 + 스펙/스킬 반영을 한 트랜잭션으로 묶어 일부만 반영되는 불일치를 막는다.
     public void completeStep(Long userId, Long stepId, boolean completed) throws SQLException {
         TransactionUtil.runInTransaction(conn -> {
-            roadmapStepDao.updateCompleted(conn, stepId, userId, completed, completed ? LocalDateTime.now() : null);
+            int updatedRows = roadmapStepDao.updateCompleted(conn, stepId, userId, completed,
+                    completed ? LocalDateTime.now() : null);
+            // updatedRows == 0이면 소유자가 아니라서 애초에 반영이 안 된 것 — 점수도 스펙도 주면 안 된다.
+            if (completed && updatedRows > 0) {
+                scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId,
+                        ROADMAP_STEP_COMPLETE_POINTS);
+                RoadmapStepDto step = roadmapStepDao.findById(conn, stepId);
+                syncProfileOnComplete(conn, userId, step);
+            }
             return null;
         });
+    }
+
+    // PROJECT 단계 완료 — 제목/설명/기술스택 + 증빙 파일 1개 이상을 함께 받아야 완료할 수 있다(팀 합의).
+    // SKILL/CERT와 달리 자동으로 채울 수 있는 값이 없어 completeStep과는 별도 진입점으로 뒀다.
+    // 파일은 호출부(RoadmapServlet)가 FileStorageUtil로 디스크에 이미 저장한 뒤 DocumentDto로 넘겨준다
+    // — 디스크 쓰기는 DB 트랜잭션 대상이 아니라서 여기 안에서 하지 않는다.
+    // 반환값 false(이미 완료됐거나 소유자가 아님)면 아무 것도 반영 안 됐다는 뜻이라, 호출부가 그때
+    // 디스크에 이미 써놓은 파일을 지워야 한다 — 안 그러면 DB에 참조 없는 고아 파일이 남는다.
+    public boolean completeProjectStep(Long userId, Long stepId, UserProjectDto projectInput,
+            List<DocumentDto> uploadedFiles) throws SQLException {
+        if (uploadedFiles == null || uploadedFiles.isEmpty()) {
+            throw new IllegalArgumentException("증빙 파일을 최소 1개 첨부해야 합니다.");
+        }
+        return TransactionUtil.runInTransaction(conn -> {
+            RoadmapStepDto step = roadmapStepDao.findById(conn, stepId);
+            if (step == null || !"PROJECT".equals(step.getStepType())) {
+                throw new IllegalArgumentException("PROJECT 단계가 아닙니다.");
+            }
+            if (step.isCompleted()) {
+                // 이미 완료된 단계를 다시 제출한 것 — 프로젝트가 중복 생성되지 않게 조용히 무시한다.
+                return false;
+            }
+
+            int updatedRows = roadmapStepDao.updateCompleted(conn, stepId, userId, true, LocalDateTime.now());
+            if (updatedRows == 0) {
+                // 소유자가 아니면(다른 사용자 id) 프로젝트도 파일도 만들면 안 된다.
+                return false;
+            }
+
+            projectInput.setUserId(userId);
+            Long projectId = userProjectDao.insert(conn, projectInput);
+            for (DocumentDto file : uploadedFiles) {
+                file.setUserId(userId);
+                file.setProjectId(projectId);
+                documentDao.insert(conn, file);
+            }
+
+            scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId,
+                    ROADMAP_STEP_COMPLETE_POINTS);
+            return true;
+        });
+    }
+
+    // step_type별로 뭘 프로필에 반영할지 분기 — PROJECT는 completeProjectStep이 별도로 처리한다
+    // (사용자 입력이 필요해서 여기서 자동으로 채울 수 없다).
+    private void syncProfileOnComplete(Connection conn, Long userId, RoadmapStepDto step) throws SQLException {
+        if ("SKILL".equals(step.getStepType()) && step.getRelatedSkillId() != null) {
+            syncSkill(conn, userId, step.getRelatedSkillId());
+        } else if ("CERT".equals(step.getStepType()) && step.getCertificationId() != null) {
+            syncCertification(conn, userId, step.getCertificationId());
+        }
+    }
+
+    private void syncSkill(Connection conn, Long userId, Long skillId) throws SQLException {
+        int completedCount = roadmapStepDao.countCompletedByUserAndSkill(conn, userId, skillId);
+        String proficiency = resolveProficiency(completedCount);
+
+        UserSkillDto existing = userSkillDao.findByUserIdAndSkillId(conn, userId, skillId);
+        if (existing != null) {
+            // 완료 취소로 나중에 completedCount가 줄어도 이미 딴 숙련도보다 낮게는 절대 내리지 않는다.
+            if (proficiencyRank(proficiency) > proficiencyRank(existing.getProficiency())) {
+                userSkillDao.updateProficiency(conn, existing.getId(), proficiency);
+            }
+            return;
+        }
+
+        SkillDto skill = skillDao.findById(skillId);
+        if (skill == null) {
+            return; // SKILL 마스터가 삭제된 예외 상황 — 참조할 이름이 없어 만들 수 없다.
+        }
+
+        // skill_id로 못 찾아도, 사용자가 프로필에서 같은 이름을 이미 수동으로 입력해놨을 수 있다
+        // (1주차 설계상 수동 입력은 skill_id가 항상 NULL이라 위 조회로는 안 걸린다). 이때 새로
+        // insert하면 프로필에 같은 기술이 두 줄로 보이니, 그 행에 skill_id를 채우는 쪽으로 합친다.
+        UserSkillDto byName = userSkillDao.findByUserIdAndRawInput(conn, userId, skill.getSkillName());
+        if (byName != null) {
+            // >= 로 동점(둘 다 0점, 즉 byName.proficiency가 미입력 null인 경우 포함)이면 새로 계산한
+            // proficiency(항상 null이 아님)를 쓴다 — 안 그러면 null이 그대로 남는다.
+            String mergedProficiency = proficiencyRank(proficiency) >= proficiencyRank(byName.getProficiency())
+                    ? proficiency : byName.getProficiency();
+            userSkillDao.attachSkillId(conn, byName.getId(), skillId, mergedProficiency);
+            return;
+        }
+
+        UserSkillDto userSkill = new UserSkillDto();
+        userSkill.setUserId(userId);
+        userSkill.setSkillId(skillId);
+        userSkill.setRawInput(skill.getSkillName());
+        userSkill.setProficiency(proficiency);
+        userSkillDao.insert(conn, userSkill);
+    }
+
+    private String resolveProficiency(int completedCount) {
+        if (completedCount >= PROFICIENCY_ADVANCED_THRESHOLD) {
+            return PROFICIENCY_ADVANCED;
+        }
+        if (completedCount >= PROFICIENCY_INTERMEDIATE_THRESHOLD) {
+            return PROFICIENCY_INTERMEDIATE;
+        }
+        return PROFICIENCY_BEGINNER;
+    }
+
+    private int proficiencyRank(String proficiency) {
+        if (PROFICIENCY_ADVANCED.equals(proficiency)) {
+            return 2;
+        }
+        if (PROFICIENCY_INTERMEDIATE.equals(proficiency)) {
+            return 1;
+        }
+        return 0;
+    }
+
+    private void syncCertification(Connection conn, Long userId, Long certificationId) throws SQLException {
+        CertificationDto cert = certificationDao.findById(conn, certificationId);
+        if (cert == null || userSpecDao.existsActiveByUserAndTitle(conn, userId, "CERT", cert.getCertName())) {
+            return;
+        }
+        UserSpecDto spec = new UserSpecDto();
+        spec.setUserId(userId);
+        spec.setSpecType("CERT");
+        spec.setTitle(cert.getCertName());
+        spec.setIssuer(cert.getIssuer());
+        spec.setAcquiredDate(LocalDateTime.now().toLocalDate());
+        userSpecDao.insert(conn, spec);
     }
 
     // 가장 최근 격차 분석을 기준으로 새 로드맵을 생성한다. 기존 대표 로드맵이 있으면 비활성화한다 (FR-37).
@@ -149,14 +403,16 @@ public class RoadmapService {
             }
             for (GapAnalysisItemDto item : entryTierSkills) {
                 String importance = importanceOf(analysis.getJobId(), item.getSkillId());
+                boolean alreadyLearned = roadmapStepDao.countCompletedByUserAndSkill(conn, userId, item.getSkillId()) > 0;
                 order = insertStep(conn, roadmapId, order, "SKILL", TIER_ENTRY, null, item.getSkillId(),
-                        buildSkillReason(item.getSkillId(), importance));
+                        buildSkillReason(item.getSkillId(), importance), alreadyLearned);
             }
             // 상위 N개 밖으로 밀린 기술들 — 삭제하지 않고 CORE 단계로 남겨 "다음 단계 미리보기"로 노출한다.
             for (GapAnalysisItemDto item : coreTierSkills) {
                 String importance = importanceOf(analysis.getJobId(), item.getSkillId());
+                boolean alreadyLearned = roadmapStepDao.countCompletedByUserAndSkill(conn, userId, item.getSkillId()) > 0;
                 order = insertStep(conn, roadmapId, order, "SKILL", TIER_CORE, null, item.getSkillId(),
-                        buildSkillReason(item.getSkillId(), importance));
+                        buildSkillReason(item.getSkillId(), importance), alreadyLearned);
             }
 
             return roadmapId;
@@ -165,6 +421,16 @@ public class RoadmapService {
 
     private int insertStep(Connection conn, Long roadmapId, int order, String stepType, String tier,
                             Long certificationId, Long relatedSkillId, String reason) throws SQLException {
+        return insertStep(conn, roadmapId, order, stepType, tier, certificationId, relatedSkillId, reason, false);
+    }
+
+    // alreadyDone: 재분석으로 새 버전이 만들어질 때 예전에 이미 완료했던 스킬을 다시 미완료로 되돌리지
+    // 않기 위한 승계 플래그(팀 합의, 2026-09-23) — "딴 걸 또 따라고 시키면 안 된다". CERT는
+    // findSuggestedCertification이 이미 보유한 자격증을 애초에 후보에서 빼기 때문에 여기서 따로
+    // 다룰 필요가 없다. 승계된 단계는 새로 완료한 게 아니라서 점수를 다시 주지 않는다(호출부 참고).
+    private int insertStep(Connection conn, Long roadmapId, int order, String stepType, String tier,
+                            Long certificationId, Long relatedSkillId, String reason, boolean alreadyDone)
+            throws SQLException {
         RoadmapStepDto step = new RoadmapStepDto();
         step.setRoadmapId(roadmapId);
         step.setStepOrder(order);
@@ -173,7 +439,8 @@ public class RoadmapService {
         step.setCertificationId(certificationId);
         step.setRelatedSkillId(relatedSkillId);
         step.setReason(reason);
-        step.setCompleted(false);
+        step.setCompleted(alreadyDone);
+        step.setCompletedAt(alreadyDone ? LocalDateTime.now() : null);
         roadmapStepDao.insert(conn, step);
         return order + 1;
     }

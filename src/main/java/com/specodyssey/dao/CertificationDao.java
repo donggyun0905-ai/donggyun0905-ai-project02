@@ -32,6 +32,23 @@ public class CertificationDao {
         }
     }
 
+    public CertificationDto findById(Long id) throws SQLException {
+        try (Connection conn = DBUtil.getConnection()) {
+            return findById(conn, id);
+        }
+    }
+
+    // 로드맵 CERT 단계 완료 시 USER_SPECS 자동 반영에 필요 (ROADMAP_STEP.certification_id로 조회)
+    public CertificationDto findById(Connection conn, Long id) throws SQLException {
+        String sql = "SELECT * FROM CERTIFICATION WHERE id = ? AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, id);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        }
+    }
+
     public CertificationDto findByName(String certName) throws SQLException {
         String sql = "SELECT * FROM CERTIFICATION WHERE cert_name = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();

@@ -19,46 +19,82 @@
     </c:when>
     <c:otherwise>
         <p>버전 ${roadmap.version} · 목표 수준 ${roadmap.targetLevel}</p>
+        <p>진행도(현재 티어 기준): ${progress.entryDone}/${progress.entryTotal} 완료 (${progress.entryPercent}%)</p>
 
-        <h2>지금 할 일 (ENTRY)</h2>
+        <h2>지금 할 일<c:if test="${progress.entryComplete}"> (ENTRY + CORE)</c:if><c:if test="${not progress.entryComplete}"> (ENTRY)</c:if></h2>
         <ol>
             <c:forEach var="step" items="${steps}">
-                <c:if test="${step.tier == 'ENTRY'}">
+                <c:if test="${step.tier == 'ENTRY' || (step.tier == 'CORE' && progress.entryComplete)}">
                     <li>
-                        <strong>[${step.stepType}]</strong> ${step.reason}
-                        <form action="${pageContext.request.contextPath}/roadmap" method="post" style="display:inline;">
-                            <input type="hidden" name="action" value="complete">
-                            <input type="hidden" name="stepId" value="${step.id}">
-                            <c:choose>
-                                <c:when test="${step.completed}">
-                                    <input type="hidden" name="completed" value="false">
-                                    <button type="submit">완료 취소</button> ✅
-                                </c:when>
-                                <c:otherwise>
-                                    <input type="hidden" name="completed" value="true">
-                                    <button type="submit">완료 체크</button>
-                                </c:otherwise>
-                            </c:choose>
-                        </form>
+                        <strong>[${step.tier} · ${step.stepType}]</strong> ${step.reason}
+                        <c:choose>
+                            <c:when test="${step.stepType == 'PROJECT'}">
+                                <c:choose>
+                                    <c:when test="${step.completed}">
+                                        ✅ 완료 — <a href="${pageContext.request.contextPath}/profile">프로필에서 확인</a>
+                                    </c:when>
+                                    <c:otherwise>
+                                        <details>
+                                            <summary style="cursor:pointer;">프로젝트 등록하고 완료하기</summary>
+                                            <form action="${pageContext.request.contextPath}/roadmap" method="post"
+                                                  enctype="multipart/form-data">
+                                                <input type="hidden" name="action" value="completeProject">
+                                                <input type="hidden" name="stepId" value="${step.id}">
+                                                <p><input type="text" name="title" placeholder="프로젝트명" required></p>
+                                                <p><textarea name="description" placeholder="설명 (무엇을 했는지)" required></textarea></p>
+                                                <p><input type="text" name="techStack" placeholder="사용 기술 (예: Java, Spring, MySQL)" required></p>
+                                                <p>
+                                                    시작일 <input type="date" name="startDate">
+                                                    종료일 <input type="date" name="endDate">
+                                                </p>
+                                                <p>
+                                                    증빙 파일(코드 캡처, 결과물 등 — 여러 개 가능, 필수)
+                                                    <input type="file" name="files" multiple required>
+                                                </p>
+                                                <button type="submit">등록하고 완료하기</button>
+                                            </form>
+                                        </details>
+                                    </c:otherwise>
+                                </c:choose>
+                            </c:when>
+                            <c:otherwise>
+                                <form action="${pageContext.request.contextPath}/roadmap" method="post" style="display:inline;">
+                                    <input type="hidden" name="action" value="complete">
+                                    <input type="hidden" name="stepId" value="${step.id}">
+                                    <c:choose>
+                                        <c:when test="${step.completed}">
+                                            <input type="hidden" name="completed" value="false">
+                                            <button type="submit">완료 취소</button> ✅
+                                        </c:when>
+                                        <c:otherwise>
+                                            <input type="hidden" name="completed" value="true">
+                                            <button type="submit">완료 체크</button>
+                                        </c:otherwise>
+                                    </c:choose>
+                                </form>
+                            </c:otherwise>
+                        </c:choose>
                     </li>
                 </c:if>
             </c:forEach>
         </ol>
 
-        <c:set var="hasCoreSteps" value="false" />
-        <c:forEach var="step" items="${steps}">
-            <c:if test="${step.tier == 'CORE'}"><c:set var="hasCoreSteps" value="true" /></c:if>
-        </c:forEach>
-        <c:if test="${hasCoreSteps}">
-            <h2>다음 단계 미리보기 (CORE)</h2>
-            <p>지금 할 일을 끝내면 이어서 진행할 것들입니다. 아직 완료 체크는 할 수 없습니다.</p>
-            <ul style="color:gray;">
-                <c:forEach var="step" items="${steps}">
-                    <c:if test="${step.tier == 'CORE'}">
-                        <li>[${step.stepType}] ${step.reason}</li>
-                    </c:if>
-                </c:forEach>
-            </ul>
+        <c:if test="${not progress.entryComplete}">
+            <c:set var="hasCoreSteps" value="false" />
+            <c:forEach var="step" items="${steps}">
+                <c:if test="${step.tier == 'CORE'}"><c:set var="hasCoreSteps" value="true" /></c:if>
+            </c:forEach>
+            <c:if test="${hasCoreSteps}">
+                <h2>다음 단계 미리보기 (CORE)</h2>
+                <p>지금 할 일(ENTRY)을 다 끝내면 완료 체크를 할 수 있게 풀립니다.</p>
+                <ul style="color:gray;">
+                    <c:forEach var="step" items="${steps}">
+                        <c:if test="${step.tier == 'CORE'}">
+                            <li>[${step.stepType}] ${step.reason}</li>
+                        </c:if>
+                    </c:forEach>
+                </ul>
+            </c:if>
         </c:if>
 
         <form action="${pageContext.request.contextPath}/roadmap" method="post">
