@@ -58,7 +58,7 @@ sql/
 - JDK 17
 - Tomcat 10.1 이상 (서블릿 패키지가 `jakarta.servlet.*`이라 9 이하에서는 동작하지 않습니다)
 - MySQL 8.0 이상
-- Maven
+- Maven — 따로 설치하지 않아도 됩니다. 프로젝트에 Maven Wrapper(`mvnw`)가 들어 있어 첫 실행 때 Maven을 자동으로 받습니다.
 
 ### 1. DB 준비
 
@@ -71,11 +71,14 @@ mysql -u <user> -p spec_odyssey < sql/01_schema.sql
 mysql -u <user> -p spec_odyssey < sql/02_seed.sql
 ```
 
-### 2. 환경변수 설정
+### 2. 설정 파일 (config.properties)
 
-DB 접속 정보는 소스에 하드코딩하지 않고 환경변수로 분리되어 있습니다. Tomcat을 띄우기 전에 아래 세 값을 설정해야 합니다.
+DB 접속 정보·API 키는 소스에 하드코딩하지 않고 `config.properties`로 분리되어 있습니다.
+루트의 `config.properties.example`을 복사해 **같은 위치(프로젝트 루트)에 `config.properties`** 로 만들고 값을 채우세요.
+`.gitignore` 대상이라 커밋되지 않으며, `pom.xml` 설정으로 빌드 시 `WEB-INF/classes`에 들어가므로 IntelliJ·VS Code·`mvn package` 어느 쪽으로 실행해도 같은 값을 읽습니다.
+같은 이름의 환경변수가 있으면 환경변수가 우선합니다.
 
-| 변수 | 예시 |
+| 키 | 예시 |
 | --- | --- |
 | `DB_URL` | `jdbc:mysql://localhost:3306/spec_odyssey?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8` |
 | `DB_USER` | `root` |
@@ -85,14 +88,30 @@ DB 접속 정보는 소스에 하드코딩하지 않고 환경변수로 분리�
 
 ### 3. 빌드 & 배포
 
+Maven Wrapper로 빌드합니다 (Maven 설치 불필요).
+
 ```bash
-mvn clean package
+mvnw.cmd clean package -DskipTests   # Windows
+./mvnw clean package -DskipTests     # macOS / Linux
 ```
 
-생성된 `target/spec-odyssey.war`를 Tomcat의 `webapps/`에 배치하고 기동하면 됩니다.
+생성된 `target/spec-odyssey.war`(또는 폴더 `target/spec-odyssey/`)를 Tomcat에 배포하고 기동하면 됩니다.
+
+### 4. VS Code에서 실행
+
+1. 확장 설치: `Extension Pack for Java`, `Community Server Connectors`(Red Hat)
+2. 위 3번 명령으로 빌드
+3. SERVERS 패널 → `Community Server Connector` 우클릭 → **Create New Server** → **No, use server on disk** → Tomcat 10.1 폴더 선택
+4. 만든 서버 우클릭 → **Add Deployment** → `target/spec-odyssey.war` 선택 → **Start Server**
+5. `http://localhost:8080/spec-odyssey/` 접속 (Tomcat 포트가 80이면 `http://localhost/spec-odyssey/`)
+
+코드를 고친 뒤에는 다시 빌드하고, 서버 우클릭 → **Publish Server (Full)** 로 반영합니다.
+
+> Tomcat을 80 포트로 쓸 때 Windows의 IIS가 켜져 있으면 포트 충돌로 403이 뜹니다. IIS를 끄거나 8080을 쓰세요.
 
 ## 참고 문서
 
+- [`docs/dev-environment-setup.html`](docs/dev-environment-setup.html) — IDE별(IntelliJ·VS Code) 실행 환경 설정 가이드, 자주 나는 문제 해결
 - [`docs/requirements.md`](docs/requirements.md) — 요구사항 명세서 (FR/NFR 번호의 출처)
 - [`docs/db-design.md`](docs/db-design.md) — 테이블 정의, ERD, 복합 UNIQUE 목록, 설계 판단 근거
 - [`claude.md`](claude.md) — 프로젝트 팀 규칙 (환경, 명명 규칙, 코드/보안 규칙)
