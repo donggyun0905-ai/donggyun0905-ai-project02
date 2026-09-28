@@ -6,14 +6,16 @@
 <h1>로그인</h1>
 
 <c:if test="${not empty errorMessage}">
-    <p style="color:red;">${errorMessage}</p>
+    <p class="error-message">${errorMessage}</p>
 </c:if>
 
-<form action="${pageContext.request.contextPath}/login" method="post">
-    <p><label>아이디 <input type="text" name="loginId" required></label></p>
-    <p><label>비밀번호 <input type="password" name="password" required></label></p>
-    <button type="submit">로그인</button>
-</form>
+<div class="card" style="max-width:380px;">
+    <form action="${pageContext.request.contextPath}/login" method="post">
+        <p><label>아이디</label><input type="text" name="loginId" required></p>
+        <p><label>비밀번호</label><input type="password" name="password" required></p>
+        <button type="submit" style="width:100%; margin-top:6px;">로그인</button>
+    </form>
+</div>
 
 <p><a href="${pageContext.request.contextPath}/register">아직 계정이 없으신가요? 회원가입</a></p>
 
