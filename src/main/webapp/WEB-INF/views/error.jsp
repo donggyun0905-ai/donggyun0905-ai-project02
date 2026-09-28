@@ -3,10 +3,12 @@
 <c:set var="pageTitle" value="오류 - 스펙 오디세이" scope="request" />
 <jsp:include page="/WEB-INF/views/common/header.jsp" />
 
-<h1>🧭 항해 중 문제가 생겼습니다</h1>
-<div class="card" style="max-width:480px;">
-    <p>요청을 처리하는 중 문제가 생겼습니다. 잠시 후 다시 시도해주세요.</p>
-    <a class="btn" href="${pageContext.request.contextPath}/">처음으로</a>
+<div class="center-box">
+    <h1>🧭 항해 중 문제가 생겼습니다</h1>
+    <div class="card">
+        <p>요청을 처리하는 중 문제가 생겼습니다. 잠시 후 다시 시도해주세요.</p>
+        <a class="btn" href="${pageContext.request.contextPath}/login">처음으로</a>
+    </div>
 </div>
 
 <jsp:include page="/WEB-INF/views/common/footer.jsp" />

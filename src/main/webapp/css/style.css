@@ -235,6 +235,8 @@ table td { padding: 9px 10px; border-bottom: 1px solid var(--border); }
 .pill { display: inline-block; background: #fff; border: 1px solid var(--border); border-radius: 999px; padding: 3px 12px; font-size: 0.8rem; }
 
 .empty-state { text-align: center; padding: 40px 20px; }
+
+.center-box { max-width: 420px; margin: 40px auto 0; }
 .empty-state .icon { font-size: 2.4rem; color: var(--ink-soft); margin-bottom: 10px; }
 
 @media (max-width: 720px) {
