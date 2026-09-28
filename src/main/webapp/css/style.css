@@ -1,0 +1,405 @@
+/*
+ * 스펙 오디세이 공용 스타일시트.
+ * 테마: 항해(여정) — 등급 로고(나침반)의 나무→청동→은→금→틸골드 톤을 그대로 가져왔다.
+ * 프레임워크 없이 순수 CSS만 쓴다 (CLAUDE.md: 프론트엔드 프레임워크 미사용).
+ */
+
+:root {
+    --ink: #2b2118;
+    --ink-soft: #5a4a38;
+    --parchment: #f6efe1;
+    --parchment-card: #fffaf0;
+    --border: #ddc9a3;
+
+    --navy: #14303d;
+    --navy-light: #1f4a5c;
+
+    --wood: #8b5e34;
+    --bronze: #b3702f;
+    --silver: #7c8b93;
+    --gold: #c9a24b;
+    --gold-dark: #a9822f;
+    --teal: #1f7a6c;
+
+    --danger: #a8402c;
+    --danger-bg: #fbeae5;
+
+    --radius: 10px;
+    --shadow: 0 2px 8px rgba(43, 33, 24, 0.12);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+        "header header"
+        "main   aside"
+        "footer footer";
+    min-height: 100vh;
+    background: var(--parchment);
+    color: var(--ink);
+    font-family: "Noto Sans KR", "Malgun Gothic", -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.6;
+}
+
+h1, h2, h3 {
+    font-family: Georgia, "Noto Serif KR", serif;
+    color: var(--navy);
+    letter-spacing: -0.01em;
+}
+
+h1 {
+    font-size: 1.9rem;
+    margin: 0 0 1.2rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 3px solid var(--gold);
+    display: inline-block;
+}
+
+h2 {
+    font-size: 1.3rem;
+    margin: 2rem 0 0.8rem;
+    color: var(--navy-light);
+}
+
+a {
+    color: var(--teal);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* ---------------------------------------------------------------- 헤더 */
+
+header {
+    grid-area: header;
+    background: var(--navy);
+    color: #eee6d2;
+    padding: 0.9rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    border-bottom: 3px solid var(--gold);
+}
+
+header .brand {
+    font-family: Georgia, "Noto Serif KR", serif;
+    font-size: 1.25rem;
+    font-weight: bold;
+    color: #fff;
+}
+
+header .brand::before {
+    content: "\1F9ED  "; /* 🧭 */
+}
+
+header nav {
+    display: flex;
+    align-items: center;
+    gap: 1.1rem;
+    flex-wrap: wrap;
+}
+
+header nav a {
+    color: #eee6d2;
+}
+
+header nav a:hover {
+    color: var(--gold);
+    text-decoration: none;
+}
+
+.tier-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(201, 162, 75, 0.5);
+    border-radius: 999px;
+    padding: 0.25rem 0.8rem 0.25rem 0.35rem;
+    font-size: 0.85rem;
+}
+
+.tier-badge img {
+    display: block;
+}
+
+.tier-badge strong {
+    color: var(--gold);
+}
+
+/* ---------------------------------------------------------------- 본문 */
+
+main {
+    grid-area: main;
+    max-width: 820px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 3rem;
+}
+
+#trend-sidebar {
+    grid-area: aside;
+}
+
+#trend-sidebar:empty {
+    display: none;
+}
+
+footer.site-footer {
+    grid-area: footer;
+    text-align: center;
+    padding: 1.2rem;
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+    border-top: 1px solid var(--border);
+}
+
+/* ---------------------------------------------------------------- 카드 */
+
+.card {
+    background: var(--parchment-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 1.4rem 1.6rem;
+    margin-bottom: 1.5rem;
+}
+
+/* ---------------------------------------------------------------- 폼 */
+
+form p {
+    margin: 0.8rem 0;
+}
+
+label {
+    display: block;
+    font-size: 0.9rem;
+    color: var(--ink-soft);
+    margin-bottom: 0.3rem;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="date"],
+input[type="file"],
+select,
+textarea {
+    width: 100%;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--ink);
+    font-size: 0.95rem;
+    font-family: inherit;
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--gold-dark);
+    box-shadow: 0 0 0 3px rgba(201, 162, 75, 0.25);
+}
+
+textarea {
+    min-height: 5rem;
+    resize: vertical;
+}
+
+button, .btn {
+    display: inline-block;
+    background: var(--gold-dark);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 0.6rem 1.3rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+button:hover, .btn:hover {
+    background: var(--wood);
+}
+
+button.danger {
+    background: var(--danger);
+}
+
+button.danger:hover {
+    background: #8a3323;
+}
+
+button.link-button {
+    background: none;
+    color: var(--teal);
+    padding: 0;
+    font-weight: normal;
+}
+
+button.link-button:hover {
+    background: none;
+    text-decoration: underline;
+}
+
+.error-message {
+    background: var(--danger-bg);
+    color: var(--danger);
+    border: 1px solid rgba(168, 64, 44, 0.3);
+    border-radius: 6px;
+    padding: 0.7rem 1rem;
+    margin-bottom: 1rem;
+}
+
+/* ---------------------------------------------------------------- 목록(스펙·프로젝트·스킬·로드맵 단계) */
+
+.item-list {
+    list-style: none;
+    margin: 0 0 1.5rem;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.item-list > li {
+    background: var(--parchment-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.2rem;
+}
+
+.item-list.locked > li {
+    background: transparent;
+    border-style: dashed;
+    color: var(--ink-soft);
+}
+
+.item-list > li.completed {
+    border-color: var(--teal);
+    background: #f0f7f5;
+}
+
+.chip {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    margin-right: 0.4rem;
+    text-transform: uppercase;
+}
+
+.chip-entry {
+    background: rgba(201, 162, 75, 0.2);
+    color: var(--gold-dark);
+}
+
+.chip-core {
+    background: rgba(124, 139, 147, 0.2);
+    color: var(--silver);
+}
+
+.chip-type {
+    background: rgba(31, 122, 108, 0.15);
+    color: var(--teal);
+}
+
+.done-mark {
+    color: var(--teal);
+    font-weight: bold;
+}
+
+/* ---------------------------------------------------------------- 진행도 바 */
+
+.progress-track {
+    background: #e8ddc4;
+    border-radius: 999px;
+    height: 10px;
+    overflow: hidden;
+    margin: 0.5rem 0 1.2rem;
+}
+
+.progress-fill {
+    background: linear-gradient(90deg, var(--wood), var(--gold));
+    height: 100%;
+    border-radius: 999px;
+}
+
+/* ---------------------------------------------------------------- 프로필 등급 위젯 */
+
+.tier-widget {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+}
+
+.tier-widget img {
+    flex-shrink: 0;
+}
+
+.danger-zone h2 {
+    color: var(--danger);
+}
+
+.attachment {
+    display: block;
+    font-size: 0.9rem;
+    margin: 0.3rem 0;
+}
+
+/* ---------------------------------------------------------------- 기타 */
+
+.muted {
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+}
+
+.inline-form {
+    display: inline-block;
+}
+
+.row {
+    display: flex;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+details > summary {
+    cursor: pointer;
+    color: var(--teal);
+    font-weight: 600;
+}
+
+@media (max-width: 640px) {
+    body {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "header"
+            "main"
+            "aside"
+            "footer";
+    }
+
+    header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
