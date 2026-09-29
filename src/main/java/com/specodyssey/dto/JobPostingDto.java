@@ -1,18 +1,26 @@
 package com.specodyssey.dto;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class JobPostingDto {
 
     private Long id;
     private Long jobId;
+    private String source;
+    private String sourceUrl;
     private String title;
+    private String companyName;
     private String summary;
+    private String techStack;
     private String qualifications;
     private String preferred;
+    private String careerLevel;
     private String educationLevel;
     private String salary;
-    private String sourceUrl;
+    private String region;
+    private String deadline;
+    private LocalDate postedAt;
     private LocalDateTime collectedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -34,6 +42,22 @@ public class JobPostingDto {
         this.jobId = jobId;
     }
 
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String source) {
+        this.source = source;
+    }
+
+    public String getSourceUrl() {
+        return sourceUrl;
+    }
+
+    public void setSourceUrl(String sourceUrl) {
+        this.sourceUrl = sourceUrl;
+    }
+
     public String getTitle() {
         return title;
     }
@@ -42,12 +66,28 @@ public class JobPostingDto {
         this.title = title;
     }
 
+    public String getCompanyName() {
+        return companyName;
+    }
+
+    public void setCompanyName(String companyName) {
+        this.companyName = companyName;
+    }
+
     public String getSummary() {
         return summary;
     }
 
     public void setSummary(String summary) {
         this.summary = summary;
+    }
+
+    public String getTechStack() {
+        return techStack;
+    }
+
+    public void setTechStack(String techStack) {
+        this.techStack = techStack;
     }
 
     public String getQualifications() {
@@ -66,6 +106,14 @@ public class JobPostingDto {
         this.preferred = preferred;
     }
 
+    public String getCareerLevel() {
+        return careerLevel;
+    }
+
+    public void setCareerLevel(String careerLevel) {
+        this.careerLevel = careerLevel;
+    }
+
     public String getEducationLevel() {
         return educationLevel;
     }
@@ -82,12 +130,28 @@ public class JobPostingDto {
         this.salary = salary;
     }
 
-    public String getSourceUrl() {
-        return sourceUrl;
+    public String getRegion() {
+        return region;
     }
 
-    public void setSourceUrl(String sourceUrl) {
-        this.sourceUrl = sourceUrl;
+    public void setRegion(String region) {
+        this.region = region;
+    }
+
+    public String getDeadline() {
+        return deadline;
+    }
+
+    public void setDeadline(String deadline) {
+        this.deadline = deadline;
+    }
+
+    public LocalDate getPostedAt() {
+        return postedAt;
+    }
+
+    public void setPostedAt(LocalDate postedAt) {
+        this.postedAt = postedAt;
     }
 
     public LocalDateTime getCollectedAt() {
