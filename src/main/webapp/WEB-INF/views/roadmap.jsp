@@ -1,6 +1,7 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <c:set var="pageTitle" value="로드맵 - 스펙 오디세이" scope="request" />
+<c:set var="mainWide" value="true" scope="request" />
 <jsp:include page="/WEB-INF/views/common/header.jsp" />
 
 <c:choose>

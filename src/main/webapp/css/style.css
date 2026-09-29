@@ -209,21 +209,28 @@ footer.site-footer {
 .journey-tier-badge:first-child { margin-top: 0; }
 .journey-tier-badge.final { background: var(--ink); }
 
-.journey-track { position: relative; }
+.journey-track { position: relative; padding: 10px 0; }
 .journey-track::before {
-    content: ""; position: absolute; top: 0; bottom: 0; left: 50%;
-    border-left: 3px dashed var(--gold); transform: translateX(-50%); z-index: 0;
+    /* 직선 대신 물결 SVG를 세로로 반복 타일링해서 굽이치는 느낌을 낸다 —
+       카드 배치(좌/우)와 물리적으로 딱 맞물리진 않지만(그러려면 JS로 각 카드
+       높이를 재야 함), 배경으로 깔아두는 거라 카드 높이가 들쭉날쭉해도 안 깨진다. */
+    content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 72px;
+    transform: translateX(-50%); z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 160'%3E%3Cpath d='M36 0 C8 28 8 52 36 80 C64 108 64 132 36 160' stroke='%23c9a24b' stroke-width='5' fill='none' stroke-linecap='round' stroke-dasharray='3 12'/%3E%3C/svg%3E");
+    background-repeat: repeat-y;
+    background-size: 72px 160px;
+    background-position: top center;
 }
 
 .journey-row {
-    display: grid; grid-template-columns: 1fr 52px 1fr;
-    align-items: start; gap: 0 16px; position: relative; z-index: 1; margin: 10px 0;
+    display: grid; grid-template-columns: 1fr 64px 1fr;
+    align-items: start; gap: 0 24px; position: relative; z-index: 1; margin: 16px 0;
 }
 
 .journey-marker {
-    grid-column: 2; width: 40px; height: 40px; border-radius: 50%;
+    grid-column: 2; width: 52px; height: 52px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center; margin: 0 auto;
-    background: var(--card-bg); border: 3px solid var(--locked); font-size: 1.05rem;
+    background: var(--card-bg); border: 3px solid var(--locked); font-size: 1.3rem;
     box-shadow: var(--shadow); align-self: center;
 }
 .journey-marker.completed { background: var(--teal); border-color: var(--teal); color: #fff; }
@@ -234,18 +241,18 @@ footer.site-footer {
 
 .journey-card {
     background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 12px 14px; box-shadow: var(--shadow);
+    padding: 16px 20px; box-shadow: var(--shadow);
     grid-row: 1;
 }
 .journey-card.is-locked { opacity: 0.7; }
-.journey-card .row { margin-bottom: 6px; }
-.journey-card h3 { margin: 4px 0; font-size: 0.98rem; }
-.journey-card p { margin: 0 0 8px; font-size: 0.86rem; color: var(--ink-soft); }
+.journey-card .row { margin-bottom: 8px; }
+.journey-card h3 { margin: 4px 0; font-size: 1.05rem; }
+.journey-card p { margin: 0 0 10px; font-size: 0.92rem; color: var(--ink-soft); }
 
 @media (max-width: 720px) {
-    .journey-track::before { left: 20px; }
-    .journey-row { grid-template-columns: 40px 1fr; gap: 0 12px; }
-    .journey-marker { grid-column: 1; }
+    .journey-track::before { left: 26px; width: 52px; background-size: 52px 120px; }
+    .journey-row { grid-template-columns: 52px 1fr; gap: 0 12px; }
+    .journey-marker { grid-column: 1; width: 44px; height: 44px; }
     .journey-card { grid-column: 2 !important; }
 }
 
