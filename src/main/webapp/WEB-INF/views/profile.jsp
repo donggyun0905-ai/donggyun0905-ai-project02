@@ -86,17 +86,15 @@
 <div class="card">
     <form action="${pageContext.request.contextPath}/profile/specs" method="post" class="row">
         <input type="hidden" name="action" value="add">
-        <p>
-            <select name="specType"style="width:auto;">
-                <option value="CERT">자격증</option>
-                <option value="LANGUAGE">어학</option>
-                <option value="AWARD">수상</option>
-            </select>
-        </p>
-        <p><input type="text" name="title" placeholder="명칭" required style="width:auto; flex-grow:1;"></p>
-        <p><input type="text" name="issuer" placeholder="발급기관" style="width:auto;"></p>
-        <p><input type="text" name="score" placeholder="점수(어학 등)" style="width:auto;"></p>
-        <p><input type="date" name="acquiredDate" style="width:auto;"></p>
+        <select name="specType" style="width:auto;">
+            <option value="CERT">자격증</option>
+            <option value="LANGUAGE">어학</option>
+            <option value="AWARD">수상</option>
+        </select>
+        <input type="text" name="title" placeholder="명칭" required style="width:auto; flex-grow:1;">
+        <input type="text" name="issuer" placeholder="발급기관" style="width:auto;">
+        <input type="text" name="score" placeholder="점수(어학 등)" style="width:auto;">
+        <input type="date" name="acquiredDate" style="width:auto;">
         <button type="submit">스펙 추가</button>
     </form>
 </div>
@@ -186,15 +184,13 @@
 </ul>
 <div class="card">
     <form action="${pageContext.request.contextPath}/profile/skills" method="post" class="row">
-        <p><input type="text" name="rawInput" placeholder="기술명 (예: Python, React)" required style="width:auto; flex-grow:1;"></p>
-        <p>
-            <select name="proficiency"style="width:auto;">
-                <option value="">숙련도 선택 안함</option>
-                <option value="BEGINNER">입문</option>
-                <option value="INTERMEDIATE">중급</option>
-                <option value="ADVANCED">고급</option>
-            </select>
-        </p>
+        <input type="text" name="rawInput" placeholder="기술명 (예: Python, React)" required style="width:auto; flex-grow:1;">
+        <select name="proficiency" style="width:auto;">
+            <option value="">숙련도 선택 안함</option>
+            <option value="BEGINNER">입문</option>
+            <option value="INTERMEDIATE">중급</option>
+            <option value="ADVANCED">고급</option>
+        </select>
         <button type="submit">기술 추가</button>
     </form>
 </div>
