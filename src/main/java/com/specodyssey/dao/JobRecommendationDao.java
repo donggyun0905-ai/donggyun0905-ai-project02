@@ -71,6 +71,45 @@ public class JobRecommendationDao {
         }
     }
 
+    /**
+     * 설문을 다시 풀었을 때 새 추천을 저장한다. UNIQUE(user_id, job_id)라 같은 직무가 다시 추천되면
+     * 순위·근거만 갱신하고 선택 표시는 초기화한다. 논리 삭제된 행도 되살린다.
+     */
+    public void upsert(Connection conn, JobRecommendationDto recommendation) throws SQLException {
+        String sql = "INSERT INTO JOB_RECOMMENDATION " +
+                "(user_id, job_id, rank_order, match_reason, summary_json, is_selected) VALUES (?, ?, ?, ?, ?, FALSE) " +
+                "ON DUPLICATE KEY UPDATE rank_order = VALUES(rank_order), match_reason = VALUES(match_reason), " +
+                "summary_json = VALUES(summary_json), is_selected = FALSE, is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, recommendation.getUserId());
+            pstmt.setLong(2, recommendation.getJobId());
+            pstmt.setInt(3, recommendation.getRankOrder());
+            pstmt.setString(4, recommendation.getMatchReason());
+            pstmt.setString(5, recommendation.getSummaryJson());
+            pstmt.executeUpdate();
+        }
+    }
+
+    /** 재추천 전에 이전 추천을 전부 논리 삭제한다. 이번에 다시 뽑힌 직무는 upsert가 되살린다. */
+    public void softDeleteByUserId(Connection conn, Long userId) throws SQLException {
+        String sql = "UPDATE JOB_RECOMMENDATION SET is_deleted = TRUE, is_selected = FALSE " +
+                "WHERE user_id = ? AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            pstmt.executeUpdate();
+        }
+    }
+
+    /** 후보는 하나만 선택된 상태여야 한다 — 새로 고르기 전에 기존 선택을 모두 푼다. */
+    public void clearSelectedByUserId(Connection conn, Long userId) throws SQLException {
+        String sql = "UPDATE JOB_RECOMMENDATION SET is_selected = FALSE " +
+                "WHERE user_id = ? AND is_selected = TRUE AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            pstmt.executeUpdate();
+        }
+    }
+
     private JobRecommendationDto mapRow(ResultSet rs) throws SQLException {
         JobRecommendationDto recommendation = new JobRecommendationDto();
         recommendation.setId(rs.getLong("id"));
