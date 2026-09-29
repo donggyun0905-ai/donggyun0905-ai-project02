@@ -60,15 +60,23 @@ class ExactMatcherTest {
     }
 
     @Test
-    void unknownSkill_returnsNull() throws SQLException {
-        assertNull(matcher.match(skillName + "_없음"));
+    void unknownSkill_returnsNoneResult() throws SQLException {
+        assertMatchedNone(matcher.match(skillName + "_없음"));
     }
 
     @Test
-    void nullOrBlank_returnsNull() throws SQLException {
-        assertNull(matcher.match(null));
-        assertNull(matcher.match(""));
-        assertNull(matcher.match("   "));
+    void nullOrBlank_returnsNoneResult() throws SQLException {
+        assertMatchedNone(matcher.match(null));
+        assertMatchedNone(matcher.match(""));
+        assertMatchedNone(matcher.match("   "));
+    }
+
+    // kangdain 브랜치 리팩터링(11a13fc)으로 매칭 실패 시 null 대신 MatchResult.none()을 반환하도록
+    // 바뀌었다 — 호출부(JobDiscoveryService)가 null 체크 없이 바로 .skillId()를 쓸 수 있게 하기 위함.
+    private void assertMatchedNone(MatchResult result) {
+        assertNotNull(result);
+        assertNull(result.skillId());
+        assertEquals(0.0, result.score());
     }
 
     private void assertMatched(MatchResult result) {

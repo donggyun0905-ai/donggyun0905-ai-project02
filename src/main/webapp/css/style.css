@@ -111,6 +111,10 @@ header .spacer { flex-grow: 1; }
 }
 #nav-toggle:checked ~ .nav-drawer { display: block; }
 .nav-drawer-panel {
+    /* position 없는(static) 요소는 DOM 순서와 무관하게 position:absolute인 형제(위의 배경
+       닫기용 label)보다 항상 아래에 그려진다 — 그래서 패널 안 링크가 하나도 안 눌렸다.
+       relative를 줘서 같은 포지션드 레이어로 올리면 DOM 순서(label 다음)대로 위에 그려진다. */
+    position: relative;
     width: 230px; height: 100%;
     background: var(--card-bg);
     padding: 20px 0;

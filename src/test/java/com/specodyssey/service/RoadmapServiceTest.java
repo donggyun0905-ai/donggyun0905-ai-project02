@@ -631,25 +631,117 @@ class RoadmapServiceTest {
     }
 
     @Test
-    void 진행도는_ENTRY_티어_기준으로_계산되고_다_끝내야_entryComplete가_된다() throws Exception {
+    void 진행도는_ENTRY_티어_기준으로_계산되고_다_끝내야_ENTRY가_complete가_된다() throws Exception {
         Long roadmapId = roadmapService.generate(userId);
         List<RoadmapStepDto> steps = roadmapService.getSteps(roadmapId);
         List<RoadmapStepDto> entrySteps = steps.stream().filter(s -> "ENTRY".equals(s.getTier())).toList();
         assertFalse(entrySteps.isEmpty());
 
         RoadmapService.RoadmapProgress before = roadmapService.computeProgress(steps);
-        assertEquals(entrySteps.size(), before.getEntryTotal());
-        assertEquals(0, before.getEntryDone());
-        assertFalse(before.isEntryComplete());
+        RoadmapService.TierProgress entryBefore = before.getTier("ENTRY");
+        assertEquals(entrySteps.size(), entryBefore.getTotal());
+        assertEquals(0, entryBefore.getDone());
+        assertFalse(entryBefore.isComplete());
+        assertTrue(entryBefore.isUnlocked(), "ENTRY는 항상 열려 있어야 한다");
+        assertEquals(entryBefore, before.getCurrentTier());
 
         for (RoadmapStepDto step : entrySteps) {
             roadmapService.completeStep(userId, step.getId(), true);
         }
 
         RoadmapService.RoadmapProgress after = roadmapService.computeProgress(roadmapService.getSteps(roadmapId));
-        assertEquals(entrySteps.size(), after.getEntryDone());
-        assertEquals(100, after.getEntryPercent());
-        assertTrue(after.isEntryComplete());
+        RoadmapService.TierProgress entryAfter = after.getTier("ENTRY");
+        assertEquals(entrySteps.size(), entryAfter.getDone());
+        assertEquals(100, entryAfter.getPercent());
+        assertTrue(entryAfter.isComplete());
+    }
+
+    // ADVANCED/EXPERT 확장(2026-09-29): 부족 기술이 12개를 넘으면 ENTRY(5)/CORE(5)/ADVANCED(2)로
+    // 나뉘고 EXPERT는 비어 있어야 하며, 앞 티어를 끝내야 그 다음 티어가 진행도상 "지금 할 일"로 풀려야 한다.
+    @Test
+    void 부족한_기술이_많으면_ADVANCED까지_생성되고_앞_티어를_끝내야_다음_티어가_풀린다() throws Exception {
+        List<Long> extraSkillIds = new ArrayList<>();
+        Long manyGapAnalysisId;
+        try (Connection conn = DBUtil.getConnection()) {
+            GapAnalysisDto analysis = new GapAnalysisDto();
+            analysis.setUserId(userId);
+            analysis.setJobId(jobId);
+            analysis.setMatchRate(new BigDecimal("10.00"));
+            analysis.setAnalyzedAt(LocalDateTime.now().plusMinutes(3));
+            manyGapAnalysisId = gapAnalysisDao.insert(conn, analysis);
+
+            for (int i = 0; i < 12; i++) {
+                Long skillId = TestFixtures.insertSkill(conn, "초대량스킬" + i + "_" + System.nanoTime());
+                extraSkillIds.add(skillId);
+
+                JobRequiredSkillDto req = new JobRequiredSkillDto();
+                req.setJobId(jobId);
+                req.setSkillId(skillId);
+                req.setImportance("REQUIRED");
+                req.setSource("MANUAL");
+                req.setEstimated(false);
+                jobRequiredSkillDao.insert(conn, req);
+
+                GapAnalysisItemDto item = new GapAnalysisItemDto();
+                item.setGapAnalysisId(manyGapAnalysisId);
+                item.setSkillId(skillId);
+                item.setStatus("MISSING");
+                gapAnalysisItemDao.insert(conn, item);
+            }
+        }
+
+        try {
+            Long roadmapId = roadmapService.generate(userId);
+            List<RoadmapStepDto> steps = roadmapService.getSteps(roadmapId);
+
+            long entryCount = steps.stream().filter(s -> "SKILL".equals(s.getStepType()) && "ENTRY".equals(s.getTier())).count();
+            long coreCount = steps.stream().filter(s -> "SKILL".equals(s.getStepType()) && "CORE".equals(s.getTier())).count();
+            long advancedCount = steps.stream().filter(s -> "SKILL".equals(s.getStepType()) && "ADVANCED".equals(s.getTier())).count();
+            long expertCount = steps.stream().filter(s -> "SKILL".equals(s.getStepType()) && "EXPERT".equals(s.getTier())).count();
+            assertEquals(5, entryCount);
+            assertEquals(5, coreCount);
+            assertEquals(2, advancedCount);
+            assertEquals(0, expertCount);
+
+            RoadmapService.RoadmapProgress progress = roadmapService.computeProgress(steps);
+            assertTrue(progress.getTier("ENTRY").isUnlocked());
+            assertFalse(progress.getTier("CORE").isUnlocked(), "ENTRY를 안 끝냈으면 CORE는 아직 잠겨 있어야 한다");
+            assertFalse(progress.getTier("ADVANCED").isUnlocked());
+            assertTrue(progress.getTier("EXPERT").isEmpty(), "12개는 ADVANCED까지만 채우므로 EXPERT는 비어 있어야 한다");
+            assertEquals("ENTRY", progress.getCurrentTier().getTier());
+            assertEquals("CORE", progress.getNextLockedTier().getTier());
+
+            for (RoadmapStepDto step : steps) {
+                if ("ENTRY".equals(step.getTier())) {
+                    roadmapService.completeStep(userId, step.getId(), true);
+                }
+            }
+            RoadmapService.RoadmapProgress afterEntry = roadmapService.computeProgress(roadmapService.getSteps(roadmapId));
+            assertTrue(afterEntry.getTier("CORE").isUnlocked(), "ENTRY를 다 끝냈으면 CORE가 풀려야 한다");
+            assertFalse(afterEntry.getTier("ADVANCED").isUnlocked());
+            assertEquals("CORE", afterEntry.getCurrentTier().getTier());
+            assertEquals("ADVANCED", afterEntry.getNextLockedTier().getTier());
+        } finally {
+            try (Connection conn = DBUtil.getConnection()) {
+                for (RoadmapDto roadmap : roadmapDao.findByUserId(userId)) {
+                    if (roadmap.getGapAnalysisId().equals(manyGapAnalysisId)) {
+                        for (RoadmapStepDto step : roadmapStepDao.findByRoadmapId(roadmap.getId())) {
+                            TestFixtures.hardDelete(conn, "ROADMAP_STEP", step.getId());
+                        }
+                        TestFixtures.hardDelete(conn, "ROADMAP", roadmap.getId());
+                    }
+                }
+                TestFixtures.hardDeleteByColumn(conn, "GAP_ANALYSIS_ITEM", "gap_analysis_id", manyGapAnalysisId);
+                TestFixtures.hardDelete(conn, "GAP_ANALYSIS", manyGapAnalysisId);
+                for (Long skillId : extraSkillIds) {
+                    // ENTRY 단계를 완료 체크했으므로 USER_SKILLS에 자동 등록됐다 — SKILL을 지우기 전에
+                    // 그 참조부터 먼저 지워야 FK 제약(fk_user_skills_skill)에 걸리지 않는다.
+                    TestFixtures.hardDeleteByColumn(conn, "USER_SKILLS", "skill_id", skillId);
+                    TestFixtures.hardDeleteByColumn(conn, "JOB_REQUIRED_SKILL", "skill_id", skillId);
+                    TestFixtures.hardDelete(conn, "SKILL", skillId);
+                }
+            }
+        }
     }
 
     // 같은 격차분석으로 "생성" 버튼을 두 번 눌러도(중복 클릭) UNIQUE(gap_analysis_id) 위반 없이 안전해야 한다.
@@ -662,7 +754,7 @@ class RoadmapServiceTest {
         assertEquals(1, roadmapDao.findByUserId(userId).size());
     }
 
-    // 부족한 기술이 5개(MAX_ENTRY_SKILL_STEPS)를 넘으면, 넘는 만큼은 버리지 않고 tier=CORE로 남는다.
+    // 부족한 기술이 5개(MAX_SKILL_STEPS_PER_TIER)를 넘으면, 넘는 만큼은 버리지 않고 tier=CORE로 남는다.
     @Test
     void 부족한_기술이_5개_넘으면_상위_5개만_ENTRY고_나머지는_CORE로_밀린다() throws Exception {
         List<Long> extraSkillIds = new ArrayList<>();

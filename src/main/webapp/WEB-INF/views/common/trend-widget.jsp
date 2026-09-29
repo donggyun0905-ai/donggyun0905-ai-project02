@@ -1,23 +1,27 @@
-<%-- 화면설계 PDF 공통 위젯 "오늘의 트렌드 기술" — FR-54·55 (2주차 이후 실제 데이터로 교체 예정, 지금은 화면만).
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%-- 화면설계 PDF 공통 위젯 "오늘의 트렌드 기술" — FR-54·55.
+     데이터(trendTechs)는 TrendWidgetFilter가 사용자의 목표 직무 기준으로 요청에 실어 준다.
      쓰는 쪽에서 <jsp:include page="/WEB-INF/views/common/trend-widget.jsp" /> 로 오른쪽 칼럼에 넣는다. --%>
 <div class="card">
     <h2 style="font-size:1rem;">오늘의 트렌드 기술</h2>
     <p class="muted" style="margin-top:4px;">관심 분야와 관련된 기술만 골라 보여줍니다</p>
-    <div style="margin-top:14px;">
-        <div style="font-weight:700; font-size:0.92rem;">Virtual Threads</div>
-        <div class="muted" style="margin:4px 0;">Java 21의 가상 스레드로 많은 동시 요청을 적은 자원으로 처리하는 방식입니다.</div>
-        <a href="#" style="font-size:0.82rem;">출처 보기</a>
-    </div>
-    <hr style="border:none; border-top:1px solid var(--border); margin:14px 0;">
-    <div>
-        <div style="font-weight:700; font-size:0.92rem;">Kubernetes</div>
-        <div class="muted" style="margin:4px 0;">여러 컨테이너를 묶어 배포와 확장을 자동으로 관리하는 도구입니다.</div>
-        <a href="#" style="font-size:0.82rem;">출처 보기</a>
-    </div>
-    <hr style="border:none; border-top:1px solid var(--border); margin:14px 0;">
-    <div>
-        <div style="font-weight:700; font-size:0.92rem;">Redis</div>
-        <div class="muted" style="margin:4px 0;">자주 읽는 데이터를 메모리에 두어 응답 속도를 높이는 저장소입니다.</div>
-        <a href="#" style="font-size:0.82rem;">출처 보기</a>
-    </div>
+    <c:choose>
+        <c:when test="${empty trendTechs}">
+            <p class="muted" style="margin-top:14px;">아직 표시할 트렌드 기술이 없습니다. 매일 0시에 새로 갱신됩니다.</p>
+        </c:when>
+        <c:otherwise>
+            <c:forEach var="tech" items="${trendTechs}" varStatus="st">
+                <c:if test="${!st.first}">
+                    <hr style="border:none; border-top:1px solid var(--border); margin:14px 0;">
+                </c:if>
+                <div style="${st.first ? 'margin-top:14px;' : ''}">
+                    <div style="font-weight:700; font-size:0.92rem;"><c:out value="${tech.techName}" /></div>
+                    <div class="muted" style="margin:4px 0;"><c:out value="${tech.summary}" /></div>
+                    <a href="<c:out value='${tech.sourceUrl}' />" target="_blank" rel="noopener noreferrer"
+                       style="font-size:0.82rem;">출처 보기</a>
+                </div>
+            </c:forEach>
+        </c:otherwise>
+    </c:choose>
 </div>

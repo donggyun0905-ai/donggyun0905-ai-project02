@@ -60,13 +60,19 @@ public class RoadmapService {
 
     private static final String TIER_ENTRY = "ENTRY";
     private static final String TIER_CORE = "CORE";
+    private static final String TIER_ADVANCED = "ADVANCED";
+    private static final String TIER_EXPERT = "EXPERT";
+    // db-design.md: "ENTRY를 다 걸으면 CORE가, CORE를 마치면 ADVANCED가 열리는 식으로 로드맵이
+    // 계속 연장된다" — 끝없는 여정 구조. 부족 기술을 점수 내림차순으로 정렬한 뒤 이 순서대로
+    // 5개씩 잘라 담고, 마지막(EXPERT)은 남은 걸 전부 받는다(팀 합의, 2026-09-29).
+    private static final List<String> SKILL_TIER_ORDER = List.of(TIER_ENTRY, TIER_CORE, TIER_ADVANCED, TIER_EXPERT);
     private static final int SCORE_REQUIRED = 2;
     private static final int SCORE_PREFERRED = 1;
 
-    // 부족한 기술이 아무리 많아도 ENTRY 단계엔 상위 N개만 노출한다 — 신규 사용자에게
-    // 수십 단계가 한꺼번에 쏟아지는 걸 막기 위함(db-design.md의 tier 단계적 노출 원칙).
-    // 나머지는 버리지 않고 CORE 단계로 남겨 "다음 단계"에서 볼 수 있게 한다.
-    private static final int MAX_ENTRY_SKILL_STEPS = 5;
+    // 부족한 기술이 아무리 많아도 한 티어엔 상위 N개만 노출한다 — 신규 사용자에게 수십 단계가
+    // 한꺼번에 쏟아지는 걸 막기 위함(db-design.md의 tier 단계적 노출 원칙). 나머지는 버리지 않고
+    // 다음 티어로 넘겨서 "다음 단계"에서 볼 수 있게 한다.
+    private static final int MAX_SKILL_STEPS_PER_TIER = 5;
 
     private final GapAnalysisDao gapAnalysisDao = new GapAnalysisDao();
     private final GapAnalysisItemDao gapAnalysisItemDao = new GapAnalysisItemDao();
@@ -158,43 +164,101 @@ public class RoadmapService {
     }
 
     // FR-36 진행도. target_level이 기본 EXPERT라 길이 계속 늘어나는 구조(db-design.md 설계 판단)라서
-    // "전체 대비 %"는 분모가 계속 바뀌어 의미가 없다 — 그래서 "지금 걷고 있는 티어" 기준으로만 계산한다
-    // (팀 합의, 2026-09-23). ENTRY를 다 끝내면 CORE가 다음 "지금 할 일"로 풀린다.
+    // "전체 대비 %"는 분모가 계속 바뀌어 의미가 없다 — 그래서 티어별로 계산하고, 앞 티어를 다
+    // 끝내야(또는 그 티어에 단계가 아예 없으면) 다음 티어가 풀리는 계단식 잠금으로 표현한다
+    // (팀 합의, 2026-09-23 / ADVANCED·EXPERT 확장 2026-09-29). ENTRY는 항상 열려 있다.
+    // 매번 steps 원본에서 새로 계산하기 때문에, 완료 취소로 이전 티어가 다시 미완료가 되면
+    // 이후 티어도 그 즉시 다시 잠긴다 — 잠기기 전에 이미 완료한 단계 자체는 그대로 완료로 남는다.
     public RoadmapProgress computeProgress(List<RoadmapStepDto> steps) {
-        long entryTotal = steps.stream().filter(s -> TIER_ENTRY.equals(s.getTier())).count();
-        long entryDone = steps.stream().filter(s -> TIER_ENTRY.equals(s.getTier()) && s.isCompleted()).count();
-        boolean entryComplete = entryTotal > 0 && entryDone == entryTotal;
-        int percent = entryTotal == 0 ? 0 : (int) Math.round(entryDone * 100.0 / entryTotal);
-        return new RoadmapProgress((int) entryTotal, (int) entryDone, percent, entryComplete);
+        List<TierProgress> tiers = new ArrayList<>();
+        boolean unlocked = true;
+        for (String tier : SKILL_TIER_ORDER) {
+            long total = steps.stream().filter(s -> tier.equals(s.getTier())).count();
+            long done = steps.stream().filter(s -> tier.equals(s.getTier()) && s.isCompleted()).count();
+            int percent = total == 0 ? 0 : (int) Math.round(done * 100.0 / total);
+            tiers.add(new TierProgress(tier, (int) total, (int) done, percent, unlocked));
+            boolean cleared = total == 0 || done == total;
+            unlocked = unlocked && cleared;
+        }
+        return new RoadmapProgress(tiers);
+    }
+
+    public static final class TierProgress {
+        private final String tier;
+        private final int total;
+        private final int done;
+        private final int percent;
+        private final boolean unlocked;
+
+        public TierProgress(String tier, int total, int done, int percent, boolean unlocked) {
+            this.tier = tier;
+            this.total = total;
+            this.done = done;
+            this.percent = percent;
+            this.unlocked = unlocked;
+        }
+
+        public String getTier() {
+            return tier;
+        }
+
+        public int getTotal() {
+            return total;
+        }
+
+        public int getDone() {
+            return done;
+        }
+
+        public int getPercent() {
+            return percent;
+        }
+
+        public boolean isUnlocked() {
+            return unlocked;
+        }
+
+        public boolean isEmpty() {
+            return total == 0;
+        }
+
+        public boolean isComplete() {
+            return total > 0 && done == total;
+        }
     }
 
     public static final class RoadmapProgress {
-        private final int entryTotal;
-        private final int entryDone;
-        private final int entryPercent;
-        private final boolean entryComplete;
+        private final List<TierProgress> tiers;
 
-        public RoadmapProgress(int entryTotal, int entryDone, int entryPercent, boolean entryComplete) {
-            this.entryTotal = entryTotal;
-            this.entryDone = entryDone;
-            this.entryPercent = entryPercent;
-            this.entryComplete = entryComplete;
+        public RoadmapProgress(List<TierProgress> tiers) {
+            this.tiers = tiers;
         }
 
-        public int getEntryTotal() {
-            return entryTotal;
+        public List<TierProgress> getTiers() {
+            return tiers;
         }
 
-        public int getEntryDone() {
-            return entryDone;
+        public TierProgress getTier(String tierName) {
+            return tiers.stream().filter(t -> t.getTier().equals(tierName)).findFirst().orElse(null);
         }
 
-        public int getEntryPercent() {
-            return entryPercent;
+        // 화면의 "지금 할 일" 섹션 — 열려 있고, 비어 있지 않고, 아직 다 안 끝난 첫 번째 티어.
+        public TierProgress getCurrentTier() {
+            return tiers.stream()
+                    .filter(t -> t.isUnlocked() && !t.isEmpty() && !t.isComplete())
+                    .findFirst().orElse(null);
         }
 
-        public boolean isEntryComplete() {
-            return entryComplete;
+        // "다음 단계 미리보기" 섹션 — 아직 잠겨 있고 비어 있지 않은 첫 번째 티어.
+        public TierProgress getNextLockedTier() {
+            return tiers.stream()
+                    .filter(t -> !t.isUnlocked() && !t.isEmpty())
+                    .findFirst().orElse(null);
+        }
+
+        // 지금 할 일도, 다음에 풀릴 잠긴 단계도 없다 — 부족 기술을 전부 채웠거나 애초에 없었던 것.
+        public boolean isJourneyComplete() {
+            return getCurrentTier() == null && getNextLockedTier() == null;
         }
     }
 
@@ -385,38 +449,44 @@ public class RoadmapService {
             roadmap.setTargetLevel("EXPERT");
             Long roadmapId = roadmapDao.insert(conn, roadmap);
 
-            List<GapAnalysisItemDto> entryTierSkills = rankedMissing.size() > MAX_ENTRY_SKILL_STEPS
-                    ? rankedMissing.subList(0, MAX_ENTRY_SKILL_STEPS)
-                    : rankedMissing;
-            List<GapAnalysisItemDto> coreTierSkills = rankedMissing.size() > MAX_ENTRY_SKILL_STEPS
-                    ? rankedMissing.subList(MAX_ENTRY_SKILL_STEPS, rankedMissing.size())
-                    : List.of();
-
+            // 점수 내림차순으로 정렬된 부족 기술을 티어당 5개씩(마지막 EXPERT는 남은 전부) 잘라 담는다
+            // — "끝없는 여정" 구조(db-design.md), ENTRY가 끝나야 CORE가, CORE가 끝나야 ADVANCED가
+            // 열리는 계단식 잠금은 computeProgress에서 매 조회 시 계산한다.
             int order = 1;
-            if (suggestedCert != null) {
-                order = insertStep(conn, roadmapId, order, "CERT", TIER_ENTRY, suggestedCert.getId(), null,
-                        buildCertReason(job, suggestedCert));
-            }
-            if (!entryTierSkills.isEmpty()) {
-                order = insertStep(conn, roadmapId, order, "PROJECT", TIER_ENTRY, null, null,
-                        buildProjectReason(entryTierSkills));
-            }
-            for (GapAnalysisItemDto item : entryTierSkills) {
-                String importance = importanceOf(analysis.getJobId(), item.getSkillId());
-                boolean alreadyLearned = roadmapStepDao.countCompletedByUserAndSkill(conn, userId, item.getSkillId()) > 0;
-                order = insertStep(conn, roadmapId, order, "SKILL", TIER_ENTRY, null, item.getSkillId(),
-                        buildSkillReason(item.getSkillId(), importance), alreadyLearned);
-            }
-            // 상위 N개 밖으로 밀린 기술들 — 삭제하지 않고 CORE 단계로 남겨 "다음 단계 미리보기"로 노출한다.
-            for (GapAnalysisItemDto item : coreTierSkills) {
-                String importance = importanceOf(analysis.getJobId(), item.getSkillId());
-                boolean alreadyLearned = roadmapStepDao.countCompletedByUserAndSkill(conn, userId, item.getSkillId()) > 0;
-                order = insertStep(conn, roadmapId, order, "SKILL", TIER_CORE, null, item.getSkillId(),
-                        buildSkillReason(item.getSkillId(), importance), alreadyLearned);
+            for (int tierIndex = 0; tierIndex < SKILL_TIER_ORDER.size(); tierIndex++) {
+                String tier = SKILL_TIER_ORDER.get(tierIndex);
+                List<GapAnalysisItemDto> tierSkills = chunkForTier(rankedMissing, tierIndex);
+
+                if (TIER_ENTRY.equals(tier)) {
+                    // CERT/PROJECT는 여정의 첫 진입점 성격이라 ENTRY 티어에만 둔다 — 뒤 티어는 SKILL로만 구성.
+                    if (suggestedCert != null) {
+                        order = insertStep(conn, roadmapId, order, "CERT", tier, suggestedCert.getId(), null,
+                                buildCertReason(job, suggestedCert));
+                    }
+                    if (!tierSkills.isEmpty()) {
+                        order = insertStep(conn, roadmapId, order, "PROJECT", tier, null, null,
+                                buildProjectReason(tierSkills));
+                    }
+                }
+                for (GapAnalysisItemDto item : tierSkills) {
+                    String importance = importanceOf(analysis.getJobId(), item.getSkillId());
+                    boolean alreadyLearned = roadmapStepDao.countCompletedByUserAndSkill(conn, userId, item.getSkillId()) > 0;
+                    order = insertStep(conn, roadmapId, order, "SKILL", tier, null, item.getSkillId(),
+                            buildSkillReason(item.getSkillId(), importance), alreadyLearned);
+                }
             }
 
             return roadmapId;
         });
+    }
+
+    // rankedMissing을 SKILL_TIER_ORDER 순서대로 MAX_SKILL_STEPS_PER_TIER개씩 잘라준다.
+    // 마지막 티어(EXPERT)는 남은 걸 전부 받아서 기술이 버려지는 일이 없게 한다.
+    private List<GapAnalysisItemDto> chunkForTier(List<GapAnalysisItemDto> rankedMissing, int tierIndex) {
+        int from = Math.min(tierIndex * MAX_SKILL_STEPS_PER_TIER, rankedMissing.size());
+        boolean lastTier = tierIndex == SKILL_TIER_ORDER.size() - 1;
+        int to = lastTier ? rankedMissing.size() : Math.min(from + MAX_SKILL_STEPS_PER_TIER, rankedMissing.size());
+        return rankedMissing.subList(from, to);
     }
 
     private int insertStep(Connection conn, Long roadmapId, int order, String stepType, String tier,

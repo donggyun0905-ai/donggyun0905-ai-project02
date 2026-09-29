@@ -49,56 +49,54 @@
         </div>
     </c:when>
 
-    <%-- 정상 상태 --%>
+    <%-- 희망 직무 미설정 --%>
+    <c:when test="${noTargetJob}">
+        <div class="card empty-state" style="max-width:460px; margin:40px auto;">
+            <div class="icon">🧭</div>
+            <h2>희망 직무를 먼저 정해주세요</h2>
+            <p class="muted">격차 분석은 목표 직무가 있어야 시작할 수 있습니다. 프로필에서 희망 직무를 선택해주세요.</p>
+            <a class="btn" href="${pageContext.request.contextPath}/profile">프로필로 가기</a>
+        </div>
+    </c:when>
+
+    <%-- 정상 상태(실제 데이터) --%>
     <c:otherwise>
         <h1>격차 분석</h1>
-        <p class="muted">목표 직무 <strong>백엔드 개발자</strong>의 요구 기술과 지금 가진 스펙을 비교했습니다. 분석일 2026-09-28</p>
+        <p class="muted">목표 직무 <strong>${job.jobName}</strong>의 요구 기술과 지금 가진 스펙을 비교했습니다. 분석일 ${analysis.analyzedAt}</p>
 
         <div class="two-col" style="margin-top:16px;">
             <div class="primary">
                 <div class="card">
-                    <div class="spread"><h2>한눈에 보기</h2><span class="pill">예시적 추정</span></div>
-                    <p style="margin-top:10px;"><strong style="font-size:1.5rem;">6</strong> / 12개 요구 기술 충족</p>
-                    <div class="progress-track"><div class="progress-fill teal" style="width:50%;"></div></div>
-                    <p class="muted" style="margin:0;">필수 7개 중 5개, 우대 5개 중 1개를 갖췄습니다. 직무 요구 기술은 공식 채용 데이터를 연동하기 전이라 AI가 만든 추정치입니다.</p>
+                    <h2>한눈에 보기</h2>
+                    <p style="margin-top:10px;"><strong style="font-size:1.5rem;">${metCount}</strong> / ${totalCount}개 요구 기술 충족 (일치율 ${analysis.matchRate}%)</p>
+                    <div class="progress-track"><div class="progress-fill teal" style="width:${analysis.matchRate}%;"></div></div>
+                    <p class="muted" style="margin:0;">지금은 기술명이 정확히 일치하는지로만 판정합니다(대소문자 무시). 의미 기반 매칭은 나중에 고도화 예정입니다.</p>
                 </div>
 
                 <div class="card">
-                    <h2>충족·부족 비교표</h2>
+                    <h2>충족·부족 목록</h2>
                     <table style="margin-top:10px;">
-                        <tr><th>기술</th><th>구분</th><th>상태</th><th>판정 근거</th></tr>
-                        <tr><td>Java</td><td>필수</td><td style="color:var(--teal);">✔ 충족</td><td>프로젝트 기술 스택</td></tr>
-                        <tr><td>Spring Boot</td><td>필수</td><td style="color:var(--teal);">✔ 충족</td><td>보유 기술 스택</td></tr>
-                        <tr><td>MySQL</td><td>필수</td><td style="color:var(--teal);">✔ 충족</td><td>보유 기술 스택</td></tr>
-                        <tr><td>Git</td><td>필수</td><td style="color:var(--teal);">✔ 충족</td><td>보유 기술 스택</td></tr>
-                        <tr><td>REST API 설계</td><td>필수</td><td style="color:var(--teal);">✔ 충족</td><td>프로젝트 '백엔드 API 서버'와 의미가 가까움</td></tr>
-                        <tr><td>JPA</td><td>필수</td><td style="color:var(--danger);">✘ 부족</td><td>관련 스펙 없음</td></tr>
-                        <tr><td>Kubernetes</td><td>필수</td><td style="color:var(--danger);">✘ 부족</td><td>관련 스펙 없음</td></tr>
-                        <tr><td>Docker</td><td>우대</td><td style="color:var(--teal);">✔ 충족</td><td>보유 기술 스택</td></tr>
-                        <tr><td>Redis</td><td>우대</td><td style="color:var(--danger);">✘ 부족</td><td>관련 스펙 없음</td></tr>
-                        <tr><td>AWS</td><td>우대</td><td style="color:var(--danger);">✘ 부족</td><td>관련 스펙 없음</td></tr>
+                        <tr><th>기술</th><th>상태</th></tr>
+                        <c:forEach var="item" items="${items}">
+                            <tr>
+                                <td>${item.skillName}</td>
+                                <c:choose>
+                                    <c:when test="${item.met}"><td style="color:var(--teal);">✔ 충족</td></c:when>
+                                    <c:otherwise><td style="color:var(--danger);">✘ 부족</td></c:otherwise>
+                                </c:choose>
+                            </tr>
+                        </c:forEach>
                     </table>
                 </div>
 
-                <div class="card">
-                    <h2>먼저 채울 필수 역량</h2>
-                    <div style="margin-top:10px;">
-                        <strong>Kubernetes</strong>
-                        <p class="muted" style="margin:4px 0;">컨테이너 배포와 확장을 자동화하는 기술입니다. 이미 Docker를 다뤄봤으니 지금 프로젝트를 쿠버네티스에 올려보는 것부터 시작하면 됩니다.</p>
-                    </div>
-                    <hr style="border:none; border-top:1px solid var(--border);">
-                    <div>
-                        <strong>JPA</strong>
-                        <p class="muted" style="margin:4px 0;">Spring에서 데이터베이스를 객체로 다루는 표준 방식입니다. API 서버 프로젝트의 SQL 코드를 JPA로 바꿔보면 바로 경험이 됩니다.</p>
-                    </div>
-                </div>
-
                 <div class="row">
+                    <form action="${pageContext.request.contextPath}/gap-analysis" method="post">
+                        <button type="submit" class="secondary">다시 분석하기</button>
+                    </form>
                     <form action="${pageContext.request.contextPath}/roadmap" method="post">
                         <input type="hidden" name="action" value="generate">
                         <button type="submit">이 결과로 로드맵 만들기</button>
                     </form>
-                    <a class="btn secondary" href="${pageContext.request.contextPath}/job-discovery">다른 직무로 분석하기</a>
                 </div>
             </div>
             <div class="side">

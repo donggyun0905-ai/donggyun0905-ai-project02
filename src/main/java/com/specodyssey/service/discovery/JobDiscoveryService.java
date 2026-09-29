@@ -4,6 +4,7 @@ import com.specodyssey.dao.JobDao;
 import com.specodyssey.dao.JobRecommendationDao;
 import com.specodyssey.dao.JobRequiredSkillDao;
 import com.specodyssey.dao.SurveyQuestionDao;
+import com.specodyssey.dao.UserDao;
 import com.specodyssey.dao.UserProjectDao;
 import com.specodyssey.dao.UserSkillDao;
 import com.specodyssey.dao.UserSurveyAnswerDao;
@@ -53,6 +54,7 @@ public class JobDiscoveryService {
     private final JobRequiredSkillDao requiredSkillDao = new JobRequiredSkillDao();
     private final UserSkillDao userSkillDao = new UserSkillDao();
     private final UserProjectDao userProjectDao = new UserProjectDao();
+    private final UserDao userDao = new UserDao();
     private final SkillMatcher skillMatcher;
     private final JobDiscoveryScorer scorer = new JobDiscoveryScorer();
 
@@ -147,6 +149,8 @@ public class JobDiscoveryService {
     /**
      * 고른 후보를 선택 상태로 바꾸고 그 job_id를 돌려준다. 서블릿은 이 값으로 격차 분석 화면으로 보낸다.
      * 내 추천이 아니거나 없는 id면 null — updateSelected가 void라 0행 갱신을 알 수 없어서 먼저 소유를 확인한다.
+     * 이 선택을 곧 희망 직무 확정으로 본다 — 그래야 로드맵 등 "희망 직무가 있어야 보이는" 화면이
+     * 직무 발굴을 거쳐온 사용자에게도 정상적으로 열린다(팀 합의, 2026-09-29).
      */
     public Long selectRecommendation(Long userId, Long recommendationId) throws SQLException {
         JobRecommendationDto target = null;
@@ -159,12 +163,14 @@ public class JobDiscoveryService {
         if (target == null) {
             return null;
         }
+        Long jobId = target.getJobId();
         TransactionUtil.runInTransaction(conn -> {
             recommendationDao.clearSelectedByUserId(conn, userId);
             recommendationDao.updateSelected(conn, recommendationId, userId, true);
+            userDao.updateDesiredJob(conn, userId, jobId, "SET");
             return null;
         });
-        return target.getJobId();
+        return jobId;
     }
 
     // ================= 내부 =================

@@ -42,6 +42,19 @@ public class JobDao {
         }
     }
 
+    // 프로필의 희망 직무 검색창 — 정식 명칭을 그대로 입력했을 때 매칭용.
+    // utf8mb4_unicode_ci 콜레이션이라 대소문자 구분 없이 매칭된다.
+    public JobDto findByName(String jobName) throws SQLException {
+        String sql = "SELECT * FROM JOB WHERE job_name = ? AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, jobName);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        }
+    }
+
     private JobDto mapRow(ResultSet rs) throws SQLException {
         JobDto job = new JobDto();
         job.setId(rs.getLong("id"));

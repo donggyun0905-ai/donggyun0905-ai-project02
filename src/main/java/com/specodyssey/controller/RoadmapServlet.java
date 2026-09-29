@@ -1,5 +1,6 @@
 package com.specodyssey.controller;
 
+import com.specodyssey.dao.UserDao;
 import com.specodyssey.dto.DocumentDto;
 import com.specodyssey.dto.RoadmapDto;
 import com.specodyssey.dto.RoadmapStepDto;
@@ -40,11 +41,21 @@ import java.util.List;
 public class RoadmapServlet extends HttpServlet {
 
     private final RoadmapService roadmapService = new RoadmapService();
+    private final UserDao userDao = new UserDao();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         Long userId = currentUserId(req);
         try {
+            // 로드맵은 목표 직무가 있어야 의미가 있다 — 희망 직무가 아직 없으면 로드맵 내용 대신
+            // 직무 찾기/프로필로 안내하는 작은 카드만 보여준다(사용자 요청, 2026-09-29).
+            UserDto user = userDao.findById(userId);
+            if (user.getDesiredJobId() == null) {
+                req.setAttribute("noTargetJob", true);
+                req.getRequestDispatcher("/WEB-INF/views/roadmap.jsp").forward(req, resp);
+                return;
+            }
+
             RoadmapDto roadmap = roadmapService.getPrimaryRoadmap(userId);
             req.setAttribute("roadmap", roadmap);
             List<RoadmapStepDto> steps = roadmap == null
