@@ -60,134 +60,116 @@
             <div class="banner">🎉 지금까지 분석된 부족 기술을 모두 채웠습니다! 새로 재분석하면 다음 목표가 이어집니다.</div>
         </c:if>
 
-        <%-- 앞으로 갈 길(잠긴 미래 티어)은 안 보여주되, 지나온 길(완료한 것)은 클릭해서 펼치는 게
-             아니라 그냥 위로 스크롤(드래그)하면 바로 보이게 — 접이식 <details>는 빼고 평범하게
-             이어서 렌더링한다. 다만 "이미 끝난 일"이라는 걸 눈에 보이게 하려고 색을 옅게(뿌옇게)
-             뺀다 — journey-card.is-past가 opacity+grayscale로 흐릿하게 처리(사용자 요청, 2026-09-29). --%>
-        <c:set var="completedCount" value="0" scope="page" />
-        <c:forEach var="s" items="${steps}"><c:if test="${s.completed}"><c:set var="completedCount" value="${completedCount + 1}" scope="page" /></c:if></c:forEach>
-
-        <c:if test="${completedCount > 0}">
-            <div class="card journey-map" style="margin-bottom:18px;">
-                <h2 style="margin-bottom:2px;">🧭 지나온 길 (${completedCount}개 완료)</h2>
-                <p class="muted" style="margin:2px 0 0;">박스 안에서 위아래로 스크롤해서 볼 수 있어요.</p>
-                <div class="journey-track-scroll">
-                <div class="journey-track" style="margin-top:16px;">
-                    <c:set var="reviewIndex" value="0" scope="page" />
-                    <c:forEach var="step" items="${steps}">
-                        <c:if test="${step.completed}">
-                            <c:set var="reviewIndex" value="${reviewIndex + 1}" scope="page" />
-                            <div class="journey-row">
-                                <div class="journey-marker completed is-past">✓</div>
-                                <div class="journey-card is-past" style="grid-column: ${reviewIndex % 2 == 1 ? 1 : 3};">
-                                    <div class="row" style="margin-bottom:8px;">
-                                        <span class="chip chip-teal">
-                                            <c:choose>
-                                                <c:when test="${step.stepType == 'CERT'}">자격증</c:when>
-                                                <c:when test="${step.stepType == 'PROJECT'}">프로젝트</c:when>
-                                                <c:otherwise>기술</c:otherwise>
-                                            </c:choose>
-                                        </span>
-                                        <span style="color:var(--teal); font-weight:bold; font-size:0.85rem;">✔ 완료</span>
-                                    </div>
-                                    <p>${step.reason}</p>
-                                    <c:if test="${step.stepType != 'PROJECT'}">
-                                        <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">
-                                            <input type="hidden" name="action" value="complete">
-                                            <input type="hidden" name="stepId" value="${step.id}">
-                                            <input type="hidden" name="completed" value="false">
-                                            <button type="submit" class="link-button">완료 취소</button>
-                                        </form>
-                                    </c:if>
-                                </div>
-                            </div>
-                        </c:if>
-                    </c:forEach>
-                </div>
-                </div>
-            </div>
-        </c:if>
-
-        <c:if test="${not progress.journeyComplete}">
-            <c:set var="currentTier" value="${progress.currentTier}" />
-            <c:set var="currentTierLabel"
-                   value="${currentTier.tier == 'ENTRY' ? '입문' : currentTier.tier == 'CORE' ? '핵심' : currentTier.tier == 'ADVANCED' ? '심화' : '전문가'}" />
-            <div class="card journey-map">
-                <h2 style="margin-bottom:2px;">지금 할 일 (${currentTierLabel})</h2>
+        <%-- 상자 하나(.journey-map) 안에 완료한 것(위쪽, 흐리게)과 지금 할 일(아래쪽, 선명하게)을
+             전부 같은 스크롤 트랙에 이어서 넣는다 — 박스를 따로 두 개 만들지 말고 하나로
+             합쳐달라는 요청(사용자, 2026-09-29). 잠긴 미래 티어는 여전히 안 보여준다. --%>
+        <c:set var="currentTier" value="${progress.currentTier}" />
+        <c:set var="currentTierLabel"
+               value="${currentTier.tier == 'ENTRY' ? '입문' : currentTier.tier == 'CORE' ? '핵심' : currentTier.tier == 'ADVANCED' ? '심화' : '전문가'}" />
+        <div class="card journey-map">
+            <h2 style="margin-bottom:2px;">
+                <c:choose>
+                    <c:when test="${progress.journeyComplete}">🧭 여정 기록</c:when>
+                    <c:otherwise>🧭 여정 · 지금 할 일 (${currentTierLabel})</c:otherwise>
+                </c:choose>
+            </h2>
+            <c:if test="${not progress.journeyComplete}">
                 <div class="progress-track"><div class="progress-fill" style="width:${currentTier.percent}%;"></div></div>
-                <div class="journey-legend">
-                    <span><span class="dot current"></span>지금 할 일</span>
-                    <span><span class="dot remaining"></span>남음</span>
-                </div>
+            </c:if>
+            <p class="muted" style="margin:2px 0 0;">박스 안에서 위아래로 스크롤하면 지나온 길과 지금 할 일을 이어서 볼 수 있어요.</p>
+            <div class="journey-legend">
+                <span><span class="dot completed"></span>완료</span>
+                <span><span class="dot current"></span>지금 할 일</span>
+                <span><span class="dot remaining"></span>남음</span>
+            </div>
 
+            <div class="journey-track-scroll">
+            <div class="journey-track" style="margin-top:16px;">
                 <c:set var="foundCurrent" value="false" scope="page" />
-                <c:set var="activeIndex" value="0" scope="page" />
-                <div class="journey-track">
-                    <c:forEach var="step" items="${steps}">
-                        <c:if test="${step.tier == currentTier.tier && !step.completed}">
-                            <c:set var="activeIndex" value="${activeIndex + 1}" scope="page" />
+                <c:set var="rowIndex" value="0" scope="page" />
+                <c:forEach var="step" items="${steps}">
+                    <%-- 완료한 건 티어 상관없이 전부, 미완료는 지금 열린 티어만(잠긴 미래 티어 제외) --%>
+                    <c:if test="${step.completed || (not progress.journeyComplete && step.tier == currentTier.tier)}">
+                        <c:set var="rowIndex" value="${rowIndex + 1}" scope="page" />
+                        <c:choose>
+                            <c:when test="${step.completed}">
+                                <c:set var="markerClass" value="completed is-past" />
+                                <c:set var="markerIcon" value="✓" />
+                                <c:set var="cardClass" value="is-past" />
+                            </c:when>
+                            <c:when test="${!foundCurrent}">
+                                <c:set var="markerClass" value="current" />
+                                <c:set var="markerIcon" value="⚓" />
+                                <c:set var="cardClass" value="" />
+                                <c:set var="foundCurrent" value="true" scope="page" />
+                            </c:when>
+                            <c:otherwise>
+                                <c:set var="markerClass" value="remaining" />
+                                <c:set var="markerIcon" value="" />
+                                <c:set var="cardClass" value="" />
+                            </c:otherwise>
+                        </c:choose>
 
-                            <c:choose>
-                                <c:when test="${!foundCurrent}">
-                                    <c:set var="markerClass" value="current" />
-                                    <c:set var="markerIcon" value="⚓" />
-                                    <c:set var="foundCurrent" value="true" scope="page" />
-                                </c:when>
-                                <c:otherwise>
-                                    <c:set var="markerClass" value="remaining" />
-                                    <c:set var="markerIcon" value="" />
-                                </c:otherwise>
-                            </c:choose>
-
-                            <div class="journey-row">
-                                <div class="journey-marker ${markerClass}">${markerIcon}</div>
-                                <div class="journey-card" style="grid-column: ${activeIndex % 2 == 1 ? 1 : 3};">
-                                    <div class="row" style="margin-bottom:6px;">
-                                        <span class="chip chip-teal">
-                                            <c:choose>
-                                                <c:when test="${step.stepType == 'CERT'}">자격증</c:when>
-                                                <c:when test="${step.stepType == 'PROJECT'}">프로젝트</c:when>
-                                                <c:otherwise>기술</c:otherwise>
-                                            </c:choose>
-                                        </span>
-                                    </div>
-                                    <p>${step.reason}</p>
-                                    <c:choose>
-                                        <c:when test="${step.stepType == 'PROJECT'}">
-                                            <details>
-                                                <summary>프로젝트 등록하고 완료하기</summary>
-                                                <form action="${pageContext.request.contextPath}/roadmap" method="post"
-                                                      enctype="multipart/form-data" style="margin-top:10px;">
-                                                    <input type="hidden" name="action" value="completeProject">
-                                                    <input type="hidden" name="stepId" value="${step.id}">
-                                                    <p><label>프로젝트명</label><input type="text" name="title" required></p>
-                                                    <p><label>설명 (무엇을 했는지)</label><textarea name="description" required></textarea></p>
-                                                    <p><label>사용 기술</label><input type="text" name="techStack" placeholder="예: Java, Spring, MySQL"></p>
-                                                    <p class="row">
-                                                        <span style="flex:1;"><label>시작일</label><input type="date" name="startDate"></span>
-                                                        <span style="flex:1;"><label>종료일</label><input type="date" name="endDate"></span>
-                                                    </p>
-                                                    <p><label>증빙 파일(여러 개 가능, 필수)</label><input type="file" name="files" multiple required></p>
-                                                    <button type="submit">등록하고 완료하기</button>
-                                                </form>
-                                            </details>
-                                        </c:when>
-                                        <c:otherwise>
+                        <div class="journey-row">
+                            <div class="journey-marker ${markerClass}">${markerIcon}</div>
+                            <div class="journey-card ${cardClass}" style="grid-column: ${rowIndex % 2 == 1 ? 1 : 3};">
+                                <div class="row" style="margin-bottom:6px;">
+                                    <span class="chip chip-teal">
+                                        <c:choose>
+                                            <c:when test="${step.stepType == 'CERT'}">자격증</c:when>
+                                            <c:when test="${step.stepType == 'PROJECT'}">프로젝트</c:when>
+                                            <c:otherwise>기술</c:otherwise>
+                                        </c:choose>
+                                    </span>
+                                    <c:if test="${step.completed}"><span style="color:var(--teal); font-weight:bold; font-size:0.85rem;">✔ 완료</span></c:if>
+                                </div>
+                                <p>${step.reason}</p>
+                                <c:choose>
+                                    <c:when test="${step.completed}">
+                                        <c:if test="${step.stepType != 'PROJECT'}">
                                             <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">
                                                 <input type="hidden" name="action" value="complete">
                                                 <input type="hidden" name="stepId" value="${step.id}">
-                                                <input type="hidden" name="completed" value="true">
-                                                <button type="submit">완료 체크</button>
+                                                <input type="hidden" name="completed" value="false">
+                                                <button type="submit" class="link-button">완료 취소</button>
                                             </form>
-                                        </c:otherwise>
-                                    </c:choose>
-                                </div>
+                                        </c:if>
+                                    </c:when>
+                                    <c:when test="${step.stepType == 'PROJECT'}">
+                                        <details>
+                                            <summary>프로젝트 등록하고 완료하기</summary>
+                                            <form action="${pageContext.request.contextPath}/roadmap" method="post"
+                                                  enctype="multipart/form-data" style="margin-top:10px;">
+                                                <input type="hidden" name="action" value="completeProject">
+                                                <input type="hidden" name="stepId" value="${step.id}">
+                                                <p><label>프로젝트명</label><input type="text" name="title" required></p>
+                                                <p><label>설명 (무엇을 했는지)</label><textarea name="description" required></textarea></p>
+                                                <p><label>사용 기술</label><input type="text" name="techStack" placeholder="예: Java, Spring, MySQL"></p>
+                                                <p class="row">
+                                                    <span style="flex:1;"><label>시작일</label><input type="date" name="startDate"></span>
+                                                    <span style="flex:1;"><label>종료일</label><input type="date" name="endDate"></span>
+                                                </p>
+                                                <p><label>증빙 파일(여러 개 가능, 필수)</label><input type="file" name="files" multiple required></p>
+                                                <button type="submit">등록하고 완료하기</button>
+                                            </form>
+                                        </details>
+                                    </c:when>
+                                    <c:otherwise>
+                                        <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">
+                                            <input type="hidden" name="action" value="complete">
+                                            <input type="hidden" name="stepId" value="${step.id}">
+                                            <input type="hidden" name="completed" value="true">
+                                            <button type="submit">완료 체크</button>
+                                        </form>
+                                    </c:otherwise>
+                                </c:choose>
                             </div>
-                        </c:if>
-                    </c:forEach>
-                </div>
+                        </div>
+                    </c:if>
+                </c:forEach>
             </div>
-        </c:if>
+            </div>
+        </div>
 
         <form action="${pageContext.request.contextPath}/roadmap" method="post" style="margin-top:20px;">
             <input type="hidden" name="action" value="generate">
