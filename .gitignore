@@ -23,6 +23,7 @@ uploads/
 # OS
 .DS_Store
 Thumbs.db
+claude.local.md
 
 # api 및 DB 설정
 *.properties
