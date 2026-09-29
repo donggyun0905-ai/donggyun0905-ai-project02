@@ -109,6 +109,19 @@ public class UserDao {
         }
     }
 
+    // FR-39: 직무 발굴에서 추천 후보를 선택하면 그 직무를 희망 직무로 확정한다.
+    // 다른 기본정보 필드(email·major 등)는 손대지 않기 위해 updateProfile과 분리했다.
+    public void updateDesiredJob(Connection conn, Long userId, Long desiredJobId, String desiredJobStatus)
+            throws SQLException {
+        String sql = "UPDATE USERS SET desired_job_id = ?, desired_job_status = ? WHERE id = ? AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            setNullableLong(pstmt, 1, desiredJobId);
+            pstmt.setString(2, desiredJobStatus);
+            pstmt.setLong(3, userId);
+            pstmt.executeUpdate();
+        }
+    }
+
     // FR-12 로그인 성공 시 마지막 접속 시각 갱신
     public void updateLastLogin(Long id) throws SQLException {
         String sql = "UPDATE USERS SET last_login_at = CURRENT_TIMESTAMP WHERE id = ? AND is_deleted = FALSE";

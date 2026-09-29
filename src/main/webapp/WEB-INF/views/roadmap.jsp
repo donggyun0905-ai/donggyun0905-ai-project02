@@ -3,23 +3,38 @@
 <c:set var="pageTitle" value="로드맵 - 스펙 오디세이" scope="request" />
 <jsp:include page="/WEB-INF/views/common/header.jsp" />
 
-<h1>🗺️ 내 로드맵</h1>
-
-<c:if test="${not empty errorMessage}">
-    <p class="error-message">${errorMessage}</p>
-</c:if>
-
 <c:choose>
-    <c:when test="${empty roadmap}">
-        <div class="card">
-            <p>아직 생성된 로드맵이 없습니다. 먼저 격차 분석을 완료해야 만들 수 있습니다.</p>
-            <form action="${pageContext.request.contextPath}/roadmap" method="post">
-                <input type="hidden" name="action" value="generate">
-                <button type="submit">로드맵 생성하기</button>
-            </form>
+    <%-- 희망 직무 미설정 — 로드맵은 목표 직무가 있어야 의미가 있어서 내용 대신 작은 안내 카드만 보여준다.
+         희망 직무를 모르면 직무 찾기(설문 추천)로, 이미 알고 있으면 프로필에서 바로 정할 수 있게 둘 다 안내한다. --%>
+    <c:when test="${noTargetJob}">
+        <div class="card empty-state" style="max-width:460px; margin:40px auto;">
+            <div class="icon">🗺️</div>
+            <h2>희망 직무를 먼저 정해주세요</h2>
+            <p class="muted">로드맵은 목표 직무가 있어야 만들 수 있습니다. 아직 정하지 못했다면 직무 찾기에서 추천을 받아보고, 이미 알고 있다면 프로필에서 바로 선택해주세요.</p>
+            <div class="row" style="justify-content:center; gap:10px; margin-top:10px;">
+                <a class="btn" href="${pageContext.request.contextPath}/job-discovery">직무 찾기로 가기</a>
+                <a class="btn secondary" href="${pageContext.request.contextPath}/profile">프로필로 가기</a>
+            </div>
         </div>
     </c:when>
     <c:otherwise>
+        <h1>🗺️ 내 로드맵</h1>
+
+        <c:if test="${not empty errorMessage}">
+            <p class="error-message">${errorMessage}</p>
+        </c:if>
+
+        <c:choose>
+            <c:when test="${empty roadmap}">
+                <div class="card">
+                    <p>아직 생성된 로드맵이 없습니다. 먼저 격차 분석을 완료해야 만들 수 있습니다.</p>
+                    <form action="${pageContext.request.contextPath}/roadmap" method="post">
+                        <input type="hidden" name="action" value="generate">
+                        <button type="submit">로드맵 생성하기</button>
+                    </form>
+                </div>
+            </c:when>
+            <c:otherwise>
         <p class="muted">버전 ${roadmap.version} · 목표 수준 ${roadmap.targetLevel}</p>
 
         <%-- 티어 4개(입문/핵심/심화/전문가)를 한눈에 보여주는 진행도 띠. 비어 있는 티어(그 단계까지
@@ -140,6 +155,8 @@
             <input type="hidden" name="action" value="generate">
             <button type="submit" class="secondary">다시 생성 (재분석 반영)</button>
         </form>
+            </c:otherwise>
+        </c:choose>
     </c:otherwise>
 </c:choose>
 
