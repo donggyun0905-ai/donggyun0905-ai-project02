@@ -2,18 +2,10 @@ package com.specodyssey.service;
 
 import java.sql.SQLException;
 
-/**
- * 사용자가 입력한 기술명(raw)을 SKILL 마스터의 한 항목으로 매칭한다.
- * 구현체: ExactMatcher(이름 일치) — 임베딩 기반 EmbeddingMatcher가 나오면 교체한다.
- */
+/** 사용자가 입력한 기술 원문을 표준 스킬(SKILL)에 연결한다. */
 public interface SkillMatcher {
+    /** 못 찾으면 null. score는 0~1 (정확 일치는 1.0) */
+    MatchResult match(String rawInput) throws SQLException;
 
-    /** 매칭 결과. 매칭 실패 시 skillId는 null, score는 0. */
-    record MatchResult(Long skillId, double score) {
-        public static MatchResult none() {
-            return new MatchResult(null, 0.0);
-        }
-    }
-
-    MatchResult match(String raw) throws SQLException;
+    record MatchResult(Long skillId, double score) {}
 }

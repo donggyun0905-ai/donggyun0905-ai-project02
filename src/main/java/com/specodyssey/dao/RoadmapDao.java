@@ -59,6 +59,19 @@ public class RoadmapDao {
         }
     }
 
+    // gap_analysis_id는 UNIQUE(1:1)라, 같은 분석으로 로드맵을 또 만들려는 요청(중복 클릭 등)을
+    // 막으려면 먼저 이걸로 이미 있는지 확인해야 한다 — FR-32 생성 흐름에서 사용.
+    public RoadmapDto findByGapAnalysisId(Long gapAnalysisId) throws SQLException {
+        String sql = "SELECT * FROM ROADMAP WHERE gap_analysis_id = ? AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, gapAnalysisId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        }
+    }
+
     // 대시보드·일일 미션이 바라보는 메인 여정
     public RoadmapDto findPrimaryByUserId(Long userId) throws SQLException {
         String sql = "SELECT * FROM ROADMAP WHERE user_id = ? AND is_primary = TRUE AND is_deleted = FALSE";

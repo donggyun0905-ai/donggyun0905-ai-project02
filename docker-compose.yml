@@ -1,0 +1,30 @@
+# 스펙 오디세이 로컬 개발용 MySQL. 팀원 아무나 `docker compose up -d` 한 번으로
+# 01~04번 sql 스크립트가 자동 적용된 spec_odyssey_test DB를 그대로 받는다.
+# (컨테이너 안에서 sql/*.sql을 docker-entrypoint-initdb.d로 마운트 — MySQL 공식 이미지가
+#  "컨테이너를 맨 처음 띄울 때 한 번만" 알파벳 순서로 실행해준다. 이미 데이터가 쌓인 볼륨이
+#  있으면 다시 실행되지 않는다 — 초기화하려면 `docker compose down -v`로 볼륨까지 지우고 재시작.)
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: spec-odyssey-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: "1234"
+      MYSQL_DATABASE: spec_odyssey_test
+      TZ: Asia/Seoul
+    ports:
+      - "3306:3306"
+    volumes:
+      - spec-odyssey-mysql-data:/var/lib/mysql
+      - ./sql:/docker-entrypoint-initdb.d:ro
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p1234"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  spec-odyssey-mysql-data:

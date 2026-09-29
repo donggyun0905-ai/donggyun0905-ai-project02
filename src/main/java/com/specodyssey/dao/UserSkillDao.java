@@ -45,6 +45,55 @@ public class UserSkillDao {
         }
     }
 
+    // 로드맵 SKILL 단계 완료 시 자동 반영용 — 이 경로는 skill_id가 항상 채워져 있어(로드맵이
+    // SKILL 마스터를 참조해 생성됨) raw_input 매칭 없이 UNIQUE(user_id, skill_id)로 바로 조회할 수 있다.
+    public UserSkillDto findByUserIdAndSkillId(Connection conn, Long userId, Long skillId) throws SQLException {
+        String sql = "SELECT * FROM USER_SKILLS WHERE user_id = ? AND skill_id = ? AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            pstmt.setLong(2, skillId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        }
+    }
+
+    // 숙련도 자동 승급 전용 — raw_input/skill_id는 건드리지 않는다(수동 입력한 update()와의 차이).
+    public void updateProficiency(Connection conn, Long id, String proficiency) throws SQLException {
+        String sql = "UPDATE USER_SKILLS SET proficiency = ? WHERE id = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, proficiency);
+            pstmt.setLong(2, id);
+            pstmt.executeUpdate();
+        }
+    }
+
+    // 로드맵이 skill_id로 못 찾을 때(=사용자가 프로필에서 직접 수동 입력해 skill_id가 NULL인 행) 쓰는
+    // 보조 조회 — raw_input 기준(대소문자·공백 무시)이라 existsActiveRawInput과 같은 방식으로 비교한다.
+    public UserSkillDto findByUserIdAndRawInput(Connection conn, Long userId, String rawInput) throws SQLException {
+        String sql = "SELECT * FROM USER_SKILLS WHERE user_id = ? AND is_deleted = FALSE " +
+                "AND LOWER(TRIM(raw_input)) = LOWER(TRIM(?))";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            pstmt.setString(2, rawInput);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        }
+    }
+
+    // 수동 입력으로 skill_id가 NULL이던 행에, 로드맵이 같은 이름의 마스터 스킬을 찾았을 때 뒤늦게
+    // 채워 넣는다 — 이걸 안 하고 새로 insert하면 프로필에 같은 기술이 두 줄로 보인다.
+    public void attachSkillId(Connection conn, Long id, Long skillId, String proficiency) throws SQLException {
+        String sql = "UPDATE USER_SKILLS SET skill_id = ?, proficiency = ? WHERE id = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, skillId);
+            pstmt.setString(2, proficiency);
+            pstmt.setLong(3, id);
+            pstmt.executeUpdate();
+        }
+    }
+
     public boolean existsActiveRawInput(Long userId, String rawInput) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return existsActiveRawInput(conn, userId, rawInput);
