@@ -217,6 +217,7 @@ is_deleted  BOOLEAN      NOT NULL DEFAULT FALSE
 - `javax.servlet.*` import 사용 (Tomcat 10+는 `jakarta.servlet.*`)
 - 구버전 JSTL URI(`http://java.sun.com/jsp/jstl/core`) 사용
 - 스키마 임의 변경 — `docs/db-design.md`가 기준이며, 바꿔야 하면 먼저 물어볼 것
+- 뼈대 자체는 건들지 않도록 하고, 깃허브에서 merge 충돌이 나지 않도록 필요한 모듈이 있으면 새로 만들 것
 
 ---
 
