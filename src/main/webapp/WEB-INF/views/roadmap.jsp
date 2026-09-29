@@ -60,24 +60,24 @@
             <div class="banner">🎉 지금까지 분석된 부족 기술을 모두 채웠습니다! 새로 재분석하면 다음 목표가 이어집니다.</div>
         </c:if>
 
-        <%-- 앞으로 갈 길(잠긴 미래 티어)은 안 보여주고, 지나온 길(완료한 것)은 접어둔 "돌아보기"
-             섹션으로 분리한다 — 화면이 미래 단계까지 전부 펼쳐 보여주면 복잡해서 지금 할 일에만
-             집중하게 하고, 완료한 건 <details>로 접어뒀다 필요할 때만 펼쳐보게 한다(사용자 요청,
-             2026-09-29). <details>/<summary>는 순수 HTML 표준 기능이라 JS 없이도 동작한다. --%>
+        <%-- 앞으로 갈 길(잠긴 미래 티어)은 안 보여주되, 지나온 길(완료한 것)은 클릭해서 펼치는 게
+             아니라 그냥 위로 스크롤(드래그)하면 바로 보이게 — 접이식 <details>는 빼고 평범하게
+             이어서 렌더링한다. 다만 "이미 끝난 일"이라는 걸 눈에 보이게 하려고 색을 옅게(뿌옇게)
+             뺀다 — journey-card.is-past가 opacity+grayscale로 흐릿하게 처리(사용자 요청, 2026-09-29). --%>
         <c:set var="completedCount" value="0" scope="page" />
         <c:forEach var="s" items="${steps}"><c:if test="${s.completed}"><c:set var="completedCount" value="${completedCount + 1}" scope="page" /></c:if></c:forEach>
 
         <c:if test="${completedCount > 0}">
-            <details class="card journey-map" style="margin-bottom:18px;">
-                <summary style="cursor:pointer; font-weight:700; font-size:1.05rem;">🧭 지나온 길 돌아보기 (${completedCount}개 완료)</summary>
+            <div class="card journey-map" style="margin-bottom:18px;">
+                <h2 style="margin-bottom:2px;">🧭 지나온 길 (${completedCount}개 완료)</h2>
                 <div class="journey-track" style="margin-top:16px;">
                     <c:set var="reviewIndex" value="0" scope="page" />
                     <c:forEach var="step" items="${steps}">
                         <c:if test="${step.completed}">
                             <c:set var="reviewIndex" value="${reviewIndex + 1}" scope="page" />
                             <div class="journey-row">
-                                <div class="journey-marker completed">✓</div>
-                                <div class="journey-card" style="grid-column: ${reviewIndex % 2 == 1 ? 1 : 3};">
+                                <div class="journey-marker completed is-past">✓</div>
+                                <div class="journey-card is-past" style="grid-column: ${reviewIndex % 2 == 1 ? 1 : 3};">
                                     <div class="row" style="margin-bottom:8px;">
                                         <span class="chip chip-teal">
                                             <c:choose>
@@ -102,7 +102,7 @@
                         </c:if>
                     </c:forEach>
                 </div>
-            </details>
+            </div>
         </c:if>
 
         <c:if test="${not progress.journeyComplete}">
