@@ -1,0 +1,266 @@
+package com.specodyssey.service.discovery;
+
+import com.specodyssey.dao.JobDao;
+import com.specodyssey.dao.JobRecommendationDao;
+import com.specodyssey.dao.JobRequiredSkillDao;
+import com.specodyssey.dao.SurveyQuestionDao;
+import com.specodyssey.dao.UserProjectDao;
+import com.specodyssey.dao.UserSkillDao;
+import com.specodyssey.dao.UserSurveyAnswerDao;
+import com.specodyssey.dto.JobDto;
+import com.specodyssey.dto.JobRecommendationDto;
+import com.specodyssey.dto.JobRequiredSkillDto;
+import com.specodyssey.dto.SurveyQuestionDto;
+import com.specodyssey.dto.UserProjectDto;
+import com.specodyssey.dto.UserSkillDto;
+import com.specodyssey.dto.UserSurveyAnswerDto;
+import com.specodyssey.service.ExactMatcher;
+import com.specodyssey.service.SkillMatcher;
+import com.specodyssey.service.discovery.JobDiscoveryScorer.JobCandidate;
+import com.specodyssey.service.discovery.JobDiscoveryScorer.OwnedSkill;
+import com.specodyssey.service.discovery.JobDiscoveryScorer.Recommendation;
+import com.specodyssey.service.discovery.JobDiscoveryScorer.RequiredSkill;
+import com.specodyssey.service.discovery.JobDiscoveryScorer.SurveyAnswer;
+import com.specodyssey.util.TransactionUtil;
+
+import java.sql.SQLException;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+/**
+ * 직무 발굴. 관련 요구사항: FR-34 · 38 · 39
+ * 설문 응답 + 보유 스펙(기술·프로젝트 기술 스택)으로 후보 직무 3~5개를 추천하고, 고른 직무를 격차 분석으로 넘긴다.
+ *
+ * 재응답 정책: 직무 발굴 설문은 다시 풀 수 있다. 관심이 바뀌거나 스펙이 늘면 추천도 달라져야 하기 때문이다.
+ * 다시 풀면 응답은 덮어쓰고(upsert), 이전 추천은 논리 삭제한 뒤 새 추천을 저장한다 — 한 트랜잭션.
+ *
+ * LLM(E 담당 LlmClient)이 병합되면 추천 이유·요약(summary_json)을 LLM 문장으로 바꿀 자리: {@link #describe}.
+ * LLM이 실패해도 계산기가 만든 기본 문장이 남아 있어 화면이 멈추지 않는다(FR-111).
+ */
+public class JobDiscoveryService {
+
+    public static final String SURVEY_TYPE = "JOB_DISCOVERY";
+
+    private final SurveyQuestionDao questionDao = new SurveyQuestionDao();
+    private final UserSurveyAnswerDao answerDao = new UserSurveyAnswerDao();
+    private final JobRecommendationDao recommendationDao = new JobRecommendationDao();
+    private final JobDao jobDao = new JobDao();
+    private final JobRequiredSkillDao requiredSkillDao = new JobRequiredSkillDao();
+    private final UserSkillDao userSkillDao = new UserSkillDao();
+    private final UserProjectDao userProjectDao = new UserProjectDao();
+    private final SkillMatcher skillMatcher;
+    private final JobDiscoveryScorer scorer = new JobDiscoveryScorer();
+
+    public JobDiscoveryService() {
+        this(new ExactMatcher()); // E의 EmbeddingMatcher가 나오면 여기만 바꾼다
+    }
+
+    public JobDiscoveryService(SkillMatcher skillMatcher) {
+        this.skillMatcher = skillMatcher;
+    }
+
+    /** 설문 응답이 빠졌거나 범위를 벗어났을 때. 서블릿이 400으로 돌려준다. */
+    public static class InvalidSurveyException extends Exception {
+        public InvalidSurveyException(String message) {
+            super(message);
+        }
+    }
+
+    // ================= 조회 =================
+
+    public List<SurveyQuestionDto> getQuestions() throws SQLException {
+        return questionDao.findBySurveyType(SURVEY_TYPE);
+    }
+
+    /** 다시 풀 때 이전 응답을 미리 체크해 두려고 쓴다. key = question_id */
+    public Map<Long, Integer> getMyAnswers(Long userId) throws SQLException {
+        Map<Long, Integer> mine = new HashMap<>();
+        for (UserSurveyAnswerDto a : answerDao.findByUserId(userId)) {
+            mine.put(a.getQuestionId(), a.getAnswerValue());
+        }
+        return mine;
+    }
+
+    /** 화면용 추천 목록 (순위순). 아직 설문 전이면 빈 목록. */
+    public List<RecommendationView> getRecommendations(Long userId) throws SQLException {
+        Map<Long, String> jobNames = new HashMap<>();
+        for (JobDto job : jobDao.findAll()) {
+            jobNames.put(job.getId(), job.getJobName());
+        }
+        List<RecommendationView> views = new ArrayList<>();
+        for (JobRecommendationDto r : recommendationDao.findByUserId(userId)) {
+            views.add(new RecommendationView(r.getId(), r.getJobId(), jobNames.get(r.getJobId()),
+                    r.getRankOrder(), r.getMatchReason(), r.isSelected()));
+        }
+        return views;
+    }
+
+    // ================= 설문 제출 → 추천 (FR-34 · 38) =================
+
+    /**
+     * @param answersByQuestionId key = SURVEY_QUESTION.id, value = 1~5
+     * @return 저장된 추천 (순위순)
+     */
+    public List<Recommendation> submitSurvey(Long userId, Map<Long, Integer> answersByQuestionId)
+            throws SQLException, InvalidSurveyException {
+        List<SurveyQuestionDto> questions = getQuestions();
+        if (questions.isEmpty()) {
+            throw new IllegalStateException("직무 발굴 설문 문항이 없습니다. sql/05_seed_survey.sql을 실행하세요.");
+        }
+        List<SurveyAnswer> answers = validate(questions, answersByQuestionId);
+
+        List<Recommendation> recommendations =
+                scorer.recommend(answers, collectOwnedSkills(userId), loadJobCandidates());
+        describe(recommendations);
+
+        LocalDateTime now = LocalDateTime.now();
+        TransactionUtil.runInTransaction(conn -> {
+            for (SurveyQuestionDto q : questions) {
+                UserSurveyAnswerDto a = new UserSurveyAnswerDto();
+                a.setUserId(userId);
+                a.setQuestionId(q.getId());
+                a.setAnswerValue(answersByQuestionId.get(q.getId()));
+                a.setAnsweredAt(now);
+                answerDao.upsert(conn, a);
+            }
+            recommendationDao.softDeleteByUserId(conn, userId);
+            for (Recommendation r : recommendations) {
+                JobRecommendationDto dto = new JobRecommendationDto();
+                dto.setUserId(userId);
+                dto.setJobId(r.jobId);
+                dto.setRankOrder(r.rankOrder);
+                dto.setMatchReason(r.reason);
+                recommendationDao.upsert(conn, dto);
+            }
+            return null;
+        });
+        return recommendations;
+    }
+
+    // ================= 후보 선택 → 격차 분석 (FR-39) =================
+
+    /**
+     * 고른 후보를 선택 상태로 바꾸고 그 job_id를 돌려준다. 서블릿은 이 값으로 격차 분석 화면으로 보낸다.
+     * 내 추천이 아니거나 없는 id면 null — updateSelected가 void라 0행 갱신을 알 수 없어서 먼저 소유를 확인한다.
+     */
+    public Long selectRecommendation(Long userId, Long recommendationId) throws SQLException {
+        JobRecommendationDto target = null;
+        for (JobRecommendationDto r : recommendationDao.findByUserId(userId)) {
+            if (r.getId().equals(recommendationId)) {
+                target = r;
+                break;
+            }
+        }
+        if (target == null) {
+            return null;
+        }
+        TransactionUtil.runInTransaction(conn -> {
+            recommendationDao.clearSelectedByUserId(conn, userId);
+            recommendationDao.updateSelected(conn, recommendationId, userId, true);
+            return null;
+        });
+        return target.getJobId();
+    }
+
+    // ================= 내부 =================
+
+    private List<SurveyAnswer> validate(List<SurveyQuestionDto> questions, Map<Long, Integer> given)
+            throws InvalidSurveyException {
+        List<SurveyAnswer> answers = new ArrayList<>();
+        for (SurveyQuestionDto q : questions) {
+            Integer v = given.get(q.getId());
+            if (v == null) {
+                throw new InvalidSurveyException("모든 문항에 답해주세요.");
+            }
+            if (v < 1 || v > 5) {
+                throw new InvalidSurveyException("응답은 1~5 중에서 골라주세요.");
+            }
+            answers.add(new SurveyAnswer(q.getJobCategoryHint(), v));
+        }
+        return answers;
+    }
+
+    /** 보유 기술 원문 + 프로젝트 tech_stack(쉼표·슬래시 구분)을 표준 스킬로 매칭한다. 매칭 실패는 버린다. */
+    List<OwnedSkill> collectOwnedSkills(Long userId) throws SQLException {
+        Map<String, String> raws = new LinkedHashMap<>(); // 소문자 키로 중복 제거, 값은 원문
+        for (UserSkillDto s : userSkillDao.findByUserId(userId)) {
+            addRaw(raws, s.getRawInput());
+        }
+        for (UserProjectDto p : userProjectDao.findByUserId(userId)) {
+            if (p.getTechStack() != null) {
+                for (String part : p.getTechStack().split("[,/]")) {
+                    addRaw(raws, part);
+                }
+            }
+        }
+        List<OwnedSkill> owned = new ArrayList<>();
+        for (String raw : raws.values()) {
+            SkillMatcher.MatchResult m = skillMatcher.match(raw);
+            if (m != null && m.skillId() != null) {
+                owned.add(new OwnedSkill(m.skillId(), raw, m.score()));
+            }
+        }
+        return owned;
+    }
+
+    private void addRaw(Map<String, String> raws, String raw) {
+        if (raw == null || raw.isBlank()) {
+            return;
+        }
+        String trimmed = raw.trim();
+        raws.putIfAbsent(trimmed.toLowerCase(Locale.ROOT), trimmed);
+    }
+
+    private List<JobCandidate> loadJobCandidates() throws SQLException {
+        List<JobCandidate> jobs = new ArrayList<>();
+        for (JobDto job : jobDao.findAll()) {
+            List<RequiredSkill> skills = new ArrayList<>();
+            for (JobRequiredSkillDto rs : requiredSkillDao.findByJobId(job.getId())) {
+                skills.add(new RequiredSkill(rs.getSkillId(), "REQUIRED".equals(rs.getImportance())));
+            }
+            jobs.add(new JobCandidate(job.getId(), job.getJobName(), job.getJobCategory(), skills));
+        }
+        return jobs;
+    }
+
+    /**
+     * 추천 이유·요약을 다듬는 자리 (FR-35 · 38의 "AI가 종합").
+     * TODO(C): E의 LlmClient가 병합되면 여기서 호출해 r.reason을 바꾸고 summary_json을 채운다.
+     *          실패하면 아무것도 하지 않고 넘어가서 계산기 기본 문장을 그대로 쓴다(FR-111).
+     */
+    private void describe(List<Recommendation> recommendations) {
+        // 아직 LlmClient 없음 — 기본 문장 유지
+    }
+
+    /** JSP 표시용. EL이 getter로 읽으므로 record 대신 클래스로 둔다(Tomcat 10.1의 EL 5.0은 record 접근자를 못 읽음). */
+    public static class RecommendationView {
+        private final Long id;
+        private final Long jobId;
+        private final String jobName;
+        private final Integer rankOrder;
+        private final String matchReason;
+        private final boolean selected;
+
+        public RecommendationView(Long id, Long jobId, String jobName, Integer rankOrder,
+                                  String matchReason, boolean selected) {
+            this.id = id;
+            this.jobId = jobId;
+            this.jobName = jobName;
+            this.rankOrder = rankOrder;
+            this.matchReason = matchReason;
+            this.selected = selected;
+        }
+
+        public Long getId() { return id; }
+        public Long getJobId() { return jobId; }
+        public String getJobName() { return jobName; }
+        public Integer getRankOrder() { return rankOrder; }
+        public String getMatchReason() { return matchReason; }
+        public boolean isSelected() { return selected; }
+    }
+}
