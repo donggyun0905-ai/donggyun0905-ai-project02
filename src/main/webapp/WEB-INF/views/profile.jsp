@@ -18,31 +18,74 @@
     </div>
 </c:if>
 
+<c:if test="${not empty errorMessage}">
+    <p class="error-message">${errorMessage}</p>
+</c:if>
+
 <h2 style="margin-top:24px; margin-bottom:10px;">기본 정보</h2>
-<div class="card">
-    <form action="${pageContext.request.contextPath}/profile" method="post">
-        <p><label>이메일</label><input type="email" name="email" value="${user.email}"></p>
-        <p><label>전공</label><input type="text" name="major" value="${user.major}"></p>
-        <p><label>학년</label><input type="text" name="grade" value="${user.grade}"></p>
-        <p><label>관심 분야</label><input type="text" name="interestField" value="${user.interestField}"></p>
-        <p>
-            <label>희망 직무</label>
-            <span class="row">
-                <label style="display:inline;"><input type="radio" name="desiredJobStatus" value="UNSET"
-                               ${user.desiredJobStatus == 'UNSET' ? 'checked' : ''} style="width:auto;"> 아직 모르겠음</label>
-                <label style="display:inline;"><input type="radio" name="desiredJobStatus" value="SET"
-                               ${user.desiredJobStatus == 'SET' ? 'checked' : ''} style="width:auto;"> 선택함</label>
-                <select name="desiredJobId" style="width:auto;">
-                    <option value="">-- 직무 선택 --</option>
-                    <c:forEach var="job" items="${jobs}">
-                        <option value="${job.id}" ${job.id == user.desiredJobId ? 'selected' : ''}>${job.jobName}</option>
-                    </c:forEach>
-                </select>
-            </span>
-        </p>
-        <button type="submit">기본정보 저장</button>
-    </form>
-</div>
+<c:choose>
+    <%-- 편집 거리로 대신 골라낸 애매한 매칭은 바로 저장하지 않고 여기서 먼저 확인받는다 —
+         희망 직무는 격차분석·로드맵을 좌우하는 값이라 잘못 자동교정되면 위험해서다. JOB에
+         설명 컬럼이 없어서, 카테고리와 그 직무의 별칭들을 "뭐 하는 직무인지" 힌트로 보여준다. --%>
+    <c:when test="${not empty pendingJobMatch}">
+        <div class="card">
+            <p>입력하신 내용과 정확히 일치하는 직무가 없어서, 가장 비슷한 직무를 찾았습니다. 맞나요?</p>
+            <p style="margin:10px 0;">
+                <strong>${pendingJobMatch.job.jobName}</strong>
+                <c:if test="${not empty pendingJobMatch.job.jobCategory}">
+                    <span class="chip chip-teal">${pendingJobMatch.job.jobCategory}</span>
+                </c:if>
+            </p>
+            <c:if test="${not empty pendingJobMatch.aliasNames}">
+                <p class="muted">이런 이름으로도 불립니다:
+                    <c:forEach var="alias" items="${pendingJobMatch.aliasNames}" varStatus="st">${alias}<c:if test="${!st.last}">, </c:if></c:forEach>
+                </p>
+            </c:if>
+            <div class="row" style="margin-top:14px; gap:10px;">
+                <form action="${pageContext.request.contextPath}/profile" method="post">
+                    <input type="hidden" name="action" value="confirmJob">
+                    <input type="hidden" name="confirmedJobId" value="${pendingJobMatch.job.id}">
+                    <input type="hidden" name="email" value="${pendingEmail}">
+                    <input type="hidden" name="major" value="${pendingMajor}">
+                    <input type="hidden" name="grade" value="${pendingGrade}">
+                    <input type="hidden" name="interestField" value="${pendingInterestField}">
+                    <button type="submit">예, 이 직무로 저장</button>
+                </form>
+                <a href="${pageContext.request.contextPath}/profile" class="btn secondary">아니오, 다시 검색</a>
+            </div>
+        </div>
+    </c:when>
+    <c:otherwise>
+        <div class="card">
+            <form action="${pageContext.request.contextPath}/profile" method="post">
+                <p><label>이메일</label><input type="email" name="email" value="${user.email}"></p>
+                <p><label>전공</label><input type="text" name="major" value="${user.major}"></p>
+                <p><label>학년</label><input type="text" name="grade" value="${user.grade}"></p>
+                <p><label>관심 분야</label><input type="text" name="interestField" value="${user.interestField}"></p>
+                <p>
+                    <label>희망 직무</label>
+                    <%-- list=datalist: 클릭하면 전체 직무가 드롭박스로 보이고, 입력할수록 그중 일치하는
+                         것만 브라우저가 알아서 좁혀준다(JS 없이 HTML5 표준 기능). 정식 명칭뿐 아니라
+                         JOB_ALIAS의 별칭도 같이 후보로 넣어서, 다르게 알고 있는 이름으로 쳐도 뜬다 —
+                         실제 매칭(별칭 → job_id)은 서버(ProfileService.resolveJobQuery)에서 한다.
+                         비워두고 저장하면 "아직 모르겠음"으로 저장된다(별도 라디오 없이 입력칸 하나로 판단). --%>
+                    <input type="text" name="desiredJobQuery" list="jobOptions" style="width:auto;"
+                           autocomplete="off" placeholder="아직 모르겠으면 비워두세요 (다른 이름으로 알고 있어도 OK)"
+                           value="${desiredJobQuery}">
+                    <datalist id="jobOptions">
+                        <c:forEach var="job" items="${jobs}">
+                            <option value="${job.jobName}">
+                        </c:forEach>
+                        <c:forEach var="alias" items="${jobAliases}">
+                            <option value="${alias.aliasName}">
+                        </c:forEach>
+                    </datalist>
+                </p>
+                <button type="submit">기본정보 저장</button>
+            </form>
+        </div>
+    </c:otherwise>
+</c:choose>
 
 <h2 style="margin-top:24px; margin-bottom:10px;">보유 스펙</h2>
 <ul class="item-list">

@@ -67,7 +67,9 @@ public class RoadmapStepDao {
     // FR-36 완료 체크 → 여정 진행도·스코어 적립 근거
     // ROADMAP_STEP에는 user_id가 없어(부모 ROADMAP에만 있음) JOIN으로 소유자를 확인한다.
     // 없으면 다른 사용자의 로드맵 단계도 완료 처리할 수 있고, 점수(+100)가 걸려있어 조작 경로가 된다.
-    public void updateCompleted(Connection conn, Long stepId, Long userId, boolean completed, LocalDateTime completedAt)
+    // 소유자가 아니면(다른 사용자 id) 0을 반환한다 — 호출부(RoadmapService)가 이 값으로
+    // 실제로 갱신됐을 때만 점수를 적립하도록 판단한다.
+    public int updateCompleted(Connection conn, Long stepId, Long userId, boolean completed, LocalDateTime completedAt)
             throws SQLException {
         String sql = "UPDATE ROADMAP_STEP rs JOIN ROADMAP r ON rs.roadmap_id = r.id " +
                 "SET rs.is_completed = ?, rs.completed_at = ? " +
@@ -77,7 +79,34 @@ public class RoadmapStepDao {
             pstmt.setTimestamp(2, toTimestamp(completedAt));
             pstmt.setLong(3, stepId);
             pstmt.setLong(4, userId);
-            pstmt.executeUpdate();
+            return pstmt.executeUpdate();
+        }
+    }
+
+    // 완료 처리 직후 step_type·related_skill_id·certification_id를 확인해 스펙/스킬 자동 반영 여부를
+    // 판단하는 데 쓴다 (RoadmapService.completeStep).
+    public RoadmapStepDto findById(Connection conn, Long stepId) throws SQLException {
+        String sql = "SELECT * FROM ROADMAP_STEP WHERE id = ? AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, stepId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        }
+    }
+
+    // SKILL 단계 완료 횟수 — 숙련도 자동 승급 기준(팀 합의: 10회 INTERMEDIATE, 30회 ADVANCED).
+    // 로드맵이 재생성돼도(새 ROADMAP) 같은 스킬이 다시 나오면 계속 누적되도록 roadmap_id로 좁히지 않는다.
+    public int countCompletedByUserAndSkill(Connection conn, Long userId, Long skillId) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM ROADMAP_STEP rs JOIN ROADMAP r ON rs.roadmap_id = r.id " +
+                "WHERE r.user_id = ? AND rs.related_skill_id = ? AND rs.step_type = 'SKILL' " +
+                "AND rs.is_completed = TRUE AND rs.is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            pstmt.setLong(2, skillId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
         }
     }
 

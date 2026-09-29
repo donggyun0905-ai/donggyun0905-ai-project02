@@ -48,6 +48,19 @@ public class DocumentDao {
         }
     }
 
+    // 다운로드 서블릿에서 소유자 확인 후 스트리밍할 때 사용 — id만으로 조회하고,
+    // 본인 소유인지는 호출부(서블릿)가 userId와 비교해서 판단한다.
+    public DocumentDto findById(Long id) throws SQLException {
+        String sql = "SELECT * FROM DOCUMENTS WHERE id = ? AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, id);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        }
+    }
+
     public List<DocumentDto> findByUserId(Long userId) throws SQLException {
         String sql = "SELECT * FROM DOCUMENTS WHERE user_id = ? AND is_deleted = FALSE ORDER BY id DESC";
         try (Connection conn = DBUtil.getConnection();

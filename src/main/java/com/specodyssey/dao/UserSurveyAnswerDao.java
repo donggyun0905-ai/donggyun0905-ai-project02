@@ -18,6 +18,7 @@ import java.util.List;
  * 관련 요구사항: FR-38 직무 발굴 + 자가진단(TD-5 d)
  * 자가진단은 초기 1회만 인정하는 정책(docs/db-design.md)이라 수정·삭제는 두지 않는다.
  * 복합 UNIQUE(user_id, question_id) 위반(재응답)은 이 응답을 다루는 서비스가 판단한다.
+ * 직무 발굴은 재응답을 허용하기로 해서 upsert를 추가했다(JobDiscoveryService).
  */
 public class UserSurveyAnswerDao {
 
@@ -54,6 +55,24 @@ public class UserSurveyAnswerDao {
                 }
                 return answers;
             }
+        }
+    }
+
+    /**
+     * 직무 발굴 설문 재응답(FR-38). 같은 (user_id, question_id)가 있으면 값만 덮어쓰고, 논리 삭제된 행도 되살린다.
+     * JOB_DISCOVERY 문항 전용 — 자가진단(SELF_CHECK)은 초기 1회만 인정하는 정책이라 이 메서드를 쓰면 안 된다.
+     */
+    public void upsert(Connection conn, UserSurveyAnswerDto answer) throws SQLException {
+        String sql = "INSERT INTO USER_SURVEY_ANSWER (user_id, question_id, answer_value, answered_at) " +
+                "VALUES (?, ?, ?, ?) " +
+                "ON DUPLICATE KEY UPDATE answer_value = VALUES(answer_value), " +
+                "answered_at = VALUES(answered_at), is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, answer.getUserId());
+            pstmt.setLong(2, answer.getQuestionId());
+            pstmt.setInt(3, answer.getAnswerValue());
+            pstmt.setTimestamp(4, toTimestamp(answer.getAnsweredAt()));
+            pstmt.executeUpdate();
         }
     }
 

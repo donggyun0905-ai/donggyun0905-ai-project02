@@ -20,9 +20,13 @@ src/main/webapp/WEB-INF/web-secret.xml
 # 업로드 파일
 uploads/
 
+# 개인 DB 스냅샷(용량이 크고 개인 테스트 데이터라 팀 저장소에는 안 올림 — USB/클라우드로 직접 옮길 것)
+db-backup/
+
 # OS
 .DS_Store
 Thumbs.db
+claude.local.md
 
 # api 및 DB 설정
 *.properties
