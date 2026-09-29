@@ -37,6 +37,7 @@ erDiagram
     JOB ||--o{ JOB_BENCHMARK_SPEC : "합격 기준"
     JOB ||--o{ JOB_RECOMMENDATION : "후보"
     JOB ||--o{ GAP_ANALYSIS : "목표"
+    JOB ||--o{ JOB_POSTING : "채용공고"
     GAP_ANALYSIS ||--o{ GAP_ANALYSIS_ITEM : "상세 항목"
     GAP_ANALYSIS ||--|| ROADMAP : "길 생성"
     ROADMAP ||--o{ ROADMAP_STEP : "단계"
@@ -290,6 +291,39 @@ erDiagram
 - 초안에서는 이게 JSON 한 덩어리였다. 그러면 TD-1이 정의한 "규칙기반 DB 대조"를 SQL로 할 수 없고 인사이트 집계도 막힌다. 그래서 행 단위로 풀었다.
 - is_estimated를 직무가 아니라 행에 둔 게 핵심이다. 한 직무 안에서도 워크넷 실측 기술과 대기업 보완용 LLM 추정 기술이 섞이므로, 직무 단위 플래그로는 어느 항목이 추정인지 구분할 수 없다.
 - 대기업 요구스펙은 명세서 대안 B 확정 — LLM이 "해당 직무 대기업의 일반적 요구 역량"을 생성하고 화면에 "예시적 추정"으로 명시한다.
+
+#### JOB_POSTING (채용공고) — 신설
+
+관련 요구사항: FR-113 데이터 없는 직무 보완
+
+고용24 등에서 수집한 개별 채용공고. On-demand 조회 결과 공고가 0건일 때 LLM이 일반화된 요구스펙으로
+보완하는 근거 데이터이자, 향후 채용공고 원문 기반 기능(요약·추천 근거 제시 등)의 토대가 된다.
+
+| 컬럼 | 타입 | 키 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK | 식별자 |
+| `job_id` | BIGINT | FK | → JOB |
+| `title` | VARCHAR(200) |  | 명칭 |
+| `summary` | TEXT |  | 무슨 일을 하는지 요약 |
+| `qualifications` | TEXT |  | 자격요건 |
+| `preferred` | TEXT |  | 우대사항 |
+| `education_level` | VARCHAR(50) |  | 학력 |
+| `salary` | VARCHAR(100) |  | 급여 (원문이 범위·텍스트 혼재라 문자열로 둠, 예: "회사내규에 따름") |
+| `source_url` | VARCHAR(500) | UK | 출처(원문 공고 링크) |
+| `collected_at` | DATETIME |  | 수집 시각 |
+
+설계 판단:
+
+- 최초 36개 테이블 스캐폴딩(2주차 이전) 당시엔 이 테이블이 없었다. 팀 확인 결과 채용공고 저장 담당이
+  비어 있었고(`.env`의 `WORK24_JOB_POSTING_API_KEY`만 미리 발급돼 있던 상태), 로드맵 담당이 맡기로
+  확정해 이번에 추가했다.
+- `source_url`을 UNIQUE로 둔 이유는 TREND_TECH와 같다 — 같은 공고를 주기적으로 재수집해도 중복 저장을
+  막기 위함(재수집 시 `existsBySourceUrl`로 먼저 확인).
+- `salary`를 DECIMAL이 아니라 VARCHAR로 둔 이유: 고용24 원문 급여 표기가 "회사내규에 따름", "3,000만원~",
+  "협의" 등 텍스트로 오는 경우가 많아 숫자 하나로 정규화하면 정보 손실이 크다. 통계용 숫자 비교가
+  필요해지면 그때 별도 컬럼(min/max)을 추가한다.
+- `job_id`는 NOT NULL이다 — 어느 직무 계열 조회로 수집된 공고인지 항상 알아야 격차 분석·인사이트에서
+  재사용할 수 있다.
 
 #### JOB_BENCHMARK_SPEC (합격 기준 스펙) — 신설
 

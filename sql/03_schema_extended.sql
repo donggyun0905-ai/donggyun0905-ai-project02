@@ -130,6 +130,35 @@ CREATE TABLE JOB_REQUIRED_SKILL (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =========================================================
+-- JOB_POSTING (채용공고) — 신설
+-- 관련 요구사항: FR-113 데이터 없는 직무 보완 (On-demand 조회 결과 공고 0건 시 LLM 일반화 요구스펙 보완의 근거 데이터)
+-- 담당: B(로드맵) — 최초 36개 테이블 스캐폴딩(2주차 이전) 시점엔 없었고, 팀 확인 결과
+-- 담당자가 안 정해져 있던 테이블이라 이번에 추가한다. .env의 WORK24_JOB_POSTING_API_KEY가
+-- 고용24 채용정보 API 연동을 염두에 두고 이미 발급돼 있었음(실제 수집 배치는 별도 작업).
+-- =========================================================
+CREATE TABLE JOB_POSTING (
+    id                BIGINT        NOT NULL AUTO_INCREMENT,
+    job_id            BIGINT        NOT NULL,
+    title             VARCHAR(200)  NOT NULL, -- 명칭
+    summary           TEXT          NULL,     -- 무슨 일을 하는지 요약
+    qualifications    TEXT          NULL,     -- 자격요건
+    preferred         TEXT          NULL,     -- 우대사항
+    education_level   VARCHAR(50)   NULL,     -- 학력
+    salary            VARCHAR(100)  NULL,     -- 급여 (범위·텍스트 혼재라 숫자 아닌 문자열로 둠)
+    source_url        VARCHAR(500)  NULL,     -- 출처(원문 공고 링크) — 재수집 시 중복 저장 방지용 키
+    collected_at      DATETIME      NULL,
+    created_at        DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted        BOOLEAN       NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_job_posting_source_url (source_url),
+    KEY idx_job_posting_job_id (job_id),
+    CONSTRAINT fk_job_posting_job
+        FOREIGN KEY (job_id) REFERENCES JOB (id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
 -- JOB_BENCHMARK_SPEC (합격자 스펙 역산, LLM 생성) — 신설
 -- 관련 요구사항: FR-46 데이터 인사이트
 -- =========================================================
