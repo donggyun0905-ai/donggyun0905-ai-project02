@@ -209,6 +209,12 @@ footer.site-footer {
 .journey-tier-badge:first-child { margin-top: 0; }
 .journey-tier-badge.final { background: var(--ink); }
 
+/* "지나온 길" 박스 자체를 스크롤 컨테이너로 — 페이지 전체를 안 밀어도 이 박스 안에서만
+   위아래로 드래그/스크롤해서 볼 수 있게 한다(사용자 요청, 2026-09-29). .journey-track은
+   그 안에서 원래 높이 그대로 자라고, 이 바깥 래퍼가 max-height + overflow로 잘라서
+   스크롤바를 만든다 — 그래야 물결 배경(::before)이 전체 내용 높이만큼 같이 스크롤된다. */
+.journey-track-scroll { max-height: 480px; overflow-y: auto; border-radius: var(--radius); }
+
 .journey-track { position: relative; padding: 10px 0; }
 .journey-track::before {
     /* 직선 대신 물결 SVG를 세로로 반복 타일링해서 굽이치는 느낌을 낸다 —

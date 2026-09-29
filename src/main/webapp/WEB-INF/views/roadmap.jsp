@@ -70,6 +70,8 @@
         <c:if test="${completedCount > 0}">
             <div class="card journey-map" style="margin-bottom:18px;">
                 <h2 style="margin-bottom:2px;">🧭 지나온 길 (${completedCount}개 완료)</h2>
+                <p class="muted" style="margin:2px 0 0;">박스 안에서 위아래로 스크롤해서 볼 수 있어요.</p>
+                <div class="journey-track-scroll">
                 <div class="journey-track" style="margin-top:16px;">
                     <c:set var="reviewIndex" value="0" scope="page" />
                     <c:forEach var="step" items="${steps}">
@@ -101,6 +103,7 @@
                             </div>
                         </c:if>
                     </c:forEach>
+                </div>
                 </div>
             </div>
         </c:if>
