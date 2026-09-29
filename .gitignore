@@ -16,10 +16,6 @@ build/
 *.env
 secrets.properties
 src/main/webapp/WEB-INF/web-secret.xml
-# api 및 DB 설정 (config.properties — AppConfig가 읽음, seongwon 브랜치에서 가져옴 2026-09-29)
-*.properties
-# Maven Wrapper 설정은 비밀 정보가 아니므로 커밋한다 (팀원이 Maven 설치 없이 mvnw로 빌드)
-!.mvn/wrapper/maven-wrapper.properties
 
 # 업로드 파일
 uploads/
