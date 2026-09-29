@@ -130,6 +130,48 @@ CREATE TABLE JOB_REQUIRED_SKILL (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =========================================================
+-- JOB_POSTING (채용공고) — 신설
+-- 관련 요구사항: FR-113 데이터 없는 직무 보완 (On-demand 조회 결과 공고 0건 시 LLM 일반화 요구스펙 보완의 근거 데이터)
+-- 담당: B(로드맵) — 최초 36개 테이블 스캐폴딩(2주차 이전) 시점엔 없었고, 팀 확인 결과
+-- 담당자가 안 정해져 있던 테이블이라 이번에 추가한다. .env의 WORK24_JOB_POSTING_API_KEY가
+-- 고용24 채용정보 API 연동을 염두에 두고 이미 발급돼 있었음(실제 수집 배치는 별도 작업).
+--
+-- 컬럼은 실제 수집 대시보드 샘플(docs/saved_resource.html, 원티드·고용24 등 10개 출처
+-- 1,606건 집계)을 보고 다시 확정했다 — 처음엔 개별 공고 상세 7개 필드만 생각했는데,
+-- 실제 목록 화면 기준으로 회사명·기술스택·경력·지역·마감일·등록일·출처 시스템명이 더 있었다.
+-- 지금은 "있는 데이터를 다 담아두는" 단계라 필드를 넉넉히 두고, 실제 화면에 보여줄 항목은
+-- 나중에 조회 쿼리/화면 쪽에서 추린다(팀 방침, 2026-09-29).
+-- =========================================================
+CREATE TABLE JOB_POSTING (
+    id                BIGINT        NOT NULL AUTO_INCREMENT,
+    job_id            BIGINT        NOT NULL,
+    source            VARCHAR(50)   NOT NULL, -- 출처 시스템명 (원티드/고용24/CSI/CJK/CAT/CIN/KOS/MIT/PRD/CWK 등)
+    source_url        VARCHAR(500)  NULL,     -- 출처 원문 링크("보기") — 재수집 시 중복 저장 방지용 키
+    title             VARCHAR(200)  NOT NULL, -- 명칭(제목)
+    company_name      VARCHAR(150)  NULL,     -- 회사명
+    summary           TEXT          NULL,     -- 무슨 일을 하는지 요약 (상세 페이지 전용, 목록에는 없을 수 있음)
+    tech_stack        TEXT          NULL,     -- 기술스택 원문 목록 — 콤마 구분 텍스트(정규화는 다음 단계)
+    qualifications    TEXT          NULL,     -- 자격요건
+    preferred         TEXT          NULL,     -- 우대사항
+    career_level      VARCHAR(50)   NULL,     -- 경력 (예: 경력, 경력무관, 신입, 경력8년)
+    education_level   VARCHAR(50)   NULL,     -- 학력 (예: 학력무관, 대졸(4년))
+    salary            VARCHAR(100)  NULL,     -- 급여 — 범위·"회사내규에 따름" 등 텍스트 혼재라 문자열로 둠
+    region            VARCHAR(100)  NULL,     -- 지역 (예: 서울 강남구, 지역무관)
+    deadline          VARCHAR(50)   NULL,     -- 마감 — "상시"처럼 날짜가 아닌 값도 있어 DATE 대신 문자열로 둠
+    posted_at         DATE          NULL,     -- 원문 사이트 등록일 (우리가 수집한 시각인 collected_at과 별개)
+    collected_at      DATETIME      NULL,     -- 우리 배치가 이 행을 수집한 시각
+    created_at        DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted        BOOLEAN       NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_job_posting_source_url (source_url),
+    KEY idx_job_posting_job_id (job_id),
+    CONSTRAINT fk_job_posting_job
+        FOREIGN KEY (job_id) REFERENCES JOB (id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
 -- JOB_BENCHMARK_SPEC (합격자 스펙 역산, LLM 생성) — 신설
 -- 관련 요구사항: FR-46 데이터 인사이트
 -- =========================================================

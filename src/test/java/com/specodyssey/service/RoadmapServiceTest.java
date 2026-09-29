@@ -707,7 +707,7 @@ class RoadmapServiceTest {
             assertTrue(progress.getTier("ENTRY").isUnlocked());
             assertFalse(progress.getTier("CORE").isUnlocked(), "ENTRY를 안 끝냈으면 CORE는 아직 잠겨 있어야 한다");
             assertFalse(progress.getTier("ADVANCED").isUnlocked());
-            assertTrue(progress.getTier("EXPERT").isEmpty(), "12개는 ADVANCED까지만 채우므로 EXPERT는 비어 있어야 한다");
+            assertTrue(progress.getTier("EXPERT").isEmptyTier(), "12개는 ADVANCED까지만 채우므로 EXPERT는 비어 있어야 한다");
             assertEquals("ENTRY", progress.getCurrentTier().getTier());
             assertEquals("CORE", progress.getNextLockedTier().getTier());
 
