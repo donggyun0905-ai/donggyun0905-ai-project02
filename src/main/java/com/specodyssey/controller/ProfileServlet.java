@@ -1,5 +1,6 @@
 package com.specodyssey.controller;
 
+import com.specodyssey.dao.DocumentDao;
 import com.specodyssey.dao.JobDao;
 import com.specodyssey.dao.UserDao;
 import com.specodyssey.dto.UserDto;
@@ -24,6 +25,7 @@ public class ProfileServlet extends HttpServlet {
 
     private final UserDao userDao = new UserDao();
     private final JobDao jobDao = new JobDao();
+    private final DocumentDao documentDao = new DocumentDao();
     private final ProfileService profileService = new ProfileService();
 
     @Override
@@ -35,6 +37,8 @@ public class ProfileServlet extends HttpServlet {
             req.setAttribute("specs", profileService.getSpecs(userId));
             req.setAttribute("projects", profileService.getProjects(userId));
             req.setAttribute("skills", profileService.getSkills(userId));
+            // FR-62 프로젝트에 연결된 첨부 파일 조회·다운로드 — PROJECT 로드맵 단계 완료 시 자동 등록된다.
+            req.setAttribute("documents", documentDao.findByUserId(userId));
         } catch (SQLException e) {
             throw new ServletException("프로필을 불러오는 중 오류가 발생했습니다.", e);
         }
