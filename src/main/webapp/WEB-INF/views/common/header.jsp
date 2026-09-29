@@ -1,33 +1,58 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<c:set var="ctx" value="${pageContext.request.contextPath}" />
+<c:set var="path" value="${pageContext.request.servletPath}" />
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${empty pageTitle ? '스펙 오디세이' : pageTitle}</title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/style.css">
+    <link rel="stylesheet" href="${ctx}/css/style.css">
 </head>
 <body>
+<input type="checkbox" id="nav-toggle">
 <header>
-    <a class="brand" href="${pageContext.request.contextPath}/">스펙 오디세이</a>
     <c:if test="${not empty sessionScope.loginUser}">
-<<<<<<< Updated upstream
-        <a href="${pageContext.request.contextPath}/profile">내 프로필</a>
-        <a href="${pageContext.request.contextPath}/logout">로그아웃</a>
-=======
-        <nav>
-            <c:if test="${not empty currentTier}">
-                <span class="tier-badge">
-                    <img src="${pageContext.request.contextPath}${tierLogoPath}" alt="${currentTier.tierName}" height="26">
-                    <strong>${currentTier.tierName}</strong> · ${totalScore}점
-                </span>
-            </c:if>
-            <a href="${pageContext.request.contextPath}/profile">내 프로필</a>
-            <a href="${pageContext.request.contextPath}/roadmap">로드맵</a>
-            <a href="${pageContext.request.contextPath}/logout">로그아웃</a>
-        </nav>
->>>>>>> Stashed changes
+        <label for="nav-toggle" class="menu-btn">☰ 목록</label>
+    </c:if>
+    <a class="brand" href="${ctx}/"><img src="${ctx}/image/logo.png" alt="로고">스펙 오디세이</a>
+    <span class="spacer"></span>
+    <c:if test="${not empty sessionScope.loginUser}">
+        <c:if test="${not empty currentTier}">
+            <span class="tier-badge">
+                <img src="${ctx}${tierLogoPath}" alt="${currentTier.tierName}">
+                <strong>${currentTier.tierName}</strong> · ${totalScore}점
+            </span>
+        </c:if>
     </c:if>
 </header>
-<main>
+
+<c:if test="${not empty sessionScope.loginUser}">
+<div class="nav-drawer">
+    <label for="nav-toggle" style="position:absolute; inset:0; cursor:default;"></label>
+    <div class="nav-drawer-panel">
+        <div class="drawer-head">목록 <label for="nav-toggle">✕</label></div>
+
+        <div class="nav-group-title">여정</div>
+        <a href="${ctx}/dashboard" class="${path == '/dashboard' ? 'active' : ''}">📊 대시보드</a>
+        <a href="${ctx}/roadmap" class="${path == '/roadmap' ? 'active' : ''}">🗺️ 내 로드맵</a>
+        <a href="${ctx}/mission" class="${path == '/mission' ? 'active' : ''}">✅ 오늘의 미션</a>
+        <a href="${ctx}/gap-analysis" class="${path == '/gap-analysis' ? 'active' : ''}">📈 격차 분석</a>
+        <a href="${ctx}/job-discovery" class="${path == '/job-discovery' ? 'active' : ''}">🔍 직무 찾기</a>
+
+        <div class="nav-group-title">성장 도구</div>
+        <a href="${ctx}/insights" class="${path == '/insights' ? 'active' : ''}">📉 데이터 인사이트</a>
+        <a href="${ctx}/dday" class="${path == '/dday' ? 'active' : ''}">🗓️ D-day 알림 <span class="nav-badge">D-3</span></a>
+        <a href="${ctx}/documents" class="${path == '/documents' ? 'active' : ''}">📁 서류 보관함</a>
+        <a href="${ctx}/resume-feedback" class="${path == '/resume-feedback' ? 'active' : ''}">✏️ 자소서 첨삭</a>
+
+        <div class="nav-group-title">공유 · 계정</div>
+        <a href="${ctx}/share-links" class="${path == '/share-links' ? 'active' : ''}">🔗 공유 링크</a>
+        <a href="${ctx}/profile" class="${path == '/profile' ? 'active' : ''}">👤 내 프로필</a>
+        <a href="${ctx}/logout">↩ 로그아웃</a>
+    </div>
+</div>
+</c:if>
+
+<main class="${mainWide ? 'wide' : ''}">
