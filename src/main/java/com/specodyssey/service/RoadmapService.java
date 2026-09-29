@@ -218,7 +218,9 @@ public class RoadmapService {
             return unlocked;
         }
 
-        public boolean isEmpty() {
+        // "empty"는 EL 예약어라 JSP에서 t.empty로 접근하면 태그 검증 단계에서 컴파일 자체가
+        // 깨진다(2026-09-29 실제 배포 중 발견) — isEmptyTier로 이름을 피해서 짓는다.
+        public boolean isEmptyTier() {
             return total == 0;
         }
 
@@ -245,14 +247,14 @@ public class RoadmapService {
         // 화면의 "지금 할 일" 섹션 — 열려 있고, 비어 있지 않고, 아직 다 안 끝난 첫 번째 티어.
         public TierProgress getCurrentTier() {
             return tiers.stream()
-                    .filter(t -> t.isUnlocked() && !t.isEmpty() && !t.isComplete())
+                    .filter(t -> t.isUnlocked() && !t.isEmptyTier() && !t.isComplete())
                     .findFirst().orElse(null);
         }
 
         // "다음 단계 미리보기" 섹션 — 아직 잠겨 있고 비어 있지 않은 첫 번째 티어.
         public TierProgress getNextLockedTier() {
             return tiers.stream()
-                    .filter(t -> !t.isUnlocked() && !t.isEmpty())
+                    .filter(t -> !t.isUnlocked() && !t.isEmptyTier())
                     .findFirst().orElse(null);
         }
 

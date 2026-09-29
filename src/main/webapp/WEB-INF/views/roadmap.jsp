@@ -45,9 +45,9 @@
             <c:forEach var="t" items="${progress.tiers}">
                 <c:set var="tierLabel"
                        value="${t.tier == 'ENTRY' ? '입문' : t.tier == 'CORE' ? '핵심' : t.tier == 'ADVANCED' ? '심화' : '전문가'}" />
-                <span class="chip ${t.empty ? 'chip-locked' : !t.unlocked ? 'chip-locked' : t.complete ? 'chip-teal' : 'chip-gold'}">
+                <span class="chip ${t.emptyTier ? 'chip-locked' : !t.unlocked ? 'chip-locked' : t.complete ? 'chip-teal' : 'chip-gold'}">
                     <c:choose>
-                        <c:when test="${t.empty}">${tierLabel} · 해당 없음</c:when>
+                        <c:when test="${t.emptyTier}">${tierLabel} · 해당 없음</c:when>
                         <c:when test="${!t.unlocked}">🔒 ${tierLabel}</c:when>
                         <c:otherwise>${tierLabel} ${t.done}/${t.total} (${t.percent}%)</c:otherwise>
                     </c:choose>
