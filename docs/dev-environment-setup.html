@@ -183,7 +183,7 @@
   <a href="#common">1. 공통 준비</a>
   <a class="sub" href="#common-install">설치할 것</a>
   <a class="sub" href="#common-port">톰캣 포트 80 설정</a>
-  <a class="sub" href="#common-config">config.properties</a>
+  <a class="sub" href="#common-config">.env</a>
   <a class="sub" href="#common-build">빌드 확인</a>
   <a href="#intellij">2. IntelliJ IDEA</a>
   <a class="sub" href="#ij-maven">Maven 인식</a>
@@ -205,7 +205,7 @@
   <h1>개발 환경 설정 가이드</h1>
   <p>스펙 오디세이를 IntelliJ 또는 VS Code에서 톰캣으로 실행하고, 공용 DB에 연결하는 방법</p>
   <div class="tldr">
-    <div><b>① 설정 파일</b>루트의 <code>config.properties.example</code>을 복사해 <code>config.properties</code>로 만들고 DB 정보 입력</div>
+    <div><b>① 설정 파일</b><code>src/main/resources/.env.example</code>을 복사해 <code>.env</code>로 만들고 DB 정보·API 키 입력</div>
     <div><b>② 톰캣</b><strong>Tomcat 10.1 이상</strong>만 동작 (9.x 이하 불가)</div>
     <div><b>③ 빌드</b>Maven 설치 없이 <code>mvnw.cmd</code>로 빌드</div>
   </div>
@@ -261,14 +261,14 @@ Set-Service W3SVC -StartupType Disabled</pre></div>
 
   <h3 id="common-config">설정 파일 만들기 <span class="badge once">처음 한 번</span></h3>
   <ol class="steps">
-    <li>프로젝트 <strong>루트</strong>의 <code>config.properties.example</code>을 복사해 <strong>같은 위치</strong>에 <code>config.properties</code>로 저장합니다.</li>
-    <li>DB 접속 정보를 채웁니다. 값은 팀 채널에서 받으세요.
-      <div class="code"><span class="label">config.properties</span><button type="button">복사</button><pre>DB_URL=jdbc:mysql://<span class="hl">&lt;호스트&gt;:&lt;포트&gt;</span>/spec_odyssey?useSSL=false&amp;allowPublicKeyRetrieval=true&amp;serverTimezone=Asia/Seoul&amp;characterEncoding=UTF-8
+    <li><code>src/main/resources/.env.example</code>을 복사해 <strong>같은 폴더</strong>에 <code>.env</code>로 저장합니다.</li>
+    <li>DB 접속 정보와 고용24 API 키를 채웁니다. 값은 팀 채널에서 받으세요.
+      <div class="code"><span class="label">src/main/resources/.env</span><button type="button">복사</button><pre>DB_URL=jdbc:mysql://<span class="hl">&lt;호스트&gt;:&lt;포트&gt;</span>/spec_odyssey?useSSL=false&amp;allowPublicKeyRetrieval=true&amp;serverTimezone=Asia/Seoul&amp;characterEncoding=UTF-8
 DB_USER=<span class="hl">&lt;아이디&gt;</span>
 DB_PASSWORD=<span class="hl">&lt;비밀번호&gt;</span></pre></div>
     </li>
   </ol>
-  <div class="box bad"><b>config.properties는 절대 커밋하지 마세요</b><code>.gitignore</code>에 등록돼 있어 <code>git add .</code>로는 올라가지 않습니다. <code>git add -f</code>로 강제로 올리지 마세요.</div>
+  <div class="box bad"><b>.env는 절대 커밋하지 마세요</b><code>.gitignore</code>(<code>*.env</code>)에 등록돼 있어 <code>git add .</code>로는 올라가지 않습니다. <code>git add -f</code>로 강제로 올리지 마세요.</div>
 
   <h3 id="common-build">빌드 확인 <span class="badge once">처음 한 번</span></h3>
   <p>프로젝트 루트에서 실행합니다.</p>
@@ -318,7 +318,7 @@ DB_PASSWORD=<span class="hl">&lt;비밀번호&gt;</span></pre></div>
 
   <h3 id="ij-dev">코드 수정 후 <span class="badge every">매번</span></h3>
   <div class="flow"><span class="node">코드·JSP 수정</span><span class="arr">→</span><span class="node key">실행 창의 재시작(↻)</span><span class="arr">→</span><span class="node">브라우저 새로고침</span></div>
-  <p><code>config.properties</code>를 고쳤을 때도 재시작하면 반영됩니다.</p>
+  <p><code>.env</code>를 고쳤을 때도 다시 빌드한 뒤 재시작하면 반영됩니다.</p>
 </section>
 
 <!-- ─────────────── 3 ─────────────── -->
@@ -442,8 +442,8 @@ Set-Service W3SVC -StartupType Disabled</pre></div>
       <div class="table-wrap">
       <table>
         <tr><th>오류 메시지</th><th>원인 / 해결</th></tr>
-        <tr><td>"config.properties(또는 환경변수)에 DB_URL, DB_USER, DB_PASSWORD를 설정해야 합니다"</td>
-            <td><code>config.properties</code>가 <strong>프로젝트 루트</strong>에 없거나 키 이름이 다릅니다. 고친 뒤 <strong>다시 빌드</strong>하세요 (빌드할 때 앱 안으로 복사됩니다).</td></tr>
+        <tr><td>"DB_URL, DB_USER, DB_PASSWORD를 찾을 수 없습니다"</td>
+            <td><code>.env</code>가 <strong><code>src/main/resources</code></strong>에 없거나 키 이름이 다릅니다. 고친 뒤 <strong>다시 빌드</strong>하세요 (빌드할 때 앱 안으로 복사됩니다).</td></tr>
         <tr><td><code>UnknownHostException</code></td><td><code>DB_URL</code>의 호스트 주소 오타</td></tr>
         <tr><td><code>Communications link failure</code></td><td>DB 서버가 꺼져 있거나 포트·방화벽 문제</td></tr>
         <tr><td><code>Access denied for user</code></td><td>아이디 또는 비밀번호 오류</td></tr>
@@ -468,15 +468,14 @@ Set-Service W3SVC -StartupType Disabled</pre></div>
 <section id="how">
   <h2><span class="num">5</span>DB 연결 원리</h2>
   <div class="flow">
-    <span class="node">config.properties <span class="dim">(루트)</span></span><span class="arr">→ 빌드 시 복사 →</span>
+    <span class="node">.env <span class="dim">(src/main/resources)</span></span><span class="arr">→ 빌드 시 복사 →</span>
     <span class="node">WEB-INF/classes</span><span class="arr">→</span>
-    <span class="node">AppConfig</span><span class="arr">→</span>
     <span class="node">DBUtil</span><span class="arr">→</span>
     <span class="node key">각 DAO</span>
   </div>
   <ul>
-    <li><code>pom.xml</code>이 빌드할 때 루트의 <code>config.properties</code>를 앱의 클래스패스(<code>WEB-INF/classes</code>)에 넣습니다. 그래서 어떤 IDE로 실행해도 같은 값을 읽습니다.</li>
-    <li><code>AppConfig</code>가 값을 읽습니다. 같은 이름의 <strong>환경변수가 있으면 환경변수가 우선</strong>합니다.</li>
+    <li>빌드할 때 <code>src/main/resources/.env</code>가 앱의 클래스패스(<code>WEB-INF/classes</code>)에 들어갑니다. 그래서 어떤 IDE로 실행해도 같은 값을 읽습니다.</li>
+    <li><code>DBUtil</code>이 <code>.env</code>에서 값을 읽고, <code>.env</code>에 없으면 같은 이름의 <strong>환경변수</strong>로 대체합니다. API 키는 <code>AppConfig</code>가 같은 규칙으로 읽습니다.</li>
     <li><code>DBUtil.getConnection()</code>이 그 값으로 MySQL에 접속합니다.</li>
   </ul>
   <div class="box ok"><b>새 DAO를 만들 때</b>

@@ -42,6 +42,22 @@ public class ScoreLogDao {
         }
     }
 
+    // 같은 이벤트(user_id, signal_type, ref_id)로 이미 적립했는지 확인 — 완료 체크를 껐다 켜도
+    // 중복 적립되지 않게 ScoreService가 insert 전에 이걸로 먼저 가드한다.
+    public boolean existsByUserSignalRef(Connection conn, Long userId, String signalType, Long refId)
+            throws SQLException {
+        String sql = "SELECT 1 FROM SCORE_LOG WHERE user_id = ? AND signal_type = ? AND ref_id = ? " +
+                "AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            pstmt.setString(2, signalType);
+            pstmt.setLong(3, refId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
     public List<ScoreLogDto> findByUserId(Long userId) throws SQLException {
         String sql = "SELECT * FROM SCORE_LOG WHERE user_id = ? AND is_deleted = FALSE ORDER BY earned_at";
         try (Connection conn = DBUtil.getConnection();

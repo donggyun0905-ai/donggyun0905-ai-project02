@@ -3,6 +3,7 @@ package com.specodyssey.controller;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.dto.UserSpecDto;
 import com.specodyssey.service.ProfileService;
+import com.specodyssey.service.RoadmapService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -24,6 +25,7 @@ import java.time.format.DateTimeParseException;
 public class ProfileSpecServlet extends HttpServlet {
 
     private final ProfileService profileService = new ProfileService();
+    private final RoadmapService roadmapService = new RoadmapService();
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -49,6 +51,11 @@ public class ProfileSpecServlet extends HttpServlet {
                     return;
                 }
                 profileService.addSpec(userId, spec);
+                // 로드맵 CERT 단계를 거치지 않고 프로필에서 직접 자격증을 추가한 경우 — 일치하는
+                // 미완료 CERT 단계가 있으면 로드맵도 같이 완료 처리한다.
+                if ("CERT".equals(spec.getSpecType())) {
+                    roadmapService.syncCertAddedFromProfile(userId, spec.getTitle());
+                }
             }
         } catch (NumberFormatException | DateTimeParseException e) {
             resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "잘못된 요청입니다.");

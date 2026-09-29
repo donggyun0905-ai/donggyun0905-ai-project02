@@ -32,6 +32,23 @@ public class CertificationDao {
         }
     }
 
+    public CertificationDto findById(Long id) throws SQLException {
+        try (Connection conn = DBUtil.getConnection()) {
+            return findById(conn, id);
+        }
+    }
+
+    // 로드맵 CERT 단계 완료 시 USER_SPECS 자동 반영에 필요 (ROADMAP_STEP.certification_id로 조회)
+    public CertificationDto findById(Connection conn, Long id) throws SQLException {
+        String sql = "SELECT * FROM CERTIFICATION WHERE id = ? AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, id);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        }
+    }
+
     public CertificationDto findByName(String certName) throws SQLException {
         String sql = "SELECT * FROM CERTIFICATION WHERE cert_name = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
@@ -39,6 +56,23 @@ public class CertificationDao {
             pstmt.setString(1, certName);
             try (ResultSet rs = pstmt.executeQuery()) {
                 return rs.next() ? mapRow(rs) : null;
+            }
+        }
+    }
+
+    // FR-32 로드맵 자격증 단계 후보 조회 — 난이도 낮은 순(ENTRY 티어에 맞는 것부터).
+    public List<CertificationDto> findByJobCategory(String jobCategory) throws SQLException {
+        String sql = "SELECT * FROM CERTIFICATION WHERE job_category = ? AND is_deleted = FALSE " +
+                "ORDER BY difficulty_level ASC, cert_name ASC";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, jobCategory);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                List<CertificationDto> certifications = new ArrayList<>();
+                while (rs.next()) {
+                    certifications.add(mapRow(rs));
+                }
+                return certifications;
             }
         }
     }

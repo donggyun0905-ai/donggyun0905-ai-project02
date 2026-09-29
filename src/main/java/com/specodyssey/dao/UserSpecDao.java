@@ -45,6 +45,22 @@ public class UserSpecDao {
         }
     }
 
+    // 로드맵 CERT 단계 완료 시 자동 등록용 중복 방지 — 같은 자격증을 이미 (수동으로든 자동으로든)
+    // 등록해뒀으면 또 넣지 않는다. USER_SPECS에는 별도 UNIQUE 제약이 없어 앱 레벨에서 확인한다.
+    public boolean existsActiveByUserAndTitle(Connection conn, Long userId, String specType, String title)
+            throws SQLException {
+        String sql = "SELECT 1 FROM USER_SPECS WHERE user_id = ? AND spec_type = ? AND title = ? " +
+                "AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            pstmt.setString(2, specType);
+            pstmt.setString(3, title);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
     // FR-81 취득일 순 타임라인 정렬
     public List<UserSpecDto> findByUserId(Long userId) throws SQLException {
         String sql = "SELECT * FROM USER_SPECS WHERE user_id = ? AND is_deleted = FALSE ORDER BY acquired_date";
