@@ -23,3 +23,8 @@ uploads/
 # OS
 .DS_Store
 Thumbs.db
+
+# api 및 DB 설정
+*.properties
+# Maven Wrapper 설정은 비밀 정보가 아니므로 커밋한다 (팀원이 Maven 설치 없이 mvnw로 빌드)
+!.mvn/wrapper/maven-wrapper.properties

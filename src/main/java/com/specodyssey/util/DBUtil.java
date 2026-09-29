@@ -6,19 +6,19 @@ import java.sql.SQLException;
 
 /**
  * DB 커넥션 발급 유틸.
- * 접속 정보는 소스에 하드코딩하지 않고 환경변수(DB_URL, DB_USER, DB_PASSWORD)로 분리한다.
- * Tomcat 구동 전에 setenv.sh/bat 또는 IDE 실행 설정에서 세 값을 지정해야 한다.
+ * 접속 정보(DB_URL, DB_USER, DB_PASSWORD)는 소스에 하드코딩하지 않고 AppConfig로 읽는다.
+ * 프로젝트 루트의 config.properties에 적거나, 같은 이름의 환경변수로 지정한다 (환경변수 우선).
  */
 public final class DBUtil {
 
-    private static final String DB_URL = System.getenv("DB_URL");
-    private static final String DB_USER = System.getenv("DB_USER");
-    private static final String DB_PASSWORD = System.getenv("DB_PASSWORD");
+    private static final String DB_URL = AppConfig.get("DB_URL");
+    private static final String DB_USER = AppConfig.get("DB_USER");
+    private static final String DB_PASSWORD = AppConfig.get("DB_PASSWORD");
 
     static {
         if (DB_URL == null || DB_USER == null || DB_PASSWORD == null) {
             throw new ExceptionInInitializerError(
-                "DB_URL, DB_USER, DB_PASSWORD 환경변수를 설정해야 합니다. " +
+                "프로젝트 루트의 config.properties(또는 환경변수)에 DB_URL, DB_USER, DB_PASSWORD를 설정해야 합니다. " +
                 "예) DB_URL=jdbc:mysql://localhost:3306/spec_odyssey?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8"
             );
         }
