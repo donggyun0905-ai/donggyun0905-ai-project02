@@ -13,3 +13,8 @@ WORK24_EMPLOY_PROGRAM_API_KEY=
 WORK24_JOB_INFO_API_KEY=
 WORK24_DUTY_INFO_API_KEY=
 WORK24_SMALL_GIANT_API_KEY=
+
+# Groq LLM API 키 (트렌드 기술 정리용) — https://console.groq.com
+GROQ_API_KEY=
+# 선택: 모델 변경 시 (기본값 openai/gpt-oss-120b)
+# GROQ_MODEL=openai/gpt-oss-120b
