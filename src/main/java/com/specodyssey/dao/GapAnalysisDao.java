@@ -40,9 +40,12 @@ public class GapAnalysisDao {
         }
     }
 
-    // 최신 분석순 — 대시보드는 보통 가장 최근 것을 보여준다
+    // 최신 분석순 — 대시보드는 보통 가장 최근 것을 보여준다.
+    // analyzed_at은 DATETIME(초 단위)이라 짧은 시간에 재분석하면 값이 같을 수 있다 — id DESC를
+    // 2차 정렬로 둬서 동점일 때도 항상 더 나중에 만들어진(=더 큰 id) 쪽이 먼저 오게 한다.
     public List<GapAnalysisDto> findByUserId(Long userId) throws SQLException {
-        String sql = "SELECT * FROM GAP_ANALYSIS WHERE user_id = ? AND is_deleted = FALSE ORDER BY analyzed_at DESC";
+        String sql = "SELECT * FROM GAP_ANALYSIS WHERE user_id = ? AND is_deleted = FALSE " +
+                "ORDER BY analyzed_at DESC, id DESC";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);

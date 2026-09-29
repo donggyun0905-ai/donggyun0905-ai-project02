@@ -59,17 +59,32 @@
                 <span class="chip chip-gold">추천 1순위</span> <strong>백엔드 개발자</strong>
                 <p style="margin:8px 0;"><strong>추천 이유</strong> 서버·시스템 안정성 문항에 가장 높게 답했고, 보유 기술(Spring Boot, MySQL)과 API 서버 프로젝트가 이 직무 요구 기술과 가장 많이 겹칩니다.</p>
                 <p class="muted" style="margin:4px 0; font-size:0.84rem;"><strong>하는 일</strong> 서비스의 서버와 API, 데이터 처리 로직을 만들고 운영합니다.</p>
-                <form action="${pageContext.request.contextPath}/gap-analysis" method="get"><button type="submit">이 직무로 격차 분석하기</button></form>
+                <c:if test="${not empty exampleJob1}">
+                    <form action="${pageContext.request.contextPath}/gap-analysis" method="get">
+                        <input type="hidden" name="jobId" value="${exampleJob1.id}">
+                        <button type="submit">이 직무로 격차 분석하기</button>
+                    </form>
+                </c:if>
             </div>
             <div style="border-top:1px solid var(--border); margin-top:14px; padding-top:14px;">
                 <span class="chip chip-locked">추천 2순위</span> <strong>데이터 엔지니어</strong>
                 <p style="margin:8px 0;"><strong>추천 이유</strong> 데이터 정리 문항 응답이 높고, MySQL과 Docker 경험이 데이터 파이프라인 작업의 기초와 이어집니다.</p>
-                <form action="${pageContext.request.contextPath}/gap-analysis" method="get"><button type="submit" class="secondary">이 직무로 격차 분석하기</button></form>
+                <c:if test="${not empty exampleJob2}">
+                    <form action="${pageContext.request.contextPath}/gap-analysis" method="get">
+                        <input type="hidden" name="jobId" value="${exampleJob2.id}">
+                        <button type="submit" class="secondary">이 직무로 격차 분석하기</button>
+                    </form>
+                </c:if>
             </div>
             <div style="border-top:1px solid var(--border); margin-top:14px; padding-top:14px;">
                 <span class="chip chip-locked">추천 3순위</span> <strong>DevOps 엔지니어</strong>
                 <p style="margin:8px 0;"><strong>추천 이유</strong> 시스템 안정성에 관심이 높고, Docker로 배포까지 해본 경험이 있습니다.</p>
-                <form action="${pageContext.request.contextPath}/gap-analysis" method="get"><button type="submit" class="secondary">이 직무로 격차 분석하기</button></form>
+                <c:if test="${not empty exampleJob3}">
+                    <form action="${pageContext.request.contextPath}/gap-analysis" method="get">
+                        <input type="hidden" name="jobId" value="${exampleJob3.id}">
+                        <button type="submit" class="secondary">이 직무로 격차 분석하기</button>
+                    </form>
+                </c:if>
             </div>
         </div>
     </div>
