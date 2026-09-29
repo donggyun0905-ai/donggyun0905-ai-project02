@@ -1,9 +1,13 @@
 package com.specodyssey.service;
 
+import com.specodyssey.dao.JobAliasDao;
+import com.specodyssey.dao.JobDao;
 import com.specodyssey.dao.UserDao;
 import com.specodyssey.dao.UserProjectDao;
 import com.specodyssey.dao.UserSkillDao;
 import com.specodyssey.dao.UserSpecDao;
+import com.specodyssey.dto.JobAliasDto;
+import com.specodyssey.dto.JobDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.dto.UserProjectDto;
 import com.specodyssey.dto.UserSkillDto;
@@ -12,6 +16,7 @@ import com.specodyssey.util.TransactionUtil;
 
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -32,6 +37,127 @@ public class ProfileService {
     private final UserSpecDao userSpecDao = new UserSpecDao();
     private final UserProjectDao userProjectDao = new UserProjectDao();
     private final UserSkillDao userSkillDao = new UserSkillDao();
+    private final JobDao jobDao = new JobDao();
+    private final JobAliasDao jobAliasDao = new JobAliasDao();
+
+    // 검색창에 입력한 텍스트로 찾아낸 직무. exact=false면 정확히 일치하는 건 없어서 오타·표기
+    // 차이를 감안해 편집 거리 기준으로 가장 가까운 직무를 대신 찾은 것 — 이 경우 바로 저장하지
+    // 않고 화면에서 "이 직무 맞나요?" 확인부터 받는다(사용자 요청, 2026-09-29: 희망 직무는
+    // 격차분석·로드맵을 좌우하는 값이라 잘못 자동교정되면 위험하다). aliasNames는 그 확인 화면에서
+    // "이 직무가 뭘 하는 직무인지" 판단할 근거로 보여주는 별칭 목록(JOB에 설명 컬럼이 없어서 대신 씀).
+    public static final class JobMatch {
+        private final JobDto job;
+        private final boolean exact;
+        private final List<String> aliasNames;
+
+        public JobMatch(JobDto job, boolean exact, List<String> aliasNames) {
+            this.job = job;
+            this.exact = exact;
+            this.aliasNames = aliasNames;
+        }
+
+        public JobDto getJob() {
+            return job;
+        }
+
+        public boolean isExact() {
+            return exact;
+        }
+
+        public List<String> getAliasNames() {
+            return aliasNames;
+        }
+    }
+
+    // 희망 직무 검색창에 입력한 텍스트를 실제 JOB으로 풀어낸다. 사용자가 정식 명칭을 몰라도
+    // ("데이터 엔지니어"를 "데이터 프로그래머"로 알고 있는 경우 등) JOB_ALIAS에 등록된 별칭이면
+    // 찾을 수 있게 정식 명칭 → 별칭 순으로 조회한다 (팀 시드: sql/04_seed_skills.sql, 54개 별칭).
+    // 그마저도 정확히 일치하는 게 없으면(오타, 띄어쓰기 차이 등) 편집 거리로 가장 가까운 걸
+    // 대신 골라준다 — 완전한 임베딩 매칭 전까지의 가벼운 보완책 (사용자 요청, 2026-09-29).
+    public JobMatch resolveJobQuery(String query) throws SQLException {
+        if (query == null || query.isBlank()) {
+            return null;
+        }
+        String trimmed = query.trim();
+        JobDto byName = jobDao.findByName(trimmed);
+        if (byName != null) {
+            return new JobMatch(byName, true, List.of());
+        }
+        JobAliasDto alias = jobAliasDao.findByAliasName(trimmed);
+        if (alias != null) {
+            JobDto job = jobDao.findById(alias.getJobId());
+            if (job != null) {
+                return new JobMatch(job, true, List.of());
+            }
+        }
+        return fuzzyMatchJob(trimmed);
+    }
+
+    private JobMatch fuzzyMatchJob(String query) throws SQLException {
+        String normalizedQuery = normalizeForMatch(query);
+        List<JobAliasDto> allAliases = jobAliasDao.findAll();
+        JobDto bestJob = null;
+        int bestDistance = Integer.MAX_VALUE;
+
+        for (JobDto job : jobDao.findAll()) {
+            int distance = editDistance(normalizedQuery, normalizeForMatch(job.getJobName()));
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                bestJob = job;
+            }
+        }
+        for (JobAliasDto alias : allAliases) {
+            int distance = editDistance(normalizedQuery, normalizeForMatch(alias.getAliasName()));
+            if (distance < bestDistance) {
+                JobDto job = jobDao.findById(alias.getJobId());
+                if (job != null) {
+                    bestDistance = distance;
+                    bestJob = job;
+                }
+            }
+        }
+
+        if (bestJob == null) {
+            return null;
+        }
+        // 입력 길이의 40%보다 많이 다르면 아예 다른 직무일 가능성이 커서 자동 교정하지 않는다.
+        int threshold = Math.max(1, (int) Math.ceil(normalizedQuery.length() * 0.4));
+        if (bestDistance > threshold) {
+            return null;
+        }
+        // JOB에 설명 컬럼이 없어서, "이 직무 맞나요?" 확인 화면에서 무슨 일 하는 직무인지 감을
+        // 잡을 수 있게 그 직무에 등록된 별칭들을 같이 보여준다.
+        Long bestJobId = bestJob.getId();
+        List<String> aliasNames = new ArrayList<>();
+        for (JobAliasDto alias : allAliases) {
+            if (bestJobId.equals(alias.getJobId())) {
+                aliasNames.add(alias.getAliasName());
+            }
+        }
+        return new JobMatch(bestJob, false, aliasNames);
+    }
+
+    private String normalizeForMatch(String s) {
+        return s == null ? "" : s.trim().toLowerCase().replace(" ", "");
+    }
+
+    // 레벤슈타인 편집 거리 — 삽입·삭제·치환 최소 횟수.
+    private int editDistance(String a, String b) {
+        int[][] dp = new int[a.length() + 1][b.length() + 1];
+        for (int i = 0; i <= a.length(); i++) {
+            dp[i][0] = i;
+        }
+        for (int j = 0; j <= b.length(); j++) {
+            dp[0][j] = j;
+        }
+        for (int i = 1; i <= a.length(); i++) {
+            for (int j = 1; j <= b.length(); j++) {
+                int cost = a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1;
+                dp[i][j] = Math.min(Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1), dp[i - 1][j - 1] + cost);
+            }
+        }
+        return dp[a.length()][b.length()];
+    }
 
     public List<UserSpecDto> getSpecs(Long userId) throws SQLException {
         return userSpecDao.findByUserId(userId);
