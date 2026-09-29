@@ -16,6 +16,7 @@ build/
 *.env
 secrets.properties
 src/main/webapp/WEB-INF/web-secret.xml
+docs/saved_resource.html
 
 # 업로드 파일
 uploads/
