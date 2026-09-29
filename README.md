@@ -72,9 +72,10 @@ mysql -u <user> -p spec_odyssey < sql/02_seed.sql
 mysql -u <user> -p spec_odyssey < sql/03_schema_extended.sql
 ```
 
-### 2. DB 접속 정보 설정
+### 2. 설정 파일 (.env)
 
-DB 접속 정보는 소스에 하드코딩하지 않습니다. 둘 중 편한 방법으로 설정하세요.
+DB 접속 정보·API 키·업로드 폴더는 소스에 하드코딩하지 않습니다. 둘 중 편한 방법으로 설정하세요.
+`DBUtil`(DB)·`FileStorageUtil`(업로드 폴더)·`AppConfig`(API 키)가 모두 같은 규칙으로 읽습니다.
 
 **방법 A — `.env` 파일 (추천, IntelliJ에서 바로 실행하고 싶을 때 편합니다)**
 
@@ -83,21 +84,19 @@ cp src/main/resources/.env.example src/main/resources/.env
 ```
 
 복사한 `src/main/resources/.env`를 열어 실제 값으로 채웁니다. 이 파일은 `.gitignore`(`*.env`)에 걸려 있어 커밋되지 않으니 각자 로컬 값을 채우면 됩니다(팀원끼리 공유 금지 — 특히 비밀번호).
-### 2. 설정 파일 (config.properties)
+빌드 시 `WEB-INF/classes`에 들어가므로 IntelliJ·VS Code·`mvn package` 어느 쪽으로 실행해도 같은 값을 읽습니다. 값을 고쳤으면 다시 빌드하세요.
 
 **방법 B — 환경변수**
 
-`.env` 파일이 없을 때는 아래 환경변수로 대체됩니다 (CI 등에서 유용).
-DB 접속 정보·API 키는 소스에 하드코딩하지 않고 `config.properties`로 분리되어 있습니다.
-루트의 `config.properties.example`을 복사해 **같은 위치(프로젝트 루트)에 `config.properties`** 로 만들고 값을 채우세요.
-`.gitignore` 대상이라 커밋되지 않으며, `pom.xml` 설정으로 빌드 시 `WEB-INF/classes`에 들어가므로 IntelliJ·VS Code·`mvn package` 어느 쪽으로 실행해도 같은 값을 읽습니다.
-같은 이름의 환경변수가 있으면 환경변수가 우선합니다.
+`.env`에 값이 없을 때는 같은 이름의 환경변수로 대체됩니다 (CI 등에서 유용).
 
 | 키 | 예시 |
 | --- | --- |
 | `DB_URL` | `jdbc:mysql://localhost:3306/spec_odyssey?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8` |
 | `DB_USER` | `root` |
 | `DB_PASSWORD` | (본인 MySQL 비밀번호) |
+| `UPLOAD_DIR` | (선택) `C:/spec-odyssey-uploads` — 없으면 `<홈>/spec-odyssey-uploads` |
+| `WORK24_*_API_KEY` | 고용24 Open API 인증키 6종 — 키 이름은 `.env.example` 참고 |
 
 `.env`와 환경변수가 둘 다 있으면 `.env` 값이 우선합니다. 둘 다 없으면 `DBUtil`이 기동 시점에 바로 에러를 던집니다 (fail-fast).
 
