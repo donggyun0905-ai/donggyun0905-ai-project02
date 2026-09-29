@@ -24,6 +24,8 @@
             <p class="error-message">${errorMessage}</p>
         </c:if>
 
+        <div class="two-col" style="margin-top:16px;">
+        <div class="primary">
         <c:choose>
             <c:when test="${empty roadmap}">
                 <div class="card">
@@ -157,6 +159,11 @@
         </form>
             </c:otherwise>
         </c:choose>
+        </div>
+        <div class="side">
+            <jsp:include page="/WEB-INF/views/common/trend-widget.jsp" />
+        </div>
+        </div>
     </c:otherwise>
 </c:choose>
 

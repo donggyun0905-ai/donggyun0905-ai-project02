@@ -1,0 +1,20 @@
+# 이 파일을 복사해서 같은 위치(프로젝트 루트)에 config.properties 로 만들고 값을 채우세요.
+# 같은 이름의 환경변수가 있으면 환경변수가 우선합니다.
+
+# DB연결
+DB_URL=jdbc:mysql://localhost:3306/spec_odyssey?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+DB_USER=root
+DB_PASSWORD=
+
+# 고용24 Open API 인증키
+WORK24_JOB_POSTING_API_KEY=
+WORK24_MAJOR_INFO_API_KEY=
+WORK24_EMPLOY_PROGRAM_API_KEY=
+WORK24_JOB_INFO_API_KEY=
+WORK24_DUTY_INFO_API_KEY=
+WORK24_SMALL_GIANT_API_KEY=
+
+# Groq LLM API 키 (트렌드 기술 정리용) — https://console.groq.com
+GROQ_API_KEY=
+# 선택: 모델 변경 시 (기본값 openai/gpt-oss-120b)
+# GROQ_MODEL=openai/gpt-oss-120b
