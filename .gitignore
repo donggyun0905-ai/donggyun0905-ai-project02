@@ -26,3 +26,6 @@ db-backup/
 # OS
 .DS_Store
 Thumbs.db
+
+#개인 파일
+개발일지/
