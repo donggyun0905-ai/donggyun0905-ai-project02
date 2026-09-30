@@ -184,6 +184,14 @@
                                                 <button type="submit">등록하고 완료하기</button>
                                             </form>
                                         </details>
+                                        <%-- [TEST] 파일 없이 통과 — 테스트할 때마다 파일을 매번 첨부하기 번거로워서 다시 추가함
+                                             (2026-09-30, 사용자 요청). 실제 운영 배포 전에는 반드시 지울 것. --%>
+                                        <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">
+                                            <input type="hidden" name="action" value="complete">
+                                            <input type="hidden" name="stepId" value="${step.id}">
+                                            <input type="hidden" name="completed" value="true">
+                                            <button type="submit" class="link-button">[TEST] 파일 없이 통과</button>
+                                        </form>
                                     </c:when>
                                     <%-- ENTRY(공부노트)/EXPERT(기술 설명 글) SKILL 단계 — 규칙 기반 자동 판정(2026-09-30 팀 결정).
                                          미통과(NEEDS_REVISION)면 review_note를 보여주고 다시 제출할 수 있게 한다. --%>
@@ -209,6 +217,16 @@
                                                 <button type="submit">제출하기</button>
                                             </form>
                                         </details>
+                                        <%-- [TEST] 파일 없이 통과 — 테스트할 때마다 PDF를 매번 만들어 첨부하기 번거로워서
+                                             다시 추가함(2026-09-30, 사용자 요청). action=complete를 그대로 재사용해서
+                                             review_status/proof_content 없이 바로 완료 처리한다(규칙 판정 자체는 건너뜀).
+                                             실제 운영 배포 전에는 반드시 지울 것. --%>
+                                        <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">
+                                            <input type="hidden" name="action" value="complete">
+                                            <input type="hidden" name="stepId" value="${step.id}">
+                                            <input type="hidden" name="completed" value="true">
+                                            <button type="submit" class="link-button">[TEST] 파일 없이 통과</button>
+                                        </form>
                                     </c:when>
                                     <%-- CORE/ADVANCED SKILL 단계 — 프로젝트 등록 또는 기존 프로젝트 업그레이드 + 증빙 파일로
                                          자동 확인(2026-09-30 팀 결정). userProjects는 RoadmapServlet에서 미리 담아준다.
@@ -250,6 +268,15 @@
                                                         <button type="submit">등록하고 완료하기</button>
                                                     </form>
                                                 </details>
+                                                <%-- [TEST] 파일 없이 통과 — 다시 추가함(2026-09-30, 사용자 요청). ADVANCED의
+                                                     "업그레이드 필수" 검증도 이걸로는 건너뛴다 — 테스트 전용이라 상관없음.
+                                                     실제 운영 배포 전에는 반드시 지울 것. --%>
+                                                <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">
+                                                    <input type="hidden" name="action" value="complete">
+                                                    <input type="hidden" name="stepId" value="${step.id}">
+                                                    <input type="hidden" name="completed" value="true">
+                                                    <button type="submit" class="link-button">[TEST] 파일 없이 통과</button>
+                                                </form>
                                             </c:otherwise>
                                         </c:choose>
                                     </c:when>
