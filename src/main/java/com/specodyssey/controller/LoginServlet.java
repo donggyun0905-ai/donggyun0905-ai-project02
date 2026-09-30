@@ -41,8 +41,9 @@ public class LoginServlet extends HttpServlet {
             req.changeSessionId(); // 세션 고정(session fixation) 공격 방지 — 인증 성공 시 세션 ID 교체
             session.setAttribute("loginUser", user);
             // "/"는 index.jsp가 "/login"으로 되돌려보내는 자리라(별도 랜딩 화면 없음),
-            // 로그인 성공 후에는 대시보드로 보낸다 — 안 그러면 로그인하자마자 다시 로그인 화면으로 튕긴다.
-            resp.sendRedirect(req.getContextPath() + "/dashboard");
+            // 로그인 성공 후에는 어딘가로 보내야 한다 — 안 그러면 로그인하자마자 다시 로그인
+            // 화면으로 튕긴다. 메인 화면을 로드맵으로 정함(사용자 요청, 2026-09-30).
+            resp.sendRedirect(req.getContextPath() + "/roadmap");
         } catch (UserService.InvalidCredentialException e) {
             req.setAttribute("errorMessage", e.getMessage());
             req.getRequestDispatcher("/WEB-INF/views/login.jsp").forward(req, resp);
