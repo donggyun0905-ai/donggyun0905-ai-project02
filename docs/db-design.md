@@ -248,6 +248,7 @@ erDiagram
 - embedding_model 컬럼을 남겨둔 이유: 로컬 세팅이 1주차에 안 잡히면 임베딩 API로 갈아탈 수 있고, 그때 어떤 벡터가 어느 모델 산출물인지 구분해 재계산 대상만 골라낼 수 있다.
 - 벡터를 별도 컬럼으로 뺀 덕에 나중에 pgvector나 전용 벡터DB로 옮겨도 나머지 스키마는 손댈 필요가 없다.
 - IT 계열 한정이라 500개 안팎이면 충분하고, 한 번 계산해 저장하면 재계산이 거의 없다.
+- **진행 상황(2026-09-30)**: embedding_vector는 아직 아무도 채우지 않았다 — DJL+ONNX 세팅 자체가 미착수. 대신 그 전 단계로 `FuzzyNameMatcher`(SkillMatcher 구현체, 팀 결정 "이름 일치라도")를 GapAnalysisService·JobDiscoveryService 양쪽에 기본값으로 붙여, 정확 일치 실패 시 편집거리 기반으로 오타·표기 차이(같은 표기 체계 안에서만)를 흡수하도록 했다. "파이썬"↔"Python" 같은 표기 체계가 다른 진짜 의미 매칭은 여전히 이 단계에서 못 잡는다 — embedding_vector가 채워져야 풀리는 문제로 남아있다. `GapAnalysisService(SkillMatcher)` 생성자로 나중에 EmbeddingMatcher만 갈아끼우면 된다.
 
 #### JOB (직무 마스터) — 신설
 
