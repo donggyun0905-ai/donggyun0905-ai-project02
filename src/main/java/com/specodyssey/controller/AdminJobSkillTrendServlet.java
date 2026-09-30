@@ -6,13 +6,16 @@ import com.specodyssey.dao.SkillDao;
 import com.specodyssey.dto.JobDto;
 import com.specodyssey.dto.JobSkillTrendDto;
 import com.specodyssey.dto.SkillDto;
+import com.specodyssey.dto.UserDto;
 import com.specodyssey.service.JobSkillTrendService;
+import com.specodyssey.util.AppConfig;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
 import java.sql.SQLException;
@@ -28,14 +31,16 @@ import java.util.stream.Collectors;
  * 관련 요구사항: FR-47. LLM 없이 JOB_POSTING.tech_stack을 규칙 기반으로 다시 집계하는
  * JobSkillTrendService.refreshAll()을 수동으로 돌려보기 위한 용도다.
  *
- * 정식 관리자 권한 체계(역할 구분 등)가 아직 없어서 "로그인만 하면 접근 가능"한 상태로 임시로
- * 만든다 — SessionFilter 기본 정책(로그인 필요)만 적용되고 별도 관리자 체크는 없다.
+ * 정식 관리자 권한 체계(역할 구분 등)가 아직 없다. 임시로 로그인 아이디 하나(ADMIN_LOGIN_ID,
+ * 기본값 "admin")만 통과시키는 방식으로 막아둔다 — USERS에 role 컬럼을 추가하는 건 스키마
+ * 변경이라 지금 단계에서는 하지 않는다(claude.md "스키마 임의 변경 — 먼저 물어볼 것").
  * 화면을 보면서 계속 다듬기로 했으므로(2026-09-30), 정식 배포 전에 접근 제한을 다시 검토해야 한다.
  */
 @WebServlet("/admin/job-skill-trend")
 public class AdminJobSkillTrendServlet extends HttpServlet {
 
     private static final int TOP_N = 15;
+    private static final String DEFAULT_ADMIN_LOGIN_ID = "admin";
 
     private final JobSkillTrendService jobSkillTrendService = new JobSkillTrendService();
     private final JobSkillTrendDao jobSkillTrendDao = new JobSkillTrendDao();
@@ -44,6 +49,10 @@ public class AdminJobSkillTrendServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        if (!isAdmin(req)) {
+            resp.sendError(HttpServletResponse.SC_FORBIDDEN, "관리자 전용 화면입니다.");
+            return;
+        }
         try {
             loadSummary(req);
         } catch (SQLException e) {
@@ -54,6 +63,10 @@ public class AdminJobSkillTrendServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        if (!isAdmin(req)) {
+            resp.sendError(HttpServletResponse.SC_FORBIDDEN, "관리자 전용 화면입니다.");
+            return;
+        }
         try {
             int upserted = jobSkillTrendService.refreshAll();
             req.setAttribute("resultMessage", upserted + "건 갱신했습니다.");
@@ -67,6 +80,23 @@ public class AdminJobSkillTrendServlet extends HttpServlet {
             }
         }
         req.getRequestDispatcher("/WEB-INF/views/admin-job-skill-trend.jsp").forward(req, resp);
+    }
+
+    // 임시 접근 제한 — 세션의 로그인 아이디가 ADMIN_LOGIN_ID(.env, 기본값 "admin")와 같은지만 본다.
+    private boolean isAdmin(HttpServletRequest req) {
+        HttpSession session = req.getSession(false);
+        if (session == null) {
+            return false;
+        }
+        UserDto loginUser = (UserDto) session.getAttribute("loginUser");
+        if (loginUser == null) {
+            return false;
+        }
+        String adminLoginId = AppConfig.get("ADMIN_LOGIN_ID");
+        if (adminLoginId == null || adminLoginId.isBlank()) {
+            adminLoginId = DEFAULT_ADMIN_LOGIN_ID;
+        }
+        return adminLoginId.equals(loginUser.getLoginId());
     }
 
     private void loadSummary(HttpServletRequest req) throws SQLException {
