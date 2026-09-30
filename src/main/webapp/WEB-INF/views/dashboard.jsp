@@ -68,7 +68,7 @@
             <c:choose>
                 <c:when test="${not empty journeyProgress}">
                     <div class="row" style="margin-top:14px; justify-content:space-between;">
-                        <c:forEach var="t" items="${journeyProgress.tiers}">
+                        <c:forEach var="t" items="${journeyProgress.tiers}" varStatus="ts">
                             <c:set var="tierLabel" value="${t.tier == 'ENTRY' ? '입문 ENTRY' : t.tier == 'CORE' ? '핵심 CORE' : t.tier == 'ADVANCED' ? '심화 ADVANCED' : '전문가 EXPERT'}" />
                             <div style="text-align:center;">
                                 <div class="chip ${t.emptyTier ? 'chip-locked' : !t.unlocked ? 'chip-locked' : t.complete ? 'chip-teal' : 'chip-gold'}">
@@ -88,6 +88,10 @@
                                     </c:choose>
                                 </div>
                             </div>
+                            <%-- 티어 사이 연결선 — 완료된 티어 뒤는 teal, 아니면 회색 (마지막 티어 뒤에는 안 그림) --%>
+                            <c:if test="${not ts.last}">
+                                <div style="flex:1; height:2px; background:${t.complete ? 'var(--teal)' : 'var(--border)'}; margin-top:14px;"></div>
+                            </c:if>
                         </c:forEach>
                     </div>
                     <p style="margin-top:16px; margin-bottom:0;">
