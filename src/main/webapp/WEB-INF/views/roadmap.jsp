@@ -103,7 +103,7 @@
                  흐리게(opacity) 미리 보여주도록 되돌린다(2026-09-30, 집 PC 작업). 액션 버튼은
                  없다 — 잠긴 단계는 완료할 수 없다. --%>
             <c:set var="nextLockedTier" value="${progress.nextLockedTier}" />
-            <div class="journey-track-scroll">
+            <div class="journey-track-scroll" id="journeyScroll">
             <div class="journey-track" style="margin-top:16px;">
                 <c:set var="foundCurrent" value="false" scope="page" />
                 <c:set var="rowIndex" value="0" scope="page" />
@@ -328,5 +328,27 @@
         </div>
     </c:otherwise>
 </c:choose>
+
+<%-- 완료 체크 등 폼 제출은 전부 전체 페이지 리로드라, 매번 "여정 기록" 스크롤이 맨 위로 튕겨서
+     방금 보던 위치를 잃어버리는 문제가 있었다(사용자, 2026-09-30). 폼을 제출하기 직전 스크롤
+     위치를 저장해뒀다가, 다시 그려진 페이지에서 그대로 복원한다 — 서버 로직 변경 없이 화면
+     스크립트만으로 해결. sessionStorage라 새 탭·다른 페이지 이동에는 영향 없다. --%>
+<script>
+(function () {
+    var STORAGE_KEY = 'roadmapScrollTop';
+    var container = document.getElementById('journeyScroll');
+    if (container) {
+        var saved = sessionStorage.getItem(STORAGE_KEY);
+        if (saved !== null) {
+            container.scrollTop = parseInt(saved, 10) || 0;
+        }
+    }
+    document.addEventListener('submit', function () {
+        if (container) {
+            sessionStorage.setItem(STORAGE_KEY, String(container.scrollTop));
+        }
+    }, true);
+})();
+</script>
 
 <jsp:include page="/WEB-INF/views/common/footer.jsp" />
