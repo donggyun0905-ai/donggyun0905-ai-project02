@@ -93,6 +93,11 @@ public class RoadmapService {
     private static final int ROADMAP_STEP_COMPLETE_POINTS = 100;
     private static final String SIGNAL_TYPE_ROADMAP = "ROADMAP";
 
+    // SKILL 단계 학습 검증(2026-09-30 팀 결정) — tier별 증빙 방식. ROADMAP_STEP.proof_type에 저장.
+    private static final String PROOF_NOTE = "NOTE";
+    private static final String PROOF_PROJECT_LINK = "PROJECT_LINK";
+    private static final String PROOF_TEACHING_POST = "TEACHING_POST";
+
     // SKILL 단계 완료 → USER_SKILLS 숙련도 자동 승급 기준 (팀 합의, 2026-09-23).
     // 완료를 취소해도 이미 오른 숙련도는 안 내린다 — 점수 정책과 같은 원칙.
     private static final int PROFICIENCY_INTERMEDIATE_THRESHOLD = 10;
@@ -320,6 +325,90 @@ public class RoadmapService {
 
             scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId,
                     ROADMAP_STEP_COMPLETE_POINTS);
+            return true;
+        });
+    }
+
+    // SKILL 단계 학습 검증(2026-09-30 팀 결정, 규칙 기반) — ENTRY(공부노트)/EXPERT(기술 설명 글)
+    // 단계에 제출한 텍스트를 SkillProofGrader로 자동 판정한다. 통과하면 completeStep과 동일하게
+    // 점수 적립 + 프로필 반영까지 한 트랜잭션으로 묶는다. 미통과(NEEDS_REVISION)면 완료 처리는
+    // 안 하고 판정 근거만 저장해서 사용자가 고쳐서 다시 제출할 수 있게 한다.
+    public SkillProofGrader.GradeResult submitSkillNote(Long userId, Long stepId, String content) throws SQLException {
+        return TransactionUtil.runInTransaction(conn -> {
+            RoadmapStepDto step = roadmapStepDao.findByIdForUser(conn, stepId, userId);
+            if (step == null) {
+                throw new IllegalArgumentException("본인의 로드맵 단계만 제출할 수 있습니다.");
+            }
+            if (!"SKILL".equals(step.getStepType())
+                    || !(TIER_ENTRY.equals(step.getTier()) || TIER_EXPERT.equals(step.getTier()))) {
+                throw new IllegalArgumentException("공부노트/기술 글 제출 대상이 아닌 단계입니다.");
+            }
+            if (step.isCompleted()) {
+                throw new IllegalArgumentException("이미 완료된 단계입니다.");
+            }
+
+            SkillDto skill = step.getRelatedSkillId() == null ? null : skillDao.findById(step.getRelatedSkillId());
+            String skillName = skill == null ? "" : skill.getSkillName();
+            boolean isExpert = TIER_EXPERT.equals(step.getTier());
+            String proofType = isExpert ? PROOF_TEACHING_POST : PROOF_NOTE;
+            SkillProofGrader.GradeResult result = isExpert
+                    ? SkillProofGrader.gradeExpertArticle(content, skillName)
+                    : SkillProofGrader.gradeEntryNote(content, skillName);
+
+            boolean passed = result.passed();
+            roadmapStepDao.updateProof(conn, stepId, userId, proofType, content, null,
+                    result.status(), result.note(), passed, passed ? LocalDateTime.now() : null);
+            if (passed) {
+                scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId,
+                        ROADMAP_STEP_COMPLETE_POINTS);
+                syncProfileOnComplete(conn, userId, roadmapStepDao.findById(conn, stepId));
+            }
+            return result;
+        });
+    }
+
+    // CORE/ADVANCED SKILL 단계 완료 — "프로젝트 등록 또는 기존 프로젝트 업그레이드 + 증빙 파일"로
+    // 자동 확인한다(팀 결정, 2026-09-30). completeProjectStep(PROJECT 타입 전용 단계)과 달리 이건
+    // SKILL 타입 단계에 evidence_project_id로 프로젝트를 연결한다 — 별도 판정 규칙 없이 등록 자체가
+    // 증빙이다. upgradeFromProjectId가 있으면 본인 소유가 맞는지 먼저 확인한다.
+    public boolean submitSkillProjectStep(Long userId, Long stepId, UserProjectDto projectInput,
+            List<DocumentDto> uploadedFiles, Long upgradeFromProjectId) throws SQLException {
+        if (uploadedFiles == null || uploadedFiles.isEmpty()) {
+            throw new IllegalArgumentException("증빙 파일을 최소 1개 첨부해야 합니다.");
+        }
+        return TransactionUtil.runInTransaction(conn -> {
+            RoadmapStepDto step = roadmapStepDao.findByIdForUser(conn, stepId, userId);
+            if (step == null) {
+                throw new IllegalArgumentException("본인의 로드맵 단계만 제출할 수 있습니다.");
+            }
+            if (!"SKILL".equals(step.getStepType())
+                    || !(TIER_CORE.equals(step.getTier()) || TIER_ADVANCED.equals(step.getTier()))) {
+                throw new IllegalArgumentException("프로젝트 등록 대상이 아닌 단계입니다.");
+            }
+            if (step.isCompleted()) {
+                return false;
+            }
+
+            projectInput.setUserId(userId);
+            if (upgradeFromProjectId != null) {
+                UserProjectDto source = userProjectDao.findById(conn, upgradeFromProjectId, userId);
+                if (source == null) {
+                    throw new IllegalArgumentException("업그레이드할 프로젝트를 찾을 수 없습니다.");
+                }
+                projectInput.setUpgradedFromProjectId(upgradeFromProjectId);
+            }
+            Long projectId = userProjectDao.insert(conn, projectInput);
+            for (DocumentDto file : uploadedFiles) {
+                file.setUserId(userId);
+                file.setProjectId(projectId);
+                documentDao.insert(conn, file);
+            }
+
+            roadmapStepDao.updateProof(conn, stepId, userId, PROOF_PROJECT_LINK, null, projectId,
+                    SkillProofGrader.PASSED, "프로젝트 등록/업그레이드로 자동 확인", true, LocalDateTime.now());
+            scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId,
+                    ROADMAP_STEP_COMPLETE_POINTS);
+            syncProfileOnComplete(conn, userId, roadmapStepDao.findById(conn, stepId));
             return true;
         });
     }

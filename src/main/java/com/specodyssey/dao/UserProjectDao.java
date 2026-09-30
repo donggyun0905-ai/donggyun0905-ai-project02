@@ -28,8 +28,9 @@ public class UserProjectDao {
     }
 
     public Long insert(Connection conn, UserProjectDto project) throws SQLException {
-        String sql = "INSERT INTO USER_PROJECTS (user_id, title, description, tech_stack, start_date, end_date) " +
-                "VALUES (?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO USER_PROJECTS " +
+                "(user_id, title, description, tech_stack, start_date, end_date, upgraded_from_project_id) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setLong(1, project.getUserId());
             pstmt.setString(2, project.getTitle());
@@ -37,6 +38,7 @@ public class UserProjectDao {
             pstmt.setString(4, project.getTechStack());
             setNullableDate(pstmt, 5, project.getStartDate());
             setNullableDate(pstmt, 6, project.getEndDate());
+            setNullableLong(pstmt, 7, project.getUpgradedFromProjectId());
             pstmt.executeUpdate();
             try (ResultSet keys = pstmt.getGeneratedKeys()) {
                 return keys.next() ? keys.getLong(1) : null;
@@ -55,6 +57,20 @@ public class UserProjectDao {
                     projects.add(mapRow(rs));
                 }
                 return projects;
+            }
+        }
+    }
+
+    // CORE/ADVANCED SKILL 단계에서 "기존 프로젝트 업그레이드"를 선택했을 때, 그 프로젝트가 실제로
+    // 본인 소유인지 확인하는 용도(RoadmapService.submitSkillProjectStep) — user_id를 조건에 넣어
+    // 다른 사용자의 프로젝트를 업그레이드 대상으로 지정할 수 없게 막는다.
+    public UserProjectDto findById(Connection conn, Long id, Long userId) throws SQLException {
+        String sql = "SELECT * FROM USER_PROJECTS WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, id);
+            pstmt.setLong(2, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
             }
         }
     }
@@ -94,10 +110,19 @@ public class UserProjectDao {
         project.setStartDate(startDate == null ? null : startDate.toLocalDate());
         java.sql.Date endDate = rs.getDate("end_date");
         project.setEndDate(endDate == null ? null : endDate.toLocalDate());
+        project.setUpgradedFromProjectId(rs.getObject("upgraded_from_project_id", Long.class));
         project.setCreatedAt(toLocalDateTime(rs.getTimestamp("created_at")));
         project.setUpdatedAt(toLocalDateTime(rs.getTimestamp("updated_at")));
         project.setDeleted(rs.getBoolean("is_deleted"));
         return project;
+    }
+
+    private void setNullableLong(PreparedStatement pstmt, int index, Long value) throws SQLException {
+        if (value == null) {
+            pstmt.setNull(index, Types.BIGINT);
+        } else {
+            pstmt.setLong(index, value);
+        }
     }
 
     private void setNullableDate(PreparedStatement pstmt, int index, LocalDate date) throws SQLException {

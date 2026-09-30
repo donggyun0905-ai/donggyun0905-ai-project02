@@ -156,10 +156,12 @@ erDiagram
 | `tech_stack` | VARCHAR(255) |  | 사용 기술 — 스킬 역산 보조 |
 | `start_date` | DATE |  | 시작일 |
 | `end_date` | DATE |  | 종료일 |
+| `upgraded_from_project_id` | BIGINT | FK | → USER_PROJECTS(자기참조). "기존 프로젝트 업그레이드"로 로드맵 CORE/ADVANCED SKILL 단계를 완료했을 때 이전 버전 연결. NULL이면 신규 프로젝트 |
 
 설계 판단:
 
 - tech_stack을 둔 이유는 직무 발굴 때문이다. 사용자가 보유 기술을 따로 입력하지 않아도 프로젝트에 쓴 기술에서 역으로 스킬을 뽑아낼 수 있다(FR-38).
+- upgraded_from_project_id는 2026-09-30 팀 결정(SKILL 단계 학습 검증)에서 추가됐다. CORE/ADVANCED는 "신규/업그레이드 둘 다 허용"이 원칙이라, 둘을 구분해서 로드맵 여정에 "이 프로젝트를 발전시켰다"는 이력을 남길 수 있게 한다.
 
 #### USER_SKILLS (보유 기술 스택)
 
@@ -515,6 +517,11 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | `certification_id` | BIGINT | FK | → CERTIFICATION (CERT 단계일 때) |
 | `related_skill_id` | BIGINT | FK | → SKILL (어떤 부족 역량을 메우는지) |
 | `reason` | TEXT |  | "왜 지금 이걸 해야 하는지" (FR-33) |
+| `proof_type` | VARCHAR(20) |  | SKILL 단계 증빙 방식 — NOTE(ENTRY 공부노트) / PROJECT_LINK(CORE·ADVANCED 프로젝트 등록·업그레이드) / TEACHING_POST(EXPERT 기술 설명 글). tier로 자동 결정되지만 기준이 바뀔 수 있어 명시적으로 저장 |
+| `proof_content` | TEXT |  | NOTE·TEACHING_POST 제출 원문. 파일이 아닌 순수 텍스트라 DOCUMENTS를 거치지 않고 바로 저장한다 |
+| `evidence_project_id` | BIGINT | FK | → USER_PROJECTS. PROJECT_LINK일 때 어느 프로젝트로 완료했는지 |
+| `review_status` | VARCHAR(20) |  | PENDING / PASSED / NEEDS_REVISION — 규칙 기반 판정 결과 |
+| `review_note` | TEXT |  | 판정 근거·피드백 (어떤 기준을 못 채웠는지) |
 | `is_completed` | BOOLEAN |  | 완료 체크 |
 | `completed_at` | DATETIME |  | 완료 시각 — 점수 적립 근거 |
 
@@ -525,6 +532,12 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 - certification_id로 자격증 마스터와 이어져 D-day가 자동 생성된다.
 - completed_at은 스코어 적립(SCORE_LOG)의 근거가 된다. 단계 완료당 +100점.
 - 재분석으로 로드맵이 새 version으로 만들어질 때, 이전 version에서 완료한 단계는 승계해야 한다. 안 그러면 이미 딴 자격증을 다시 따라고 시킨다. CERT 단계는 USER_SPECS에 같은 자격증이 등록돼 있으면 생성 시점에 바로 완료 처리하는 편이 안전하다.
+- **SKILL 단계 학습 검증(2026-09-30 팀 결정, 규칙 기반)**: 지금까지 SKILL 단계는 "완료 체크" 버튼 하나뿐이라 실제로 배웠는지 확인하는 절차가 없었다. tier별로 증빙 방식을 다르게 한다.
+  - ENTRY: 공부노트(300자 이상 + 기술명 2회 이상 + 코드 블록 1개 이상)를 규칙으로 자동 판정. 배움의 시작 단계라 "이해했는지"를 느슨하게 확인.
+  - CORE/ADVANCED: 기존 로직(tech_stack 변화·증빙 파일) 그대로 — 프로젝트 등록 또는 기존 프로젝트 업그레이드(USER_PROJECTS.upgraded_from_project_id)로 자동 확인.
+  - EXPERT: 기술 설명 글(800자 이상 + 기술명 3회 이상 + 외부 링크 1개 이상)을 규칙으로 자동 판정. "가르칠 수 있어야 진짜 아는 것"이 기준.
+  - AI 채점안도 검토했으나(비용·일관성), 학생 프로젝트 규모에서는 규칙 기반으로 우선 가고 AI는 나중에 끼워 넣기로 함(4-1안 채택, 팀 결정 2026-09-30). 관리자 검수 화면은 추후 과제로 미룸 — 지금은 자동 판정 결과를 그대로 신뢰한다.
+  - 키워드·글자수 기준이라 의미 없는 내용으로도 통과할 수 있다는 한계가 있음 — 학생 프로젝트 규모라 악용 유인이 적다고 보고 우선 이 트레이드오프를 감수한다.
 
 #### JOB_RECOMMENDATION (추천 직무)
 

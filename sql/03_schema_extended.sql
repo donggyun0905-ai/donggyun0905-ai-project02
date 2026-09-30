@@ -305,6 +305,16 @@ CREATE TABLE ROADMAP_STEP (
     certification_id    BIGINT        NULL,
     related_skill_id    BIGINT        NULL,
     reason              TEXT          NULL,
+    -- SKILL 단계 학습 검증(규칙 기반, 2026-09-30 팀 결정) — proof_type으로 티어별 증빙 방식을
+    -- 명시적으로 저장한다: ENTRY는 NOTE(공부노트), CORE/ADVANCED는 PROJECT_LINK(프로젝트 등록/업그레이드),
+    -- EXPERT는 TEACHING_POST(기술 설명 글). proof_content는 NOTE·TEACHING_POST의 제출 원문을
+    -- 직접 저장한다 — db-design 원안은 DOCUMENTS 테이블 재사용이었으나, 파일이 아닌 순수 텍스트라
+    -- 업로드 파이프라인을 타지 않고 TEXT 컬럼에 바로 저장하는 쪽으로 단순화했다(팀 확인 필요, 2026-09-30).
+    proof_type          VARCHAR(20)   NULL, -- NOTE / PROJECT_LINK / TEACHING_POST
+    proof_content       TEXT          NULL,
+    evidence_project_id BIGINT        NULL, -- PROJECT_LINK일 때 어느 프로젝트로 완료했는지
+    review_status       VARCHAR(20)   NULL, -- PENDING / PASSED / NEEDS_REVISION
+    review_note         TEXT          NULL, -- 규칙 판정 근거·피드백
     is_completed        BOOLEAN       NOT NULL DEFAULT FALSE,
     completed_at        DATETIME      NULL,
     created_at          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -314,6 +324,7 @@ CREATE TABLE ROADMAP_STEP (
     KEY idx_roadmap_step_roadmap_id (roadmap_id),
     KEY idx_roadmap_step_certification_id (certification_id),
     KEY idx_roadmap_step_related_skill_id (related_skill_id),
+    KEY idx_roadmap_step_evidence_project_id (evidence_project_id),
     CONSTRAINT fk_roadmap_step_roadmap
         FOREIGN KEY (roadmap_id) REFERENCES ROADMAP (id)
         ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -322,6 +333,9 @@ CREATE TABLE ROADMAP_STEP (
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_roadmap_step_skill
         FOREIGN KEY (related_skill_id) REFERENCES SKILL (id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_roadmap_step_evidence_project
+        FOREIGN KEY (evidence_project_id) REFERENCES USER_PROJECTS (id)
         ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

@@ -117,20 +117,27 @@ CREATE TABLE USER_SPECS (
 -- 관련 요구사항: FR-24
 -- =========================================================
 CREATE TABLE USER_PROJECTS (
-    id            BIGINT       NOT NULL AUTO_INCREMENT,
-    user_id       BIGINT       NOT NULL,
-    title         VARCHAR(150) NOT NULL,
-    description   TEXT         NULL,
-    tech_stack    VARCHAR(255) NULL,
-    start_date    DATE         NULL,
-    end_date      DATE         NULL,
+    id                        BIGINT       NOT NULL AUTO_INCREMENT,
+    user_id                   BIGINT       NOT NULL,
+    title                     VARCHAR(150) NOT NULL,
+    description               TEXT         NULL,
+    tech_stack                VARCHAR(255) NULL,
+    start_date                DATE         NULL,
+    end_date                  DATE         NULL,
+    -- CORE/ADVANCED SKILL 단계를 "기존 프로젝트 업그레이드"로 완료했을 때 이전 버전을 가리킨다
+    -- (자기참조, NULL이면 신규 프로젝트) — 2026-09-30 팀 결정, 로드맵 스킬 학습 검증 개편.
+    upgraded_from_project_id  BIGINT       NULL,
     created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     is_deleted    BOOLEAN      NOT NULL DEFAULT FALSE,
     PRIMARY KEY (id),
     KEY idx_user_projects_user_id (user_id),
+    KEY idx_user_projects_upgraded_from (upgraded_from_project_id),
     CONSTRAINT fk_user_projects_user
         FOREIGN KEY (user_id) REFERENCES USERS (id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_user_projects_upgraded_from
+        FOREIGN KEY (upgraded_from_project_id) REFERENCES USER_PROJECTS (id)
         ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

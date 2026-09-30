@@ -491,6 +491,98 @@ class RoadmapServiceTest {
         assertEquals(100, scoreService.getSummary(userId).getTotalScore());
     }
 
+    // SKILL 단계 학습 검증(2026-09-30 팀 결정, 규칙 기반) — ENTRY 공부노트 제출.
+    @Test
+    void ENTRY_SKILL_단계에_기준_미달_노트를_제출하면_NEEDS_REVISION이고_완료되지_않는다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto entrySkillStep = roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> "SKILL".equals(s.getStepType()) && "ENTRY".equals(s.getTier()))
+                .findFirst().orElseThrow();
+
+        SkillProofGrader.GradeResult result = roadmapService.submitSkillNote(userId, entrySkillStep.getId(), "너무 짧은 노트");
+
+        assertEquals(SkillProofGrader.NEEDS_REVISION, result.status());
+        RoadmapStepDto updated = roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> s.getId().equals(entrySkillStep.getId()))
+                .findFirst().orElseThrow();
+        assertFalse(updated.isCompleted());
+        assertEquals(SkillProofGrader.NEEDS_REVISION, updated.getReviewStatus());
+    }
+
+    @Test
+    void ENTRY_SKILL_단계에_기준을_채운_노트를_제출하면_PASSED이고_완료되며_점수가_적립된다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto entrySkillStep = roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> "SKILL".equals(s.getStepType()) && "ENTRY".equals(s.getTier()))
+                .findFirst().orElseThrow();
+        SkillDto skill = skillDao.findById(entrySkillStep.getRelatedSkillId());
+        String note = (skill.getSkillName() + " 학습 내용 정리. ").repeat(20) + "```\nSystem.out.println(1);\n```";
+
+        SkillProofGrader.GradeResult result = roadmapService.submitSkillNote(userId, entrySkillStep.getId(), note);
+
+        assertEquals(SkillProofGrader.PASSED, result.status());
+        RoadmapStepDto updated = roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> s.getId().equals(entrySkillStep.getId()))
+                .findFirst().orElseThrow();
+        assertTrue(updated.isCompleted());
+        assertEquals("NOTE", updated.getProofType());
+        assertEquals(100, scoreService.getSummary(userId).getTotalScore());
+    }
+
+    @Test
+    void 다른_사용자_id로_노트를_제출하면_예외가_발생한다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto entrySkillStep = roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> "SKILL".equals(s.getStepType()) && "ENTRY".equals(s.getTier()))
+                .findFirst().orElseThrow();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> roadmapService.submitSkillNote(userId + 999_999L, entrySkillStep.getId(), "아무 내용"));
+    }
+
+    // SKILL 단계 학습 검증 — CORE/ADVANCED 프로젝트 등록/업그레이드. generate()는 이 픽스처(부족 기술
+    // 2개)로는 CORE 티어에 SKILL 단계를 만들지 않으므로, CORE 단계를 직접 삽입해서 검증한다.
+    @Test
+    void CORE_SKILL_단계를_프로젝트_등록으로_제출하면_evidence가_연결되고_완료된다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        Long coreStepId;
+        try (Connection conn = DBUtil.getConnection()) {
+            RoadmapStepDto coreStep = new RoadmapStepDto();
+            coreStep.setRoadmapId(roadmapId);
+            coreStep.setStepOrder(999);
+            coreStep.setStepType("SKILL");
+            coreStep.setTier("CORE");
+            coreStep.setRelatedSkillId(requiredSkillId);
+            coreStep.setReason("테스트용 CORE 단계");
+            coreStep.setCompleted(false);
+            coreStepId = roadmapStepDao.insert(conn, coreStep);
+        }
+
+        boolean applied = roadmapService.submitSkillProjectStep(userId, coreStepId, sampleProject(),
+                List.of(sampleDocument()), null);
+
+        assertTrue(applied);
+        RoadmapStepDto updated = roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> s.getId().equals(coreStepId))
+                .findFirst().orElseThrow();
+        assertTrue(updated.isCompleted());
+        assertEquals("PROJECT_LINK", updated.getProofType());
+        assertNotNull(updated.getEvidenceProjectId());
+        assertEquals(100, scoreService.getSummary(userId).getTotalScore());
+    }
+
+    @Test
+    void ENTRY_티어_단계를_프로젝트_등록으로_제출하면_예외가_발생한다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto entrySkillStep = roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> "SKILL".equals(s.getStepType()) && "ENTRY".equals(s.getTier()))
+                .findFirst().orElseThrow();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> roadmapService.submitSkillProjectStep(userId, entrySkillStep.getId(), sampleProject(),
+                        List.of(sampleDocument()), null));
+    }
+
     private UserProjectDto sampleProject() {
         UserProjectDto project = new UserProjectDto();
         project.setTitle("테스트 프로젝트");

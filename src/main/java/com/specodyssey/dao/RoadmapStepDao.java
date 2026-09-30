@@ -48,6 +48,32 @@ public class RoadmapStepDao {
         }
     }
 
+    // SKILL 단계 학습 검증(2026-09-30 팀 결정, 규칙 기반) — 증빙 제출 결과를 저장한다.
+    // completed=true는 규칙 판정을 통과했을 때만 호출부(RoadmapService)가 넘긴다. NEEDS_REVISION이면
+    // completed=false로 호출해 재제출을 받을 수 있게 완료 처리는 하지 않는다.
+    // updateCompleted와 마찬가지로 ROADMAP 조인으로 소유자를 확인한다 — 다른 사용자의 단계에 증빙을
+    // 남길 수 없다.
+    public int updateProof(Connection conn, Long stepId, Long userId, String proofType, String proofContent,
+            Long evidenceProjectId, String reviewStatus, String reviewNote, boolean completed,
+            LocalDateTime completedAt) throws SQLException {
+        String sql = "UPDATE ROADMAP_STEP rs JOIN ROADMAP r ON rs.roadmap_id = r.id " +
+                "SET rs.proof_type = ?, rs.proof_content = ?, rs.evidence_project_id = ?, " +
+                "    rs.review_status = ?, rs.review_note = ?, rs.is_completed = ?, rs.completed_at = ? " +
+                "WHERE rs.id = ? AND r.user_id = ? AND rs.is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, proofType);
+            pstmt.setString(2, proofContent);
+            setNullableLong(pstmt, 3, evidenceProjectId);
+            pstmt.setString(4, reviewStatus);
+            pstmt.setString(5, reviewNote);
+            pstmt.setBoolean(6, completed);
+            pstmt.setTimestamp(7, toTimestamp(completedAt));
+            pstmt.setLong(8, stepId);
+            pstmt.setLong(9, userId);
+            return pstmt.executeUpdate();
+        }
+    }
+
     // FR-32 순서 있는 로드맵 — step_order 순
     public List<RoadmapStepDto> findByRoadmapId(Long roadmapId) throws SQLException {
         String sql = "SELECT * FROM ROADMAP_STEP WHERE roadmap_id = ? AND is_deleted = FALSE ORDER BY step_order";
@@ -95,6 +121,21 @@ public class RoadmapStepDao {
         }
     }
 
+    // SKILL 단계 증빙 제출(submitSkillNote/submitSkillProjectStep) 진입 시 소유자·타입·완료 여부를
+    // 한 번에 확인하기 위한 조회. findById와 달리 ROADMAP과 조인해 user_id를 검증한다 — 증빙 데이터를
+    // 만들기 전에 먼저 걸러야 다른 사용자 소유 단계로는 아무 것도 만들어지지 않는다.
+    public RoadmapStepDto findByIdForUser(Connection conn, Long stepId, Long userId) throws SQLException {
+        String sql = "SELECT rs.* FROM ROADMAP_STEP rs JOIN ROADMAP r ON rs.roadmap_id = r.id " +
+                "WHERE rs.id = ? AND r.user_id = ? AND rs.is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, stepId);
+            pstmt.setLong(2, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        }
+    }
+
     // SKILL 단계 완료 횟수 — 숙련도 자동 승급 기준(팀 합의: 10회 INTERMEDIATE, 30회 ADVANCED).
     // 로드맵이 재생성돼도(새 ROADMAP) 같은 스킬이 다시 나오면 계속 누적되도록 roadmap_id로 좁히지 않는다.
     public int countCompletedByUserAndSkill(Connection conn, Long userId, Long skillId) throws SQLException {
@@ -120,6 +161,11 @@ public class RoadmapStepDao {
         step.setCertificationId(rs.getObject("certification_id", Long.class));
         step.setRelatedSkillId(rs.getObject("related_skill_id", Long.class));
         step.setReason(rs.getString("reason"));
+        step.setProofType(rs.getString("proof_type"));
+        step.setProofContent(rs.getString("proof_content"));
+        step.setEvidenceProjectId(rs.getObject("evidence_project_id", Long.class));
+        step.setReviewStatus(rs.getString("review_status"));
+        step.setReviewNote(rs.getString("review_note"));
         step.setCompleted(rs.getBoolean("is_completed"));
         step.setCompletedAt(toLocalDateTime(rs.getTimestamp("completed_at")));
         step.setCreatedAt(toLocalDateTime(rs.getTimestamp("created_at")));
