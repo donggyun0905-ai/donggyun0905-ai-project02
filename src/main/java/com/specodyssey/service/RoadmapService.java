@@ -97,6 +97,7 @@ public class RoadmapService {
     private static final String PROOF_NOTE = "NOTE";
     private static final String PROOF_PROJECT_LINK = "PROJECT_LINK";
     private static final String PROOF_TEACHING_POST = "TEACHING_POST";
+    private static final String PROOF_CERT_DOCUMENT = "CERT_DOCUMENT";
 
     // SKILL 단계 완료 → USER_SKILLS 숙련도 자동 승급 기준 (팀 합의, 2026-09-23).
     // 완료를 취소해도 이미 오른 숙련도는 안 내린다 — 점수 정책과 같은 원칙.
@@ -290,6 +291,10 @@ public class RoadmapService {
     // 완료 취소해도 이미 적립된 점수·스펙·숙련도는 깎지 않는다
     // (TD-5: 상한 없는 게임식 누적, 완료 취소해도 실수로 배운 게 없어지진 않는다 — 팀 합의, 2026-09-23).
     // 완료 처리 + 점수 적립 + 스펙/스킬 반영을 한 트랜잭션으로 묶어 일부만 반영되는 불일치를 막는다.
+    // CERT는 화면상으로는 증빙 서류 제출(submitCertProof)로만 완료하도록 유도한다(roadmap.jsp에
+    // 더 이상 CERT용 완료 체크 버튼이 없음, 2026-09-30 팀 결정). 다만 이 메서드 자체는 계속 막지
+    // 않는다 — syncCertAddedFromProfile(프로필에서 직접 자격증을 추가했을 때 매칭되는 CERT 단계를
+    // 자동 완료)이 내부적으로 이 메서드를 그대로 쓰고 있어서, 여기서 CERT를 막으면 그 기능이 깨진다.
     public void completeStep(Long userId, Long stepId, boolean completed) throws SQLException {
         TransactionUtil.runInTransaction(conn -> {
             int updatedRows = roadmapStepDao.updateCompleted(conn, stepId, userId, completed,
@@ -436,6 +441,38 @@ public class RoadmapService {
 
             roadmapStepDao.updateProof(conn, stepId, userId, PROOF_PROJECT_LINK, null, projectId,
                     SkillProofGrader.PASSED, "프로젝트 등록/업그레이드로 자동 확인", true, LocalDateTime.now());
+            scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId,
+                    ROADMAP_STEP_COMPLETE_POINTS);
+            syncProfileOnComplete(conn, userId, roadmapStepDao.findById(conn, stepId));
+            return true;
+        });
+    }
+
+    // CERT 단계 완료 — 자격증 취득을 증명하는 서류(합격 확인서·자격증 사진 등)를 첨부해야만 완료할 수
+    // 있다(2026-09-30 팀 결정, "그냥 완료 체크만 있던 걸 뒤늦게 발견해서 고침"). CORE/ADVANCED 프로젝트
+    // 등록과 같은 트레이드오프 — 별도 자동 판정 규칙 없이 서류 첨부 자체를 증빙으로 신뢰한다.
+    public boolean submitCertProof(Long userId, Long stepId, DocumentDto certificateFile) throws SQLException {
+        if (certificateFile == null) {
+            throw new IllegalArgumentException("자격증 증빙 서류를 첨부해야 합니다.");
+        }
+        return TransactionUtil.runInTransaction(conn -> {
+            RoadmapStepDto step = roadmapStepDao.findByIdForUser(conn, stepId, userId);
+            if (step == null) {
+                throw new IllegalArgumentException("본인의 로드맵 단계만 제출할 수 있습니다.");
+            }
+            if (!"CERT".equals(step.getStepType())) {
+                throw new IllegalArgumentException("자격증 단계가 아닙니다.");
+            }
+            if (step.isCompleted()) {
+                return false;
+            }
+
+            certificateFile.setUserId(userId);
+            certificateFile.setRoadmapStepId(stepId);
+            documentDao.insert(conn, certificateFile);
+
+            roadmapStepDao.updateProof(conn, stepId, userId, PROOF_CERT_DOCUMENT, null, null,
+                    SkillProofGrader.PASSED, "자격증 증빙 서류 제출로 확인", true, LocalDateTime.now());
             scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId,
                     ROADMAP_STEP_COMPLETE_POINTS);
             syncProfileOnComplete(conn, userId, roadmapStepDao.findById(conn, stepId));

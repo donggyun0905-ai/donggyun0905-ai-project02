@@ -546,7 +546,7 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | `certification_id` | BIGINT | FK | → CERTIFICATION (CERT 단계일 때) |
 | `related_skill_id` | BIGINT | FK | → SKILL (어떤 부족 역량을 메우는지) |
 | `reason` | TEXT |  | "왜 지금 이걸 해야 하는지" (FR-33) |
-| `proof_type` | VARCHAR(20) |  | SKILL 단계 증빙 방식 — NOTE(ENTRY 공부노트) / PROJECT_LINK(CORE·ADVANCED 프로젝트 등록·업그레이드) / TEACHING_POST(EXPERT 기술 설명 글). tier로 자동 결정되지만 기준이 바뀔 수 있어 명시적으로 저장 |
+| `proof_type` | VARCHAR(20) |  | 단계 증빙 방식 — NOTE(ENTRY 공부노트) / PROJECT_LINK(CORE·ADVANCED 프로젝트 등록·업그레이드) / TEACHING_POST(EXPERT 기술 설명 글) / CERT_DOCUMENT(CERT 자격증 증빙 서류). tier·타입으로 자동 결정되지만 기준이 바뀔 수 있어 명시적으로 저장 |
 | `proof_content` | TEXT |  | NOTE·TEACHING_POST — 제출된 PDF에서 추출한 텍스트(규칙 판정용 원문 캐시). 원본 파일 자체는 DOCUMENTS(roadmap_step_id로 연결)에 저장 |
 | `evidence_project_id` | BIGINT | FK | → USER_PROJECTS. PROJECT_LINK일 때 어느 프로젝트로 완료했는지 |
 | `review_status` | VARCHAR(20) |  | PENDING / PASSED / NEEDS_REVISION — 규칙 기반 판정 결과 |
@@ -568,6 +568,7 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
   - PDF 원본은 DOCUMENTS(roadmap_step_id로 연결)에 저장하고, 추출한 텍스트는 ROADMAP_STEP.proof_content에 캐시해 재판정·화면 표시에 재사용한다.
   - AI 채점안도 검토했으나(비용·일관성), 학생 프로젝트 규모에서는 규칙 기반으로 우선 가고 AI는 나중에 끼워 넣기로 함(4-1안 채택, 팀 결정 2026-09-30). 관리자 검수 화면은 추후 과제로 미룸 — 지금은 자동 판정 결과를 그대로 신뢰한다.
   - 키워드·글자수 기준이라 의미 없는 내용으로도 통과할 수 있다는 한계가 있음 — 학생 프로젝트 규모라 악용 유인이 적다고 보고 우선 이 트레이드오프를 감수한다.
+- **CERT 단계 학습 검증(2026-09-30 팀 결정)**: CERT 단계도 그동안 "완료 체크" 버튼 하나뿐이었다(뒤늦게 발견). 자격증 취득을 증명하는 서류(합격 확인서·자격증 사진 등) 첨부를 요구하도록 바꿨다 — CORE/ADVANCED와 같은 트레이드오프로, 별도 자동 판정 규칙 없이 서류 첨부 자체를 신뢰한다(proof_type='CERT_DOCUMENT'). 화면(roadmap.jsp)에서 CERT용 완료 체크 버튼을 없애 이 흐름으로만 유도하지만, `completeStep`(범용 완료/취소 메서드) 자체는 CERT를 막지 않는다 — 프로필에서 직접 자격증을 추가했을 때 일치하는 CERT 단계를 자동 완료하는 기존 기능(`syncCertAddedFromProfile`, 팀 합의 2026-09-23)이 내부적으로 이 메서드를 그대로 쓰기 때문이다.
 
 #### JOB_RECOMMENDATION (추천 직무)
 

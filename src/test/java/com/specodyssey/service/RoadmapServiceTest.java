@@ -670,6 +670,60 @@ class RoadmapServiceTest {
         assertTrue(updated.isCompleted());
     }
 
+    // CERT 단계 학습 검증(2026-09-30 팀 결정, "완료 체크만 있던 걸 뒤늦게 발견해서 고침") — 증빙 서류
+    // 첨부로만 완료할 수 있다.
+    @Test
+    void CERT_단계는_증빙_서류_없이_제출하면_예외가_발생한다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto certStep = roadmapService.getSteps(roadmapId).get(0);
+        assertEquals("CERT", certStep.getStepType());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> roadmapService.submitCertProof(userId, certStep.getId(), null));
+    }
+
+    @Test
+    void CERT_단계에_증빙_서류를_첨부하면_완료되고_점수가_적립되며_USER_SPECS에_반영된다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto certStep = roadmapService.getSteps(roadmapId).get(0);
+        CertificationDto cert;
+        try (Connection conn = DBUtil.getConnection()) {
+            cert = certificationDao.findById(conn, certStep.getCertificationId());
+        }
+
+        boolean applied = roadmapService.submitCertProof(userId, certStep.getId(), sampleDocument());
+
+        assertTrue(applied);
+        RoadmapStepDto updated = roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> s.getId().equals(certStep.getId()))
+                .findFirst().orElseThrow();
+        assertTrue(updated.isCompleted());
+        assertEquals("CERT_DOCUMENT", updated.getProofType());
+        assertEquals(100, scoreService.getSummary(userId).getTotalScore());
+
+        boolean specAdded = userSpecDao.findByUserId(userId).stream()
+                .anyMatch(s -> "CERT".equals(s.getSpecType()) && cert.getCertName().equals(s.getTitle()));
+        assertTrue(specAdded, "USER_SPECS에 자격증이 자동 반영돼야 한다");
+    }
+
+    @Test
+    void 다른_사용자_id로_CERT_증빙을_제출하면_예외가_발생한다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto certStep = roadmapService.getSteps(roadmapId).get(0);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> roadmapService.submitCertProof(userId + 999_999L, certStep.getId(), sampleDocument()));
+    }
+
+    @Test
+    void 이미_완료된_CERT_단계에_다시_제출하면_false를_반환한다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto certStep = roadmapService.getSteps(roadmapId).get(0);
+
+        assertTrue(roadmapService.submitCertProof(userId, certStep.getId(), sampleDocument()));
+        assertFalse(roadmapService.submitCertProof(userId, certStep.getId(), sampleDocument()));
+    }
+
     private UserProjectDto sampleProject() {
         UserProjectDto project = new UserProjectDto();
         project.setTitle("테스트 프로젝트");

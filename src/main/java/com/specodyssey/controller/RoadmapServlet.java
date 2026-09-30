@@ -106,6 +106,10 @@ public class RoadmapServlet extends HttpServlet {
                 if (!handleSubmitSkillProject(req, resp, userId)) {
                     return;
                 }
+            } else if ("submitCertProof".equals(action)) {
+                if (!handleSubmitCertProof(req, resp, userId)) {
+                    return;
+                }
             } else if ("reanalyzeAndRegenerate".equals(action)) {
                 // "요구 기술이 바뀌었어요" 배너의 액션 — 여기서만 실제 재분석(비용 발생 지점)이 일어난다
                 // (2026-09-30 팀 결정). 목표 직무는 UserDto.desiredJobId를 그대로 쓴다.
@@ -122,6 +126,12 @@ public class RoadmapServlet extends HttpServlet {
             resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "잘못된 요청입니다.");
             return;
         } catch (RoadmapService.NoGapAnalysisException e) {
+            req.setAttribute("errorMessage", e.getMessage());
+            doGet(req, resp);
+            return;
+        } catch (IllegalArgumentException e) {
+            // "complete" 액션으로 CERT 단계를 직접 완료 시도한 경우 등 — 파일 첨부가 없는 액션이라
+            // handleXxx의 failWith 패턴을 쓸 수 없어 여기서 한 번에 처리한다.
             req.setAttribute("errorMessage", e.getMessage());
             doGet(req, resp);
             return;
@@ -229,6 +239,69 @@ public class RoadmapServlet extends HttpServlet {
 
         try {
             roadmapService.submitSkillNote(userId, stepId, extractedText, document);
+        } catch (IllegalArgumentException e) {
+            FileStorageUtil.deleteQuietly(document.getFilePath());
+            return failWith(req, resp, e.getMessage());
+        } catch (SQLException e) {
+            FileStorageUtil.deleteQuietly(document.getFilePath());
+            throw e;
+        }
+        return true;
+    }
+
+    // CERT 단계 제출 — 자격증 취득을 증명하는 서류(합격 확인서 캡처·자격증 사진 등) 1개를 받아
+    // 완료 처리한다(2026-09-30 팀 결정). 텍스트 추출·규칙 판정 없이 첨부 자체를 증빙으로 신뢰하므로
+    // 파일 형식 제한은 FileStorageUtil의 공통 확장자 차단만 적용한다(이미지·PDF 등 다 허용).
+    private boolean handleSubmitCertProof(HttpServletRequest req, HttpServletResponse resp, Long userId)
+            throws ServletException, IOException, SQLException {
+        Long stepId = Long.valueOf(req.getParameter("stepId"));
+
+        // [TEST] 파일 없이 통과 — roadmap.jsp의 테스트 전용 버튼 하나만 이 파라미터를 보낸다.
+        // 실제 운영 배포 전에는 이 분기와 그 버튼을 함께 지울 것(2026-09-30, 사용자 요청).
+        if ("1".equals(req.getParameter("testShortcut"))) {
+            DocumentDto testDocument = new DocumentDto();
+            testDocument.setOriginalName("test-cert-shortcut.txt");
+            testDocument.setStoredName("test-cert-shortcut-" + System.nanoTime() + ".txt");
+            testDocument.setFilePath("");
+            testDocument.setFileSize(0L);
+            testDocument.setMimeType("text/plain");
+            testDocument.setChecksum("test-shortcut");
+            try {
+                roadmapService.submitCertProof(userId, stepId, testDocument);
+            } catch (IllegalArgumentException e) {
+                return failWith(req, resp, e.getMessage());
+            }
+            return true;
+        }
+
+        Part filePart;
+        try {
+            filePart = req.getPart("file");
+        } catch (IllegalStateException e) {
+            return failWith(req, resp, "첨부 파일 용량이 너무 큽니다 (파일당 20MB 이하).");
+        }
+        if (filePart == null || filePart.getSubmittedFileName() == null || filePart.getSubmittedFileName().isBlank()) {
+            return failWith(req, resp, "자격증 증빙 서류를 첨부해야 합니다.");
+        }
+        String filename = filePart.getSubmittedFileName();
+        if (FileStorageUtil.isExtensionBlocked(filename)) {
+            return failWith(req, resp, "업로드할 수 없는 파일 형식입니다: " + filename);
+        }
+
+        FileStorageUtil.SavedFile saved;
+        try (InputStream in = filePart.getInputStream()) {
+            saved = FileStorageUtil.save(in, filename);
+        }
+        DocumentDto document = new DocumentDto();
+        document.setOriginalName(filename);
+        document.setStoredName(saved.getStoredName());
+        document.setFilePath(saved.getFilePath());
+        document.setFileSize(saved.getFileSize());
+        document.setMimeType(filePart.getContentType());
+        document.setChecksum(saved.getChecksum());
+
+        try {
+            roadmapService.submitCertProof(userId, stepId, document);
         } catch (IllegalArgumentException e) {
             FileStorageUtil.deleteQuietly(document.getFilePath());
             return failWith(req, resp, e.getMessage());

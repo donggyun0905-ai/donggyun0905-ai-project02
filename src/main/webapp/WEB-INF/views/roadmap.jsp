@@ -280,12 +280,29 @@
                                             </c:otherwise>
                                         </c:choose>
                                     </c:when>
+                                    <%-- CERT 단계 — 자격증 취득 증빙 서류(합격 확인서·자격증 사진 등) 첨부로 완료
+                                         (2026-09-30 팀 결정). 별도 규칙 판정 없이 첨부 자체를 신뢰한다. --%>
                                     <c:otherwise>
+                                        <details>
+                                            <summary>증빙 서류 첨부하고 완료하기</summary>
+                                            <form action="${pageContext.request.contextPath}/roadmap" method="post"
+                                                  enctype="multipart/form-data" style="margin-top:10px;">
+                                                <input type="hidden" name="action" value="submitCertProof">
+                                                <input type="hidden" name="stepId" value="${step.id}">
+                                                <p><label>증빙 서류 (합격 확인서·자격증 사진 등)</label><input type="file" name="file" required></p>
+                                                <button type="submit">제출하고 완료하기</button>
+                                            </form>
+                                        </details>
+                                        <%-- [TEST] 파일 없이 통과 — 다른 단계들과 동일하게 테스트 편의용으로 추가함
+                                             (2026-09-30, 사용자 요청). action=complete는 CERT 단계에 대해 서버에서
+                                             거부하도록 막아뒀으므로(진짜 증빙 요구가 이번 요청의 핵심), submitCertProof에
+                                             testShortcut 파라미터를 별도로 둬서 더미 증빙으로 대체한다.
+                                             실제 운영 배포 전에는 반드시 지울 것. --%>
                                         <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">
-                                            <input type="hidden" name="action" value="complete">
+                                            <input type="hidden" name="action" value="submitCertProof">
                                             <input type="hidden" name="stepId" value="${step.id}">
-                                            <input type="hidden" name="completed" value="true">
-                                            <button type="submit">완료 체크</button>
+                                            <input type="hidden" name="testShortcut" value="1">
+                                            <button type="submit" class="link-button">[TEST] 파일 없이 통과</button>
                                         </form>
                                     </c:otherwise>
                                 </c:choose>
