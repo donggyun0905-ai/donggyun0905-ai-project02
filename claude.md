@@ -211,7 +211,6 @@ is_deleted  BOOLEAN      NOT NULL DEFAULT FALSE
 ## 하지 말 것
 
 - 채용 플랫폼 코딩테스트 문제 지문 크롤링 (저작권 위반)
-- 워크넷 크롤링 (공식 API가 있으므로)
 - 대화형 AI 멘토 챗봇 구현 (이번 범위에서 보류)
 - 요청하지 않은 테이블·기능 임의 추가
 - `javax.servlet.*` import 사용 (Tomcat 10+는 `jakarta.servlet.*`)
