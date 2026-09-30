@@ -29,11 +29,10 @@ import java.util.Set;
  * 기술별 MET/MISSING을 판정하고 GAP_ANALYSIS·GAP_ANALYSIS_ITEM에 저장한다.
  *
  * 매칭 방식(2026-09-30 갱신): skill_id가 이미 연결된 보유 스킬은 그대로 인정하고, 아직 skill_id가
- * 없는 수동 입력(raw_input)은 SkillMatcher(기본값 FuzzyNameMatcher — "이름 일치라도", 팀 결정
- * 2026-09-30)로 SKILL 마스터와 매칭한다. 매칭 점수는 similarity_score에 저장해둬서(TD-1이 원래
- * 비워뒀던 자리) 나중에 화면에서 "얼마나 확실한 매칭인지" 보여줄 수 있다. 진짜 임베딩 기반 의미
- * 매칭(TD-1 본 과제, "파이썬"↔"Python" 같은 동의어)은 아직 착수 전 — EmbeddingMatcher가 나오면
- * 생성자에서 갈아끼우면 된다.
+ * 없는 수동 입력(raw_input)은 SkillMatcher(기본값 EmbeddingMatcher — TD-1 임베딩, 정확 일치/
+ * SKILL_ALIAS/편집거리로 못 잡으면 로컬 임베딩 유사도까지 시도)로 SKILL 마스터와 매칭한다. 매칭
+ * 점수는 similarity_score에 저장해둬서(TD-1이 원래 비워뒀던 자리) 나중에 화면에서 "얼마나 확실한
+ * 매칭인지" 보여줄 수 있다.
  */
 public class GapAnalysisService {
 
@@ -45,7 +44,7 @@ public class GapAnalysisService {
     private final SkillMatcher skillMatcher;
 
     public GapAnalysisService() {
-        this(new FuzzyNameMatcher());
+        this(new EmbeddingMatcher());
     }
 
     public GapAnalysisService(SkillMatcher skillMatcher) {

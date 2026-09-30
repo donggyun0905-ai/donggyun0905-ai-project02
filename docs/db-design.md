@@ -250,7 +250,9 @@ erDiagram
 - embedding_model 컬럼을 남겨둔 이유: 로컬 세팅이 1주차에 안 잡히면 임베딩 API로 갈아탈 수 있고, 그때 어떤 벡터가 어느 모델 산출물인지 구분해 재계산 대상만 골라낼 수 있다.
 - 벡터를 별도 컬럼으로 뺀 덕에 나중에 pgvector나 전용 벡터DB로 옮겨도 나머지 스키마는 손댈 필요가 없다.
 - IT 계열 한정이라 500개 안팎이면 충분하고, 한 번 계산해 저장하면 재계산이 거의 없다.
-- **진행 상황(2026-09-30)**: embedding_vector는 아직 아무도 채우지 않았다 — DJL+ONNX 세팅 자체가 미착수. 대신 그 전 단계로 `FuzzyNameMatcher`(SkillMatcher 구현체, 팀 결정 "이름 일치라도")를 GapAnalysisService·JobDiscoveryService 양쪽에 기본값으로 붙였다. 매칭 순서: ① SKILL.skill_name 정확 일치 ② SKILL_ALIAS 사전(아래) 정확 일치 ③ 그래도 실패하면 편집거리로 오타·표기 차이를 흡수. SKILL_ALIAS 덕분에 "파이썬"↔"Python"처럼 표기 체계가 다른 흔한 동의어도 이제 잡힌다 — 다만 사전에 없는 새로운 표현까지는 여전히 못 잡는다(그건 embedding_vector가 채워져야 완전히 풀리는 문제). `GapAnalysisService(SkillMatcher)` 생성자로 나중에 EmbeddingMatcher만 갈아끼우면 된다.
+- **진행 상황(2026-09-30, 임베딩 마무리 완료)**: DJL+ONNX 세팅(youngjun 시작) 이어받아 실제로 완성했다. `EmbeddingMatcher`(SkillMatcher 구현체)가 GapAnalysisService·JobDiscoveryService 양쪽 기본값이다. 매칭 순서: ① SKILL.skill_name 정확 일치 ② SKILL_ALIAS 사전 정확 일치 ③ 편집거리(오타·표기 차이) ④ 그래도 실패하면 로컬 임베딩 코사인 유사도. `EmbeddingBackfillService`로 SKILL 181건(시드 163 + 테스트로 늘어난 행 포함) 전부 embedding_vector를 채워뒀다(model=ko-sroberta-multitask).
+  - **임계값 실측(2026-09-30)**: 이 모델은 짧은 기술명끼리는 "같다/다르다"를 깔끔히 못 가른다 — Java↔JavaScript(다른 기술) = 0.805인데 자바↔Java(같은 기술, 표기만 다름) = 0.680으로 오히려 더 낮다. 반면 "웹 서버 구축 기술"↔"백엔드 서버 개발 능력"(진짜 비슷한 문장) = 0.783. 진짜 유사 문장(0.783)이 오탐 위험 쌍(0.805)보다 낮아서, 어떤 임계값을 잡아도 짧은 기술명끼리는 완벽히 못 가른다. 임계값(0.75)은 진짜 유사 문장을 놓치지 않는 쪽에 맞췄고, 짧은 이름끼리의 오탐은 대부분 SKILL_ALIAS가 먼저 정확 일치로 잡아줘서 실무에서는 이 단계까지 잘 안 온다 — 사전에 없는 새 조합에서는 여전히 오탐 가능성이 남아 있음을 인지하고 채택했다.
+  - 모델 파일(440MB, model.onnx + tokenizer.json)은 팀원 각자 `EMBEDDING_MODEL_DIR`에 받아둬야 한다(https://huggingface.co/jhgan/ko-sroberta-multitask). 없는 PC에서는 EmbeddingMatcher가 조용히 건너뛰고 FuzzyNameMatcher(정확 일치·SKILL_ALIAS·편집거리)까지만 동작한다 — 앱이 깨지지 않는다.
 
 #### SKILL_ALIAS (기술 별칭) — 신설
 
