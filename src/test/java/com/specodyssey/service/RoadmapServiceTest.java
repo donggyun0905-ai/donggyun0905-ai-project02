@@ -143,6 +143,10 @@ class RoadmapServiceTest {
     @AfterEach
     void tearDown() throws Exception {
         try (Connection conn = DBUtil.getConnection()) {
+            // DOCUMENTS.project_id -> USER_PROJECTS, DOCUMENTS.roadmap_step_id -> ROADMAP_STEP가 둘 다
+            // RESTRICT라 문서를 가장 먼저 지워야 한다(2026-09-30 SKILL 학습 검증 PDF 증빙 추가로
+            // roadmap_step_id FK가 생기면서, ROADMAP_STEP보다 먼저 지우는 순서가 더 중요해졌다).
+            TestFixtures.hardDeleteByColumn(conn, "DOCUMENTS", "user_id", userId);
             for (RoadmapDto roadmap : roadmapDao.findByUserId(userId)) {
                 for (RoadmapStepDto step : roadmapStepDao.findByRoadmapId(roadmap.getId())) {
                     TestFixtures.hardDelete(conn, "ROADMAP_STEP", step.getId());
@@ -153,8 +157,6 @@ class RoadmapServiceTest {
             TestFixtures.hardDeleteByColumn(conn, "USER_SCORE_SUMMARY", "user_id", userId);
             TestFixtures.hardDeleteByColumn(conn, "USER_SKILLS", "user_id", userId);
             TestFixtures.hardDeleteByColumn(conn, "USER_SPECS", "user_id", userId);
-            // DOCUMENTS.project_id -> USER_PROJECTS FK가 RESTRICT라 문서를 먼저 지워야 한다.
-            TestFixtures.hardDeleteByColumn(conn, "DOCUMENTS", "user_id", userId);
             TestFixtures.hardDeleteByColumn(conn, "USER_PROJECTS", "user_id", userId);
             TestFixtures.hardDelete(conn, "GAP_ANALYSIS_ITEM", gapItemId1);
             TestFixtures.hardDelete(conn, "GAP_ANALYSIS_ITEM", gapItemId2);
@@ -499,7 +501,8 @@ class RoadmapServiceTest {
                 .filter(s -> "SKILL".equals(s.getStepType()) && "ENTRY".equals(s.getTier()))
                 .findFirst().orElseThrow();
 
-        SkillProofGrader.GradeResult result = roadmapService.submitSkillNote(userId, entrySkillStep.getId(), "너무 짧은 노트");
+        SkillProofGrader.GradeResult result = roadmapService.submitSkillNote(userId, entrySkillStep.getId(),
+                "너무 짧은 노트", sampleDocument());
 
         assertEquals(SkillProofGrader.NEEDS_REVISION, result.status());
         RoadmapStepDto updated = roadmapService.getSteps(roadmapId).stream()
@@ -518,7 +521,8 @@ class RoadmapServiceTest {
         SkillDto skill = skillDao.findById(entrySkillStep.getRelatedSkillId());
         String note = (skill.getSkillName() + " 학습 내용 정리. ").repeat(20) + "```\nSystem.out.println(1);\n```";
 
-        SkillProofGrader.GradeResult result = roadmapService.submitSkillNote(userId, entrySkillStep.getId(), note);
+        SkillProofGrader.GradeResult result = roadmapService.submitSkillNote(userId, entrySkillStep.getId(),
+                note, sampleDocument());
 
         assertEquals(SkillProofGrader.PASSED, result.status());
         RoadmapStepDto updated = roadmapService.getSteps(roadmapId).stream()
@@ -537,7 +541,8 @@ class RoadmapServiceTest {
                 .findFirst().orElseThrow();
 
         assertThrows(IllegalArgumentException.class,
-                () -> roadmapService.submitSkillNote(userId + 999_999L, entrySkillStep.getId(), "아무 내용"));
+                () -> roadmapService.submitSkillNote(userId + 999_999L, entrySkillStep.getId(), "아무 내용",
+                        sampleDocument()));
     }
 
     // SKILL 단계 학습 검증 — CORE/ADVANCED 프로젝트 등록/업그레이드. generate()는 이 픽스처(부족 기술

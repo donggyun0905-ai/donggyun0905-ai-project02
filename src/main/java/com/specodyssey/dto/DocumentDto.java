@@ -7,6 +7,7 @@ public class DocumentDto {
     private Long id;
     private Long userId;
     private Long projectId;
+    private Long roadmapStepId;
     private String originalName;
     private String storedName;
     private String filePath;
@@ -39,6 +40,14 @@ public class DocumentDto {
 
     public void setProjectId(Long projectId) {
         this.projectId = projectId;
+    }
+
+    public Long getRoadmapStepId() {
+        return roadmapStepId;
+    }
+
+    public void setRoadmapStepId(Long roadmapStepId) {
+        this.roadmapStepId = roadmapStepId;
     }
 
     public String getOriginalName() {

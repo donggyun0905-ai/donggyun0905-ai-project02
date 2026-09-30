@@ -330,10 +330,13 @@ public class RoadmapService {
     }
 
     // SKILL 단계 학습 검증(2026-09-30 팀 결정, 규칙 기반) — ENTRY(공부노트)/EXPERT(기술 설명 글)
-    // 단계에 제출한 텍스트를 SkillProofGrader로 자동 판정한다. 통과하면 completeStep과 동일하게
-    // 점수 적립 + 프로필 반영까지 한 트랜잭션으로 묶는다. 미통과(NEEDS_REVISION)면 완료 처리는
-    // 안 하고 판정 근거만 저장해서 사용자가 고쳐서 다시 제출할 수 있게 한다.
-    public SkillProofGrader.GradeResult submitSkillNote(Long userId, Long stepId, String content) throws SQLException {
+    // 단계에 제출한 PDF(호출부가 이미 디스크에 저장하고, PdfTextUtil로 텍스트까지 뽑아서 넘겨준다)를
+    // SkillProofGrader로 자동 판정한다. 통과하면 completeStep과 동일하게 점수 적립 + 프로필 반영까지
+    // 한 트랜잭션으로 묶는다. 미통과(NEEDS_REVISION)면 완료 처리는 안 하고 판정 근거만 저장해서
+    // 사용자가 고쳐서 다시 제출할 수 있게 한다. PDF 원본은 통과 여부와 관계없이 DOCUMENTS에 남긴다
+    // (제출 이력 자체가 증빙이라 실패한 시도도 지우지 않는다).
+    public SkillProofGrader.GradeResult submitSkillNote(Long userId, Long stepId, String extractedText,
+            DocumentDto proofFile) throws SQLException {
         return TransactionUtil.runInTransaction(conn -> {
             RoadmapStepDto step = roadmapStepDao.findByIdForUser(conn, stepId, userId);
             if (step == null) {
@@ -352,12 +355,17 @@ public class RoadmapService {
             boolean isExpert = TIER_EXPERT.equals(step.getTier());
             String proofType = isExpert ? PROOF_TEACHING_POST : PROOF_NOTE;
             SkillProofGrader.GradeResult result = isExpert
-                    ? SkillProofGrader.gradeExpertArticle(content, skillName)
-                    : SkillProofGrader.gradeEntryNote(content, skillName);
+                    ? SkillProofGrader.gradeExpertArticle(extractedText, skillName)
+                    : SkillProofGrader.gradeEntryNote(extractedText, skillName);
 
             boolean passed = result.passed();
-            roadmapStepDao.updateProof(conn, stepId, userId, proofType, content, null,
+            roadmapStepDao.updateProof(conn, stepId, userId, proofType, extractedText, null,
                     result.status(), result.note(), passed, passed ? LocalDateTime.now() : null);
+
+            proofFile.setUserId(userId);
+            proofFile.setRoadmapStepId(stepId);
+            documentDao.insert(conn, proofFile);
+
             if (passed) {
                 scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId,
                         ROADMAP_STEP_COMPLETE_POINTS);

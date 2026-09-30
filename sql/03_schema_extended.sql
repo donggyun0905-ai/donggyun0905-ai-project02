@@ -650,6 +650,9 @@ CREATE TABLE DOCUMENTS (
     id               BIGINT       NOT NULL AUTO_INCREMENT,
     user_id          BIGINT       NOT NULL,
     project_id       BIGINT       NULL, -- FR-63 특정 프로젝트와 연결(선택)
+    -- 공부노트·기술 설명 글(PDF)을 프로젝트 없이 바로 SKILL 단계에 붙이기 위함
+    -- (2026-09-30 팀 결정, ENTRY/EXPERT 학습 검증).
+    roadmap_step_id  BIGINT       NULL,
     original_name    VARCHAR(255) NOT NULL,
     stored_name      VARCHAR(255) NOT NULL, -- 한글·중복 파일명 대응 저장명
     file_path        VARCHAR(500) NOT NULL,
@@ -662,11 +665,15 @@ CREATE TABLE DOCUMENTS (
     PRIMARY KEY (id),
     KEY idx_documents_user_id (user_id),
     KEY idx_documents_project_id (project_id),
+    KEY idx_documents_roadmap_step_id (roadmap_step_id),
     CONSTRAINT fk_documents_user
         FOREIGN KEY (user_id) REFERENCES USERS (id)
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_documents_project
         FOREIGN KEY (project_id) REFERENCES USER_PROJECTS (id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_documents_roadmap_step
+        FOREIGN KEY (roadmap_step_id) REFERENCES ROADMAP_STEP (id)
         ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

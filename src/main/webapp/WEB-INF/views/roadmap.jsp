@@ -189,18 +189,19 @@
                                             <p class="error-message" style="font-size:0.85rem; margin:6px 0;">📝 ${step.reviewNote}</p>
                                         </c:if>
                                         <details>
-                                            <summary>${step.tier == 'EXPERT' ? '기술 설명 글 제출하기' : '공부노트 제출하기'}</summary>
-                                            <form action="${pageContext.request.contextPath}/roadmap" method="post" style="margin-top:10px;">
+                                            <summary>${step.tier == 'EXPERT' ? '기술 설명 글 PDF 제출하기' : '공부노트 PDF 제출하기'}</summary>
+                                            <form action="${pageContext.request.contextPath}/roadmap" method="post"
+                                                  enctype="multipart/form-data" style="margin-top:10px;">
                                                 <input type="hidden" name="action" value="submitSkillNote">
                                                 <input type="hidden" name="stepId" value="${step.id}">
                                                 <p>
                                                     <label>
                                                         <c:choose>
-                                                            <c:when test="${step.tier == 'EXPERT'}">기술 설명 글 (800자 이상 · 기술명 3회 이상 · 외부 링크 1개 이상)</c:when>
-                                                            <c:otherwise>공부노트 (300자 이상 · 기술명 2회 이상 · 코드 블록(```) 1개 이상)</c:otherwise>
+                                                            <c:when test="${step.tier == 'EXPERT'}">기술 설명 글 PDF (800자 이상 · 기술명 3회 이상 · 외부 링크 1개 이상)</c:when>
+                                                            <c:otherwise>공부노트 PDF (300자 이상 · 기술명 2회 이상 · 코드 블록(```) 1개 이상)</c:otherwise>
                                                         </c:choose>
                                                     </label>
-                                                    <textarea name="content" rows="8" required style="width:100%;">${step.proofContent}</textarea>
+                                                    <input type="file" name="file" accept="application/pdf" required>
                                                 </p>
                                                 <button type="submit">제출하기</button>
                                             </form>

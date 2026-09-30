@@ -9,6 +9,7 @@ import com.specodyssey.dto.UserDto;
 import com.specodyssey.dto.UserProjectDto;
 import com.specodyssey.service.RoadmapService;
 import com.specodyssey.util.FileStorageUtil;
+import com.specodyssey.util.PdfTextUtil;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.MultipartConfig;
@@ -19,7 +20,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.http.Part;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -163,17 +166,61 @@ public class RoadmapServlet extends HttpServlet {
         return true;
     }
 
-    // ENTRY(공부노트)/EXPERT(기술 설명 글) SKILL 단계 제출 — 파일 없이 텍스트만 받는다. 통과/미통과
-    // 여부는 서비스가 ROADMAP_STEP.review_status/review_note에 저장해두므로, 여기서는 그냥 리다이렉트만
-    // 해도 다음 GET에서 roadmap.jsp가 최신 판정 결과를 그대로 보여준다.
+    // ENTRY(공부노트)/EXPERT(기술 설명 글) SKILL 단계 제출 — PDF 1개를 받아 PdfTextUtil로 텍스트를
+    // 꺼낸 뒤 서비스에 넘긴다. 통과/미통과 여부는 서비스가 ROADMAP_STEP.review_status/review_note에
+    // 저장해두므로, 여기서는 그냥 리다이렉트만 해도 다음 GET에서 roadmap.jsp가 최신 판정 결과를
+    // 그대로 보여준다. PDFBox가 텍스트와 파일 저장에 각각 스트림을 소비하므로 한 번만 읽어 바이트
+    // 배열로 들고 있다가 두 번 재사용한다.
     private boolean handleSubmitSkillNote(HttpServletRequest req, HttpServletResponse resp, Long userId)
             throws ServletException, IOException, SQLException {
         Long stepId = Long.valueOf(req.getParameter("stepId"));
-        String content = req.getParameter("content");
+
+        Part filePart;
         try {
-            roadmapService.submitSkillNote(userId, stepId, content);
+            filePart = req.getPart("file");
+        } catch (IllegalStateException e) {
+            return failWith(req, resp, "첨부 파일 용량이 너무 큽니다 (파일당 20MB 이하).");
+        }
+        if (filePart == null || filePart.getSubmittedFileName() == null || filePart.getSubmittedFileName().isBlank()) {
+            return failWith(req, resp, "PDF 파일을 첨부해야 합니다.");
+        }
+        String filename = filePart.getSubmittedFileName();
+        if (!filename.toLowerCase().endsWith(".pdf")) {
+            return failWith(req, resp, "PDF 파일만 업로드할 수 있습니다.");
+        }
+
+        byte[] fileBytes;
+        try (InputStream in = filePart.getInputStream()) {
+            fileBytes = in.readAllBytes();
+        }
+
+        String extractedText;
+        try (InputStream textIn = new ByteArrayInputStream(fileBytes)) {
+            extractedText = PdfTextUtil.extractText(textIn);
+        } catch (IOException e) {
+            return failWith(req, resp, "PDF 내용을 읽을 수 없습니다: " + e.getMessage());
+        }
+
+        FileStorageUtil.SavedFile saved;
+        try (InputStream saveIn = new ByteArrayInputStream(fileBytes)) {
+            saved = FileStorageUtil.save(saveIn, filename);
+        }
+        DocumentDto document = new DocumentDto();
+        document.setOriginalName(filename);
+        document.setStoredName(saved.getStoredName());
+        document.setFilePath(saved.getFilePath());
+        document.setFileSize(saved.getFileSize());
+        document.setMimeType(filePart.getContentType());
+        document.setChecksum(saved.getChecksum());
+
+        try {
+            roadmapService.submitSkillNote(userId, stepId, extractedText, document);
         } catch (IllegalArgumentException e) {
+            FileStorageUtil.deleteQuietly(document.getFilePath());
             return failWith(req, resp, e.getMessage());
+        } catch (SQLException e) {
+            FileStorageUtil.deleteQuietly(document.getFilePath());
+            throw e;
         }
         return true;
     }
