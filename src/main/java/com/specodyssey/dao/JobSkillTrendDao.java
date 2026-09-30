@@ -63,6 +63,20 @@ public class JobSkillTrendDao {
         }
     }
 
+    // 임시 관리자 화면(AdminJobSkillTrendServlet)의 현재 적재 현황 요약용
+    public List<JobSkillTrendDto> findAll() throws SQLException {
+        String sql = "SELECT * FROM JOB_SKILL_TREND WHERE is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+            List<JobSkillTrendDto> trends = new ArrayList<>();
+            while (rs.next()) {
+                trends.add(mapRow(rs));
+            }
+            return trends;
+        }
+    }
+
     // FR-47 특정 직무의 기술 언급 추이 — 월 순 정렬
     public List<JobSkillTrendDto> findByJobId(Long jobId) throws SQLException {
         String sql = "SELECT * FROM JOB_SKILL_TREND WHERE job_id = ? AND is_deleted = FALSE ORDER BY period_ym";
