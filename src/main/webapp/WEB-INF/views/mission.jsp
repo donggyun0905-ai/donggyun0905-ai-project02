@@ -5,28 +5,47 @@
 <jsp:include page="/WEB-INF/views/common/header.jsp" />
 
 <h1>오늘의 미션</h1>
-<p class="muted">2026-09-28 월요일 · 매일 코딩테스트 문제 3개를 풀며 여정을 이어갑니다.</p>
+<p class="muted"><c:if test="${not empty missionDateLabel}"><c:out value="${missionDateLabel}" /> · </c:if>매일 코딩테스트 문제 3개를 풀며 여정을 이어갑니다.</p>
 
 <div class="two-col" style="margin-top:16px;">
     <div class="primary">
         <div class="row" style="align-items:stretch;">
+            <%-- FR-53 연속 수행 — missionStreak(MissionProblemFilter)는 그날 배정된 문제를 모두 끝낸 날(제출·실패)을 센다 --%>
             <div class="card" style="flex:1;">
-                <h2>연속 4일째</h2>
-                <p class="muted" style="margin-top:6px;">오늘 미션을 끝내면 5일이 됩니다</p>
-                <div class="row" style="margin-top:10px; gap:6px;">
-                    <div class="pill" style="text-align:center; font-size:0.72rem; padding:6px 8px;">화 22<br>쉼</div>
-                    <div class="pill" style="text-align:center; font-size:0.72rem; padding:6px 8px;">수 23<br>쉼</div>
-                    <div class="pill" style="text-align:center; font-size:0.72rem; padding:6px 8px;">목 24<br>완료</div>
-                    <div class="pill" style="text-align:center; font-size:0.72rem; padding:6px 8px;">금 25<br>완료</div>
-                    <div class="pill" style="text-align:center; font-size:0.72rem; padding:6px 8px;">토 26<br>완료</div>
-                    <div class="pill" style="text-align:center; font-size:0.72rem; padding:6px 8px;">일 27<br>완료</div>
-                    <div class="pill" style="text-align:center; font-size:0.72rem; padding:6px 8px; background:var(--gold); color:#fff; border-color:var(--gold);">월 28<br>오늘</div>
-                </div>
+                <c:choose>
+                    <c:when test="${not empty missionStreak}">
+                        <h2>연속 <c:out value="${missionStreak.streak}" />일째</h2>
+                        <p class="muted" style="margin-top:6px;">
+                            <c:choose>
+                                <c:when test="${missionStreak.todayDone}">오늘 미션 완료! 내일도 이어가세요</c:when>
+                                <c:otherwise>오늘 미션을 끝내면 <c:out value="${missionStreak.nextStreak}" />일이 됩니다</c:otherwise>
+                            </c:choose>
+                        </p>
+                        <div class="row" style="margin-top:10px; gap:6px;">
+                            <c:forEach var="d" items="${missionStreak.days}">
+                                <div class="pill" style="text-align:center; font-size:0.72rem; padding:6px 8px;${d.today ? ' background:var(--gold); color:#fff; border-color:var(--gold);' : ''}"><c:out value="${d.dayOfWeek}" /> <c:out value="${d.dayOfMonth}" /><br><c:choose><c:when test="${d.done}">완료</c:when><c:when test="${d.today}">오늘</c:when><c:otherwise>쉼</c:otherwise></c:choose></div>
+                            </c:forEach>
+                        </div>
+                    </c:when>
+                    <c:otherwise>
+                        <h2>연속 수행</h2>
+                        <p class="muted" style="margin-top:6px;">오늘 미션 3문제를 모두 끝내면 연속 기록이 쌓입니다</p>
+                    </c:otherwise>
+                </c:choose>
             </div>
             <div class="card" style="flex:1;">
                 <h2>문제 난이도</h2>
-                <p style="margin-top:8px;">현재 등급 <strong>실전러</strong>에 맞춰 <strong>Lv2~3</strong> 문제가 나옵니다.</p>
-                <p class="muted" style="font-size:0.82rem;">등급이 오르면 더 높은 난이도가 섞여 나옵니다. 점수: 정답 +10~30(난이도별), 풀이 +5</p>
+                <%-- 등급·난이도·점수는 MissionProblemFilter가 넣어 주는 dailyMissionToday(사용자별) 값. 조회에 실패하면 일반 안내만 --%>
+                <c:choose>
+                    <c:when test="${not empty dailyMissionToday}">
+                        <p style="margin-top:8px;">현재 등급 <strong><c:out value="${dailyMissionToday.tierName}" /></strong>에 맞춰 <strong>Lv<c:out value="${dailyMissionToday.levelMin}" />~<c:out value="${dailyMissionToday.levelMax}" /></strong> 문제가 나옵니다.</p>
+                        <p class="muted" style="font-size:0.82rem;">등급이 오르면 더 높은 난이도가 섞여 나옵니다. 점수: 문제 풀이 +<c:out value="${dailyMissionToday.solvePoints}" />(현재 등급 기준)</p>
+                    </c:when>
+                    <c:otherwise>
+                        <p style="margin-top:8px;">현재 등급에 맞는 난이도의 문제가 나옵니다.</p>
+                        <p class="muted" style="font-size:0.82rem;">등급이 오르면 더 높은 난이도가 섞여 나옵니다.</p>
+                    </c:otherwise>
+                </c:choose>
             </div>
         </div>
 
