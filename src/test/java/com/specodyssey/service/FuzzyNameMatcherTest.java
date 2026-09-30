@@ -1,10 +1,14 @@
 package com.specodyssey.service;
 
+import com.specodyssey.dao.SkillDao;
 import com.specodyssey.dao.TestFixtures;
+import com.specodyssey.dto.SkillDto;
 import com.specodyssey.util.DBUtil;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.sql.Connection;
 
@@ -18,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class FuzzyNameMatcherTest {
 
     private final FuzzyNameMatcher matcher = new FuzzyNameMatcher();
+    private final SkillDao skillDao = new SkillDao();
     private Long skillId;
     private String skillName;
 
@@ -109,5 +114,52 @@ class FuzzyNameMatcherTest {
                 TestFixtures.hardDelete(conn, "SKILL_ALIAS", aliasId);
             }
         }
+    }
+
+    // 실제 시드 데이터(sql/10_seed_skill_alias.sql, sql/11_seed_skill_alias_english.sql) 검증 —
+    // 한글 표기뿐 아니라 영어 줄임말/접두사 생략 표현도 정확한 표준 스킬로 잡히는지 예시를
+    // 잔뜩 모아서 확인한다(2026-09-30, "영어도 올바르게 추출되게").
+    @ParameterizedTest
+    @CsvSource({
+            "파이썬, Python",
+            "파이선, Python",
+            "자바스크립트, JavaScript",
+            "JS, JavaScript",
+            "TS, TypeScript",
+            "스프링부트, Spring Boot",
+            "쿠버네티스, Kubernetes",
+            "K8s, Kubernetes",
+            "몽고, MongoDB",
+            "리액트, React",
+            "깃허브, GitHub",
+            "Postgres, PostgreSQL",
+            "Mongo, MongoDB",
+            "Node, Node.js",
+            "Redshift, Amazon Redshift",
+            "BigQuery, Google BigQuery",
+            "Google Cloud, Google Cloud Platform",
+            "Azure, Microsoft Azure",
+            "Oracle, Oracle Database",
+            "MSSQL, MS SQL Server",
+            "RoR, Ruby on Rails",
+            "ASP.NET, ASP.NET Core",
+            "Elastic, Elasticsearch",
+            "Jupyter, Jupyter Notebook",
+            "Hugging Face, Hugging Face Transformers",
+            "Spark, Apache Spark",
+            "Kafka, Apache Kafka",
+            "Airflow, Apache Airflow",
+            "Flink, Apache Flink",
+            "NiFi, Apache NiFi",
+            "JMeter, Apache JMeter",
+            "Microservices, Microservices Architecture",
+            "Agile, Agile/Scrum",
+            "Scrum, Agile/Scrum",
+            "CICD, CI/CD",
+    })
+    void 실제_시드된_별칭_예시들이_올바른_표준_스킬로_매칭된다(String alias, String expectedCanonicalName) throws Exception {
+        SkillDto expected = skillDao.findByName(expectedCanonicalName);
+        assertEquals(expected.getId(), matcher.match(alias).skillId(),
+                () -> "'" + alias + "' 은(는) '" + expectedCanonicalName + "'로 매칭돼야 한다");
     }
 }

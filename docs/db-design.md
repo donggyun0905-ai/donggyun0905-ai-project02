@@ -270,7 +270,7 @@ JOB_ALIAS와 같은 발상 — 사용자가 표준 명칭(SKILL.skill_name, 대�
 
 설계 판단:
 
-- 2026-09-30 팀 결정("시맨틱 매칭, 이름 일치라도 먼저")으로 신설. sql/10_seed_skill_alias.sql에 163개 SKILL 중 142개에 대해 확실히 널리 쓰이는 한글 표기·줄임말을 미리 채워뒀다.
+- 2026-09-30 팀 결정("시맨틱 매칭, 이름 일치라도 먼저")으로 신설. sql/10_seed_skill_alias.sql에 163개 SKILL 중 142개에 대해 확실히 널리 쓰이는 한글 표기·줄임말을 미리 채워뒀다. sql/11_seed_skill_alias_english.sql에서 영어권에서도 벤더/프로젝트 접두사를 빼고 부르는 표현(Postgres, Spark, Kafka, Azure 등 24개)을 추가로 보강했다 — 편집거리로는 원래 이름과 차이가 너무 커서 못 잡는 것들이다. 현재 총 187건.
 - 애매하거나 이미 짧은 약어뿐인 기술(SQL, PHP, R, DNS, VPN, PKI, IAM, SIEM, TDD, OAuth 2.0 등 21개)은 잘못된 별칭을 심느니 비워뒀다 — 더 필요하면 이 테이블에 행만 추가하면 된다(스키마 변경 없음).
 - match_type/similarity_score는 JOB_ALIAS와 같은 이유로 존재한다 — 나중에 임베딩 유사도로 자동 채운 별칭과 수기 등록 별칭을 구분해 오매칭을 걸러낼 수 있게.
 
