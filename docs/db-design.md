@@ -262,12 +262,14 @@ erDiagram
 | `job_category` | VARCHAR(50) |  | BACKEND / FRONTEND / DATA / DEVOPS / SECURITY / PM |
 | `is_popular` | BOOLEAN |  | 사전 수집 대상 여부 |
 | `last_collected_at` | DATETIME |  | 마지막 수집 시각 — 재수집 판단 기준 |
+| `requirement_version` | INT |  | JOB_REQUIRED_SKILL 목록이 실제로 바뀔 때마다 +1 (내용이 같으면 재수집해도 안 올림) |
 
 설계 판단:
 
 - IT 계열로 한정하기로 확정했다. 초기 대상이 15~20개로 줄어 명세서 TD-2의 "수기 구축 5~10개"보다 넓은 커버리지를 확보할 수 있고, 스킬 마스터도 IT 기술로만 채워져 임베딩 품질이 올라간다.
 - is_popular가 true면 미리 수집해 둔다(조회가 빠름). false면 사용자가 요청할 때 워크넷을 호출하고 결과를 캐싱해 다음 사용자부터 빨라진다.
 - 재수집은 워크넷 배치 주 1회(일요일 새벽), On-demand 캐시는 TTL 7일로 추천.
+- **requirement_version(2026-09-30 팀 결정)** — "로드맵이 한 번 만들면 고정되는 문제" 해결책. 트렌드가 바뀔 때마다 관련 유저 전원의 로드맵을 자동 재생성하면 AI 비용이 유저 수 × 갱신 주기만큼 반복돼서 기각. 대신 ① 이 값 변화는 DB 비교만으로 감지(비용 0원) ② 목표 직무로 삼은 유저에게 배너로만 알림 ③ 유저가 직접 눌러야 재분석·재생성(여기서만 AI 비용 발생)하는 구조로 확정. `GAP_ANALYSIS.job_requirement_version`과 짝을 이룬다.
 
 #### JOB_REQUIRED_SKILL (직무 요구 기술) — 신설
 
@@ -450,6 +452,7 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | `user_id` | BIGINT | FK | → USERS |
 | `job_id` | BIGINT | FK | → JOB (목표 직무) |
 | `match_rate` | DECIMAL(5,2) |  | 전체 충족률 — 완성도 게이지 재료 |
+| `job_requirement_version` | INT |  | 분석 시점 `JOB.requirement_version` 스냅샷. 나중에 JOB 쪽이 갱신되면 이 값과 비교해 로드맵이 낡았는지 판단(2026-09-30 팀 결정) |
 | `analyzed_at` | DATETIME |  | 분석 시각 — 재분석 판단 기준 |
 
 설계 판단:
@@ -457,6 +460,7 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 - 한 사용자가 여러 직무를 각각 진단할 수 있도록 1:N으로 확정했다. IT 계열 안에서 백엔드·데이터·DevOps를 저울질하는 건 자연스러운 행동이고, "어느 길로 갈지 비교한다"는 여정 컨셉과도 맞는다.
 - analyzed_at이 프로필 변경 시 재분석 트리거 기준이 된다(FR-37). 프로필이 이 시각 이후에 바뀌었으면 다시 분석한다.
 - match_rate는 대시보드 완성도 게이지(FR-41)의 재료로 그대로 쓰인다.
+- job_requirement_version은 GapAnalysisService.analyze()가 분석할 때마다 그 시점 JOB.requirement_version을 그대로 복사해 저장한다. ROADMAP은 이 GAP_ANALYSIS를 gap_analysis_id로 물고 있으므로, 로드맵 화면은 "이 값 != 현재 JOB.requirement_version"이면 배너로 변화를 알린다.
 
 #### GAP_ANALYSIS_ITEM (격차 분석 항목) — 신설
 
@@ -534,7 +538,7 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 - 재분석으로 로드맵이 새 version으로 만들어질 때, 이전 version에서 완료한 단계는 승계해야 한다. 안 그러면 이미 딴 자격증을 다시 따라고 시킨다. CERT 단계는 USER_SPECS에 같은 자격증이 등록돼 있으면 생성 시점에 바로 완료 처리하는 편이 안전하다.
 - **SKILL 단계 학습 검증(2026-09-30 팀 결정, 규칙 기반)**: 지금까지 SKILL 단계는 "완료 체크" 버튼 하나뿐이라 실제로 배웠는지 확인하는 절차가 없었다. tier별로 증빙 방식을 다르게 한다.
   - ENTRY: 공부노트를 PDF로 업로드 → PDFBox로 텍스트를 추출해 규칙 판정(300자 이상 + 기술명 2회 이상 + 코드 블록 1개 이상). 배움의 시작 단계라 "이해했는지"를 느슨하게 확인.
-  - CORE/ADVANCED: 기존 로직(tech_stack 변화·증빙 파일) 그대로 — 프로젝트 등록 또는 기존 프로젝트 업그레이드(USER_PROJECTS.upgraded_from_project_id)로 자동 확인.
+  - CORE/ADVANCED: 기존 로직(tech_stack 변화·증빙 파일) 그대로 — 프로젝트 등록 또는 기존 프로젝트 업그레이드(USER_PROJECTS.upgraded_from_project_id)로 자동 확인. **CORE/ADVANCED 구분(2026-09-30 팀 확정)**: CORE는 신규/업그레이드 둘 다 허용하지만, ADVANCED는 "심화" 단계 취지상 반드시 기존 프로젝트를 업그레이드해야 한다(신규 프로젝트로는 완료 불가).
   - EXPERT: 기술 설명 글을 PDF로 업로드 → 텍스트 추출 후 규칙 판정(800자 이상 + 기술명 3회 이상 + 외부 링크 1개 이상). "가르칠 수 있어야 진짜 아는 것"이 기준.
   - PDF 원본은 DOCUMENTS(roadmap_step_id로 연결)에 저장하고, 추출한 텍스트는 ROADMAP_STEP.proof_content에 캐시해 재판정·화면 표시에 재사용한다.
   - AI 채점안도 검토했으나(비용·일관성), 학생 프로젝트 규모에서는 규칙 기반으로 우선 가고 AI는 나중에 끼워 넣기로 함(4-1안 채택, 팀 결정 2026-09-30). 관리자 검수 화면은 추후 과제로 미룸 — 지금은 자동 판정 결과를 그대로 신뢰한다.

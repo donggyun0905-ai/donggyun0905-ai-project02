@@ -25,6 +25,19 @@
             <p class="error-message">${errorMessage}</p>
         </c:if>
 
+        <%-- "로드맵이 한 번 만들면 고정되는 문제" 해결(2026-09-30 팀 결정) — 목표 직무의 요구 기술이
+             실제로 바뀌었을 때만(JOB.requirement_version 비교, 비용 0원) 배너를 띄운다. 사용자가
+             직접 눌러야만 재분석(비용 발생)이 일어난다. --%>
+        <c:if test="${requirementOutdated}">
+            <div class="banner">
+                🔔 목표 직무의 요구 기술이 바뀌었어요. 반영하면 로드맵이 새로 갱신됩니다.
+                <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form" style="margin-top:6px;">
+                    <input type="hidden" name="action" value="reanalyzeAndRegenerate">
+                    <button type="submit">재분석하고 반영</button>
+                </form>
+            </div>
+        </c:if>
+
         <div class="two-col" style="margin-top:16px;">
         <div class="primary">
         <c:choose>
@@ -171,16 +184,6 @@
                                                 <button type="submit">등록하고 완료하기</button>
                                             </form>
                                         </details>
-                                        <%-- [TEST] 실기능 검증용 임시 버튼 — 파일 첨부 없이 기존 완료 액션(action=complete)을
-                                             재사용해 점수만 적립한다(프로필에 프로젝트/파일은 안 채워짐). 위 등록 폼과는
-                                             별개의 form이라 name="action" 인풋 충돌 없이 안전하게 값을 넘길 수 있다.
-                                             실기능 검증이 끝나면 반드시 지울 것(2026-09-30, 집 PC 작업). --%>
-                                        <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">
-                                            <input type="hidden" name="action" value="complete">
-                                            <input type="hidden" name="stepId" value="${step.id}">
-                                            <input type="hidden" name="completed" value="true">
-                                            <button type="submit" class="link-button">[TEST] 파일 없이 통과</button>
-                                        </form>
                                     </c:when>
                                     <%-- ENTRY(공부노트)/EXPERT(기술 설명 글) SKILL 단계 — 규칙 기반 자동 판정(2026-09-30 팀 결정).
                                          미통과(NEEDS_REVISION)면 review_note를 보여주고 다시 제출할 수 있게 한다. --%>
@@ -208,35 +211,47 @@
                                         </details>
                                     </c:when>
                                     <%-- CORE/ADVANCED SKILL 단계 — 프로젝트 등록 또는 기존 프로젝트 업그레이드 + 증빙 파일로
-                                         자동 확인(2026-09-30 팀 결정). userProjects는 RoadmapServlet에서 미리 담아준다. --%>
+                                         자동 확인(2026-09-30 팀 결정). userProjects는 RoadmapServlet에서 미리 담아준다.
+                                         ADVANCED는 "심화" 단계 취지상 반드시 기존 프로젝트 업그레이드만 인정한다(팀 확정,
+                                         2026-09-30) — 신규 프로젝트 선택지를 아예 안 보여주고, 업그레이드할 프로젝트가
+                                         하나도 없으면 CORE부터 먼저 하라고 안내한다. --%>
                                     <c:when test="${step.stepType == 'SKILL' && (step.tier == 'CORE' || step.tier == 'ADVANCED')}">
-                                        <details>
-                                            <summary>프로젝트 등록/업그레이드하고 완료하기</summary>
-                                            <form action="${pageContext.request.contextPath}/roadmap" method="post"
-                                                  enctype="multipart/form-data" style="margin-top:10px;">
-                                                <input type="hidden" name="action" value="submitSkillProject">
-                                                <input type="hidden" name="stepId" value="${step.id}">
-                                                <c:if test="${not empty userProjects}">
-                                                    <p><label>기존 프로젝트 업그레이드 (선택)</label>
-                                                        <select name="upgradeFromProjectId">
-                                                            <option value="">-- 신규 프로젝트 --</option>
-                                                            <c:forEach var="p" items="${userProjects}">
-                                                                <option value="${p.id}">${p.title}</option>
-                                                            </c:forEach>
-                                                        </select>
-                                                    </p>
-                                                </c:if>
-                                                <p><label>프로젝트명</label><input type="text" name="title" required></p>
-                                                <p><label>설명 (무엇을 했는지)</label><textarea name="description" required></textarea></p>
-                                                <p><label>사용 기술</label><input type="text" name="techStack" placeholder="예: Java, Spring, MySQL"></p>
-                                                <p class="row">
-                                                    <span style="flex:1;"><label>시작일</label><input type="date" name="startDate"></span>
-                                                    <span style="flex:1;"><label>종료일</label><input type="date" name="endDate"></span>
-                                                </p>
-                                                <p><label>증빙 파일(여러 개 가능, 필수)</label><input type="file" name="files" multiple required></p>
-                                                <button type="submit">등록하고 완료하기</button>
-                                            </form>
-                                        </details>
+                                        <c:choose>
+                                            <c:when test="${step.tier == 'ADVANCED' && empty userProjects}">
+                                                <p class="muted" style="font-size:0.85rem;">ADVANCED는 기존 프로젝트를 업그레이드해야 완료할 수 있어요. 먼저 CORE 단계에서 프로젝트를 하나 등록해주세요.</p>
+                                            </c:when>
+                                            <c:otherwise>
+                                                <details>
+                                                    <summary>프로젝트 등록/업그레이드하고 완료하기</summary>
+                                                    <form action="${pageContext.request.contextPath}/roadmap" method="post"
+                                                          enctype="multipart/form-data" style="margin-top:10px;">
+                                                        <input type="hidden" name="action" value="submitSkillProject">
+                                                        <input type="hidden" name="stepId" value="${step.id}">
+                                                        <c:if test="${not empty userProjects}">
+                                                            <p><label>기존 프로젝트 업그레이드${step.tier == 'CORE' ? ' (선택)' : ''}</label>
+                                                                <select name="upgradeFromProjectId" ${step.tier == 'ADVANCED' ? 'required' : ''}>
+                                                                    <c:if test="${step.tier == 'CORE'}">
+                                                                        <option value="">-- 신규 프로젝트 --</option>
+                                                                    </c:if>
+                                                                    <c:forEach var="p" items="${userProjects}">
+                                                                        <option value="${p.id}">${p.title}</option>
+                                                                    </c:forEach>
+                                                                </select>
+                                                            </p>
+                                                        </c:if>
+                                                        <p><label>프로젝트명</label><input type="text" name="title" required></p>
+                                                        <p><label>설명 (무엇을 했는지)</label><textarea name="description" required></textarea></p>
+                                                        <p><label>사용 기술</label><input type="text" name="techStack" placeholder="예: Java, Spring, MySQL"></p>
+                                                        <p class="row">
+                                                            <span style="flex:1;"><label>시작일</label><input type="date" name="startDate"></span>
+                                                            <span style="flex:1;"><label>종료일</label><input type="date" name="endDate"></span>
+                                                        </p>
+                                                        <p><label>증빙 파일(여러 개 가능, 필수)</label><input type="file" name="files" multiple required></p>
+                                                        <button type="submit">등록하고 완료하기</button>
+                                                    </form>
+                                                </details>
+                                            </c:otherwise>
+                                        </c:choose>
                                     </c:when>
                                     <c:otherwise>
                                         <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">

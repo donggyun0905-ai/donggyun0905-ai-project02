@@ -7,6 +7,7 @@ import com.specodyssey.dto.RoadmapDto;
 import com.specodyssey.dto.RoadmapStepDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.dto.UserProjectDto;
+import com.specodyssey.service.GapAnalysisService;
 import com.specodyssey.service.RoadmapService;
 import com.specodyssey.util.FileStorageUtil;
 import com.specodyssey.util.PdfTextUtil;
@@ -45,6 +46,7 @@ import java.util.List;
 public class RoadmapServlet extends HttpServlet {
 
     private final RoadmapService roadmapService = new RoadmapService();
+    private final GapAnalysisService gapAnalysisService = new GapAnalysisService();
     private final UserDao userDao = new UserDao();
     private final UserProjectDao userProjectDao = new UserProjectDao();
 
@@ -70,6 +72,10 @@ public class RoadmapServlet extends HttpServlet {
             req.setAttribute("progress", roadmapService.computeProgress(steps));
             // CORE/ADVANCED SKILL 단계의 "기존 프로젝트 업그레이드" 선택지용 — 2026-09-30 팀 결정.
             req.setAttribute("userProjects", userProjectDao.findByUserId(userId));
+            // "요구 기술이 바뀌었어요" 배너 — 로드맵이 기준으로 삼은 분석이 낡았는지(2026-09-30 팀 결정).
+            if (roadmap != null) {
+                req.setAttribute("requirementOutdated", roadmapService.isJobRequirementOutdated(userId));
+            }
         } catch (SQLException e) {
             throw new ServletException("로드맵을 불러오는 중 오류가 발생했습니다.", e);
         }
@@ -99,6 +105,14 @@ public class RoadmapServlet extends HttpServlet {
             } else if ("submitSkillProject".equals(action)) {
                 if (!handleSubmitSkillProject(req, resp, userId)) {
                     return;
+                }
+            } else if ("reanalyzeAndRegenerate".equals(action)) {
+                // "요구 기술이 바뀌었어요" 배너의 액션 — 여기서만 실제 재분석(비용 발생 지점)이 일어난다
+                // (2026-09-30 팀 결정). 목표 직무는 UserDto.desiredJobId를 그대로 쓴다.
+                UserDto user = userDao.findById(userId);
+                if (user.getDesiredJobId() != null) {
+                    gapAnalysisService.analyze(userId, user.getDesiredJobId());
+                    roadmapService.generate(userId);
                 }
             } else {
                 resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "잘못된 요청입니다.");

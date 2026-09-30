@@ -27,12 +27,18 @@ public class GapAnalysisDao {
     }
 
     public Long insert(Connection conn, GapAnalysisDto analysis) throws SQLException {
-        String sql = "INSERT INTO GAP_ANALYSIS (user_id, job_id, match_rate, analyzed_at) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO GAP_ANALYSIS (user_id, job_id, match_rate, job_requirement_version, analyzed_at) " +
+                "VALUES (?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setLong(1, analysis.getUserId());
             pstmt.setLong(2, analysis.getJobId());
             pstmt.setBigDecimal(3, analysis.getMatchRate());
-            pstmt.setTimestamp(4, toTimestamp(analysis.getAnalyzedAt()));
+            if (analysis.getJobRequirementVersion() == null) {
+                pstmt.setNull(4, java.sql.Types.INTEGER);
+            } else {
+                pstmt.setInt(4, analysis.getJobRequirementVersion());
+            }
+            pstmt.setTimestamp(5, toTimestamp(analysis.getAnalyzedAt()));
             pstmt.executeUpdate();
             try (ResultSet keys = pstmt.getGeneratedKeys()) {
                 return keys.next() ? keys.getLong(1) : null;
@@ -76,6 +82,7 @@ public class GapAnalysisDao {
         analysis.setUserId(rs.getLong("user_id"));
         analysis.setJobId(rs.getLong("job_id"));
         analysis.setMatchRate(rs.getBigDecimal("match_rate"));
+        analysis.setJobRequirementVersion(rs.getObject("job_requirement_version", Integer.class));
         analysis.setAnalyzedAt(toLocalDateTime(rs.getTimestamp("analyzed_at")));
         analysis.setCreatedAt(toLocalDateTime(rs.getTimestamp("created_at")));
         analysis.setUpdatedAt(toLocalDateTime(rs.getTimestamp("updated_at")));

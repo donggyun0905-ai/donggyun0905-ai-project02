@@ -226,6 +226,9 @@ CREATE TABLE GAP_ANALYSIS (
     user_id        BIGINT        NOT NULL,
     job_id         BIGINT        NOT NULL,
     match_rate     DECIMAL(5,2)  NOT NULL,
+    -- 이 분석이 어느 JOB.requirement_version 기준인지 저장 — 이후 JOB 쪽이 갱신되면 낡은 분석인지
+    -- 판단하는 근거가 된다(2026-09-30 팀 결정).
+    job_requirement_version INT  NULL,
     analyzed_at    DATETIME      NOT NULL,
     created_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

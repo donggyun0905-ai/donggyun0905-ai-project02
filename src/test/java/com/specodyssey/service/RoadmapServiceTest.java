@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -122,6 +123,7 @@ class RoadmapServiceTest {
             analysis.setUserId(userId);
             analysis.setJobId(jobId);
             analysis.setMatchRate(new BigDecimal("40.00"));
+            analysis.setJobRequirementVersion(jobDao.findById(jobId).getRequirementVersion());
             analysis.setAnalyzedAt(LocalDateTime.now());
             gapAnalysisId = gapAnalysisDao.insert(conn, analysis);
 
@@ -157,6 +159,14 @@ class RoadmapServiceTest {
             TestFixtures.hardDeleteByColumn(conn, "USER_SCORE_SUMMARY", "user_id", userId);
             TestFixtures.hardDeleteByColumn(conn, "USER_SKILLS", "user_id", userId);
             TestFixtures.hardDeleteByColumn(conn, "USER_SPECS", "user_id", userId);
+            // USER_PROJECTS.upgraded_from_project_id는 자기참조 FK라, 업그레이드 체인이 있으면
+            // 한 DELETE 문 안에서도 부모가 먼저 지워질 경우 RESTRICT에 걸릴 수 있다 — 지우기 전에
+            // 참조부터 끊는다(2026-09-30 CORE/ADVANCED 업그레이드 기능 추가로 생긴 케이스).
+            try (PreparedStatement pstmt = conn.prepareStatement(
+                    "UPDATE USER_PROJECTS SET upgraded_from_project_id = NULL WHERE user_id = ?")) {
+                pstmt.setLong(1, userId);
+                pstmt.executeUpdate();
+            }
             TestFixtures.hardDeleteByColumn(conn, "USER_PROJECTS", "user_id", userId);
             TestFixtures.hardDelete(conn, "GAP_ANALYSIS_ITEM", gapItemId1);
             TestFixtures.hardDelete(conn, "GAP_ANALYSIS_ITEM", gapItemId2);
@@ -586,6 +596,78 @@ class RoadmapServiceTest {
         assertThrows(IllegalArgumentException.class,
                 () -> roadmapService.submitSkillProjectStep(userId, entrySkillStep.getId(), sampleProject(),
                         List.of(sampleDocument()), null));
+    }
+
+    // "로드맵이 한 번 만들면 고정되는 문제" 해결(2026-09-30 팀 결정) — JOB.requirement_version 비교.
+    @Test
+    void isJobRequirementOutdated_직무_요구기술_버전이_바뀌면_true를_반환한다() throws Exception {
+        roadmapService.generate(userId); // setUp에서 만든 GAP_ANALYSIS로 대표 로드맵 생성
+        assertFalse(roadmapService.isJobRequirementOutdated(userId), "방금 만든 로드맵은 아직 최신이어야 한다");
+
+        try (Connection conn = DBUtil.getConnection()) {
+            jobDao.bumpRequirementVersion(conn, jobId);
+        }
+        try {
+            assertTrue(roadmapService.isJobRequirementOutdated(userId));
+        } finally {
+            // BACKEND 직무는 팀 공용 시드라 반드시 원상복구한다.
+            try (Connection conn = DBUtil.getConnection();
+                 PreparedStatement pstmt = conn.prepareStatement(
+                         "UPDATE JOB SET requirement_version = requirement_version - 1 WHERE id = ?")) {
+                pstmt.setLong(1, jobId);
+                pstmt.executeUpdate();
+            }
+        }
+    }
+
+    @Test
+    void ADVANCED_단계는_업그레이드_없이_제출하면_예외가_발생한다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        Long advancedStepId;
+        try (Connection conn = DBUtil.getConnection()) {
+            RoadmapStepDto advancedStep = new RoadmapStepDto();
+            advancedStep.setRoadmapId(roadmapId);
+            advancedStep.setStepOrder(998);
+            advancedStep.setStepType("SKILL");
+            advancedStep.setTier("ADVANCED");
+            advancedStep.setRelatedSkillId(requiredSkillId);
+            advancedStep.setReason("테스트용 ADVANCED 단계");
+            advancedStep.setCompleted(false);
+            advancedStepId = roadmapStepDao.insert(conn, advancedStep);
+        }
+
+        assertThrows(IllegalArgumentException.class,
+                () -> roadmapService.submitSkillProjectStep(userId, advancedStepId, sampleProject(),
+                        List.of(sampleDocument()), null));
+    }
+
+    @Test
+    void ADVANCED_단계를_업그레이드로_제출하면_완료된다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        UserProjectDto coreProject = sampleProject();
+        coreProject.setUserId(userId);
+        Long coreProjectId = userProjectDao.insert(coreProject);
+        Long advancedStepId;
+        try (Connection conn = DBUtil.getConnection()) {
+            RoadmapStepDto advancedStep = new RoadmapStepDto();
+            advancedStep.setRoadmapId(roadmapId);
+            advancedStep.setStepOrder(997);
+            advancedStep.setStepType("SKILL");
+            advancedStep.setTier("ADVANCED");
+            advancedStep.setRelatedSkillId(requiredSkillId);
+            advancedStep.setReason("테스트용 ADVANCED 단계");
+            advancedStep.setCompleted(false);
+            advancedStepId = roadmapStepDao.insert(conn, advancedStep);
+        }
+
+        boolean applied = roadmapService.submitSkillProjectStep(userId, advancedStepId, sampleProject(),
+                List.of(sampleDocument()), coreProjectId);
+
+        assertTrue(applied);
+        RoadmapStepDto updated = roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> s.getId().equals(advancedStepId))
+                .findFirst().orElseThrow();
+        assertTrue(updated.isCompleted());
     }
 
     private UserProjectDto sampleProject() {

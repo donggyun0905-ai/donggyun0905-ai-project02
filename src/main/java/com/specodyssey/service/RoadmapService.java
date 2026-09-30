@@ -110,6 +110,23 @@ public class RoadmapService {
         return roadmapDao.findPrimaryByUserId(userId);
     }
 
+    // "로드맵이 한 번 만들면 고정되는 문제" 해결책(2026-09-30 팀 결정) — 대표 로드맵이 기준으로 삼은
+    // 분석(GAP_ANALYSIS.job_requirement_version)이 JOB의 현재 requirement_version보다 낡았으면
+    // true. DB 비교만으로 판단해서 비용이 0원이다(AI 호출 없음) — 실제 재분석·재생성은 사용자가
+    // 배너를 보고 직접 눌러야만 일어난다.
+    public boolean isJobRequirementOutdated(Long userId) throws SQLException {
+        RoadmapDto primary = roadmapDao.findPrimaryByUserId(userId);
+        if (primary == null || primary.getGapAnalysisId() == null) {
+            return false;
+        }
+        GapAnalysisDto analysis = gapAnalysisDao.findById(primary.getGapAnalysisId());
+        if (analysis == null || analysis.getJobRequirementVersion() == null) {
+            return false;
+        }
+        JobDto job = jobDao.findById(analysis.getJobId());
+        return job != null && job.getRequirementVersion() != analysis.getJobRequirementVersion();
+    }
+
     public List<RoadmapStepDto> getSteps(Long roadmapId) throws SQLException {
         return roadmapStepDao.findByRoadmapId(roadmapId);
     }
@@ -379,6 +396,8 @@ public class RoadmapService {
     // 자동 확인한다(팀 결정, 2026-09-30). completeProjectStep(PROJECT 타입 전용 단계)과 달리 이건
     // SKILL 타입 단계에 evidence_project_id로 프로젝트를 연결한다 — 별도 판정 규칙 없이 등록 자체가
     // 증빙이다. upgradeFromProjectId가 있으면 본인 소유가 맞는지 먼저 확인한다.
+    // CORE/ADVANCED 구분(2026-09-30 팀 확정): CORE는 신규/업그레이드 둘 다 허용하지만, ADVANCED는
+    // "심화" 단계 취지상 반드시 기존 프로젝트를 업그레이드해야 한다 — 신규 프로젝트로는 완료할 수 없다.
     public boolean submitSkillProjectStep(Long userId, Long stepId, UserProjectDto projectInput,
             List<DocumentDto> uploadedFiles, Long upgradeFromProjectId) throws SQLException {
         if (uploadedFiles == null || uploadedFiles.isEmpty()) {
@@ -392,6 +411,9 @@ public class RoadmapService {
             if (!"SKILL".equals(step.getStepType())
                     || !(TIER_CORE.equals(step.getTier()) || TIER_ADVANCED.equals(step.getTier()))) {
                 throw new IllegalArgumentException("프로젝트 등록 대상이 아닌 단계입니다.");
+            }
+            if (TIER_ADVANCED.equals(step.getTier()) && upgradeFromProjectId == null) {
+                throw new IllegalArgumentException("ADVANCED 단계는 기존 프로젝트를 업그레이드해야만 완료할 수 있습니다.");
             }
             if (step.isCompleted()) {
                 return false;

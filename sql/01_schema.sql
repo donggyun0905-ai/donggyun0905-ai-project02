@@ -36,6 +36,9 @@ CREATE TABLE JOB (
     job_category        VARCHAR(50)  NULL,
     is_popular          BOOLEAN      NOT NULL DEFAULT FALSE,
     last_collected_at   DATETIME     NULL,
+    -- 필수 기술 목록(JOB_REQUIRED_SKILL)이 바뀔 때마다 +1. 내용이 같으면 재수집해도 안 올린다
+    -- (2026-09-30 팀 결정 — 로드맵이 한 번 만들면 고정되는 문제 해결).
+    requirement_version INT          NOT NULL DEFAULT 1,
     created_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     is_deleted          BOOLEAN      NOT NULL DEFAULT FALSE,

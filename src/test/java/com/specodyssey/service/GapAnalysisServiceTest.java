@@ -170,6 +170,18 @@ class GapAnalysisServiceTest {
         assertEquals(secondId, latest.getId());
     }
 
+    // "로드맵이 한 번 만들면 고정되는 문제" 해결(2026-09-30 팀 결정) — 분석 시점 JOB.requirement_version
+    // 스냅샷이 잘 찍히는지 확인. 공용 시드(BACKEND)를 직접 건드리지 않고 현재 값을 읽어서만 비교한다.
+    @Test
+    void analyze는_JOB의_requirement_version을_스냅샷으로_저장한다() throws Exception {
+        JobDto beforeAnalyze = jobDao.findById(jobId);
+
+        Long analysisId = gapAnalysisService.analyze(userId, jobId);
+
+        GapAnalysisDto analysis = gapAnalysisDao.findById(analysisId);
+        assertEquals(beforeAnalyze.getRequirementVersion(), analysis.getJobRequirementVersion());
+    }
+
     @Test
     void 분석_결과로_로드맵_생성까지_바로_이어진다() throws Exception {
         gapAnalysisService.analyze(userId, jobId);

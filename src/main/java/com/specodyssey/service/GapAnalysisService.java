@@ -2,11 +2,13 @@ package com.specodyssey.service;
 
 import com.specodyssey.dao.GapAnalysisDao;
 import com.specodyssey.dao.GapAnalysisItemDao;
+import com.specodyssey.dao.JobDao;
 import com.specodyssey.dao.JobRequiredSkillDao;
 import com.specodyssey.dao.SkillDao;
 import com.specodyssey.dao.UserSkillDao;
 import com.specodyssey.dto.GapAnalysisDto;
 import com.specodyssey.dto.GapAnalysisItemDto;
+import com.specodyssey.dto.JobDto;
 import com.specodyssey.dto.JobRequiredSkillDto;
 import com.specodyssey.dto.SkillDto;
 import com.specodyssey.dto.UserSkillDto;
@@ -38,6 +40,7 @@ public class GapAnalysisService {
     private final JobRequiredSkillDao jobRequiredSkillDao = new JobRequiredSkillDao();
     private final UserSkillDao userSkillDao = new UserSkillDao();
     private final SkillDao skillDao = new SkillDao();
+    private final JobDao jobDao = new JobDao();
 
     // 새 분석을 만들어 저장하고 새 GAP_ANALYSIS.id를 반환한다.
     public Long analyze(Long userId, Long jobId) throws SQLException {
@@ -74,11 +77,18 @@ public class GapAnalysisService {
                 ? BigDecimal.ZERO
                 : BigDecimal.valueOf(metCount * 100.0 / required.size()).setScale(2, RoundingMode.HALF_UP);
 
+        // 이 분석이 지금 시점 JOB.requirement_version 기준이라는 걸 스냅샷으로 남긴다(2026-09-30
+        // 팀 결정) — 나중에 JOB 쪽 요구 기술이 바뀌면(bumpRequirementVersion) 이 값과 비교해서
+        // 로드맵이 낡았는지 판단한다(RoadmapService.isJobRequirementOutdated).
+        JobDto job = jobDao.findById(jobId);
+        Integer jobRequirementVersion = job == null ? null : job.getRequirementVersion();
+
         return TransactionUtil.runInTransaction(conn -> {
             GapAnalysisDto analysis = new GapAnalysisDto();
             analysis.setUserId(userId);
             analysis.setJobId(jobId);
             analysis.setMatchRate(matchRate);
+            analysis.setJobRequirementVersion(jobRequirementVersion);
             analysis.setAnalyzedAt(LocalDateTime.now());
             Long analysisId = gapAnalysisDao.insert(conn, analysis);
 

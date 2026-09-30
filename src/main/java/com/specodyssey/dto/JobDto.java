@@ -9,6 +9,7 @@ public class JobDto {
     private String jobCategory;
     private boolean popular;
     private LocalDateTime lastCollectedAt;
+    private int requirementVersion;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private boolean deleted;
@@ -51,6 +52,14 @@ public class JobDto {
 
     public void setLastCollectedAt(LocalDateTime lastCollectedAt) {
         this.lastCollectedAt = lastCollectedAt;
+    }
+
+    public int getRequirementVersion() {
+        return requirementVersion;
+    }
+
+    public void setRequirementVersion(int requirementVersion) {
+        this.requirementVersion = requirementVersion;
     }
 
     public LocalDateTime getCreatedAt() {
