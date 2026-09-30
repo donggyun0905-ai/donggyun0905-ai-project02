@@ -43,6 +43,26 @@ public class JobSkillTrendDao {
         }
     }
 
+    // JOB_POSTING 집계 배치(JobSkillTrendService) 전용 — 같은 달을 다시 돌리면(그 달 공고가
+    // 아직도 들어오는 중이라 재실행할 수 있음) 새 값으로 덮어쓴다. 복합 UNIQUE(job_id, skill_id,
+    // period_ym) 기준 upsert라, 이미 지난 달(더 이상 공고가 안 들어옴)은 그냥 같은 값으로 다시
+    // 써질 뿐이라 "append-only" 원칙과 실질적으로 충돌하지 않는다.
+    public void upsertMonth(Connection conn, JobSkillTrendDto trend) throws SQLException {
+        String sql = "INSERT INTO JOB_SKILL_TREND (job_id, skill_id, period_ym, mention_count, mention_ratio) " +
+                "VALUES (?, ?, ?, ?, ?) " +
+                "ON DUPLICATE KEY UPDATE mention_count = ?, mention_ratio = ?, is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, trend.getJobId());
+            pstmt.setLong(2, trend.getSkillId());
+            pstmt.setString(3, trend.getPeriodYm());
+            pstmt.setInt(4, trend.getMentionCount());
+            setNullableBigDecimal(pstmt, 5, trend.getMentionRatio());
+            pstmt.setInt(6, trend.getMentionCount());
+            setNullableBigDecimal(pstmt, 7, trend.getMentionRatio());
+            pstmt.executeUpdate();
+        }
+    }
+
     // FR-47 특정 직무의 기술 언급 추이 — 월 순 정렬
     public List<JobSkillTrendDto> findByJobId(Long jobId) throws SQLException {
         String sql = "SELECT * FROM JOB_SKILL_TREND WHERE job_id = ? AND is_deleted = FALSE ORDER BY period_ym";
