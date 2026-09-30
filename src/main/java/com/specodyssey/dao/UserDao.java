@@ -10,6 +10,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * USERS 테이블 DAO.
@@ -45,6 +47,20 @@ public class UserDao {
                 }
             }
             return null;
+        }
+    }
+
+    // SpecScoreScheduler의 일 1회 전체 스냅샷 배치용
+    public List<UserDto> findAll() throws SQLException {
+        String sql = "SELECT * FROM USERS WHERE is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+            List<UserDto> users = new ArrayList<>();
+            while (rs.next()) {
+                users.add(mapRow(rs));
+            }
+            return users;
         }
     }
 

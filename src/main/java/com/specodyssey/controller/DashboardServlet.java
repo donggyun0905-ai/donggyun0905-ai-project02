@@ -22,6 +22,7 @@ import com.specodyssey.dto.UserScoreSummaryDto;
 import com.specodyssey.service.GapAnalysisService;
 import com.specodyssey.service.RoadmapService;
 import com.specodyssey.service.ScoreService;
+import com.specodyssey.service.SpecScoreService;
 import com.specodyssey.service.DailyMissionService;
 
 import jakarta.servlet.ServletException;
@@ -39,6 +40,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 /**
@@ -47,17 +50,19 @@ import java.util.stream.Collectors;
  * 화면 우선). 2026-09-30, 이미 만들어진 각 기능 서비스(로드맵·점수·미션·격차분석·D-day)를
  * 읽기 전용으로 모아 실제 데이터로 교체한다.
  *
- * "스펙 완성도" 점수(FR-41, SPEC_SCORE_HISTORY)는 실제로 계산하는 배치/서비스가 아직 아무도
- * 구현하지 않았다 — 없는 공식을 여기서 새로 지어내지 않고, 대신 확실한 사실(자격증·프로젝트·
- * 보유기술 개수)만 보여준다.
+ * "스펙 완성도" 점수(FR-41, SPEC_SCORE_HISTORY)는 SpecScoreService가 계산한다(2026-09-30 연결).
+ * 공식과 설계 판단은 SpecScoreService 클래스 주석 참고.
  */
 @WebServlet("/dashboard")
 public class DashboardServlet extends HttpServlet {
+
+    private static final Logger LOG = Logger.getLogger(DashboardServlet.class.getName());
 
     private final UserDao userDao = new UserDao();
     private final JobDao jobDao = new JobDao();
     private final RoadmapService roadmapService = new RoadmapService();
     private final ScoreService scoreService = new ScoreService();
+    private final SpecScoreService specScoreService = new SpecScoreService();
     private final LevelTierDao levelTierDao = new LevelTierDao();
     private final DailyMissionService dailyMissionService = new DailyMissionService();
     private final DdayAlertDao ddayAlertDao = new DdayAlertDao();
@@ -109,13 +114,22 @@ public class DashboardServlet extends HttpServlet {
         }
     }
 
-    // "스펙 완성도" 카드 — 종합 점수 공식은 아직 없어서 실제 개수만.
+    // "스펙 완성도" 카드 — 개수 + 종합 점수(SpecScoreService). 오늘 스냅샷이 없으면 하나 남긴다.
     private void loadSpecCounts(HttpServletRequest req, Long userId) throws SQLException {
         long certCount = userSpecDao.findByUserId(userId).stream()
                 .filter(s -> "CERT".equals(s.getSpecType())).count();
         req.setAttribute("certCount", certCount);
         req.setAttribute("projectCount", (long) userProjectDao.findByUserId(userId).size());
         req.setAttribute("skillCount", (long) userSkillDao.findByUserId(userId).size());
+
+        // 스냅샷 실패(예: DB 순간 오류)가 대시보드 전체를 막으면 안 된다 — 여기서만 삼키고
+        // 완성도는 스냅샷 여부와 무관하게 항상 최신 값을 즉석 계산해서 보여준다.
+        try {
+            specScoreService.snapshotIfNotYetToday(userId);
+        } catch (SQLException e) {
+            LOG.log(Level.WARNING, "SPEC_SCORE_HISTORY 스냅샷 기록 실패 — 화면은 계속 보여준다", e);
+        }
+        req.setAttribute("completenessScore", specScoreService.computeCompletenessScore(userId));
     }
 
     // "나의 등급" 카드 — 다음 등급까지 남은 점수는 LEVEL_TIER를 min_score 순으로 훑어 계산한다.

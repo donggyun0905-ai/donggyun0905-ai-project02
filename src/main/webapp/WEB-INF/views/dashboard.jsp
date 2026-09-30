@@ -36,13 +36,14 @@
             <div class="card" style="flex:1;">
                 <h2>내 스펙</h2>
                 <div class="row" style="margin-top:12px; align-items:center; gap:18px;">
+                    <strong style="font-size:1.8rem;"><c:out value="${completenessScore}" /></strong>
                     <div style="font-size:0.9rem; line-height:2;">
                         자격증 <strong><c:out value="${certCount}" />개</strong> ·
                         프로젝트 <strong><c:out value="${projectCount}" />개</strong><br>
                         보유 기술 <strong><c:out value="${skillCount}" />개</strong>
                     </div>
                 </div>
-                <p class="muted" style="font-size:0.78rem; margin-top:8px;">종합 완성도 점수는 집계 기능이 아직 없습니다.</p>
+                <div class="progress-track" style="margin-top:10px;"><div class="progress-fill" style="width:${completenessScore}%;"></div></div>
             </div>
             <div class="card" style="flex:1;">
                 <h2>나의 등급</h2>
