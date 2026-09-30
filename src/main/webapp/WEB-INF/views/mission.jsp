@@ -31,33 +31,45 @@
         </div>
 
         <div class="card">
-            <div class="spread"><h2>오늘의 문제 3개</h2><span class="muted">2 / 3 완료</span></div>
-            <ul class="item-list" style="margin-top:12px;">
-                <li class="completed">
-                    <div class="spread">
-                        <strong>DFS와 BFS</strong>
-                        <span class="chip chip-teal">✔ 완료 · 정답</span>
-                    </div>
-                    <p class="muted" style="margin:6px 0;">링크 추천 · 백준 1260 · Lv2 · 정답 +20, 풀이 +5 적립</p>
-                    <button class="secondary">문제 다시 보기</button>
-                </li>
-                <li>
-                    <div class="spread">
-                        <strong>구간 합 구하기 변형</strong>
-                        <span class="chip chip-danger">✘ 완료 · 오답</span>
-                    </div>
-                    <p class="muted" style="margin:6px 0;">AI 생성 문제 · Lv2 · 풀이 +5 적립</p>
-                    <div class="row"><button class="secondary">해설 보기</button><button class="secondary">다시 풀기</button></div>
-                </li>
-                <li>
-                    <div class="spread">
-                        <strong>최단 경로</strong>
-                        <span class="chip chip-gold">남음</span>
-                    </div>
-                    <p class="muted" style="margin:6px 0;">오픈 라이선스 문제셋 · Lv3 · 정답 시 +25, 풀이 +5</p>
-                    <div class="row"><button>풀러 가기</button><button class="secondary">완료 체크</button></div>
-                </li>
-            </ul>
+            <%-- 데이터(dailyMissions)는 MissionProblemFilter가 사용자 등급·목표 직무에 맞춰 배정해 실어 준다 (FR-51·52).
+                 지문은 저장하지 않는 링크 추천형이라 풀이는 원본 사이트에서 한다.
+                 "정답 입력하기"는 MissionSubmitServlet(/mission/submit), "실패"는 MissionFailServlet(/mission/fail)로 간다. --%>
+            <div class="spread"><h2>오늘의 문제 3개</h2><span class="muted"><c:out value="${empty dailyMissionDone ? 0 : dailyMissionDone}" /> / 3 완료</span></div>
+            <c:choose>
+                <c:when test="${empty dailyMissions}">
+                    <p class="muted" style="margin-top:12px;">아직 추천할 문제가 없습니다.</p>
+                </c:when>
+                <c:otherwise>
+                    <ul class="item-list" style="margin-top:12px;">
+                        <c:forEach var="m" items="${dailyMissions}">
+                            <%-- 실패는 완료(초록)와 구분되게 빨간 배경. 공통 CSS(A 담당)는 건드리지 않고 기존 색 변수만 쓴다.
+                                 correct는 Boolean(NULL 가능) — NULL을 false로 읽지 않도록 null 여부를 먼저 본다 --%>
+                            <c:set var="failed" value="${m.correct != null and not m.correct}" />
+                            <li class="${m.completed and not failed ? 'completed' : ''}"
+                                <c:if test="${failed}">style="border-color:var(--danger); background:var(--danger-bg);"</c:if>>
+                                <div class="spread">
+                                    <strong><c:out value="${m.title}" /></strong>
+                                    <c:choose>
+                                        <c:when test="${failed}"><span class="chip chip-danger">✘ 실패</span></c:when>
+                                        <c:when test="${m.completed}"><span class="chip chip-teal">✔ 완료</span></c:when>
+                                        <c:otherwise><span class="chip chip-gold">남음</span></c:otherwise>
+                                    </c:choose>
+                                </div>
+                                <p class="muted" style="margin:6px 0;">링크 추천 · <c:out value="${m.sourceLabel}" /> · Lv<c:out value="${m.difficultyLevel}" /></p>
+                                <div class="row">
+                                    <a class="btn" href="<c:out value='${m.externalUrl}' />" target="_blank" rel="noopener noreferrer">풀러 가기</a>
+                                    <a class="btn secondary" href="<c:url value='/mission/submit'><c:param name='missionId' value='${m.missionId}' /></c:url>">정답 입력하기</a>
+                                    <form method="post" action="<c:url value='/mission/fail' />" style="display:inline;"
+                                          onsubmit="return confirm('이 문제를 실패로 처리할까요?');">
+                                        <input type="hidden" name="missionId" value="<c:out value='${m.missionId}' />">
+                                        <button type="submit" class="secondary">실패</button>
+                                    </form>
+                                </div>
+                            </li>
+                        </c:forEach>
+                    </ul>
+                </c:otherwise>
+            </c:choose>
         </div>
     </div>
     <div class="side">
