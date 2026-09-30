@@ -30,6 +30,12 @@ Thumbs.db
 
 #개인 파일
 개발일지/
+claude.local.md
 
 # 인코딩 깨진 DB 익스포트 등 로컬 작업용 임시 데이터 (출처 불명 — 2026-09-29)
 data/
+
+# api 및 DB 설정
+*.properties
+# Maven Wrapper 설정은 비밀 정보가 아니므로 커밋한다 (팀원이 Maven 설치 없이 mvnw로 빌드)
+!.mvn/wrapper/maven-wrapper.properties

@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>개발 환경 설정 가이드 — 스펙 오디세이</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --paper: #ffffff;
+    --fg: #1f2328;
+    --muted: #5d6671;
+    --line: #dde2e8;
+    --soft: #f1f4f7;
+    --accent: #2563eb;
+    --accent-soft: #e8f0fe;
+    --ij: #7c3aed;
+    --ij-soft: #f3ecff;
+    --vs: #0078d4;
+    --vs-soft: #e5f2fc;
+    --ok: #1a7f37;
+    --ok-soft: #e6f4ea;
+    --warn: #b35900;
+    --warn-soft: #fff4e5;
+    --bad: #cf222e;
+    --bad-soft: #ffebe9;
+    --code-bg: #1e2430;
+    --code-fg: #e6edf3;
+    --code-dim: #8b949e;
+    --code-hl: #f5c451;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117;
+      --paper: #151b23;
+      --fg: #e6edf3;
+      --muted: #9aa4b0;
+      --line: #30363d;
+      --soft: #1c232c;
+      --accent: #58a6ff;
+      --accent-soft: #10243f;
+      --ij: #b392f0;
+      --ij-soft: #261a3d;
+      --vs: #4fb3ff;
+      --vs-soft: #0c2740;
+      --ok: #3fb950;
+      --ok-soft: #0f2a17;
+      --warn: #e3a341;
+      --warn-soft: #33240b;
+      --bad: #ff7b72;
+      --bad-soft: #3a1414;
+      --code-bg: #0b0f14;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    font-size: 16px;
+    line-height: 1.75;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  /* ── 레이아웃: 왼쪽 목차 + 본문 ── */
+  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 32px; max-width: 1180px; margin: 0 auto; padding: 32px 24px 96px; }
+  nav.toc { position: sticky; top: 24px; align-self: start; max-height: calc(100vh - 48px); overflow-y: auto; font-size: 14px; }
+  nav.toc .toc-title { font-weight: 700; color: var(--muted); font-size: 12px; letter-spacing: .06em; margin: 0 0 8px 10px; }
+  nav.toc a { display: block; padding: 5px 10px; border-radius: 6px; color: var(--fg); text-decoration: none; }
+  nav.toc a:hover { background: var(--soft); }
+  nav.toc a.sub { padding-left: 24px; color: var(--muted); font-size: 13px; }
+  main { min-width: 0; }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; padding: 20px 16px 64px; }
+    nav.toc { position: static; max-height: none; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+  }
+
+  /* ── 머리말 ── */
+  header.hero { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 28px 28px 24px; margin-bottom: 28px; }
+  header.hero h1 { margin: 0 0 6px; font-size: 30px; line-height: 1.3; }
+  header.hero p { margin: 0; color: var(--muted); }
+  .tldr { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 20px; }
+  .tldr div { background: var(--soft); border-radius: 10px; padding: 12px 14px; font-size: 14.5px; line-height: 1.6; }
+  .tldr b { display: block; font-size: 13px; color: var(--accent); margin-bottom: 2px; }
+  @media (max-width: 700px) { .tldr { grid-template-columns: 1fr; } }
+
+  /* ── 섹션 ── */
+  section { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 8px 28px 24px; margin-bottom: 24px; }
+  @media (max-width: 700px) { section, header.hero { padding-left: 18px; padding-right: 18px; } }
+  h2 { font-size: 23px; margin: 20px 0 6px; display: flex; align-items: center; gap: 10px; }
+  h2 .num { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: var(--accent); color: #fff; font-size: 16px; flex: none; }
+  section.ij h2 .num { background: var(--ij); }
+  section.vs h2 .num { background: var(--vs); }
+  .lead { color: var(--muted); margin: 0 0 12px; }
+  h3 { font-size: 18px; margin: 30px 0 10px; padding-top: 18px; border-top: 1px dashed var(--line); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  h3:first-of-type { border-top: none; padding-top: 6px; }
+
+  /* ── 배지 ── */
+  .badge { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .once { background: var(--soft); color: var(--muted); border: 1px solid var(--line); }
+  .every { background: var(--ok-soft); color: var(--ok); }
+  .rec { background: var(--accent-soft); color: var(--accent); }
+
+  /* ── 단계 목록 ── */
+  ol.steps { list-style: none; counter-reset: s; padding: 0; margin: 10px 0; }
+  ol.steps > li { counter-increment: s; position: relative; padding: 2px 0 12px 44px; }
+  ol.steps > li::before {
+    content: counter(s); position: absolute; left: 0; top: 2px;
+    width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--soft); border: 1px solid var(--line); font-weight: 700; font-size: 14px;
+  }
+  ol.steps > li:not(:last-child)::after { content: ""; position: absolute; left: 14px; top: 34px; bottom: 2px; width: 1px; background: var(--line); }
+  ul { padding-left: 20px; margin: 6px 0; }
+  li { margin: 3px 0; }
+
+  .menu { font-weight: 700; background: var(--soft); border: 1px solid var(--line); border-radius: 5px; padding: 0 6px; font-size: .94em; white-space: nowrap; }
+  code { font-family: "D2Coding", Consolas, "SFMono-Regular", monospace; font-size: .9em; background: var(--soft); border: 1px solid var(--line); padding: 0 5px; border-radius: 5px; }
+  a { color: var(--accent); }
+
+  /* ── 코드 블록 + 복사 버튼 ── */
+  .code { position: relative; margin: 10px 0 14px; }
+  .code pre { margin: 0; background: var(--code-bg); color: var(--code-fg); padding: 16px 72px 14px 16px; border-radius: 10px; white-space: pre-wrap; word-break: break-all; font-family: "D2Coding", Consolas, monospace; font-size: 14px; line-height: 1.6; }
+  .code .label { position: absolute; top: 0; left: 14px; transform: translateY(-50%); background: var(--paper); border: 1px solid var(--line); color: var(--muted); font-size: 11.5px; font-weight: 700; padding: 0 8px; border-radius: 999px; }
+  .code button { position: absolute; top: 8px; right: 8px; font: inherit; font-size: 12px; color: var(--code-fg); background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); border-radius: 6px; padding: 2px 9px; cursor: pointer; }
+  .code button:hover { background: rgba(255,255,255,.16); }
+  .dim { color: var(--code-dim); }
+  .hl { color: var(--code-hl); font-weight: 700; }
+
+  /* ── 알림 상자 ── */
+  .box { border-radius: 10px; padding: 12px 16px; margin: 14px 0; border: 1px solid; }
+  .box > b:first-child { display: block; margin-bottom: 2px; }
+  .box.tip  { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+  .box.warn { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 35%, transparent); }
+  .box.warn > b:first-child { color: var(--warn); }
+  .box.bad  { background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 30%, transparent); }
+  .box.bad > b:first-child { color: var(--bad); }
+  .box.ok   { background: var(--ok-soft); border-color: color-mix(in srgb, var(--ok) 30%, transparent); }
+  .box.ok > b:first-child { color: var(--ok); }
+
+  /* ── 표 ── */
+  .table-wrap { overflow-x: auto; margin: 12px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  th, td { border-bottom: 1px solid var(--line); padding: 9px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--soft); font-size: 13.5px; }
+  td.k { white-space: nowrap; font-weight: 700; }
+  th.ij { color: var(--ij); }
+  th.vs { color: var(--vs); }
+
+  /* ── 작업 흐름 ── */
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; }
+  .flow .node { background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; font-size: 14.5px; font-weight: 600; }
+  .flow .node.key { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+  .flow .arr { color: var(--muted); }
+
+  /* ── 문제 해결 카드 ── */
+  details.issue { border: 1px solid var(--line); border-radius: 10px; margin: 10px 0; background: var(--paper); }
+  details.issue summary { cursor: pointer; padding: 12px 16px; font-weight: 700; list-style: none; display: flex; gap: 10px; align-items: baseline; }
+  details.issue summary::-webkit-details-marker { display: none; }
+  details.issue summary::before { content: "▸"; color: var(--muted); transition: transform .15s; }
+  details.issue[open] summary::before { transform: rotate(90deg); }
+  details.issue .body { padding: 0 16px 12px 36px; border-top: 1px solid var(--line); }
+  .cause { color: var(--muted); font-size: 14.5px; margin-top: 10px; }
+
+  @media print {
+    body { background: #fff; }
+    .layout { display: block; padding: 0; }
+    nav.toc, .code button { display: none; }
+    section, header.hero { border: none; padding: 0; margin-bottom: 18px; }
+    details.issue { break-inside: avoid; }
+    .code, .box, table { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc" aria-label="목차">
+  <p class="toc-title">목차</p>
+  <a href="#overview">0. 한눈에 보기</a>
+  <a href="#common">1. 공통 준비</a>
+  <a class="sub" href="#common-install">설치할 것</a>
+  <a class="sub" href="#common-port">톰캣 포트 80 설정</a>
+  <a class="sub" href="#common-config">.env</a>
+  <a class="sub" href="#common-build">빌드 확인</a>
+  <a href="#intellij">2. IntelliJ IDEA</a>
+  <a class="sub" href="#ij-maven">Maven 인식</a>
+  <a class="sub" href="#ij-tomcat">톰캣 실행 설정</a>
+  <a class="sub" href="#ij-dev">코드 수정 후</a>
+  <a href="#vscode">3. VS Code</a>
+  <a class="sub" href="#vs-ext">확장 설치</a>
+  <a class="sub" href="#vs-server">톰캣 서버 만들기</a>
+  <a class="sub" href="#vs-deploy">배포 &amp; 자동 Publish</a>
+  <a class="sub" href="#vs-task">Ctrl+Shift+B 빌드</a>
+  <a class="sub" href="#vs-dev">코드 수정 후</a>
+  <a href="#trouble">4. 문제 해결</a>
+  <a href="#how">5. DB 연결 원리</a>
+</nav>
+
+<main>
+
+<header class="hero">
+  <h1>개발 환경 설정 가이드</h1>
+  <p>스펙 오디세이를 IntelliJ 또는 VS Code에서 톰캣으로 실행하고, 공용 DB에 연결하는 방법</p>
+  <div class="tldr">
+    <div><b>① 설정 파일</b><code>src/main/resources/.env.example</code>을 복사해 <code>.env</code>로 만들고 DB 정보·API 키 입력</div>
+    <div><b>② 톰캣</b><strong>Tomcat 10.1 이상</strong>만 동작 (9.x 이하 불가)</div>
+    <div><b>③ 빌드</b>Maven 설치 없이 <code>mvnw.cmd</code>로 빌드</div>
+  </div>
+</header>
+
+<!-- ─────────────── 0 ─────────────── -->
+<section id="overview">
+  <h2><span class="num">0</span>한눈에 보기</h2>
+  <p class="lead">어떤 IDE를 쓰든 DB 연결 방식은 같습니다. 다른 건 톰캣에 올리는 방법뿐입니다.</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th></th><th class="ij">IntelliJ IDEA</th><th class="vs">VS Code</th></tr>
+    <tr><td class="k">톰캣</td><td>직접 설치 후 등록</td><td>설치된 것 사용, 또는 확장이 자동 다운로드</td></tr>
+    <tr><td class="k">배포</td><td>Run Configuration의 Deployment 탭</td><td>SERVERS 패널 → Add Deployment</td></tr>
+    <tr><td class="k">코드 수정 후</td><td>재시작(↻) 버튼</td><td><code>Ctrl+Shift+B</code> (자동 Publish 설정 시)</td></tr>
+    <tr><td class="k">포트</td><td colspan="2"><strong>80</strong> <span class="dim">(<a href="#common-port">톰캣 포트 설정</a> 참고)</span></td></tr>
+    <tr><td class="k">접속 주소</td><td><code>http://localhost/specodyssey/</code></td><td><code>http://localhost/spec-odyssey/</code></td></tr>
+  </table>
+  </div>
+</section>
+
+<!-- ─────────────── 1 ─────────────── -->
+<section id="common">
+  <h2><span class="num">1</span>공통 준비</h2>
+  <p class="lead">IDE와 상관없이 모두 한 번씩 해야 합니다.</p>
+
+  <h3 id="common-install">설치할 것 <span class="badge once">처음 한 번</span></h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>항목</th><th>버전</th><th>비고</th></tr>
+    <tr><td class="k">JDK</td><td class="k">17 이상</td><td>설치 후 터미널에서 <code>java -version</code>으로 확인</td></tr>
+    <tr><td class="k">Tomcat</td><td class="k">10.1 이상</td><td>압축만 풀어 두면 됩니다 (예: <code>C:\Tomcat</code>). VS Code는 확장이 대신 받아 줄 수도 있습니다.</td></tr>
+    <tr><td class="k">Maven</td><td class="k">설치 불필요</td><td>프로젝트의 Maven Wrapper(<code>mvnw</code>)가 첫 빌드 때 자동으로 받습니다.</td></tr>
+  </table>
+  </div>
+
+  <h3 id="common-port">톰캣 포트를 80으로 설정 <span class="badge once">처음 한 번</span></h3>
+  <p>우리 프로젝트는 <strong>80 포트</strong>를 씁니다. IntelliJ·VS Code 모두 같은 톰캣 설정을 따릅니다.</p>
+  <ol class="steps">
+    <li>톰캣 폴더의 <code>conf/server.xml</code>을 열고 HTTP Connector 포트를 <code>80</code>으로 바꿉니다.
+      <div class="code"><span class="label">conf/server.xml</span><button type="button" data-copy='&lt;Connector port="80" protocol="HTTP/1.1"'>복사</button><pre>&lt;Connector port=<span class="hl">"80"</span> protocol="HTTP/1.1"
+           connectionTimeout="20000"
+           redirectPort="8443" /&gt;</pre></div>
+    </li>
+    <li><strong>Windows의 IIS를 끕니다.</strong> IIS가 켜져 있으면 80 포트를 먼저 차지해서 톰캣이 뜨지 못하고 <a href="#t-403">403</a>이 뜹니다. 관리자 권한 PowerShell에서 실행하세요.
+      <div class="code"><span class="label">관리자 PowerShell</span><button type="button">복사</button><pre>Stop-Service W3SVC, WAS -Force
+Set-Service W3SVC -StartupType Disabled</pre></div>
+      <p class="dim">IIS가 설치돼 있지 않은 PC라면 "서비스를 찾을 수 없다"는 오류가 나는데, 그냥 넘어가면 됩니다.</p>
+    </li>
+    <li><span class="dim">(선택)</span> 같은 파일의 <code>&lt;Server port="-1"&gt;</code>을 <code>port="8005"</code>로 바꾸면 톰캣 종료 시 <a href="#t-shutdown">SEVERE 메시지</a>가 사라집니다.</li>
+  </ol>
+  <div class="box warn"><b>IntelliJ와 VS Code의 톰캣을 동시에 켜지 마세요</b>둘 다 80 포트를 쓰므로 나중에 켠 쪽이 실패합니다. 한쪽을 끄고 다른 쪽을 켜세요.</div>
+
+  <h3 id="common-config">설정 파일 만들기 <span class="badge once">처음 한 번</span></h3>
+  <ol class="steps">
+    <li><code>src/main/resources/.env.example</code>을 복사해 <strong>같은 폴더</strong>에 <code>.env</code>로 저장합니다.</li>
+    <li>DB 접속 정보와 고용24 API 키를 채웁니다. 값은 팀 채널에서 받으세요.
+      <div class="code"><span class="label">src/main/resources/.env</span><button type="button">복사</button><pre>DB_URL=jdbc:mysql://<span class="hl">&lt;호스트&gt;:&lt;포트&gt;</span>/spec_odyssey?useSSL=false&amp;allowPublicKeyRetrieval=true&amp;serverTimezone=Asia/Seoul&amp;characterEncoding=UTF-8
+DB_USER=<span class="hl">&lt;아이디&gt;</span>
+DB_PASSWORD=<span class="hl">&lt;비밀번호&gt;</span></pre></div>
+    </li>
+  </ol>
+  <div class="box bad"><b>.env는 절대 커밋하지 마세요</b><code>.gitignore</code>(<code>*.env</code>)에 등록돼 있어 <code>git add .</code>로는 올라가지 않습니다. <code>git add -f</code>로 강제로 올리지 마세요.</div>
+
+  <h3 id="common-build">빌드 확인 <span class="badge once">처음 한 번</span></h3>
+  <p>프로젝트 루트에서 실행합니다.</p>
+  <div class="code"><span class="label">Windows</span><button type="button">복사</button><pre>.\mvnw.cmd package -DskipTests</pre></div>
+  <div class="code"><span class="label">macOS / Linux</span><button type="button">복사</button><pre>./mvnw package -DskipTests</pre></div>
+  <div class="box ok"><b>성공 기준</b><code>target/spec-odyssey.war</code> 파일과 <code>target/spec-odyssey/</code> 폴더가 생기면 됩니다.</div>
+</section>
+
+<!-- ─────────────── 2 ─────────────── -->
+<section id="intellij" class="ij">
+  <h2><span class="num">2</span>IntelliJ IDEA에서 실행</h2>
+
+  <h3 id="ij-maven">프로젝트 열기 &amp; Maven 인식 <span class="badge once">처음 한 번</span></h3>
+  <ol class="steps">
+    <li><span class="menu">File → Open</span>으로 프로젝트 폴더를 엽니다.</li>
+    <li>오른쪽 아래 <em>Maven build scripts found</em> 알림이 뜨면 <span class="menu">Load</span>를 누릅니다.<br>
+        알림이 없으면 <code>pom.xml</code> 우클릭 → <span class="menu">Add as Maven Project</span> (이미 되어 있으면 <span class="menu">Maven → Reload project</span>)</li>
+    <li>오른쪽 Maven 패널에 <code>spec-odyssey</code>가 보이면 완료입니다.</li>
+  </ol>
+
+  <h3 id="ij-tomcat">톰캣 등록 &amp; 실행 설정 <span class="badge once">처음 한 번</span></h3>
+  <ol class="steps">
+    <li><span class="menu">Run → Edit Configurations...</span> → 왼쪽 위 <span class="menu">+</span> → <span class="menu">Tomcat Server → Local</span></li>
+    <li><strong>Server 탭</strong>
+      <ul>
+        <li><span class="menu">Application server</span> 옆 <span class="menu">Configure...</span> → 톰캣 설치 폴더 (예: <code>C:\Tomcat</code>)</li>
+        <li><span class="menu">HTTP port</span> → <code>80</code></li>
+      </ul>
+    </li>
+    <li><strong>Deployment 탭</strong>
+      <ul>
+        <li><span class="menu">+ → Artifact...</span> → <code>spec-odyssey:war exploded</code></li>
+        <li><span class="menu">Application context</span> → <code>/specodyssey</code></li>
+      </ul>
+    </li>
+    <li><span class="menu">OK</span> → 오른쪽 위 실행(▶) 버튼 → <code>http://localhost/specodyssey/</code> 접속</li>
+  </ol>
+
+  <div class="box warn"><b>Artifact 목록에 spec-odyssey:war exploded가 없다면</b>
+    Maven 인식이 안 된 상태입니다. 위의 Maven 인식을 다시 하거나, IntelliJ의 Maven 인식과 상관없이 동작하는 아래 방법을 쓰세요.
+    <ol>
+      <li>Deployment 탭 → <span class="menu">+ → External Source...</span> → <code>target/spec-odyssey</code> 폴더 선택, context는 <code>/specodyssey</code></li>
+      <li>같은 화면 아래 <span class="menu">Before launch</span>에서 기존 <span class="menu">Build</span>를 지우고 <span class="menu">+ → Run Maven Goal</span> → <code>package -DskipTests</code> 입력</li>
+    </ol>
+    실행할 때마다 Maven으로 빌드한 뒤 배포됩니다.
+  </div>
+
+  <h3 id="ij-dev">코드 수정 후 <span class="badge every">매번</span></h3>
+  <div class="flow"><span class="node">코드·JSP 수정</span><span class="arr">→</span><span class="node key">실행 창의 재시작(↻)</span><span class="arr">→</span><span class="node">브라우저 새로고침</span></div>
+  <p><code>.env</code>를 고쳤을 때도 다시 빌드한 뒤 재시작하면 반영됩니다.</p>
+</section>
+
+<!-- ─────────────── 3 ─────────────── -->
+<section id="vscode" class="vs">
+  <h2><span class="num">3</span>VS Code에서 실행</h2>
+
+  <h3 id="vs-ext">확장 설치 <span class="badge once">처음 한 번</span></h3>
+  <ul>
+    <li><code>Extension Pack for Java</code> <span class="dim">— Microsoft</span></li>
+    <li><code>Community Server Connectors</code> <span class="dim">— Red Hat</span></li>
+  </ul>
+
+  <h3 id="vs-server">톰캣 서버 만들기 <span class="badge once">처음 한 번</span></h3>
+  <ol class="steps">
+    <li>먼저 <a href="#common-build">빌드</a>를 한 번 해서 <code>target/spec-odyssey/</code> 폴더를 만들어 둡니다.</li>
+    <li>왼쪽 아래 <span class="menu">SERVERS</span> 패널 → <code>Community Server Connector</code> 우클릭 → <span class="menu">Create New Server...</span></li>
+    <li><em>Download server?</em> 질문에서
+      <ul>
+        <li>톰캣이 이미 있으면 <span class="menu">No, use server on disk</span> → 톰캣 폴더 선택 <span class="dim">(<code>bin</code>, <code>conf</code>, <code>lib</code>, <code>webapps</code>가 바로 들어 있는 폴더)</span></li>
+        <li>없으면 <span class="menu">Yes</span> → 목록에서 <strong>Apache Tomcat 10.1.x</strong></li>
+      </ul>
+    </li>
+    <li>설정 화면은 기본값 그대로 <span class="menu">Finish</span></li>
+  </ol>
+
+  <h3 id="vs-deploy">배포 &amp; 자동 Publish 설정 <span class="badge once">처음 한 번</span> <span class="badge rec">권장</span></h3>
+  <p>war 파일 대신 <strong>폴더로 배포</strong>하고 <strong>자동 Publish</strong>를 켜 두면, 이후에는 빌드만 해도 톰캣에 자동으로 반영됩니다.</p>
+  <ol class="steps">
+    <li>만든 서버 우클릭 → <span class="menu">Add Deployment</span> → <span class="menu">Exploded</span> → <code>target/spec-odyssey</code> 폴더 선택</li>
+    <li>서버 우클릭 → <span class="menu">Edit Server</span> → 열린 JSON 파일에서 아래 두 가지를 확인·추가하고 저장(<code>Ctrl+S</code>)합니다.
+      <div class="code"><span class="label">Edit Server (JSON)</span><button type="button" data-copy='"server.autopublish.enabled": "true",'>추가할 줄 복사</button><pre>{
+  <span class="dim">...</span>
+  "server.http.port": <span class="hl">"80"</span>,                <span class="dim">← 기본값 8080을 80으로 변경</span>
+  <span class="hl">"server.autopublish.enabled": "true",</span>  <span class="dim">← 이 줄 추가</span>
+  <span class="dim">...</span>
+}</pre></div>
+    </li>
+    <li>서버 우클릭 → <span class="menu">Start Server</span> → 상태가 <strong>Started</strong>가 되면 <code>http://localhost/spec-odyssey/</code> 접속<br>
+        <span class="dim">처음 한 번은 앱이 안 올라가 있을 수 있습니다. 404가 뜨면 서버 우클릭 → <span class="menu">Publish Server (Full)</span>을 한 번 누르세요.</span></li>
+  </ol>
+  <div class="box warn"><b>포트는 반드시 맞추세요 — 가장 많이 걸리는 지점</b>
+    <code>server.http.port</code>와 톰캣 <code>conf/server.xml</code>의 <code>&lt;Connector port="..."&gt;</code>가 다르면, 확장이 톰캣이 켜진 걸 감지하지 못해 <strong>앱을 배포하지 않습니다</strong> (계속 404).
+  </div>
+
+  <h3 id="vs-task">Ctrl+Shift+B로 빌드하기 <span class="badge once">처음 한 번</span> <span class="badge rec">권장</span></h3>
+  <p>프로젝트에 <code>.vscode/tasks.json</code> 파일을 만들고 아래 내용을 붙여 넣으면, <code>Ctrl+Shift+B</code> 한 번으로 빌드됩니다.</p>
+  <div class="code"><span class="label">.vscode/tasks.json</span><button type="button">복사</button><pre>{
+  "version": "2.0.0",
+  "tasks": [{
+    "label": "build webapp",
+    "type": "shell",
+    "command": ".\\mvnw.cmd -q compile war:exploded",
+    "group": { "kind": "build", "isDefault": true }
+  }]
+}</pre></div>
+  <div class="box tip"><b>참고</b>
+    <code>compile war:exploded</code>는 war 압축을 만들지 않고 배포 중인 폴더(<code>target/spec-odyssey</code>)만 갱신해서 <code>package</code>보다 빠릅니다.
+    <code>.vscode/</code>는 <code>.gitignore</code> 대상이라 각자 만들어야 합니다.
+  </div>
+
+  <h3 id="vs-dev">코드 수정 후 <span class="badge every">매번</span></h3>
+  <div class="flow"><span class="node">코드·JSP 수정</span><span class="arr">→</span><span class="node key">Ctrl+Shift+B</span><span class="arr">→</span><span class="node">브라우저 새로고침</span></div>
+  <p>반영이 안 되면 그때만 서버 우클릭 → <span class="menu">Publish Server (Full)</span>을 누르세요.</p>
+  <div class="box tip"><b>자동 Publish·tasks.json을 설정하지 않았다면</b>
+    매번 <code>.\mvnw.cmd package -DskipTests</code>로 빌드한 뒤 서버 우클릭 → <span class="menu">Publish Server (Full)</span>을 눌러야 합니다.
+  </div>
+</section>
+
+<!-- ─────────────── 4 ─────────────── -->
+<section id="trouble">
+  <h2><span class="num">4</span>자주 나는 문제와 해결</h2>
+  <p class="lead">제목을 누르면 펼쳐집니다.</p>
+
+  <details class="issue" id="t-403">
+    <summary>localhost 접속 시 "액세스가 거부됨 / HTTP ERROR 403"</summary>
+    <div class="body">
+      <p class="cause">원인: 톰캣이 아니라 <strong>Windows의 IIS</strong>가 응답하는 것입니다. IIS가 80 포트를 먼저 차지해 톰캣이 뜨지 못했습니다.</p>
+      <p>관리자 권한 PowerShell에서 IIS를 끈 뒤 톰캣을 다시 실행하세요.</p>
+      <div class="code"><span class="label">관리자 PowerShell</span><button type="button">복사</button><pre>Stop-Service W3SVC, WAS -Force
+Set-Service W3SVC -StartupType Disabled</pre></div>
+      <p class="dim">되돌리기: <code>Set-Service W3SVC -StartupType Automatic; Start-Service W3SVC</code></p>
+    </div>
+  </details>
+
+  <details class="issue">
+    <summary>톰캣은 떴는데 404</summary>
+    <div class="body">
+      <p class="cause">원인: 앱이 배포되지 않았습니다. 톰캣의 <code>webapps</code> 폴더에 <code>spec-odyssey</code>가 있는지 보면 알 수 있습니다.</p>
+      <ul>
+        <li><strong>IntelliJ:</strong> Deployment 탭에 항목이 있는지, Application context가 주소와 같은지 확인</li>
+        <li><strong>VS Code:</strong> <code>server.http.port</code>가 실제 톰캣 포트와 같은지 확인 → <span class="menu">Publish Server (Full)</span></li>
+      </ul>
+    </div>
+  </details>
+
+  <details class="issue">
+    <summary>VS Code: "Unable to create the server: Extension backend error - connection is disposed"</summary>
+    <div class="body">
+      <p class="cause">원인: 확장의 백엔드 프로세스가 죽었는데 잠금 파일이 남아 있습니다. 확장 자동 업데이트 직후 자주 생깁니다.</p>
+      <ol>
+        <li>VS Code 창을 모두 닫습니다.</li>
+        <li><code>%USERPROFILE%\.rsp\redhat-community-server-connector\.lock</code> 파일을 삭제합니다.</li>
+        <li>VS Code를 다시 열고 서버를 다시 만듭니다.</li>
+      </ol>
+      <p>그래도 안 되면 VS Code <code>settings.json</code>에 백엔드용 Java 21을 지정합니다. Java 확장에 포함된 JRE 경로이며 버전 숫자는 PC마다 다릅니다.</p>
+      <div class="code"><span class="label">settings.json</span><button type="button">복사</button><pre>"rsp-ui.rsp.java.home": "C:\\Users\\<span class="hl">&lt;사용자&gt;</span>\\.vscode\\extensions\\redhat.java-<span class="hl">&lt;버전&gt;</span>-win32-x64\\jre\\<span class="hl">&lt;21.x&gt;</span>-win32-x86_64"</pre></div>
+    </div>
+  </details>
+
+  <details class="issue" id="t-shutdown">
+    <summary>톰캣 종료 시 "셧다운 포트가 설정되지 않았습니다" (SEVERE)</summary>
+    <div class="body">
+      <p class="cause">원인: 톰캣 <code>conf/server.xml</code>의 <code>&lt;Server port="-1"&gt;</code> 설정입니다.</p>
+      <p>강제 종료되므로 동작에는 문제없습니다. 메시지를 없애려면 <code>port="8005"</code>로 바꾸세요.</p>
+    </div>
+  </details>
+
+  <details class="issue">
+    <summary>DB 연결 실패</summary>
+    <div class="body">
+      <div class="table-wrap">
+      <table>
+        <tr><th>오류 메시지</th><th>원인 / 해결</th></tr>
+        <tr><td>"DB_URL, DB_USER, DB_PASSWORD를 찾을 수 없습니다"</td>
+            <td><code>.env</code>가 <strong><code>src/main/resources</code></strong>에 없거나 키 이름이 다릅니다. 고친 뒤 <strong>다시 빌드</strong>하세요 (빌드할 때 앱 안으로 복사됩니다).</td></tr>
+        <tr><td><code>UnknownHostException</code></td><td><code>DB_URL</code>의 호스트 주소 오타</td></tr>
+        <tr><td><code>Communications link failure</code></td><td>DB 서버가 꺼져 있거나 포트·방화벽 문제</td></tr>
+        <tr><td><code>Access denied for user</code></td><td>아이디 또는 비밀번호 오류</td></tr>
+      </table>
+      </div>
+    </div>
+  </details>
+
+  <details class="issue">
+    <summary>컴파일 오류: javax.servlet을 찾을 수 없음</summary>
+    <div class="body">
+      <p class="cause">원인: Tomcat 10.1+는 <code>jakarta.servlet.*</code>을 씁니다. 인터넷 예제는 대부분 구버전(<code>javax</code>) 기준입니다.</p>
+      <ul>
+        <li>import는 <code>jakarta.servlet.*</code>으로</li>
+        <li>JSP taglib은 <code>uri="jakarta.tags.core"</code>로 <span class="dim">(구버전 <code>http://java.sun.com/jsp/jstl/core</code> 사용 금지)</span></li>
+      </ul>
+    </div>
+  </details>
+</section>
+
+<!-- ─────────────── 5 ─────────────── -->
+<section id="how">
+  <h2><span class="num">5</span>DB 연결 원리</h2>
+  <div class="flow">
+    <span class="node">.env <span class="dim">(src/main/resources)</span></span><span class="arr">→ 빌드 시 복사 →</span>
+    <span class="node">WEB-INF/classes</span><span class="arr">→</span>
+    <span class="node">DBUtil</span><span class="arr">→</span>
+    <span class="node key">각 DAO</span>
+  </div>
+  <ul>
+    <li>빌드할 때 <code>src/main/resources/.env</code>가 앱의 클래스패스(<code>WEB-INF/classes</code>)에 들어갑니다. 그래서 어떤 IDE로 실행해도 같은 값을 읽습니다.</li>
+    <li><code>DBUtil</code>이 <code>.env</code>에서 값을 읽고, <code>.env</code>에 없으면 같은 이름의 <strong>환경변수</strong>로 대체합니다. API 키는 <code>AppConfig</code>가 같은 규칙으로 읽습니다.</li>
+    <li><code>DBUtil.getConnection()</code>이 그 값으로 MySQL에 접속합니다.</li>
+  </ul>
+  <div class="box ok"><b>새 DAO를 만들 때</b>
+    <code>DBUtil.getConnection()</code>만 쓰면 자동으로 같은 DB에 연결됩니다. 코드에 DB 주소나 비밀번호를 직접 쓰지 마세요.
+  </div>
+  <div class="code"><span class="label">DAO 예시</span><button type="button">복사</button><pre>try (Connection conn = DBUtil.getConnection();
+     PreparedStatement pstmt = conn.prepareStatement(sql)) {
+    <span class="dim">...</span>
+}</pre></div>
+</section>
+
+</main>
+</div>
+
+<script>
+  // 코드 블록 복사 버튼 — data-copy가 있으면 그 값만, 없으면 블록 전체를 복사한다.
+  document.querySelectorAll('.code button').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var text = btn.dataset.copy || btn.parentElement.querySelector('pre').innerText;
+      var original = btn.textContent;
+      function done(ok) {
+        btn.textContent = ok ? '복사됨' : '복사 실패';
+        setTimeout(function () { btn.textContent = original; }, 1400);
+      }
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+      } else {
+        done(false);
+      }
+    });
+  });
+</script>
+</body>
+</html>

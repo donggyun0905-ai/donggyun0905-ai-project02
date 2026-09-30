@@ -43,6 +43,52 @@ public class ExternalApiCacheDao {
         }
     }
 
+    // 고용24 매일 갱신용 — 같은 (api_type, request_key)가 있으면 성공 결과로 덮어쓴다 (FR-111 직전 결과 유지의 원천)
+    public void upsertSuccess(Connection conn, ExternalApiCacheDto cache) throws SQLException {
+        String sql = "INSERT INTO EXTERNAL_API_CACHE " +
+                "(api_type, request_key, response_body, status, cached_at, expires_at) VALUES (?, ?, ?, 'SUCCESS', ?, ?) " +
+                "ON DUPLICATE KEY UPDATE response_body = ?, status = 'SUCCESS', cached_at = ?, expires_at = ?, is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, cache.getApiType());
+            pstmt.setString(2, cache.getRequestKey());
+            pstmt.setString(3, cache.getResponseBody());
+            pstmt.setTimestamp(4, toTimestamp(cache.getCachedAt()));
+            pstmt.setTimestamp(5, toTimestamp(cache.getExpiresAt()));
+            pstmt.setString(6, cache.getResponseBody());
+            pstmt.setTimestamp(7, toTimestamp(cache.getCachedAt()));
+            pstmt.setTimestamp(8, toTimestamp(cache.getExpiresAt()));
+            pstmt.executeUpdate();
+        }
+    }
+
+    // 호출 실패 기록 — 직전 성공 결과가 있으면 그대로 두고(FR-111), 처음부터 실패한 키만 FAILED로 남긴다(FR-112)
+    public void insertFailedIfAbsent(String apiType, String requestKey, LocalDateTime cachedAt) throws SQLException {
+        String sql = "INSERT INTO EXTERNAL_API_CACHE (api_type, request_key, response_body, status, cached_at) " +
+                "VALUES (?, ?, NULL, 'FAILED', ?) ON DUPLICATE KEY UPDATE id = id";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, apiType);
+            pstmt.setString(2, requestKey);
+            pstmt.setTimestamp(3, toTimestamp(cachedAt));
+            pstmt.executeUpdate();
+        }
+    }
+
+    // 스케줄러 기동 시 "오늘 이미 받았는지" 판단 — request_key 접두어(예: "213L01:")로 API 단위 확인
+    public boolean existsSuccessSince(String apiType, String requestKeyPrefix, LocalDateTime since) throws SQLException {
+        String sql = "SELECT 1 FROM EXTERNAL_API_CACHE WHERE api_type = ? AND request_key LIKE ? " +
+                "AND status = 'SUCCESS' AND cached_at >= ? AND is_deleted = FALSE LIMIT 1";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, apiType);
+            pstmt.setString(2, requestKeyPrefix.replace("%", "\\%").replace("_", "\\_") + "%");
+            pstmt.setTimestamp(3, toTimestamp(since));
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
     // 캐시 히트 조회 — 만료 여부 판단은 호출부에서 expiresAt과 현재 시각을 비교
     public ExternalApiCacheDto findByTypeAndKey(String apiType, String requestKey) throws SQLException {
         String sql = "SELECT * FROM EXTERNAL_API_CACHE " +

@@ -1,6 +1,7 @@
 # 스펙 오디세이 (Spec Odyssey) — 프로젝트 규칙
 
 > Claude Code는 매 세션 이 파일을 먼저 읽습니다. 팀 규칙이 바뀌면 여기를 고치세요.
+> 개인 설정(내 역할 등)은 각자 `CLAUDE.local.md`에 두고 커밋하지 않습니다.
 
 ---
 
@@ -91,8 +92,8 @@ MySQL Connector/J, Gson, Jackson은 서블릿 API와 무관해서 그대로 쓸 
 | DB | MySQL 8.0+ (utf8mb4) |
 | JSON 파싱 | Gson 또는 Jackson |
 | AI 분석 | 하이브리드 — 격차 분석은 규칙기반 SQL, 자연어 생성은 LLM API |
-| 임베딩 | **로컬 생성** — DJL + ONNX Runtime, ko-sroberta-multitask (768차원) |
-| 파일 업로드 | Servlet Part 또는 Commons FileUpload |
+| 임베딩 | **로컬 생성** — DJL + ONNX Runtime, ko-sroberta-multitask (768차원). 세팅이 막히면 임베딩 API로 전환 (`SKILL.embedding_model`로 구분) |
+| 파일 업로드 | Servlet Part API (`@MultipartConfig`) |
 
 딥러닝 자체 학습은 범위 밖. 프론트엔드 프레임워크(React 등) 사용하지 않음.
 
@@ -114,10 +115,15 @@ src/main/webapp/
   ├── css/  js/  img/
 docs/
   ├── requirements.md 요구사항 명세서
-  └── db-design.md    DB 설계 및 ERD
+  ├── db-design.md    DB 설계 및 ERD
+  ├── dao-guide.md    DAO 사용 규칙, 보류 항목
+  └── role-plan.md   2주차 역할 분담과 계약
 sql/
-  ├── 01_schema.sql   테이블 생성
-  └── 02_seed.sql     초기 데이터
+  ├── 01_schema.sql         테이블 생성
+  ├── 02_seed.sql           초기 데이터 (수정 금지)
+  ├── 04_seed_skills.sql    스킬·직무 요구 기술·별칭 (D)
+  ├── 05_seed_survey.sql    직무 발굴 설문 (C)
+  └── 06_seed_benchmark.sql 직무 벤치마크 (B)
 ```
 
 ---
@@ -161,9 +167,34 @@ is_deleted  BOOLEAN      NOT NULL DEFAULT FALSE
 - **JSP에 비즈니스 로직 금지.** 스크립틀릿(`<% %>`)으로 계산하지 말고 JSTL/EL로 출력만.
 - **PreparedStatement 필수.** 문자열 연결로 SQL을 만들지 않는다.
 - try-with-resources로 Connection/Statement/ResultSet을 닫는다.
-- 여러 테이블을 함께 변경하면 트랜잭션으로 묶는다 (예: 로드맵 생성 + 단계 일괄 INSERT).
+- 여러 테이블을 함께 변경하면 트랜잭션(`TransactionUtil`)으로 묶는다 (예: 격차 분석 저장 + 로드맵 생성).
 - AI 호출은 **반드시 서버(서블릿)에서**. 클라이언트 JS에서 직접 호출 금지.
-- LLM 응답은 JSON으로 받고 파싱 실패를 예외 처리한다. 실패 시 캐시된 직전 결과로 대체.
+- 외부 API(LLM, 임베딩, 워크넷) 호출은 **타임아웃을 직접 지정**한다.
+- LLM 응답은 JSON으로 받고 파싱 실패를 예외 처리한다. 실패 시 캐시된 직전 결과로 대체 (FR-111).
+  재시도는 429·5xx·-1만, 400·401은 재시도하지 않는다.
+- 새 서비스에는 테스트를 함께 작성한다.
+
+---
+
+## 협업 규칙 (충돌 방지)
+
+| 파일 | 규칙 |
+| --- | --- |
+| `header.jsp`, `footer.jsp`, 공통 CSS | **A 담당만 수정.** 메뉴 추가가 필요하면 A에게 요청 |
+| `sql/02_seed.sql` | **수정 금지.** 시드는 담당자별 파일로 분리 (위 디렉토리 구조 참고) |
+| `web.xml` | 수정 금지. 에러 페이지와 인코딩은 이미 설정됨 |
+| DAO | 메서드 **추가는 자유.** 기존 메서드 시그니처를 바꾸면 PR에 사용처를 적고 `docs/dao-guide.md`도 같이 갱신 |
+| `SessionFilter` 공개 경로 | 변경 시 **리뷰어 2명** (보안 경계) |
+| `JobRequiredSkillDao` | 쓰기는 D, 읽기는 A |
+
+**공유 인터페이스** — 여러 팀원이 이 시그니처에 맞춰 개발합니다. `docs/role-plan.md` 3절과
+**정확히 같게** 유지하고, 바꿔야 하면 코드를 고치기 전에 먼저 물어볼 것.
+
+- `SkillMatcher` (`com.specodyssey.service`)
+- `LlmClient` (`com.specodyssey.util`)
+- `RoadmapService.createRoadmap(Connection, ...)` — 격차 분석 트랜잭션 안에서 호출
+
+작업 하나 = 브랜치 하나 = PR 하나. 작게 자주 병합한다.
 
 ---
 
@@ -180,30 +211,24 @@ is_deleted  BOOLEAN      NOT NULL DEFAULT FALSE
 ## 하지 말 것
 
 - 채용 플랫폼 코딩테스트 문제 지문 크롤링 (저작권 위반)
-- 워크넷 크롤링 (공식 API가 있으므로)
 - 대화형 AI 멘토 챗봇 구현 (이번 범위에서 보류)
 - 요청하지 않은 테이블·기능 임의 추가
 - `javax.servlet.*` import 사용 (Tomcat 10+는 `jakarta.servlet.*`)
 - 구버전 JSTL URI(`http://java.sun.com/jsp/jstl/core`) 사용
 - 스키마 임의 변경 — `docs/db-design.md`가 기준이며, 바꿔야 하면 먼저 물어볼 것
+- 뼈대 자체는 건들지 않도록 하고, 깃허브에서 merge 충돌이 나지 않도록 필요한 모듈이 있으면 새로 만들 것
 
 ---
 
-## 현재 작업 단계 (1주차)
+## 현재 작업 단계 (2주차 · 9/28 ~ 10/2)
 
-**목표: 회원/인증 + 프로필 CRUD 동작**
+1주차(회원/인증 + 프로필 CRUD)는 완료.
 
-대상 테이블 8개:
-`USERS`, `USER_SPECS`, `USER_PROJECTS`, `USER_SKILLS`, `SKILL`, `JOB`, `JOB_ALIAS`, `CERTIFICATION`
+**목표: 직무 발굴 → 격차 분석 → 로드맵 여정이 한 바퀴 동작** (FR-31·32·34·38·39, FR-111·112)
 
-순서:
-1. `sql/01_schema.sql` — 위 8개 테이블 DDL (FK, 인덱스, 복합 UNIQUE 포함)
-2. `sql/02_seed.sql` — IT 직무 15~20개, 자격증 30~40개
-3. DB 커넥션 유틸 + DTO/DAO
-4. 회원가입 / 로그인 / 로그아웃 / 세션 필터
-5. 프로필 입력·수정 화면 (기본정보 + 스펙 + 프로젝트 + 기술스택)
-
-나머지 28개 테이블은 아직 만들지 않는다. 2주차 이후 범위.
+- 역할 분담, 일정, 1일차 계약, 완료 기준: `docs/role-plan.md`
+- 화면 흐름: `/profile` → (`/discover`) → `/analysis?jobId=…` → `/roadmap`
+- 완료 기준 핵심: 워크넷이나 LLM이 끊겨도 화면이 멈추지 않고 캐시 결과나 안내 문구로 대체
 
 ---
 
@@ -211,5 +236,7 @@ is_deleted  BOOLEAN      NOT NULL DEFAULT FALSE
 
 - `docs/requirements.md` — 요구사항 명세서 (FR/NFR 번호의 출처)
 - `docs/db-design.md` — 테이블 정의, ERD, 복합 UNIQUE 목록, 설계 판단 근거
+- `docs/dao-guide.md` — DAO 사용 규칙, 특이사항, 보류 항목
+- `docs/role-plan.md` — 2주차 역할 분담과 인터페이스 계약
 
 코드에 요구사항 번호를 주석으로 남기면 추적이 쉽다. 예: `// FR-37 프로필 변경 시 재분석`

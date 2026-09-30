@@ -41,7 +41,8 @@ public class SessionFilter implements Filter {
     // 로그인 없이 접근 가능한 경로 접두사 (정적 리소스 등)
     // "/share/"는 FR-85 면접관 공유 링크용으로 미리 공개해둔다 — 면접관은 계정이 없어 로그인할 수 없고
     // (FR-14), 접근 제어는 로그인이 아니라 ShareLinkDao.findByToken의 토큰·활성·만료 확인이 대신한다.
-    // "/image/"(티어 로고 등)는 사용자별 데이터가 아니라 공용 정적 자산이라 css/js와 같이 공개한다.
+    // "/image/"(로고·등급 로고 등)는 사용자별 데이터가 아니라 공용 정적 자산이라 css/js와 같이 공개한다
+    // — 없으면 로그인 전 화면(로그인·회원가입)에서 헤더 로고가 못 뜬다.
     private static final String[] PUBLIC_PREFIXES = {
             "/css/", "/js/", "/img/", "/image/", "/share/"
     };

@@ -58,7 +58,7 @@ sql/
 - JDK 17
 - Tomcat 10.1 이상 (서블릿 패키지가 `jakarta.servlet.*`이라 9 이하에서는 동작하지 않습니다)
 - MySQL 8.0 이상
-- Maven
+- Maven — 따로 설치하지 않아도 됩니다. 프로젝트에 Maven Wrapper(`mvnw`)가 들어 있어 첫 실행 때 Maven을 자동으로 받습니다.
 
 ### 1. DB 준비
 
@@ -72,9 +72,10 @@ mysql -u <user> -p spec_odyssey < sql/02_seed.sql
 mysql -u <user> -p spec_odyssey < sql/03_schema_extended.sql
 ```
 
-### 2. DB 접속 정보 설정
+### 2. 설정 파일 (.env)
 
-DB 접속 정보는 소스에 하드코딩하지 않습니다. 둘 중 편한 방법으로 설정하세요.
+DB 접속 정보·API 키·업로드 폴더는 소스에 하드코딩하지 않습니다. 둘 중 편한 방법으로 설정하세요.
+`DBUtil`(DB)·`FileStorageUtil`(업로드 폴더)·`AppConfig`(API 키)가 모두 같은 규칙으로 읽습니다.
 
 **방법 A — `.env` 파일 (추천, IntelliJ에서 바로 실행하고 싶을 때 편합니다)**
 
@@ -83,29 +84,48 @@ cp src/main/resources/.env.example src/main/resources/.env
 ```
 
 복사한 `src/main/resources/.env`를 열어 실제 값으로 채웁니다. 이 파일은 `.gitignore`(`*.env`)에 걸려 있어 커밋되지 않으니 각자 로컬 값을 채우면 됩니다(팀원끼리 공유 금지 — 특히 비밀번호).
+빌드 시 `WEB-INF/classes`에 들어가므로 IntelliJ·VS Code·`mvn package` 어느 쪽으로 실행해도 같은 값을 읽습니다. 값을 고쳤으면 다시 빌드하세요.
 
 **방법 B — 환경변수**
 
-`.env` 파일이 없을 때는 아래 환경변수로 대체됩니다 (CI 등에서 유용).
+`.env`에 값이 없을 때는 같은 이름의 환경변수로 대체됩니다 (CI 등에서 유용).
 
-| 변수 | 예시 |
+| 키 | 예시 |
 | --- | --- |
 | `DB_URL` | `jdbc:mysql://localhost:3306/spec_odyssey?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8` |
 | `DB_USER` | `root` |
 | `DB_PASSWORD` | (본인 MySQL 비밀번호) |
+| `UPLOAD_DIR` | (선택) `C:/spec-odyssey-uploads` — 없으면 `<홈>/spec-odyssey-uploads` |
+| `WORK24_*_API_KEY` | 고용24 Open API 인증키 6종 — 키 이름은 `.env.example` 참고 |
 
 `.env`와 환경변수가 둘 다 있으면 `.env` 값이 우선합니다. 둘 다 없으면 `DBUtil`이 기동 시점에 바로 에러를 던집니다 (fail-fast).
 
 ### 3. 빌드 & 배포
 
+Maven Wrapper로 빌드합니다 (Maven 설치 불필요).
+
 ```bash
-mvn clean package
+mvnw.cmd clean package -DskipTests   # Windows
+./mvnw clean package -DskipTests     # macOS / Linux
 ```
 
-생성된 `target/spec-odyssey.war`를 Tomcat의 `webapps/`에 배치하고 기동하면 됩니다.
+생성된 `target/spec-odyssey.war`(또는 폴더 `target/spec-odyssey/`)를 Tomcat에 배포하고 기동하면 됩니다.
+
+### 4. VS Code에서 실행
+
+1. 확장 설치: `Extension Pack for Java`, `Community Server Connectors`(Red Hat)
+2. 위 3번 명령으로 빌드
+3. SERVERS 패널 → `Community Server Connector` 우클릭 → **Create New Server** → **No, use server on disk** → Tomcat 10.1 폴더 선택
+4. 만든 서버 우클릭 → **Add Deployment** → `target/spec-odyssey.war` 선택 → **Start Server**
+5. `http://localhost:8080/spec-odyssey/` 접속 (Tomcat 포트가 80이면 `http://localhost/spec-odyssey/`)
+
+코드를 고친 뒤에는 다시 빌드하고, 서버 우클릭 → **Publish Server (Full)** 로 반영합니다.
+
+> Tomcat을 80 포트로 쓸 때 Windows의 IIS가 켜져 있으면 포트 충돌로 403이 뜹니다. IIS를 끄거나 8080을 쓰세요.
 
 ## 참고 문서
 
+- [`docs/dev-environment-setup.html`](docs/dev-environment-setup.html) — IDE별(IntelliJ·VS Code) 실행 환경 설정 가이드, 자주 나는 문제 해결
 - [`docs/requirements.md`](docs/requirements.md) — 요구사항 명세서 (FR/NFR 번호의 출처)
 - [`docs/db-design.md`](docs/db-design.md) — 테이블 정의, ERD, 복합 UNIQUE 목록, 설계 판단 근거
 - [`claude.md`](claude.md) — 프로젝트 팀 규칙 (환경, 명명 규칙, 코드/보안 규칙)
