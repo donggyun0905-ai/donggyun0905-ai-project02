@@ -81,21 +81,35 @@
                 <span><span class="dot completed"></span>완료</span>
                 <span><span class="dot current"></span>지금 할 일</span>
                 <span><span class="dot remaining"></span>남음</span>
+                <span><span class="dot locked"></span>다음 단계(잠김)</span>
             </div>
 
+            <%-- 다음 단계 미리보기: db-design.md 원 취지("현재 tier + 다음 tier까지 노출, 나머지는
+                 흐리게")가 어제 작업에서 너무 엄격하게(잠긴 티어 전부 숨김) 바뀌어 있었다 —
+                 "로드맵(여정 전체를 보여준다)" 정체성과 안 맞아서, 바로 다음 잠긴 티어 하나만
+                 흐리게(opacity) 미리 보여주도록 되돌린다(2026-09-30, 집 PC 작업). 액션 버튼은
+                 없다 — 잠긴 단계는 완료할 수 없다. --%>
+            <c:set var="nextLockedTier" value="${progress.nextLockedTier}" />
             <div class="journey-track-scroll">
             <div class="journey-track" style="margin-top:16px;">
                 <c:set var="foundCurrent" value="false" scope="page" />
                 <c:set var="rowIndex" value="0" scope="page" />
                 <c:forEach var="step" items="${steps}">
-                    <%-- 완료한 건 티어 상관없이 전부, 미완료는 지금 열린 티어만(잠긴 미래 티어 제외) --%>
-                    <c:if test="${step.completed || (not progress.journeyComplete && step.tier == currentTier.tier)}">
+                    <%-- 완료한 건 티어 상관없이 전부, 미완료는 지금 열린 티어 + 바로 다음 잠긴 티어까지 --%>
+                    <c:if test="${step.completed
+                                  || (not progress.journeyComplete && step.tier == currentTier.tier)
+                                  || (not empty nextLockedTier && step.tier == nextLockedTier.tier)}">
                         <c:set var="rowIndex" value="${rowIndex + 1}" scope="page" />
                         <c:choose>
                             <c:when test="${step.completed}">
                                 <c:set var="markerClass" value="completed is-past" />
                                 <c:set var="markerIcon" value="✓" />
                                 <c:set var="cardClass" value="is-past" />
+                            </c:when>
+                            <c:when test="${not empty nextLockedTier && step.tier == nextLockedTier.tier}">
+                                <c:set var="markerClass" value="locked" />
+                                <c:set var="markerIcon" value="🔒" />
+                                <c:set var="cardClass" value="is-locked" />
                             </c:when>
                             <c:when test="${!foundCurrent}">
                                 <c:set var="markerClass" value="current" />
@@ -124,6 +138,10 @@
                                     <c:if test="${step.completed}"><span style="color:var(--teal); font-weight:bold; font-size:0.85rem;">✔ 완료</span></c:if>
                                 </div>
                                 <p>${step.reason}</p>
+                                <c:if test="${markerClass == 'locked'}">
+                                    <p class="muted" style="margin:0; font-size:0.82rem;">지금 할 일을 다 끝내면 완료 체크를 할 수 있게 풀립니다.</p>
+                                </c:if>
+                                <c:if test="${markerClass != 'locked'}">
                                 <c:choose>
                                     <c:when test="${step.completed}">
                                         <c:if test="${step.stepType != 'PROJECT'}">
@@ -153,6 +171,16 @@
                                                 <button type="submit">등록하고 완료하기</button>
                                             </form>
                                         </details>
+                                        <%-- [TEST] 실기능 검증용 임시 버튼 — 파일 첨부 없이 기존 완료 액션(action=complete)을
+                                             재사용해 점수만 적립한다(프로필에 프로젝트/파일은 안 채워짐). 위 등록 폼과는
+                                             별개의 form이라 name="action" 인풋 충돌 없이 안전하게 값을 넘길 수 있다.
+                                             실기능 검증이 끝나면 반드시 지울 것(2026-09-30, 집 PC 작업). --%>
+                                        <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">
+                                            <input type="hidden" name="action" value="complete">
+                                            <input type="hidden" name="stepId" value="${step.id}">
+                                            <input type="hidden" name="completed" value="true">
+                                            <button type="submit" class="link-button">[TEST] 파일 없이 통과</button>
+                                        </form>
                                     </c:when>
                                     <c:otherwise>
                                         <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">
@@ -163,6 +191,7 @@
                                         </form>
                                     </c:otherwise>
                                 </c:choose>
+                                </c:if>
                             </div>
                         </div>
                     </c:if>

@@ -87,6 +87,7 @@ public class RoadmapService {
     private final RoadmapDao roadmapDao = new RoadmapDao();
     private final RoadmapStepDao roadmapStepDao = new RoadmapStepDao();
     private final ScoreService scoreService = new ScoreService();
+    private final ProjectIdeaService projectIdeaService = new ProjectIdeaService();
 
     // TD-5 배점: 로드맵 단계 완료당 +100 (여정 서비스의 핵심이라 배점 최상)
     private static final int ROADMAP_STEP_COMPLETE_POINTS = 100;
@@ -434,6 +435,11 @@ public class RoadmapService {
         List<GapAnalysisItemDto> rankedMissing = rankMissingSkills(analysis);
         JobDto job = jobDao.findById(analysis.getJobId());
         CertificationDto suggestedCert = findSuggestedCertification(userId, job);
+        // ENTRY 티어의 PROJECT 단계 안내 문구를 미리 만들어둔다 — LLM 호출은 DB 트랜잭션을 열기
+        // 전에 끝내야 한다(claude.md: 외부 API 호출에 타임아웃을 직접 두고, 느리거나 실패해도
+        // DB 커넥션을 물고 있으면 안 됨). 실패해도 로드맵 생성 자체는 막지 않는다(FR-111).
+        List<GapAnalysisItemDto> entryTierSkills = chunkForTier(rankedMissing, 0);
+        String projectReason = entryTierSkills.isEmpty() ? null : buildProjectReason(job, entryTierSkills);
         RoadmapDto previousPrimary = roadmapDao.findPrimaryByUserId(userId);
         int nextVersion = nextVersion(userId);
 
@@ -466,8 +472,7 @@ public class RoadmapService {
                                 buildCertReason(job, suggestedCert));
                     }
                     if (!tierSkills.isEmpty()) {
-                        order = insertStep(conn, roadmapId, order, "PROJECT", tier, null, null,
-                                buildProjectReason(tierSkills));
+                        order = insertStep(conn, roadmapId, order, "PROJECT", tier, null, null, projectReason);
                     }
                 }
                 for (GapAnalysisItemDto item : tierSkills) {
@@ -579,7 +584,10 @@ public class RoadmapService {
         return category + " 직무에서 기본 요건으로 자주 요구되는 자격증(" + cert.getCertName() + ")입니다.";
     }
 
-    private String buildProjectReason(List<GapAnalysisItemDto> rankedMissing) throws SQLException {
+    // LLM(ProjectIdeaService)이 목표 직무 + 부족 기술로 구체적인 프로젝트 아이디어를 만들어준다.
+    // 실패(API 키 없음·타임아웃·응답 형식 오류 등)해도 로드맵 생성 자체를 막으면 안 되므로(FR-111),
+    // 여기서 예외를 잡아 기존 고정 문구로 조용히 대체한다 — 2026-09-30, 집 PC 작업에서 신규 도입.
+    private String buildProjectReason(JobDto job, List<GapAnalysisItemDto> rankedMissing) throws SQLException {
         List<String> names = new ArrayList<>();
         for (GapAnalysisItemDto item : rankedMissing) {
             if (names.size() >= 3) {
@@ -590,8 +598,14 @@ public class RoadmapService {
                 names.add(skill.getSkillName());
             }
         }
-        String topSkills = String.join(", ", names);
-        return "부족한 기술을 실제로 다뤄볼 프로젝트를 진행해보세요. 우선순위가 높은 기술: " + topSkills;
+        try {
+            ProjectIdeaService.ProjectIdea idea = projectIdeaService.suggest(
+                    job == null || job.getJobName() == null ? "이 직무" : job.getJobName(), names);
+            return "💡 " + idea.title() + " — " + idea.description();
+        } catch (Exception e) {
+            String topSkills = String.join(", ", names);
+            return "부족한 기술을 실제로 다뤄볼 프로젝트를 진행해보세요. 우선순위가 높은 기술: " + topSkills;
+        }
     }
 
     private String buildSkillReason(Long skillId, String importance) throws SQLException {
