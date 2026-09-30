@@ -45,6 +45,7 @@ erDiagram
     SURVEY_QUESTION ||--o{ USER_SURVEY_ANSWER : "문항"
     CERTIFICATION ||--o{ CERT_SCHEDULE : "시험 일정"
     JOB ||--o{ JOB_ALIAS : "별칭"
+    SKILL ||--o{ SKILL_ALIAS : "별칭"
     USERS ||--o{ ROADMAP : "소유"
     SKILL ||--o{ ROADMAP_STEP : "목표 역량"
 ```
@@ -86,6 +87,7 @@ erDiagram
     USERS ||--o{ AI_USAGE_LOG : "제출"
     SKILL ||--o{ EVALUATION_CRITERIA : "요구 역량"
     JOB ||--o{ JOB_ALIAS : "별칭"
+    SKILL ||--o{ SKILL_ALIAS : "별칭"
 ```
 
 ## 테이블 정의
@@ -248,7 +250,29 @@ erDiagram
 - embedding_model 컬럼을 남겨둔 이유: 로컬 세팅이 1주차에 안 잡히면 임베딩 API로 갈아탈 수 있고, 그때 어떤 벡터가 어느 모델 산출물인지 구분해 재계산 대상만 골라낼 수 있다.
 - 벡터를 별도 컬럼으로 뺀 덕에 나중에 pgvector나 전용 벡터DB로 옮겨도 나머지 스키마는 손댈 필요가 없다.
 - IT 계열 한정이라 500개 안팎이면 충분하고, 한 번 계산해 저장하면 재계산이 거의 없다.
-- **진행 상황(2026-09-30)**: embedding_vector는 아직 아무도 채우지 않았다 — DJL+ONNX 세팅 자체가 미착수. 대신 그 전 단계로 `FuzzyNameMatcher`(SkillMatcher 구현체, 팀 결정 "이름 일치라도")를 GapAnalysisService·JobDiscoveryService 양쪽에 기본값으로 붙여, 정확 일치 실패 시 편집거리 기반으로 오타·표기 차이(같은 표기 체계 안에서만)를 흡수하도록 했다. "파이썬"↔"Python" 같은 표기 체계가 다른 진짜 의미 매칭은 여전히 이 단계에서 못 잡는다 — embedding_vector가 채워져야 풀리는 문제로 남아있다. `GapAnalysisService(SkillMatcher)` 생성자로 나중에 EmbeddingMatcher만 갈아끼우면 된다.
+- **진행 상황(2026-09-30)**: embedding_vector는 아직 아무도 채우지 않았다 — DJL+ONNX 세팅 자체가 미착수. 대신 그 전 단계로 `FuzzyNameMatcher`(SkillMatcher 구현체, 팀 결정 "이름 일치라도")를 GapAnalysisService·JobDiscoveryService 양쪽에 기본값으로 붙였다. 매칭 순서: ① SKILL.skill_name 정확 일치 ② SKILL_ALIAS 사전(아래) 정확 일치 ③ 그래도 실패하면 편집거리로 오타·표기 차이를 흡수. SKILL_ALIAS 덕분에 "파이썬"↔"Python"처럼 표기 체계가 다른 흔한 동의어도 이제 잡힌다 — 다만 사전에 없는 새로운 표현까지는 여전히 못 잡는다(그건 embedding_vector가 채워져야 완전히 풀리는 문제). `GapAnalysisService(SkillMatcher)` 생성자로 나중에 EmbeddingMatcher만 갈아끼우면 된다.
+
+#### SKILL_ALIAS (기술 별칭) — 신설
+
+관련 요구사항: TD-1 임베딩 시맨틱 매칭 (임베딩 전 중간 단계)
+
+JOB_ALIAS와 같은 발상 — 사용자가 표준 명칭(SKILL.skill_name, 대부분 영문) 대신 흔히 쓰는 한글 표기·줄임말을 미리 등록해둔 사전. FuzzyNameMatcher가 정확 일치 다음 순서로 참고한다.
+
+| 컬럼 | 타입 | 키 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK | 식별자 |
+| `skill_id` | BIGINT | FK | → SKILL (표준 기술) |
+| `alias_name` | VARCHAR(100) | UK | 한글 표기·줄임말 (예: "파이썬", "JS", "쿠버네티스") |
+| `match_type` | VARCHAR(20) |  | MANUAL(수기) / EMBEDDING(유사도 매칭) |
+| `similarity_score` | DECIMAL(5,4) |  | 임베딩 매칭 시 유사도 |
+
+**복합 UNIQUE**: (alias_name) — 같은 표기가 두 기술을 가리키지 않게
+
+설계 판단:
+
+- 2026-09-30 팀 결정("시맨틱 매칭, 이름 일치라도 먼저")으로 신설. sql/10_seed_skill_alias.sql에 163개 SKILL 중 142개에 대해 확실히 널리 쓰이는 한글 표기·줄임말을 미리 채워뒀다.
+- 애매하거나 이미 짧은 약어뿐인 기술(SQL, PHP, R, DNS, VPN, PKI, IAM, SIEM, TDD, OAuth 2.0 등 21개)은 잘못된 별칭을 심느니 비워뒀다 — 더 필요하면 이 테이블에 행만 추가하면 된다(스키마 변경 없음).
+- match_type/similarity_score는 JOB_ALIAS와 같은 이유로 존재한다 — 나중에 임베딩 유사도로 자동 채운 별칭과 수기 등록 별칭을 구분해 오매칭을 걸러낼 수 있게.
 
 #### JOB (직무 마스터) — 신설
 

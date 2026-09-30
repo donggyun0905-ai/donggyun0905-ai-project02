@@ -69,4 +69,45 @@ class FuzzyNameMatcherTest {
         assertNull(matcher.match(null).skillId());
         assertNull(matcher.match("   ").skillId());
     }
+
+    // SKILL_ALIAS 사전(2026-09-30, "이름 일치라도") — 정확 일치하는 별칭은 score 1.0으로 취급한다.
+    @Test
+    void 등록된_별칭과_정확히_일치하면_score_1점으로_매칭된다() throws Exception {
+        String aliasName = "리엑트별칭_" + System.nanoTime();
+        Long aliasId;
+        try (Connection conn = DBUtil.getConnection()) {
+            aliasId = TestFixtures.insertSkillAlias(conn, skillId, aliasName);
+        }
+        try {
+            SkillMatcher.MatchResult result = matcher.match(aliasName);
+
+            assertEquals(skillId, result.skillId());
+            assertEquals(1.0, result.score());
+        } finally {
+            try (Connection conn = DBUtil.getConnection()) {
+                TestFixtures.hardDelete(conn, "SKILL_ALIAS", aliasId);
+            }
+        }
+    }
+
+    @Test
+    void 별칭에_오타가_있어도_퍼지_매칭으로_잡힌다() throws Exception {
+        String aliasName = "리엑트별칭투_" + System.nanoTime();
+        Long aliasId;
+        try (Connection conn = DBUtil.getConnection()) {
+            aliasId = TestFixtures.insertSkillAlias(conn, skillId, aliasName);
+        }
+        try {
+            String typoAlias = aliasName.substring(0, aliasName.length() - 1) + "Z";
+
+            SkillMatcher.MatchResult result = matcher.match(typoAlias);
+
+            assertEquals(skillId, result.skillId());
+            assertTrue(result.score() < 1.0 && result.score() > 0.5);
+        } finally {
+            try (Connection conn = DBUtil.getConnection()) {
+                TestFixtures.hardDelete(conn, "SKILL_ALIAS", aliasId);
+            }
+        }
+    }
 }
