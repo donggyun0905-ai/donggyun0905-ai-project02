@@ -34,14 +34,16 @@ CREATE TABLE PROBLEM (
     id                BIGINT       NOT NULL AUTO_INCREMENT,
     title             VARCHAR(200) NOT NULL,
     description       TEXT         NULL,
-    difficulty_level  INT          NOT NULL,
+    difficulty_level  INT          NOT NULL, -- 0~5 (0 = 프로그래머스 Lv.0 입문)
+    category          VARCHAR(20)  NOT NULL DEFAULT 'ALGORITHM', -- SQL / ALGORITHM — 목표 직무별 출제 비율 기준
     source_type       VARCHAR(20)  NOT NULL, -- AI_GENERATED / EXTERNAL_LINK / OPEN_DATASET
     external_url      VARCHAR(500) NULL,
     answer_key        TEXT         NULL,
     created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     is_deleted        BOOLEAN      NOT NULL DEFAULT FALSE,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id),
+    KEY idx_problem_category_level (category, difficulty_level)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =========================================================
@@ -408,18 +410,22 @@ CREATE TABLE JOB_SKILL_TREND (
 -- 관련 요구사항: FR-51~53
 -- 복합 UNIQUE: (user_id, assigned_date, problem_id) — 같은 날 같은 문제 중복 배정 방지
 -- is_correct는 완료 전까지 알 수 없으므로 NULL 허용.
+-- submitted_*: "정답 입력하기"로 제출한 풀이 코드 — 컴파일(문법) 확인을 통과한 마지막 제출분 (FR-53)
 -- =========================================================
 CREATE TABLE USER_DAILY_MISSION (
-    id               BIGINT      NOT NULL AUTO_INCREMENT,
-    user_id          BIGINT      NOT NULL,
-    problem_id       BIGINT      NOT NULL,
-    assigned_date    DATE        NOT NULL,
-    is_completed     BOOLEAN     NOT NULL DEFAULT FALSE,
-    completed_at     DATETIME    NULL,
-    is_correct       BOOLEAN     NULL,
-    created_at       DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at       DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted       BOOLEAN     NOT NULL DEFAULT FALSE,
+    id                  BIGINT      NOT NULL AUTO_INCREMENT,
+    user_id             BIGINT      NOT NULL,
+    problem_id          BIGINT      NOT NULL,
+    assigned_date       DATE        NOT NULL,
+    is_completed        BOOLEAN     NOT NULL DEFAULT FALSE,
+    completed_at        DATETIME    NULL,
+    is_correct          BOOLEAN     NULL,
+    submitted_code      MEDIUMTEXT  NULL,
+    submitted_language  VARCHAR(20) NULL, -- JAVA / PYTHON / CPP / C / JAVASCRIPT / SQL
+    submitted_at        DATETIME    NULL,
+    created_at          DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted          BOOLEAN     NOT NULL DEFAULT FALSE,
     PRIMARY KEY (id),
     UNIQUE KEY uk_user_daily_mission_user_date_problem (user_id, assigned_date, problem_id),
     KEY idx_user_daily_mission_problem_id (problem_id),
