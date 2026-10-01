@@ -50,6 +50,9 @@ public class RoadmapServlet extends HttpServlet {
     private final UserDao userDao = new UserDao();
     private final UserProjectDao userProjectDao = new UserProjectDao();
 
+    private static final String CELEBRATION_COMPLETED_KEY = "roadmapCelebrateTier";
+    private static final String CELEBRATION_NEXT_KEY = "roadmapCelebrateNextTier";
+
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         Long userId = currentUserId(req);
@@ -70,6 +73,9 @@ public class RoadmapServlet extends HttpServlet {
                     : roadmapService.getSteps(roadmap.getId());
             req.setAttribute("steps", steps);
             req.setAttribute("progress", roadmapService.computeProgress(steps));
+            // 티어 돌파 환영 모달 — 완료 처리 직후 한 번만 뜨도록 세션에 잠깐 실어둔 신호를 꺼내 쓰고 지운다
+            // (새로고침하면 이미 지워져 있어서 다시 안 뜬다).
+            consumeTierCelebration(req);
             // CORE/ADVANCED SKILL 단계의 "기존 프로젝트 업그레이드" 선택지용 — 2026-09-30 팀 결정.
             req.setAttribute("userProjects", userProjectDao.findByUserId(userId));
             // "요구 기술이 바뀌었어요" 배너 — 로드맵이 기준으로 삼은 분석이 낡았는지(2026-09-30 팀 결정).
@@ -86,8 +92,15 @@ public class RoadmapServlet extends HttpServlet {
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         Long userId = currentUserId(req);
         String action = req.getParameter("action");
+        // 단계 완료로 이어질 수 있는 액션만 전/후 진행도를 비교한다 — generate 등은 티어 구성 자체가
+        // 바뀌므로 "방금 티어를 끝냈다"로 오인하면 안 된다.
+        boolean mayCompleteStep = "complete".equals(action) || "completeProject".equals(action)
+                || "submitSkillNote".equals(action) || "submitSkillProject".equals(action)
+                || "submitCertProof".equals(action);
+        RoadmapService.RoadmapProgress progressBefore = null;
 
         try {
+            progressBefore = mayCompleteStep ? currentProgress(userId) : null;
             if ("generate".equals(action)) {
                 roadmapService.generate(userId);
             } else if ("complete".equals(action)) {
@@ -139,6 +152,13 @@ public class RoadmapServlet extends HttpServlet {
             throw new ServletException("로드맵 처리 중 오류가 발생했습니다.", e);
         }
 
+        if (mayCompleteStep) {
+            try {
+                recordTierCelebration(req, userId, progressBefore);
+            } catch (SQLException e) {
+                // 축하 모달은 부가 기능 — 조회 실패로 이미 끝난 완료 처리 응답까지 망치지 않는다.
+            }
+        }
         resp.sendRedirect(req.getContextPath() + "/roadmap");
     }
 
@@ -430,6 +450,41 @@ public class RoadmapServlet extends HttpServlet {
             return null;
         }
         return LocalDate.parse(value);
+    }
+
+    private RoadmapService.RoadmapProgress currentProgress(Long userId) throws SQLException {
+        RoadmapDto roadmap = roadmapService.getPrimaryRoadmap(userId);
+        return roadmap == null ? null : roadmapService.computeProgress(roadmapService.getSteps(roadmap.getId()));
+    }
+
+    // 이번 요청으로 티어가 방금 100% 완료됐으면 (완료한 티어, 새로 열린 티어)를 세션에 한 번만 쓸 수 있게 실어둔다.
+    private void recordTierCelebration(HttpServletRequest req, Long userId,
+            RoadmapService.RoadmapProgress before) throws SQLException {
+        RoadmapService.RoadmapProgress after = currentProgress(userId);
+        RoadmapService.TierProgress completed = roadmapService.findNewlyCompletedTier(before, after);
+        if (completed == null) {
+            return;
+        }
+        HttpSession session = req.getSession(false);
+        session.setAttribute(CELEBRATION_COMPLETED_KEY, completed.getTier());
+        RoadmapService.TierProgress next = after.getCurrentTier();
+        if (next != null) {
+            session.setAttribute(CELEBRATION_NEXT_KEY, next.getTier());
+        } else {
+            session.removeAttribute(CELEBRATION_NEXT_KEY);
+        }
+    }
+
+    private void consumeTierCelebration(HttpServletRequest req) {
+        HttpSession session = req.getSession(false);
+        Object completed = session.getAttribute(CELEBRATION_COMPLETED_KEY);
+        if (completed == null) {
+            return;
+        }
+        req.setAttribute("celebrateTier", completed);
+        req.setAttribute("celebrateNextTier", session.getAttribute(CELEBRATION_NEXT_KEY));
+        session.removeAttribute(CELEBRATION_COMPLETED_KEY);
+        session.removeAttribute(CELEBRATION_NEXT_KEY);
     }
 
     private Long currentUserId(HttpServletRequest req) {

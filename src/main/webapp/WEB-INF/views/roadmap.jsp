@@ -333,6 +333,47 @@
     </c:otherwise>
 </c:choose>
 
+<%-- 티어 돌파 환영 모달(2026-10-01) — 방금 이 요청으로 티어가 100% 완료됐을 때만 서버가
+     celebrateTier를 넘겨준다(세션에 한 번 실었다가 꺼내며 지우므로 새로고침하면 다시 안 뜬다).
+     공통 CSS는 A 담당 파일이라 이 모달 스타일은 이 화면 안에 둔다. --%>
+<c:if test="${not empty celebrateTier}">
+    <c:set var="celebrateLabel"
+           value="${celebrateTier == 'ENTRY' ? '입문' : celebrateTier == 'CORE' ? '핵심' : celebrateTier == 'ADVANCED' ? '심화' : '전문가'}" />
+    <c:set var="celebrateNextLabel"
+           value="${celebrateNextTier == 'ENTRY' ? '입문' : celebrateNextTier == 'CORE' ? '핵심' : celebrateNextTier == 'ADVANCED' ? '심화' : '전문가'}" />
+    <style>
+        .tier-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000;
+            display: flex; align-items: center; justify-content: center; padding: 16px; }
+        .tier-modal { background: var(--card-bg); border-radius: var(--radius); padding: 28px 32px;
+            max-width: 420px; width: 100%; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+        .tier-modal .big { font-size: 3rem; }
+    </style>
+    <div class="tier-modal-backdrop" id="tierModal" role="dialog" aria-modal="true" aria-labelledby="tierModalTitle">
+        <div class="tier-modal">
+            <div class="big">🎉</div>
+            <h2 id="tierModalTitle">${celebrateLabel} 티어 돌파!</h2>
+            <c:choose>
+                <c:when test="${not empty celebrateNextTier}">
+                    <p>${celebrateLabel} 티어의 모든 단계를 완료했어요.<br><strong>${celebrateNextLabel}</strong> 티어가 새로 열렸습니다.</p>
+                </c:when>
+                <c:otherwise>
+                    <p>${celebrateLabel} 티어의 모든 단계를 완료했어요.<br>지금까지 분석된 부족 기술을 모두 채웠습니다!</p>
+                </c:otherwise>
+            </c:choose>
+            <button type="button" id="tierModalClose">계속하기</button>
+        </div>
+    </div>
+    <script>
+    (function () {
+        var modal = document.getElementById('tierModal');
+        function close() { modal.parentNode.removeChild(modal); }
+        document.getElementById('tierModalClose').addEventListener('click', close);
+        modal.addEventListener('click', function (e) { if (e.target === modal) { close(); } });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.parentNode) { close(); } });
+    })();
+    </script>
+</c:if>
+
 <%-- 완료 체크 등 폼 제출은 전부 전체 페이지 리로드라, 매번 "여정 기록" 스크롤이 맨 위로 튕겨서
      방금 작업하던 위치를 잃어버리는 문제(사용자, 2026-09-30). 처음엔 스크롤 위치를 픽셀 값
      그대로 저장/복원했는데(sessionStorage), 완료 처리로 티어가 새로 열리거나 카드 배치가

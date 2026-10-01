@@ -217,6 +217,23 @@ public class RoadmapService {
         return new RoadmapProgress(tiers);
     }
 
+    // 티어 돌파 환영 모달용(2026-10-01) — 이번 작업 전(before)엔 미완료였던 티어가 작업 후(after)에
+    // 완료가 됐으면 그 티어(after 기준)를 돌려준다. "방금 그 순간"만 잡아내려고 전/후 스냅샷을
+    // 비교하는 방식이라, 새로고침이나 이미 끝난 티어를 다시 볼 때는 항상 null이다.
+    // 한 번에 두 티어가 동시에 끝나는 일은 없지만(단계 하나 완료당 티어 하나만 영향) 가장 앞 티어를 준다.
+    public TierProgress findNewlyCompletedTier(RoadmapProgress before, RoadmapProgress after) {
+        if (before == null || after == null) {
+            return null;
+        }
+        for (TierProgress tier : after.getTiers()) {
+            TierProgress previous = before.getTier(tier.getTier());
+            if (tier.isComplete() && previous != null && !previous.isComplete()) {
+                return tier;
+            }
+        }
+        return null;
+    }
+
     public static final class TierProgress {
         private final String tier;
         private final int total;
