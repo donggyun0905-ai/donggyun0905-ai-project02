@@ -160,7 +160,7 @@ const T = [
 {n:'USERS',ko:'회원',g:'user',x:60,y:40,new:0,req:'FR-11 · 12 · 13 · 14 · 21 · 22',
  role:'서비스의 모든 데이터가 매달리는 뿌리 테이블. 로그인 계정 정보와 전공·학년 같은 기본 신상, 그리고 "내가 가고 싶은 직무"를 담는다. 여기 한 줄이 지워지면 그 사람의 여정 전체가 사라진다.',
  notes:['user_type은 지금 전부 \'지원자\'다. 면접관 계정을 나중에 붙일 때 테이블을 갈아엎지 않으려고 미리 뚫어둔 확장 필드(TD-4).','email은 명세서 가입 항목에 없었지만 FR-73 이메일 알림을 살릴 여지를 두려고 추가하기로 했다. 선택 입력.','profile_updated_at은 FR-37 재분석 트리거용이다. USERS.updated_at만으로는 안 된다. 사용자가 자격증을 추가해도 바뀌는 건 USER_SPECS이지 USERS가 아니라서, 자식 테이블 세 개의 MAX(updated_at)을 매번 구해야 한다. 자식이 바뀔 때 이 컬럼을 같이 찍어두면 GAP_ANALYSIS.analyzed_at과 한 번 비교하면 끝난다.','희망 직무가 없으면 desired_job_id가 NULL이고 desired_job_status가 UNSET이 된다. 이 값으로 "직무 발굴" 화면으로 보낼지 "격차 분석"으로 보낼지 갈린다.'],
- cols:[['id','BIGINT','PK','회원 식별자'],['user_type','VARCHAR(10)','','지원자 / 면접관 — 현재는 전부 지원자'],['login_id','VARCHAR(50)','UK','로그인 아이디'],['password_hash','VARCHAR(255)','','해시+솔트 저장 (NFR-2)'],['email','VARCHAR(100)','','마감 알림 발송용 (선택 입력)'],['major','VARCHAR(50)','','전공'],['grade','VARCHAR(20)','','학년'],['interest_field','VARCHAR(50)','','관심 분야'],['desired_job_id','BIGINT','FK','희망 직무 → JOB (없으면 NULL)'],['desired_job_status','VARCHAR(10)','','SET / UNSET(아직 모르겠음)'],['privacy_consent_at','DATETIME','','민감정보 수집 동의 시점 (NFR-4)'],['profile_updated_at','DATETIME','','스펙·프로젝트·스킬 중 하나라도 바뀐 시각 — 재분석 판단 기준'],['last_login_at','DATETIME','','마지막 접속']]},
+ cols:[['id','BIGINT','PK','회원 식별자'],['user_type','VARCHAR(10)','','지원자 / 면접관 — 가입할 때 고른다'],['login_id','VARCHAR(50)','UK','로그인 아이디'],['password_hash','VARCHAR(255)','','해시+솔트 저장 (NFR-2)'],['name','VARCHAR(50)','','이름 — 가입 시 필수. 공유 링크 기본 이력 범위로 면접관에게 보임'],['age','INT','','나이 — 지원자 가입 시 필수'],['career_status','VARCHAR(15)','','STUDENT / JOB_SEEKER / EMPLOYED'],['email','VARCHAR(100)','','마감 알림 발송용 (선택 입력)'],['major','VARCHAR(50)','','전공'],['grade','VARCHAR(20)','','학년'],['interest_field','VARCHAR(50)','','관심 분야'],['desired_job_id','BIGINT','FK','희망 직무 → JOB (없으면 NULL)'],['desired_job_status','VARCHAR(10)','','SET / UNSET(아직 모르겠음)'],['privacy_consent_at','DATETIME','','민감정보 수집 동의 시점 (NFR-4)'],['profile_updated_at','DATETIME','','스펙·프로젝트·스킬 중 하나라도 바뀐 시각 — 재분석 판단 기준'],['last_login_at','DATETIME','','마지막 접속']]},
 
 {n:'USER_SPECS',ko:'보유 스펙',g:'user',x:60,y:430,new:0,req:'FR-23 · 81(면접관 타임라인)',
  role:'자격증·어학·수상을 한 줄씩 쌓는 곳. 한 사람이 여러 개를 가지므로 1:N이다. 취득일이 있어서 면접관 뷰의 시간순 타임라인(FR-81)을 그릴 때 정렬 기준이 된다.',
@@ -322,7 +322,7 @@ const T = [
 {n:'EVALUATION_SESSION',ko:'평가 세션',g:'eval',x:1900,y:510,new:1,req:'FR-82',
  role:'면접관이 여러 지원자를 담아두는 장바구니. 계정 없이도 비교 뷰를 만들 수 있게 해주는 그릇.',
  notes:['초안의 가장 큰 구멍이 여기였다. FR-82는 "여러 지원자를 나란히 비교"인데 면접관 계정이 없으니(FR-14), 면접관이 받은 여러 토큰을 묶어둘 곳이 필요하다.','면접관이 공유 링크를 하나씩 입력해 장바구니처럼 담는 방식으로 확정했다. session_token은 브라우저 세션 식별자다.','지원자 한 명만 볼 때는 이 테이블 없이 링크만으로 충분하다. 비교 기능이 필요해서 생긴 구조다.'],
- cols:[['id','BIGINT','PK','식별자'],['session_token','VARCHAR(64)','UK','면접관 브라우저 세션 식별자'],['company_name','VARCHAR(100)','','회사명'],['created_at','DATETIME','','생성 시각'],['expires_at','DATETIME','','세션 만료 — 없으면 익명 세션이 영구히 쌓인다']]},
+ cols:[['id','BIGINT','PK','식별자'],['user_id','BIGINT','FK','→ USERS (면접관 계정). NULL이면 익명 세션'],['session_token','VARCHAR(64)','UK','세션 식별자 — 수정·삭제 시 소유 확인'],['company_name','VARCHAR(100)','','회사명'],['created_at','DATETIME','','생성 시각'],['expires_at','DATETIME','','세션 만료 — 없으면 익명 세션이 영구히 쌓인다']]},
 
 {n:'EVALUATION_SESSION_ITEM',ko:'평가 대상',g:'eval',x:1900,y:730,new:1,req:'FR-82',
  role:'장바구니에 담긴 지원자 한 명. 세션과 공유 링크를 잇는다.',

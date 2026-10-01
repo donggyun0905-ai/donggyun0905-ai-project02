@@ -8,6 +8,9 @@ public class UserDto {
     private String userType;
     private String loginId;
     private String passwordHash;
+    private String name;
+    private Integer age;
+    private String careerStatus; // STUDENT(학생) / JOB_SEEKER(취준생) / EMPLOYED(직장인)
     private String email;
     private String major;
     private String grade;
@@ -35,6 +38,30 @@ public class UserDto {
 
     public void setUserType(String userType) {
         this.userType = userType;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public Integer getAge() {
+        return age;
+    }
+
+    public void setAge(Integer age) {
+        this.age = age;
+    }
+
+    public String getCareerStatus() {
+        return careerStatus;
+    }
+
+    public void setCareerStatus(String careerStatus) {
+        this.careerStatus = careerStatus;
     }
 
     public String getLoginId() {

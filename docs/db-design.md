@@ -101,12 +101,15 @@ erDiagram
 | 컬럼 | 타입 | 키 | 설명 |
 | --- | --- | --- | --- |
 | `id` | BIGINT | PK | 회원 식별자 |
-| `user_type` | VARCHAR(15) |  | APPLICANT(지원자) / INTERVIEWER(면접관) — 현재는 전부 APPLICANT |
+| `user_type` | VARCHAR(15) |  | APPLICANT(지원자) / INTERVIEWER(면접관) — 가입할 때 고른다 |
 | `login_id` | VARCHAR(50) | UK | 로그인 아이디 |
 | `password_hash` | VARCHAR(255) |  | 해시+솔트 저장 (NFR-2) |
+| `name` | VARCHAR(50) |  | 이름 — 가입 시 필수. 공유 링크의 "기본 이력" 범위로 면접관에게 보인다 |
+| `age` | INT |  | 나이 — 지원자 가입 시 필수 |
+| `career_status` | VARCHAR(15) |  | STUDENT(학생) / JOB_SEEKER(취준생) / EMPLOYED(직장인) — 지원자 가입 시 필수 |
 | `email` | VARCHAR(100) |  | 마감 알림 발송용 (선택 입력). 일반 인덱스, UNIQUE 아님 |
 | `major` | VARCHAR(50) |  | 전공 |
-| `grade` | VARCHAR(20) |  | 학년 |
+| `grade` | VARCHAR(20) |  | 학년 — 구분이 학생일 때만 입력받는다 |
 | `interest_field` | VARCHAR(50) |  | 관심 분야 |
 | `desired_job_id` | BIGINT | FK | 희망 직무 → JOB (없으면 NULL) |
 | `desired_job_status` | VARCHAR(10) |  | SET / UNSET(아직 모르겠음) |
@@ -116,7 +119,8 @@ erDiagram
 
 설계 판단:
 
-- user_type은 지금 전부 '지원자'다. 면접관 계정을 나중에 붙일 때 테이블을 갈아엎지 않으려고 미리 뚫어둔 확장 필드(TD-4).
+- user_type은 면접관 계정을 나중에 붙일 때 테이블을 갈아엎지 않으려고 미리 뚫어둔 확장 필드였다(TD-4). 면접관 계정을 도입하면서 실제로 쓰기 시작했다 — 면접관은 공유받은 이력·지원자 비교·내 프로필만 쓸 수 있다.
+- (변경) name·age·career_status를 추가했다. 면접관이 여러 지원자를 비교할 때 "지원자 1, 2"로는 누가 누구인지 알 수 없어서 이름이 필요했고, 같이 나이와 구분(학생/취준생/직장인)을 가입 필수 항목으로 받기로 했다. 컬럼 추가 전에 가입한 회원은 값이 없어 NULL을 허용하고, 내 프로필에서 저장할 때 채우게 한다. 면접관 계정은 이름만 받는다. 이미 만든 DB에는 `sql/08_alter_users_profile.sql`을 실행한다.
 - email은 명세서 가입 항목에 없었지만 FR-73 이메일 알림을 살릴 여지를 두려고 추가하기로 했다. 선택 입력.
 - profile_updated_at은 FR-37 재분석 트리거용이다. USERS.updated_at만으로는 안 된다. 사용자가 자격증을 추가해도 바뀌는 건 USER_SPECS이지 USERS가 아니라서, 자식 테이블 세 개의 MAX(updated_at)을 매번 구해야 한다. 자식이 바뀔 때 이 컬럼을 같이 찍어두면 GAP_ANALYSIS.analyzed_at과 한 번 비교하면 끝난다.
 - 희망 직무가 없으면 desired_job_id가 NULL이고 desired_job_status가 UNSET이 된다. 이 값으로 "직무 발굴" 화면으로 보낼지 "격차 분석"으로 보낼지 갈린다.
@@ -806,12 +810,13 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 
 관련 요구사항: FR-82
 
-면접관이 여러 지원자를 담아두는 장바구니. 계정 없이도 비교 뷰를 만들 수 있게 해주는 그릇.
+면접관이 여러 지원자를 담아두는 장바구니. 면접관 계정(USERS.user_type = INTERVIEWER)마다 하나씩 있다.
 
 | 컬럼 | 타입 | 키 | 설명 |
 | --- | --- | --- | --- |
 | `id` | BIGINT | PK | 식별자 |
-| `session_token` | VARCHAR(64) | UK | 면접관 브라우저 세션 식별자 |
+| `user_id` | BIGINT | FK · UK | → USERS (면접관 계정). NULL이면 계정 없는 익명 세션 |
+| `session_token` | VARCHAR(64) | UK | 세션 식별자 — 수정·삭제 시 소유 확인에 쓴다 |
 | `company_name` | VARCHAR(100) |  | 회사명 |
 | `created_at` | DATETIME |  | 생성 시각 |
 | `expires_at` | DATETIME |  | 세션 만료 — 없으면 익명 세션이 영구히 쌓인다 |
@@ -821,6 +826,8 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 - 초안의 가장 큰 구멍이 여기였다. FR-82는 "여러 지원자를 나란히 비교"인데 면접관 계정이 없으니(FR-14), 면접관이 받은 여러 토큰을 묶어둘 곳이 필요하다.
 - 면접관이 공유 링크를 하나씩 입력해 장바구니처럼 담는 방식으로 확정했다. session_token은 브라우저 세션 식별자다.
 - 지원자 한 명만 볼 때는 이 테이블 없이 링크만으로 충분하다. 비교 기능이 필요해서 생긴 구조다.
+- (변경) 면접관 계정을 도입하면서 `user_id`를 추가했다. 브라우저 세션 토큰만으로는 다른 기기에서 로그인했을 때 담아 둔 목록을 찾을 수 없다. UNIQUE(user_id)로 계정당 목록 하나를 보장하고, NULL은 여러 개 허용되어 익명 세션 방식도 그대로 남는다. 이미 만든 DB에는 `sql/07_alter_evaluation_session_user.sql`을 실행한다.
+- 공유 링크 열람(이력 한 건 보기)은 여전히 로그인 없이 가능하다(FR-85). 목록에 담기와 비교만 면접관 로그인이 필요하다.
 
 #### EVALUATION_SESSION_ITEM (평가 대상) — 신설
 

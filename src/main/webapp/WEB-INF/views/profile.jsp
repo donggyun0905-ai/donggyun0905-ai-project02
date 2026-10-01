@@ -47,7 +47,10 @@
                     <input type="hidden" name="confirmedJobId" value="${pendingJobMatch.job.id}">
                     <input type="hidden" name="email" value="${pendingEmail}">
                     <input type="hidden" name="major" value="${pendingMajor}">
-                    <input type="hidden" name="grade" value="${pendingGrade}">
+                    <input type="hidden" name="name" value="<c:out value='${pendingPersonalInfo.name}' />">
+                    <input type="hidden" name="age" value="${pendingPersonalInfo.age}">
+                    <input type="hidden" name="careerStatus" value="${pendingPersonalInfo.careerStatus}">
+                    <input type="hidden" name="grade" value="<c:out value='${pendingPersonalInfo.grade}' />">
                     <input type="hidden" name="interestField" value="${pendingInterestField}">
                     <button type="submit">예, 이 직무로 저장</button>
                 </form>
@@ -58,9 +61,22 @@
     <c:otherwise>
         <div class="card">
             <form action="${pageContext.request.contextPath}/profile" method="post">
+                <%-- 저장에 실패해 다시 그릴 때는 방금 입력한 값(param)을, 아니면 저장된 값을 보여준다 --%>
+                <c:set var="statusValue" value="${empty param.careerStatus ? user.careerStatus : param.careerStatus}" />
+                <p><label>이름</label><input type="text" name="name" maxlength="50" required value="<c:out value='${empty param.name ? user.name : param.name}' />"></p>
+                <p><label>나이</label><input type="number" name="age" min="1" max="120" required value="<c:out value='${empty param.age ? user.age : param.age}' />"></p>
+                <p>
+                    <label>구분</label>
+                    <select name="careerStatus" id="careerStatus" required>
+                        <option value="" ${empty statusValue ? 'selected' : ''} disabled>선택해주세요</option>
+                        <option value="STUDENT" ${statusValue == 'STUDENT' ? 'selected' : ''}>학생</option>
+                        <option value="JOB_SEEKER" ${statusValue == 'JOB_SEEKER' ? 'selected' : ''}>취준생</option>
+                        <option value="EMPLOYED" ${statusValue == 'EMPLOYED' ? 'selected' : ''}>직장인</option>
+                    </select>
+                </p>
+                <p id="grade-field"><label>학년</label><input type="text" name="grade" maxlength="20" required placeholder="예) 3학년" value="<c:out value='${empty param.grade ? user.grade : param.grade}' />"></p>
                 <p><label>이메일</label><input type="email" name="email" value="${user.email}"></p>
                 <p><label>전공</label><input type="text" name="major" value="${user.major}"></p>
-                <p><label>학년</label><input type="text" name="grade" value="${user.grade}"></p>
                 <p><label>관심 분야</label><input type="text" name="interestField" value="${user.interestField}"></p>
                 <p>
                     <label>희망 직무</label>
@@ -84,6 +100,20 @@
                 <button type="submit">기본정보 저장</button>
             </form>
         </div>
+        <script>
+            // 학년은 구분이 학생일 때만 받는다 — 숨긴 칸은 필수 검사와 전송에서도 뺀다
+            (function () {
+                var careerStatus = document.getElementById('careerStatus');
+                var gradeField = document.getElementById('grade-field');
+                function toggle() {
+                    var student = careerStatus.value === 'STUDENT';
+                    gradeField.style.display = student ? '' : 'none';
+                    gradeField.querySelector('input').disabled = !student;
+                }
+                careerStatus.addEventListener('change', toggle);
+                toggle();
+            })();
+        </script>
     </c:otherwise>
 </c:choose>
 

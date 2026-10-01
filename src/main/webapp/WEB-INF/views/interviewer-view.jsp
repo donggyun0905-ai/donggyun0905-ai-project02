@@ -16,7 +16,18 @@
     <c:otherwise>
         <div class="spread" style="margin-bottom:16px;">
             <span class="pill">👁 읽기 전용 · 지원자가 공유한 이력</span>
-            <a class="btn secondary" href="${pageContext.request.contextPath}/share/compare">비교 목록에 담기</a>
+            <c:choose>
+                <c:when test="${interviewer}">
+                    <form method="post" action="${pageContext.request.contextPath}/interviewer/shared">
+                        <input type="hidden" name="action" value="add">
+                        <input type="hidden" name="link" value="<c:out value='${token}' />">
+                        <button type="submit" class="secondary">비교 목록에 담기</button>
+                    </form>
+                </c:when>
+                <c:when test="${empty sessionScope.loginUser}">
+                    <a class="btn secondary" href="${pageContext.request.contextPath}/login">면접관 로그인 후 비교 목록에 담기</a>
+                </c:when>
+            </c:choose>
         </div>
         <h1>지원자 이력</h1>
         <p class="muted">지원자가 직접 발급한 링크로 열린 페이지입니다. 지원자가 고른 항목만 보이고, 지원자는 언제든 공유를 멈출 수 있습니다.</p>
@@ -25,6 +36,7 @@
             <c:if test="${view.scopeBasic}">
                 <h2>기본 정보</h2>
                 <div class="row" style="margin-top:10px;">
+                    <span style="flex:1;"><div class="muted" style="font-size:0.8rem;">이름</div><strong><c:out value="${view.name}" default="미입력" /></strong></span>
                     <span style="flex:1;"><div class="muted" style="font-size:0.8rem;">전공</div><strong><c:out value="${view.major}" default="미입력" /></strong></span>
                     <span style="flex:1;"><div class="muted" style="font-size:0.8rem;">학년</div><strong><c:out value="${view.grade}" default="미입력" /></strong></span>
                     <span style="flex:1;"><div class="muted" style="font-size:0.8rem;">희망 직무</div><strong><c:out value="${view.desiredJobName}" default="미정" /></strong></span>

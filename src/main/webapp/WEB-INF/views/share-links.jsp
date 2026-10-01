@@ -46,7 +46,7 @@
                 </div>
                 <div class="card" style="background:#fff; margin:12px 0 0;">
                     <strong style="font-size:0.88rem;">공개 범위</strong>
-                    <p style="margin:8px 0;"><label style="display:inline; width:auto;"><input type="checkbox" name="scopeBasic" style="width:auto;" checked> <strong>기본 이력</strong> — 전공, 자격증, 프로젝트 타임라인</label></p>
+                    <p style="margin:8px 0;"><label style="display:inline; width:auto;"><input type="checkbox" name="scopeBasic" style="width:auto;" checked> <strong>기본 이력</strong> — 이름, 전공, 자격증, 프로젝트 타임라인</label></p>
                     <p style="margin:8px 0;"><label style="display:inline; width:auto;"><input type="checkbox" name="scopeSkills" style="width:auto;" checked> <strong>보유 기술 스택</strong> — 면접관의 적합도 계산에 쓰입니다</label></p>
                     <p style="margin:8px 0;"><label style="display:inline; width:auto;"><input type="checkbox" name="scopeGrowth" style="width:auto;"> <strong>성장 잠재력</strong> — 최근 스펙이 늘어난 속도</label></p>
                     <p class="muted" style="font-size:0.78rem; margin:6px 0 0;">격차 분석, 등급과 점수, 미션 기록, 서류, AI 활용 기록은 어떤 경우에도 공유되지 않습니다.</p>

@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 public class EvaluationSessionDto {
 
     private Long id;
+    private Long userId; // 면접관 계정의 비교 목록이면 그 계정, 익명 세션이면 null
     private String sessionToken;
     private String companyName;
     private LocalDateTime expiresAt;
@@ -18,6 +19,14 @@ public class EvaluationSessionDto {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public String getSessionToken() {

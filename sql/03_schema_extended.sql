@@ -572,10 +572,14 @@ CREATE TABLE SHARE_LINK_VIEW_LOG (
 -- =========================================================
 -- EVALUATION_SESSION (면접관 비교 세션, 장바구니) — 신설
 -- 관련 요구사항: FR-82
--- 면접관은 계정이 없으므로(FR-14) user_id 대신 브라우저 세션 토큰으로 소유를 식별한다.
+-- 면접관 계정(USERS.user_type = 'INTERVIEWER')의 비교 목록은 user_id로 소유를 식별한다.
+-- user_id가 NULL이면 계정 없는 익명 세션으로, 브라우저 세션 토큰이 소유 증명이다.
+-- UNIQUE(user_id): 면접관 한 명에 비교 목록 하나 (NULL은 여러 개 허용).
+-- 이미 만든 DB에는 sql/07_alter_evaluation_session_user.sql을 실행한다.
 -- =========================================================
 CREATE TABLE EVALUATION_SESSION (
     id               BIGINT       NOT NULL AUTO_INCREMENT,
+    user_id          BIGINT       NULL,
     session_token    VARCHAR(64)  NOT NULL,
     company_name     VARCHAR(100) NULL,
     expires_at       DATETIME     NULL,
@@ -583,7 +587,11 @@ CREATE TABLE EVALUATION_SESSION (
     updated_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     is_deleted       BOOLEAN      NOT NULL DEFAULT FALSE,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_evaluation_session_token (session_token)
+    UNIQUE KEY uk_evaluation_session_token (session_token),
+    UNIQUE KEY uk_evaluation_session_user (user_id),
+    CONSTRAINT fk_evaluation_session_user
+        FOREIGN KEY (user_id) REFERENCES USERS (id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =========================================================

@@ -42,7 +42,10 @@ public class LoginServlet extends HttpServlet {
             session.setAttribute("loginUser", user);
             // "/"는 index.jsp가 "/login"으로 되돌려보내는 자리라(화면설계 PDF에 별도 랜딩 화면이
             // 없음), 로그인 성공 후 "/"로 보내면 다시 로그인 화면으로 튕긴다 — 대시보드로 보낸다.
-            resp.sendRedirect(req.getContextPath() + "/dashboard");
+            // 면접관 계정은 대시보드가 없다 — 공유받은 이력 화면이 첫 화면이다.
+            boolean interviewer = RoleFilter.INTERVIEWER.equals(user.getUserType());
+            resp.sendRedirect(req.getContextPath()
+                    + (interviewer ? RoleFilter.INTERVIEWER_HOME : RoleFilter.APPLICANT_HOME));
         } catch (UserService.InvalidCredentialException e) {
             req.setAttribute("errorMessage", e.getMessage());
             req.getRequestDispatcher("/WEB-INF/views/login.jsp").forward(req, resp);

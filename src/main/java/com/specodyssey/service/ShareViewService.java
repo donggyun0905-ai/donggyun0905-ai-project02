@@ -25,6 +25,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -63,6 +64,25 @@ public class ShareViewService {
             return null;
         }
         ShareLinkDto link = shareLinkDao.findByToken(token);
+        ShareViewDto view = buildView(link);
+        // 지원자 본인이 미리보기로 연 것은 열람 횟수에 넣지 않는다
+        if (view != null && !link.getUserId().equals(viewerUserId)) {
+            recordView(link.getId(), viewerIp);
+        }
+        return view;
+    }
+
+    /**
+     * 면접관이 담아 둔 링크를 목록·비교 화면에서 다시 읽는다. 열람 기록은 남기지 않는다
+     * (화면을 열 때마다 담아 둔 지원자 전원의 열람 횟수가 올라가면 안 된다).
+     * @return 공유가 중단됐거나, 만료됐거나, 지원자가 탈퇴했으면 null
+     */
+    public ShareViewDto loadViewByLinkId(Long shareLinkId) throws SQLException {
+        return buildView(shareLinkDao.findActiveById(shareLinkId));
+    }
+
+    // link는 이미 활성·만료 확인을 거친 것이어야 한다. 링크의 scope_*가 켜진 범위만 읽는다.
+    private ShareViewDto buildView(ShareLinkDto link) throws SQLException {
         if (link == null) {
             return null;
         }
@@ -78,40 +98,41 @@ public class ShareViewService {
         view.setScopeGrowth(link.isScopeGrowth());
 
         if (link.isScopeBasic()) {
+            view.setName(user.getName());
             view.setMajor(user.getMajor());
             view.setGrade(user.getGrade());
             if (user.getDesiredJobId() != null) {
                 JobDto job = jobDao.findById(user.getDesiredJobId());
                 view.setDesiredJobName(job == null ? null : job.getJobName());
             }
-            view.setTimeline(buildTimeline(user.getId()));
+            fillTimeline(view, user.getId());
         }
         if (link.isScopeSkills()) {
-            view.setSkills(buildSkills(user.getId()));
+            fillSkills(view, user.getId());
         }
         if (link.isScopeGrowth()) {
             List<SpecScoreHistoryDto> history = specScoreHistoryDao.findByUserId(user.getId());
             view.setGrowth(history.subList(Math.max(0, history.size() - GROWTH_POINTS), history.size()));
         }
-
-        // 지원자 본인이 미리보기로 연 것은 열람 횟수에 넣지 않는다
-        if (!user.getId().equals(viewerUserId)) {
-            recordView(link.getId(), viewerIp);
-        }
         return view;
     }
 
     // FR-81 자격증·어학·수상과 프로젝트를 한 줄로 세워 시간순으로 정렬한다. 날짜가 없는 항목은 맨 뒤.
-    private List<TimelineItem> buildTimeline(Long userId) throws SQLException {
+    private void fillTimeline(ShareViewDto view, Long userId) throws SQLException {
         List<Dated> dated = new ArrayList<>();
         for (UserSpecDto spec : userSpecDao.findByUserId(userId)) {
+            if ("CERT".equals(spec.getSpecType())) {
+                view.getCertNames().add(spec.getTitle());
+            }
             String detail = join(spec.getIssuer(), spec.getScore());
             dated.add(new Dated(spec.getAcquiredDate(), new TimelineItem(
                     spec.getAcquiredDate() == null ? "날짜 미입력" : spec.getAcquiredDate().toString(),
                     SPEC_TYPE_LABELS.getOrDefault(spec.getSpecType(), spec.getSpecType()),
                     spec.getTitle(), detail)));
         }
-        for (UserProjectDto project : userProjectDao.findByUserId(userId)) {
+        List<UserProjectDto> projects = userProjectDao.findByUserId(userId);
+        view.setProjectCount(projects.size());
+        for (UserProjectDto project : projects) {
             String techStack = isBlank(project.getTechStack()) ? null : "사용 기술: " + project.getTechStack();
             dated.add(new Dated(project.getStartDate(), new TimelineItem(
                     period(project.getStartDate(), project.getEndDate()),
@@ -119,20 +140,23 @@ public class ShareViewService {
         }
         dated.sort(Comparator.comparing((Dated d) -> d.date, Comparator.nullsLast(Comparator.naturalOrder())));
 
-        List<TimelineItem> timeline = new ArrayList<>();
         for (Dated d : dated) {
-            timeline.add(d.item);
+            view.getTimeline().add(d.item);
         }
-        return timeline;
     }
 
-    private List<String> buildSkills(Long userId) throws SQLException {
-        List<String> skills = new ArrayList<>();
+    private void fillSkills(ShareViewDto view, Long userId) throws SQLException {
         for (UserSkillDto skill : userSkillDao.findByUserId(userId)) {
-            String proficiency = PROFICIENCY_LABELS.get(skill.getProficiency());
-            skills.add(proficiency == null ? skill.getRawInput() : skill.getRawInput() + " · " + proficiency);
+            // 숙련도는 선택 입력이라 null일 수 있다 — Map.of로 만든 맵은 null 키 조회에서 예외를 던진다
+            String proficiency = skill.getProficiency() == null
+                    ? null : PROFICIENCY_LABELS.get(skill.getProficiency());
+            view.getSkills().add(
+                    proficiency == null ? skill.getRawInput() : skill.getRawInput() + " · " + proficiency);
+            if (skill.getSkillId() != null) {
+                view.getSkillIds().add(skill.getSkillId());
+            }
+            view.getSkillNames().add(skill.getRawInput().trim().toLowerCase(Locale.ROOT));
         }
-        return skills;
     }
 
     // NFR-9 열람 기록. 기록에 실패했다고 면접관 화면까지 막지는 않는다.

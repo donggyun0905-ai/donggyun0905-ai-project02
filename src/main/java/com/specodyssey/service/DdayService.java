@@ -117,7 +117,7 @@ public class DdayService {
         if (targetDate == null) {
             throw new IllegalArgumentException("날짜를 선택해주세요.");
         }
-        if (!TYPE_LABELS.containsKey(alertType)) {
+        if (alertType == null || !TYPE_LABELS.containsKey(alertType)) {
             throw new IllegalArgumentException("종류를 다시 선택해주세요.");
         }
     }

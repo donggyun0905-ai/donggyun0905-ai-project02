@@ -20,22 +20,25 @@ public class UserDao {
     // FR-11~13 회원가입
     public Long insert(UserDto user) throws SQLException {
         String sql = "INSERT INTO USERS " +
-                "(user_type, login_id, password_hash, email, major, grade, interest_field, " +
-                " desired_job_id, desired_job_status, privacy_consent_at) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                "(user_type, login_id, password_hash, name, age, career_status, email, major, grade, " +
+                " interest_field, desired_job_id, desired_job_status, privacy_consent_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
             pstmt.setString(1, user.getUserType());
             pstmt.setString(2, user.getLoginId());
             pstmt.setString(3, user.getPasswordHash());
-            pstmt.setString(4, user.getEmail());
-            pstmt.setString(5, user.getMajor());
-            pstmt.setString(6, user.getGrade());
-            pstmt.setString(7, user.getInterestField());
-            setNullableLong(pstmt, 8, user.getDesiredJobId());
-            pstmt.setString(9, user.getDesiredJobStatus());
-            pstmt.setTimestamp(10, toTimestamp(user.getPrivacyConsentAt()));
+            pstmt.setString(4, user.getName());
+            setNullableInt(pstmt, 5, user.getAge());
+            pstmt.setString(6, user.getCareerStatus());
+            pstmt.setString(7, user.getEmail());
+            pstmt.setString(8, user.getMajor());
+            pstmt.setString(9, user.getGrade());
+            pstmt.setString(10, user.getInterestField());
+            setNullableLong(pstmt, 11, user.getDesiredJobId());
+            pstmt.setString(12, user.getDesiredJobStatus());
+            pstmt.setTimestamp(13, toTimestamp(user.getPrivacyConsentAt()));
 
             pstmt.executeUpdate();
 
@@ -90,20 +93,23 @@ public class UserDao {
     // FR-21 · 22 프로필 수정 (기본정보 + 희망 직무)
     public void updateProfile(UserDto user) throws SQLException {
         String sql = "UPDATE USERS SET " +
-                "email = ?, major = ?, grade = ?, interest_field = ?, " +
+                "name = ?, age = ?, career_status = ?, email = ?, major = ?, grade = ?, interest_field = ?, " +
                 "desired_job_id = ?, desired_job_status = ?, profile_updated_at = ? " +
                 "WHERE id = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            pstmt.setString(1, user.getEmail());
-            pstmt.setString(2, user.getMajor());
-            pstmt.setString(3, user.getGrade());
-            pstmt.setString(4, user.getInterestField());
-            setNullableLong(pstmt, 5, user.getDesiredJobId());
-            pstmt.setString(6, user.getDesiredJobStatus());
-            pstmt.setTimestamp(7, toTimestamp(user.getProfileUpdatedAt()));
-            pstmt.setLong(8, user.getId());
+            pstmt.setString(1, user.getName());
+            setNullableInt(pstmt, 2, user.getAge());
+            pstmt.setString(3, user.getCareerStatus());
+            pstmt.setString(4, user.getEmail());
+            pstmt.setString(5, user.getMajor());
+            pstmt.setString(6, user.getGrade());
+            pstmt.setString(7, user.getInterestField());
+            setNullableLong(pstmt, 8, user.getDesiredJobId());
+            pstmt.setString(9, user.getDesiredJobStatus());
+            pstmt.setTimestamp(10, toTimestamp(user.getProfileUpdatedAt()));
+            pstmt.setLong(11, user.getId());
 
             pstmt.executeUpdate();
         }
@@ -159,6 +165,9 @@ public class UserDao {
         user.setUserType(rs.getString("user_type"));
         user.setLoginId(rs.getString("login_id"));
         user.setPasswordHash(rs.getString("password_hash"));
+        user.setName(rs.getString("name"));
+        user.setAge(rs.getObject("age", Integer.class));
+        user.setCareerStatus(rs.getString("career_status"));
         user.setEmail(rs.getString("email"));
         user.setMajor(rs.getString("major"));
         user.setGrade(rs.getString("grade"));
@@ -179,6 +188,14 @@ public class UserDao {
             pstmt.setNull(index, Types.BIGINT);
         } else {
             pstmt.setLong(index, value);
+        }
+    }
+
+    private void setNullableInt(PreparedStatement pstmt, int index, Integer value) throws SQLException {
+        if (value == null) {
+            pstmt.setNull(index, Types.INTEGER);
+        } else {
+            pstmt.setInt(index, value);
         }
     }
 

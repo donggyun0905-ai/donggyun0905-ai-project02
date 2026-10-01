@@ -19,7 +19,7 @@ import java.sql.SQLException;
  * 화면설계 PDF "13. 면접관 뷰", "14. 면접관 비교 뷰", "6-4. 유효하지 않은 공유 링크" 기준.
  * "/share/*"는 SessionFilter의 PUBLIC_PREFIXES에 있어 로그인 없이 열린다(FR-14 면접관은 계정이 없음).
  * 접근 제어는 ShareViewService가 토큰·활성·만료·공개 범위로 대신한다.
- * 비교 뷰("/share/compare")는 아직 화면만 있다.
+ * 비교 뷰는 면접관 계정 화면(InterviewerServlet "/interviewer/compare")이 처리한다.
  */
 @WebServlet("/share/*")
 public class ShareViewServlet extends HttpServlet {
@@ -30,8 +30,9 @@ public class ShareViewServlet extends HttpServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         String pathInfo = req.getPathInfo();
 
+        // 지원자 비교는 면접관 계정 화면으로 옮겼다 — 예전 주소로 들어오면 그쪽으로 보낸다(로그인 필요).
         if ("/compare".equals(pathInfo)) {
-            req.getRequestDispatcher("/WEB-INF/views/interviewer-compare.jsp").forward(req, resp);
+            resp.sendRedirect(req.getContextPath() + "/interviewer/compare");
             return;
         }
 
@@ -52,6 +53,9 @@ public class ShareViewServlet extends HttpServlet {
 
         req.setAttribute("valid", view != null);
         req.setAttribute("view", view);
+        // 비교 목록에 담기는 면접관 계정만 할 수 있다 — 열람 자체는 로그인 없이도 된다(FR-85)
+        req.setAttribute("token", token);
+        req.setAttribute("interviewer", loginUser != null && RoleFilter.INTERVIEWER.equals(loginUser.getUserType()));
         req.getRequestDispatcher("/WEB-INF/views/interviewer-view.jsp").forward(req, resp);
     }
 }

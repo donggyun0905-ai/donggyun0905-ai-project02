@@ -1,0 +1,74 @@
+package com.specodyssey.controller;
+
+import com.specodyssey.dto.UserDto;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.annotation.WebFilter;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+
+import java.io.IOException;
+import java.util.Set;
+
+/**
+ * 계정 유형(USERS.user_type)별 접근 범위 필터.
+ * 로그인 여부는 SessionFilter가 확인하고, 여기서는 로그인한 사용자가 자기 유형의 화면만 쓰게 한다.
+ *
+ * - 면접관(INTERVIEWER): "/interviewer/*"(공유받은 이력·지원자 비교·내 프로필)와 공유 링크 열람("/share/*")만.
+ *   대시보드·로드맵·미션 같은 지원자 화면은 본인 스펙이 있어야 의미가 있고, 면접관에게는 그 데이터가 없다.
+ * - 지원자(APPLICANT): "/interviewer/*"를 쓸 수 없다.
+ *
+ * 허용 목록 방식이라 지원자용 URL이 새로 생겨도 면접관에게는 기본으로 막힌다.
+ */
+@WebFilter(urlPatterns = {"/*"})
+public class RoleFilter implements Filter {
+
+    public static final String INTERVIEWER = "INTERVIEWER";
+    public static final String INTERVIEWER_HOME = "/interviewer/shared";
+    public static final String APPLICANT_HOME = "/dashboard";
+
+    // 면접관이 "/interviewer/*" 밖에서 쓸 수 있는 경로
+    private static final Set<String> INTERVIEWER_PATHS = Set.of("/logout", "/login", "/register");
+    private static final String[] INTERVIEWER_PREFIXES = {
+            "/interviewer/", "/share/", "/css/", "/js/", "/img/", "/image/"
+    };
+
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+            throws IOException, ServletException {
+        HttpServletRequest req = (HttpServletRequest) request;
+        HttpServletResponse resp = (HttpServletResponse) response;
+
+        HttpSession session = req.getSession(false);
+        Object loginUser = session == null ? null : session.getAttribute("loginUser");
+        if (loginUser instanceof UserDto user) {
+            String path = req.getServletPath() + (req.getPathInfo() == null ? "" : req.getPathInfo());
+            boolean interviewer = INTERVIEWER.equals(user.getUserType());
+            if (interviewer && !allowedForInterviewer(path)) {
+                resp.sendRedirect(req.getContextPath() + INTERVIEWER_HOME);
+                return;
+            }
+            if (!interviewer && path.startsWith("/interviewer/")) {
+                resp.sendRedirect(req.getContextPath() + APPLICANT_HOME);
+                return;
+            }
+        }
+        chain.doFilter(request, response);
+    }
+
+    private boolean allowedForInterviewer(String path) {
+        if (INTERVIEWER_PATHS.contains(path)) {
+            return true;
+        }
+        for (String prefix : INTERVIEWER_PREFIXES) {
+            if (path.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
+    }
+}

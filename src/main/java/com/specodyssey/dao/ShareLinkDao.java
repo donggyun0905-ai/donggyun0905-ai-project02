@@ -75,6 +75,19 @@ public class ShareLinkDao {
         }
     }
 
+    // 면접관이 담아 둔 링크를 id로 다시 읽을 때 — findByToken과 같은 조건(활성·만료 전)으로 확인한다.
+    public ShareLinkDto findActiveById(Long id) throws SQLException {
+        String sql = "SELECT * FROM SHARE_LINK WHERE id = ? AND is_active = TRUE " +
+                "AND (expires_at IS NULL OR expires_at > NOW()) AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, id);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        }
+    }
+
     // 본인 소유가 아닌 id는 WHERE 조건에서 자연히 걸러진다 (0행 갱신)
     public void update(Connection conn, ShareLinkDto link, Long userId) throws SQLException {
         String sql = "UPDATE SHARE_LINK SET is_active = ?, expires_at = ?, scope_basic = ?, scope_skills = ?, " +

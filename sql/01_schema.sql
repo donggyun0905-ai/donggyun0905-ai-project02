@@ -66,9 +66,12 @@ CREATE TABLE CERTIFICATION (
 -- =========================================================
 CREATE TABLE USERS (
     id                    BIGINT       NOT NULL AUTO_INCREMENT,
-    user_type             VARCHAR(15)  NOT NULL DEFAULT 'APPLICANT', -- APPLICANT(지원자) / INTERVIEWER(면접관, 미사용) — TD-4
+    user_type             VARCHAR(15)  NOT NULL DEFAULT 'APPLICANT', -- APPLICANT(지원자) / INTERVIEWER(면접관) — TD-4
     login_id              VARCHAR(50)  NOT NULL,
     password_hash         VARCHAR(255) NOT NULL,
+    name                  VARCHAR(50)  NULL, -- 가입 시 필수 입력. 컬럼 추가 전 가입자는 NULL
+    age                   INT          NULL,
+    career_status         VARCHAR(15)  NULL, -- STUDENT(학생) / JOB_SEEKER(취준생) / EMPLOYED(직장인)
     email                 VARCHAR(100) NULL,
     major                 VARCHAR(50)  NULL,
     grade                 VARCHAR(20)  NULL,
