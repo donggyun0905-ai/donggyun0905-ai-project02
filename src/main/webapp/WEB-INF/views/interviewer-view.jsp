@@ -14,6 +14,8 @@
         </div>
     </c:when>
     <c:otherwise>
+        <c:set var="link" value="${view.link}" />
+        <c:set var="user" value="${view.user}" />
         <div class="spread" style="margin-bottom:16px;">
             <span class="pill">👁 읽기 전용 · 지원자가 공유한 이력</span>
             <a class="btn secondary" href="${pageContext.request.contextPath}/share/compare">비교 목록에 담기</a>
@@ -24,48 +26,84 @@
         <div class="card">
             <h2>기본 정보</h2>
             <div class="row" style="margin-top:10px;">
-                <span style="flex:1;"><div class="muted" style="font-size:0.8rem;">전공</div><strong>컴퓨터공학과</strong></span>
-                <span style="flex:1;"><div class="muted" style="font-size:0.8rem;">학년</div><strong>4학년</strong></span>
-                <span style="flex:1;"><div class="muted" style="font-size:0.8rem;">희망 직무</div><strong>백엔드 개발자</strong></span>
+                <span style="flex:1;"><div class="muted" style="font-size:0.8rem;">전공</div><strong>${empty user.major ? '미입력' : user.major}</strong></span>
+                <span style="flex:1;"><div class="muted" style="font-size:0.8rem;">학년</div><strong>${empty user.grade ? '미입력' : user.grade}</strong></span>
+                <span style="flex:1;"><div class="muted" style="font-size:0.8rem;">희망 직무</div><strong>${empty view.jobName ? '미설정' : view.jobName}</strong></span>
             </div>
             <p style="margin-top:12px; margin-bottom:0;">
                 공개된 항목
-                <span class="chip chip-teal">기본 이력</span>
-                <span class="chip chip-teal">보유 기술 스택</span>
-                <span class="chip chip-teal">성장 잠재력</span>
+                <c:if test="${link.scopeBasic}"><span class="chip chip-teal">기본 이력</span></c:if>
+                <c:if test="${link.scopeSkills}"><span class="chip chip-teal">보유 기술 스택</span></c:if>
+                <c:if test="${link.scopeGrowth}"><span class="chip chip-teal">성장 잠재력</span></c:if>
             </p>
         </div>
 
-        <div class="card">
-            <h2>이력 타임라인</h2>
-            <table style="margin-top:10px;">
-                <tr><td class="muted" style="width:110px;">재학 중</td><td><strong>전공</strong><br>컴퓨터공학과 4학년</td></tr>
-                <tr><td class="muted">2026-06-01</td><td><strong>자격증</strong><br>정보처리기능사 취득</td></tr>
-                <tr><td class="muted">2026-09-09 ~ 09-23</td><td><strong>프로젝트</strong><br>백엔드 API 서버 미니 프로젝트<br><span class="muted" style="font-size:0.84rem;">Spring Boot와 MySQL로 REST API를 만들고 Docker로 배포까지 해본 프로젝트입니다. 사용 기술: Java, Spring Boot, MySQL, Docker</span></td></tr>
-                <tr><td class="muted">2026-09-23</td><td><strong>자격증</strong><br>정보처리산업기사 취득</td></tr>
-            </table>
-        </div>
-
-        <div class="card">
-            <h2>보유 기술 스택</h2>
-            <p style="margin-top:10px;">
-                <span class="pill">Spring Boot · 초급</span>
-                <span class="pill">Docker · 초급</span>
-                <span class="pill">MySQL · 초급</span>
-                <span class="pill">Git · 중급</span>
-            </p>
-        </div>
-
-        <div class="card">
-            <h2>성장 잠재력</h2>
-            <p style="margin-top:10px;">최근 4개월 동안 스펙 완성도가 <strong>44에서 62로</strong> 올랐습니다. 이 기간에 자격증 1개와 프로젝트 1개가 늘었습니다.</p>
-            <div class="row" style="margin-top:10px; align-items:flex-end; gap:20px;">
-                <div style="text-align:center;"><div>44</div><div style="width:24px; height:30px; background:var(--locked); margin-top:4px;"></div><div class="muted" style="font-size:0.78rem;">6월</div></div>
-                <div style="text-align:center;"><div>49</div><div style="width:24px; height:36px; background:var(--locked); margin-top:4px;"></div><div class="muted" style="font-size:0.78rem;">7월</div></div>
-                <div style="text-align:center;"><div>55</div><div style="width:24px; height:44px; background:var(--teal); margin-top:4px;"></div><div class="muted" style="font-size:0.78rem;">8월</div></div>
-                <div style="text-align:center;"><div>62</div><div style="width:24px; height:52px; background:var(--teal); margin-top:4px;"></div><div class="muted" style="font-size:0.78rem;">9월</div></div>
+        <c:if test="${link.scopeBasic}">
+            <div class="card">
+                <h2>이력 타임라인</h2>
+                <c:choose>
+                    <c:when test="${empty view.timeline}">
+                        <p class="muted" style="margin-top:10px;">아직 등록된 이력이 없습니다.</p>
+                    </c:when>
+                    <c:otherwise>
+                        <table style="margin-top:10px;">
+                            <c:forEach var="item" items="${view.timeline}">
+                                <tr>
+                                    <td class="muted" style="width:140px;">${item.dateLabel}</td>
+                                    <td>
+                                        <strong>${item.type}</strong><br>${item.title}
+                                        <c:if test="${not empty item.detail}"><br><span class="muted" style="font-size:0.84rem;">${item.detail}</span></c:if>
+                                    </td>
+                                </tr>
+                            </c:forEach>
+                        </table>
+                    </c:otherwise>
+                </c:choose>
             </div>
-        </div>
+        </c:if>
+
+        <c:if test="${link.scopeSkills}">
+            <div class="card">
+                <h2>보유 기술 스택</h2>
+                <c:choose>
+                    <c:when test="${empty view.skills}">
+                        <p class="muted" style="margin-top:10px;">등록된 기술이 없습니다.</p>
+                    </c:when>
+                    <c:otherwise>
+                        <p style="margin-top:10px;">
+                            <c:forEach var="skill" items="${view.skills}">
+                                <span class="pill">${skill.name}<c:if test="${not empty skill.proficiency}"> · ${skill.proficiency}</c:if></span>
+                            </c:forEach>
+                        </p>
+                    </c:otherwise>
+                </c:choose>
+            </div>
+        </c:if>
+
+        <c:if test="${link.scopeGrowth}">
+            <div class="card">
+                <h2>성장 잠재력</h2>
+                <c:choose>
+                    <c:when test="${empty view.growthSummary}">
+                        <p class="muted" style="margin-top:10px;">아직 비교할 과거 기록이 없습니다 — 스펙 완성도 스냅샷이 하루 1회씩 쌓인 뒤 보여드릴 수 있어요.</p>
+                    </c:when>
+                    <c:otherwise>
+                        <p style="margin-top:10px;">${view.growthSummary.fromDate}부터 ${view.growthSummary.toDate}까지 스펙 완성도가 <strong>${view.growthSummary.fromScore}에서 ${view.growthSummary.toScore}로</strong> 올랐습니다. 이 기간에 자격증 ${view.growthSummary.certDelta}개, 프로젝트 ${view.growthSummary.projectDelta}개, 기술 ${view.growthSummary.skillDelta}개가 늘었습니다.</p>
+                        <c:if test="${not empty view.growthSeries}">
+                            <div class="row" style="margin-top:10px; align-items:flex-end; gap:20px;">
+                                <c:forEach var="point" items="${view.growthSeries}">
+                                    <div style="text-align:center;">
+                                        <div>${point.score}</div>
+                                        <div style="width:24px; height:${point.score}px; max-height:60px; background:var(--teal); margin-top:4px;"></div>
+                                        <div class="muted" style="font-size:0.78rem;">${point.monthLabel}</div>
+                                    </div>
+                                </c:forEach>
+                            </div>
+                        </c:if>
+                    </c:otherwise>
+                </c:choose>
+            </div>
+        </c:if>
     </c:otherwise>
 </c:choose>
 

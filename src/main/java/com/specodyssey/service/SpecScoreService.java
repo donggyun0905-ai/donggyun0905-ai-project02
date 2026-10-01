@@ -20,6 +20,8 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -162,6 +164,23 @@ public class SpecScoreService {
 
         return new GrowthSummary(from.getCompletenessScore(), to.getCompletenessScore(),
                 from.getSnapshotDate(), to.getSnapshotDate(), certDelta, projectDelta, skillDelta);
+    }
+
+    public record MonthlyScorePoint(String monthLabel, BigDecimal score) {
+    }
+
+    // FR-81/84 면접관 뷰 "성장 잠재력" 막대 그래프 — 월별로 가장 최근 스냅샷 하나만 남긴다.
+    // findByUserId가 snapshot_date 오름차순을 보장해서, 같은 월 키를 덮어쓰면 자연히 그 달의
+    // 마지막 값이 남는다. LinkedHashMap이라 첫 등장 순서(=날짜 오름차순)가 그대로 출력 순서가 된다.
+    public List<MonthlyScorePoint> getMonthlySeries(Long userId) throws SQLException {
+        DateTimeFormatter keyFormat = DateTimeFormatter.ofPattern("yyyy-MM");
+        Map<String, SpecScoreHistoryDto> latestPerMonth = new LinkedHashMap<>();
+        for (SpecScoreHistoryDto history : specScoreHistoryDao.findByUserId(userId)) {
+            latestPerMonth.put(history.getSnapshotDate().format(keyFormat), history);
+        }
+        return latestPerMonth.values().stream()
+                .map(h -> new MonthlyScorePoint(h.getSnapshotDate().getMonthValue() + "월", h.getCompletenessScore()))
+                .collect(Collectors.toList());
     }
 
     public record PeerComparison(BigDecimal myScore, BigDecimal peerAverage, int peerCount) {

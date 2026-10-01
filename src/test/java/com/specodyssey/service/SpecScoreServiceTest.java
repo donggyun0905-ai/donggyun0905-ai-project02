@@ -180,4 +180,32 @@ class SpecScoreServiceTest {
         assertEquals(0, new BigDecimal("62.00").compareTo(growth.toScore()));
         assertEquals(1, growth.certDelta());
     }
+
+    // FR-81/84 면접관 뷰 "성장 잠재력" 막대 그래프 — 같은 달 안의 스냅샷은 마지막 값만 남아야 한다.
+    @Test
+    void 월별_시리즈는_같은_달의_스냅샷_중_가장_최근_값만_남긴다() throws Exception {
+        long userId = createUser("월별시리즈테스트전공_" + System.nanoTime(), "4학년");
+
+        insertSnapshot(userId, LocalDate.of(2026, 7, 1), "44.00");
+        insertSnapshot(userId, LocalDate.of(2026, 8, 15), "49.00");
+        insertSnapshot(userId, LocalDate.of(2026, 9, 1), "55.00");
+        insertSnapshot(userId, LocalDate.of(2026, 9, 30), "62.00"); // 9월 안에서는 이 값이 남아야 함
+
+        List<SpecScoreService.MonthlyScorePoint> series = service.getMonthlySeries(userId);
+
+        assertEquals(3, series.size());
+        assertEquals("7월", series.get(0).monthLabel());
+        assertEquals(0, new BigDecimal("44.00").compareTo(series.get(0).score()));
+        assertEquals("9월", series.get(2).monthLabel());
+        assertEquals(0, new BigDecimal("62.00").compareTo(series.get(2).score()));
+    }
+
+    private void insertSnapshot(long userId, LocalDate date, String score) throws Exception {
+        SpecScoreHistoryDto snapshot = new SpecScoreHistoryDto();
+        snapshot.setUserId(userId);
+        snapshot.setSnapshotDate(date);
+        snapshot.setCompletenessScore(new BigDecimal(score));
+        snapshot.setSeed(false);
+        specScoreHistoryDao.insert(snapshot);
+    }
 }
