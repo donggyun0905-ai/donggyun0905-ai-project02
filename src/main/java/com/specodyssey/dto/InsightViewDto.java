@@ -4,7 +4,8 @@ import java.util.List;
 
 /**
  * 데이터 인사이트 화면(/insights) 출력용 묶음. 관련 요구사항: FR-45~48
- * 카드마다 데이터가 없을 수 있으므로 각 카드 객체는 null이 아니고, 비었는지는 isEmpty 계열로 판단한다.
+ * 카드마다 데이터가 없을 수 있으므로 각 카드 객체는 null이 아니다. 비었는지는 JSP에서 목록에
+ * `empty`를 걸어 판단한다 — `empty`가 EL 예약어라 `${x.empty}`처럼 isEmpty()를 부를 수 없다.
  * (Tomcat 10.1의 EL은 record 접근자를 못 읽어서 getter를 직접 둔다.)
  */
 public class InsightViewDto {

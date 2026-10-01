@@ -29,7 +29,7 @@
         <div class="card">
             <div class="spread"><h2>요구 기술 변화</h2><span class="pill">채용공고 집계</span></div>
             <c:choose>
-                <c:when test="${insight.trend.empty}">
+                <c:when test="${empty insight.trend.skills}">
                     <p class="muted" style="margin-top:8px; margin-bottom:0;">아직 이 직무의 채용공고 집계가 없습니다. 주간 수집이 돌면 채워집니다.</p>
                 </c:when>
                 <c:otherwise>
@@ -118,7 +118,7 @@
             <h2>약점 히트맵</h2>
             <c:set var="heat" value="${insight.heatmap}" />
             <c:choose>
-                <c:when test="${heat.empty}">
+                <c:when test="${empty heat.rows}">
                     <p class="muted" style="margin-top:8px; margin-bottom:0;">이 직무로 격차 분석을 한 기록이 없습니다. <a href="${ctx}/gap-analysis">격차 분석 하러 가기</a></p>
                 </c:when>
                 <c:otherwise>
