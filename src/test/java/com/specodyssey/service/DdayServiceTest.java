@@ -1,20 +1,9 @@
 package com.specodyssey.service;
 
-import com.specodyssey.dao.CertScheduleDao;
-import com.specodyssey.dao.CertificationDao;
-import com.specodyssey.dao.GapAnalysisDao;
-import com.specodyssey.dao.JobDao;
-import com.specodyssey.dao.RoadmapDao;
-import com.specodyssey.dao.RoadmapStepDao;
 import com.specodyssey.dao.TestFixtures;
 import com.specodyssey.dao.UserDao;
-import com.specodyssey.dto.CertScheduleDto;
-import com.specodyssey.dto.CertificationDto;
 import com.specodyssey.dto.DdayAlertDto;
 import com.specodyssey.dto.DdayItemDto;
-import com.specodyssey.dto.GapAnalysisDto;
-import com.specodyssey.dto.RoadmapDto;
-import com.specodyssey.dto.RoadmapStepDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.util.DBUtil;
 import org.junit.jupiter.api.AfterAll;
@@ -22,7 +11,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -35,8 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * DdayService 통합테스트. 실제 DB에 사용자·로드맵·시험 일정을 만들고 끝나면 지운다.
- * 02_seed.sql로 CERTIFICATION이 시드되어 있다는 전제.
+ * DdayService 통합테스트. 실제 DB에 사용자와 일정을 만들고 끝나면 지운다.
  */
 class DdayServiceTest {
 
@@ -45,11 +32,6 @@ class DdayServiceTest {
     private final DdayService service = new DdayService();
 
     private static Long userId;
-    private static Long gapAnalysisId;
-    private static Long roadmapId;
-    private static Long stepId;
-    private static Long scheduleId;
-    private static CertificationDto cert;
 
     @BeforeAll
     static void setUp() throws Exception {
@@ -60,43 +42,6 @@ class DdayServiceTest {
         user.setDesiredJobStatus("UNSET");
         user.setPrivacyConsentAt(LocalDateTime.now());
         userId = new UserDao().insert(user);
-
-        GapAnalysisDto analysis = new GapAnalysisDto();
-        analysis.setUserId(userId);
-        analysis.setJobId(new JobDao().findAll().get(0).getId());
-        analysis.setMatchRate(new BigDecimal("30.00"));
-        analysis.setAnalyzedAt(LocalDateTime.now());
-
-        RoadmapDto roadmap = new RoadmapDto();
-        roadmap.setUserId(userId);
-        roadmap.setVersion(1);
-        roadmap.setActive(true);
-        roadmap.setPrimary(true);
-
-        cert = new CertificationDao().findAll().get(0);
-        RoadmapStepDto step = new RoadmapStepDto();
-        step.setStepOrder(1);
-        step.setStepType("CERT");
-        step.setTier("ENTRY");
-        step.setCertificationId(cert.getId());
-        step.setCompleted(false);
-
-        // 접수 마감 10/5, 시험 10/25
-        CertScheduleDto schedule = new CertScheduleDto();
-        schedule.setCertificationId(cert.getId());
-        schedule.setRoundName("테스트 회차");
-        schedule.setApplyStart(LocalDate.of(2026, 9, 28));
-        schedule.setApplyEnd(LocalDate.of(2026, 10, 5));
-        schedule.setExamDate(LocalDate.of(2026, 10, 25));
-
-        try (Connection conn = DBUtil.getConnection()) {
-            gapAnalysisId = new GapAnalysisDao().insert(conn, analysis);
-            roadmap.setGapAnalysisId(gapAnalysisId);
-            roadmapId = new RoadmapDao().insert(conn, roadmap);
-            step.setRoadmapId(roadmapId);
-            stepId = new RoadmapStepDao().insert(conn, step);
-            scheduleId = new CertScheduleDao().insert(conn, schedule);
-        }
     }
 
     @AfterEach
@@ -109,10 +54,6 @@ class DdayServiceTest {
     @AfterAll
     static void tearDown() throws Exception {
         try (Connection conn = DBUtil.getConnection()) {
-            TestFixtures.hardDelete(conn, "CERT_SCHEDULE", scheduleId);
-            TestFixtures.hardDelete(conn, "ROADMAP_STEP", stepId);
-            TestFixtures.hardDelete(conn, "ROADMAP", roadmapId);
-            TestFixtures.hardDelete(conn, "GAP_ANALYSIS", gapAnalysisId);
             TestFixtures.hardDelete(conn, "USERS", userId);
         }
     }
@@ -131,7 +72,6 @@ class DdayServiceTest {
         assertEquals("D-1", items.get(0).getDdayText());
         assertEquals("URGENT", items.get(0).getUrgency());
         assertEquals("기타", items.get(0).getTypeLabel());
-        assertFalse(items.get(0).isAutoRegistered());
         assertEquals("D-16", items.get(1).getDdayText());
         assertEquals("UPCOMING", items.get(1).getUrgency());
         assertEquals("지남", items.get(2).getDdayText());
@@ -204,28 +144,18 @@ class DdayServiceTest {
     }
 
     @Test
-    void 남의_일정과_자동_등록된_일정과_잘못된_입력은_수정되지_않는다() throws Exception {
+    void 남의_일정과_잘못된_입력은_수정되지_않는다() throws Exception {
         Long id = service.addItem(userId, "내 일정", TODAY.plusDays(5), "CUSTOM", TODAY);
-        service.syncCertSchedules(userId, TODAY);
-        Long autoId = null;
-        for (DdayItemDto item : service.listItems(userId, TODAY)) {
-            if (item.isAutoRegistered()) {
-                autoId = item.getId();
-            }
-        }
-        Long autoAlertId = autoId;
 
         assertThrows(IllegalArgumentException.class,
                 () -> service.updateItem(userId + 1_000_000L, id, "바꿈", TODAY.plusDays(9), "CUSTOM"));
-        assertThrows(IllegalArgumentException.class,
-                () -> service.updateItem(userId, autoAlertId, "바꿈", TODAY.plusDays(9), "CUSTOM"));
         assertThrows(IllegalArgumentException.class,
                 () -> service.updateItem(userId, id, " ", TODAY.plusDays(9), "CUSTOM"));
         assertThrows(IllegalArgumentException.class,
                 () -> service.updateItem(userId, id, "바꿈", null, "CUSTOM"));
 
         List<DdayItemDto> items = service.listItems(userId, TODAY);
-        assertEquals(2, items.size());
+        assertEquals(1, items.size());
         for (DdayItemDto item : items) {
             assertFalse("바꿈".equals(item.getTitle()));
         }
@@ -240,48 +170,5 @@ class DdayServiceTest {
 
         service.deleteItem(userId, id);
         assertTrue(service.listItems(userId, TODAY).isEmpty());
-    }
-
-    @Test
-    void 로드맵의_자격증_일정은_접수_마감일로_한_번만_자동_등록된다() throws Exception {
-        service.syncCertSchedules(userId, TODAY);
-        service.syncCertSchedules(userId, TODAY);
-
-        List<DdayItemDto> items = service.listItems(userId, TODAY);
-        assertEquals(1, items.size());
-        assertEquals(cert.getCertName() + " 테스트 회차 원서 접수 마감", items.get(0).getTitle());
-        assertEquals(LocalDate.of(2026, 10, 5), items.get(0).getTargetDate());
-        assertEquals("D-4", items.get(0).getDdayText());
-        assertTrue(items.get(0).isAutoRegistered());
-    }
-
-    @Test
-    void 접수_마감이_지나면_자동_등록된_일정이_시험일로_넘어간다() throws Exception {
-        service.syncCertSchedules(userId, TODAY);
-
-        LocalDate afterApply = LocalDate.of(2026, 10, 6);
-        service.syncCertSchedules(userId, afterApply);
-
-        List<DdayItemDto> items = service.listItems(userId, afterApply);
-        assertEquals(1, items.size());
-        assertEquals(cert.getCertName() + " 테스트 회차 시험", items.get(0).getTitle());
-        assertEquals(LocalDate.of(2026, 10, 25), items.get(0).getTargetDate());
-    }
-
-    @Test
-    void 사용자가_지운_자동_일정은_다시_등록하지_않는다() throws Exception {
-        service.syncCertSchedules(userId, TODAY);
-        service.deleteItem(userId, service.listItems(userId, TODAY).get(0).getId());
-
-        service.syncCertSchedules(userId, TODAY);
-
-        assertTrue(service.listItems(userId, TODAY).isEmpty());
-    }
-
-    @Test
-    void 시험일이_지난_일정은_자동_등록하지_않는다() throws Exception {
-        service.syncCertSchedules(userId, LocalDate.of(2026, 10, 26));
-
-        assertTrue(service.listItems(userId, LocalDate.of(2026, 10, 26)).isEmpty());
     }
 }

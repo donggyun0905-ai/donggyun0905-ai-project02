@@ -13,7 +13,6 @@ public class DdayItemDto {
     private LocalDate targetDate;
     private String alertType;   // CERT / RECRUIT / CUSTOM — 수정 폼의 종류 선택에 쓴다
     private String typeLabel;   // 자격증 / 공채 / 기타
-    private boolean autoRegistered; // 로드맵 자격증 일정에서 자동 등록된 것
     private long daysLeft;      // 음수면 지난 일정
     private String ddayText;    // D-3 / D-DAY / 지남
     private String urgency;     // URGENT(마감 임박) / UPCOMING / PAST
@@ -56,14 +55,6 @@ public class DdayItemDto {
 
     public void setTypeLabel(String typeLabel) {
         this.typeLabel = typeLabel;
-    }
-
-    public boolean isAutoRegistered() {
-        return autoRegistered;
-    }
-
-    public void setAutoRegistered(boolean autoRegistered) {
-        this.autoRegistered = autoRegistered;
     }
 
     public long getDaysLeft() {

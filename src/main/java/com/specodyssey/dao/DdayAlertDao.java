@@ -60,20 +60,6 @@ public class DdayAlertDao {
         }
     }
 
-    // 자동 등록 전 중복 확인용 — 사용자가 지운(is_deleted) 행도 돌려준다.
-    // (user_id, cert_schedule_id) UNIQUE는 지운 행에도 걸리고, 지운 일정을 다시 만들어 붙이면 안 되기 때문이다.
-    public DdayAlertDto findByUserIdAndCertScheduleId(Long userId, Long certScheduleId) throws SQLException {
-        String sql = "SELECT * FROM DDAY_ALERT WHERE user_id = ? AND cert_schedule_id = ?";
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setLong(1, userId);
-            pstmt.setLong(2, certScheduleId);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                return rs.next() ? mapRow(rs) : null;
-            }
-        }
-    }
-
     public void update(Connection conn, DdayAlertDto alert, Long userId) throws SQLException {
         String sql = "UPDATE DDAY_ALERT SET title = ?, target_date = ?, alert_type = ? " +
                 "WHERE id = ? AND user_id = ? AND is_deleted = FALSE";

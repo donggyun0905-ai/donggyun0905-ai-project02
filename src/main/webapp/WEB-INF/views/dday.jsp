@@ -5,7 +5,7 @@
 <jsp:include page="/WEB-INF/views/common/header.jsp" />
 
 <h1>D-day 알림</h1>
-<p class="muted">자격증 접수일과 공채 마감일을 놓치지 않도록 모아둡니다. 로드맵에 있는 자격증은 시험 일정이 자동으로 등록됩니다.</p>
+<p class="muted">자격증 접수일과 공채 마감일을 놓치지 않도록 모아둡니다. 챙길 일정을 직접 추가해 두면 마감이 가까운 순으로 보여줍니다.</p>
 
 <div class="two-col" style="margin-top:16px;">
     <div class="primary">
@@ -13,7 +13,7 @@
         <c:if test="${not empty urgentItem}">
             <div class="banner">
                 <span><strong style="font-size:1.3rem; color:var(--danger);">${urgentItem.ddayText}</strong> &nbsp;<c:out value="${urgentItem.title}" /></span>
-                <span class="muted">${urgentItem.targetDate}<c:if test="${urgentItem.autoRegistered}"> · 로드맵의 자격증 단계와 연결된 일정입니다</c:if></span>
+                <span class="muted">${urgentItem.targetDate} · ${urgentItem.typeLabel}</span>
             </div>
         </c:if>
 
@@ -51,7 +51,7 @@
                             <li class="spread">
                                 <span>
                                     <strong><c:out value="${item.title}" /></strong><br>
-                                    <span class="muted" style="font-size:0.82rem;">${item.targetDate} · ${item.typeLabel} · ${item.autoRegistered ? '로드맵에서 자동 등록' : '직접 추가'}</span>
+                                    <span class="muted" style="font-size:0.82rem;">${item.targetDate} · ${item.typeLabel}</span>
                                 </span>
                                 <span class="row">
                                     <c:choose>
@@ -59,26 +59,23 @@
                                         <c:when test="${item.urgency == 'UPCOMING'}"><span class="chip chip-gold">${item.ddayText}</span></c:when>
                                         <c:otherwise><span class="chip chip-locked">${item.ddayText}</span></c:otherwise>
                                     </c:choose>
-                                    <%-- 자동 등록된 일정은 시험 일정을 따라가므로 수정하지 않는다 --%>
-                                    <c:if test="${not item.autoRegistered}">
-                                        <details class="inline-form">
-                                            <summary>수정</summary>
-                                            <form method="post" action="${pageContext.request.contextPath}/dday">
-                                                <input type="hidden" name="action" value="update">
-                                                <input type="hidden" name="alertId" value="${item.id}">
-                                                <p><input type="text" name="title" maxlength="100" required value="<c:out value='${item.title}' />"></p>
-                                                <p><input type="date" name="targetDate" required value="${item.targetDate}"></p>
-                                                <p>
-                                                    <select name="alertType">
-                                                        <option value="RECRUIT" ${item.alertType == 'RECRUIT' ? 'selected' : ''}>공채</option>
-                                                        <option value="CERT" ${item.alertType == 'CERT' ? 'selected' : ''}>자격증</option>
-                                                        <option value="CUSTOM" ${item.alertType == 'CUSTOM' ? 'selected' : ''}>기타</option>
-                                                    </select>
-                                                </p>
-                                                <button type="submit">저장</button>
-                                            </form>
-                                        </details>
-                                    </c:if>
+                                    <details class="inline-form">
+                                        <summary>수정</summary>
+                                        <form method="post" action="${pageContext.request.contextPath}/dday">
+                                            <input type="hidden" name="action" value="update">
+                                            <input type="hidden" name="alertId" value="${item.id}">
+                                            <p><input type="text" name="title" maxlength="100" required value="<c:out value='${item.title}' />"></p>
+                                            <p><input type="date" name="targetDate" required value="${item.targetDate}"></p>
+                                            <p>
+                                                <select name="alertType">
+                                                    <option value="RECRUIT" ${item.alertType == 'RECRUIT' ? 'selected' : ''}>공채</option>
+                                                    <option value="CERT" ${item.alertType == 'CERT' ? 'selected' : ''}>자격증</option>
+                                                    <option value="CUSTOM" ${item.alertType == 'CUSTOM' ? 'selected' : ''}>기타</option>
+                                                </select>
+                                            </p>
+                                            <button type="submit">저장</button>
+                                        </form>
+                                    </details>
                                     <form method="post" action="${pageContext.request.contextPath}/dday" class="delete-item inline-form">
                                         <input type="hidden" name="action" value="delete">
                                         <input type="hidden" name="alertId" value="${item.id}">

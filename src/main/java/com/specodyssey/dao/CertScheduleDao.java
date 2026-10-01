@@ -59,29 +59,6 @@ public class CertScheduleDao {
         }
     }
 
-    // FR-71 D-day 자동 등록 대상 — 대표 로드맵의 아직 끝내지 않은 자격증 단계에 걸린, 시험일이 지나지 않은 일정
-    public List<CertScheduleDto> findUpcomingByUserRoadmap(Long userId, LocalDate today) throws SQLException {
-        String sql = "SELECT DISTINCT cs.* FROM ROADMAP r " +
-                "JOIN ROADMAP_STEP rs ON rs.roadmap_id = r.id " +
-                "JOIN CERT_SCHEDULE cs ON cs.certification_id = rs.certification_id " +
-                "WHERE r.user_id = ? AND r.is_primary = TRUE AND r.is_deleted = FALSE " +
-                "AND rs.step_type = 'CERT' AND rs.is_completed = FALSE AND rs.is_deleted = FALSE " +
-                "AND cs.exam_date >= ? AND cs.is_deleted = FALSE " +
-                "ORDER BY cs.exam_date";
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setLong(1, userId);
-            pstmt.setDate(2, java.sql.Date.valueOf(today));
-            try (ResultSet rs = pstmt.executeQuery()) {
-                List<CertScheduleDto> schedules = new ArrayList<>();
-                while (rs.next()) {
-                    schedules.add(mapRow(rs));
-                }
-                return schedules;
-            }
-        }
-    }
-
     private CertScheduleDto mapRow(ResultSet rs) throws SQLException {
         CertScheduleDto schedule = new CertScheduleDto();
         schedule.setId(rs.getLong("id"));

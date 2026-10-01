@@ -75,7 +75,6 @@ public class DdayServlet extends HttpServlet {
     private void showPage(HttpServletRequest req, HttpServletResponse resp, Long userId)
             throws SQLException, ServletException, IOException {
         LocalDate today = LocalDate.now();
-        ddayService.syncCertSchedules(userId, today);
         List<DdayItemDto> items = ddayService.listItems(userId, today);
         req.setAttribute("items", items);
         req.setAttribute("urgentItem", ddayService.findMostUrgent(items));

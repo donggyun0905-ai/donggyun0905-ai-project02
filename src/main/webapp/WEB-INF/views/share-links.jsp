@@ -132,9 +132,32 @@
         button.addEventListener('click', function () {
             var input = button.previousElementSibling;
             input.select();
-            navigator.clipboard.writeText(input.value).then(function () {
+            // navigator.clipboard는 https나 localhost에서만 있다. IP 주소(http)로 접속하면 없으므로
+            // 그때는 선택해 둔 입력칸을 예전 방식(execCommand)으로 복사한다.
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(input.value).then(showCopied, copySelected);
+            } else {
+                copySelected();
+            }
+
+            function copySelected() {
+                var copied = false;
+                try {
+                    copied = document.execCommand('copy');
+                } catch (e) {
+                    copied = false;
+                }
+                if (copied) {
+                    showCopied();
+                } else {
+                    button.textContent = 'Ctrl+C로 복사하세요';
+                }
+            }
+
+            function showCopied() {
                 button.textContent = '복사됨';
-            });
+                setTimeout(function () { button.textContent = '주소 복사'; }, 2000);
+            }
         });
     });
     document.querySelectorAll('.delete-link').forEach(function (form) {
