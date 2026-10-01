@@ -137,7 +137,7 @@
                             </c:otherwise>
                         </c:choose>
 
-                        <div class="journey-row">
+                        <div class="journey-row" data-step-id="${step.id}">
                             <div class="journey-marker ${markerClass}">${markerIcon}</div>
                             <div class="journey-card ${cardClass}" style="grid-column: ${rowIndex % 2 == 1 ? 1 : 3};">
                                 <div class="row" style="margin-bottom:6px;">
@@ -330,22 +330,39 @@
 </c:choose>
 
 <%-- 완료 체크 등 폼 제출은 전부 전체 페이지 리로드라, 매번 "여정 기록" 스크롤이 맨 위로 튕겨서
-     방금 보던 위치를 잃어버리는 문제가 있었다(사용자, 2026-09-30). 폼을 제출하기 직전 스크롤
-     위치를 저장해뒀다가, 다시 그려진 페이지에서 그대로 복원한다 — 서버 로직 변경 없이 화면
-     스크립트만으로 해결. sessionStorage라 새 탭·다른 페이지 이동에는 영향 없다. --%>
+     방금 작업하던 위치를 잃어버리는 문제(사용자, 2026-09-30). 처음엔 스크롤 위치를 픽셀 값
+     그대로 저장/복원했는데(sessionStorage), 완료 처리로 티어가 새로 열리거나 카드 배치가
+     바뀌면 그 사이 전체 높이가 달라져서 저장해둔 픽셀 위치가 더 이상 맞지 않아 엉뚱한 곳으로
+     튕기는 문제가 남아있었다(2026-10-01 재확인). 픽셀 대신 "방금 작업한 단계가 어떤
+     step.id였는지"를 저장했다가, 그 단계의 카드(`[data-step-id]`)를 다시 찾아 컨테이너
+     안에서만 보이는 위치로 스크롤한다 — 콘텐츠 높이가 바뀌어도 기준이 "그 카드"라서 흔들리지
+     않는다. 서버 로직 변경 없이 화면 스크립트만으로 해결, sessionStorage라 새 탭엔 영향 없다. --%>
 <script>
 (function () {
-    var STORAGE_KEY = 'roadmapScrollTop';
+    var STORAGE_KEY = 'roadmapLastStepId';
     var container = document.getElementById('journeyScroll');
     if (container) {
-        var saved = sessionStorage.getItem(STORAGE_KEY);
-        if (saved !== null) {
-            container.scrollTop = parseInt(saved, 10) || 0;
+        var lastStepId = sessionStorage.getItem(STORAGE_KEY);
+        if (lastStepId !== null) {
+            var target = container.querySelector('[data-step-id="' + lastStepId + '"]');
+            if (target) {
+                var containerRect = container.getBoundingClientRect();
+                var targetRect = target.getBoundingClientRect();
+                // target을 컨테이너 중앙 부근에 오도록 — scrollIntoView는 바깥 페이지까지
+                // 같이 스크롤시킬 수 있어서, 이 컨테이너 안에서만 scrollTop을 직접 계산한다.
+                container.scrollTop += (targetRect.top - containerRect.top) - (containerRect.height / 2);
+            }
+            sessionStorage.removeItem(STORAGE_KEY);
         }
     }
-    document.addEventListener('submit', function () {
-        if (container) {
-            sessionStorage.setItem(STORAGE_KEY, String(container.scrollTop));
+    document.addEventListener('submit', function (e) {
+        var stepIdField = e.target.querySelector && e.target.querySelector('input[name="stepId"]');
+        if (stepIdField && stepIdField.value) {
+            sessionStorage.setItem(STORAGE_KEY, stepIdField.value);
+        } else {
+            // "다시 생성", "재분석하고 반영"처럼 특정 단계와 무관한 제출은 복원 기준이 없으니
+            // 지난 값이 남아 엉뚱하게 복원되지 않도록 지운다.
+            sessionStorage.removeItem(STORAGE_KEY);
         }
     }, true);
 })();
