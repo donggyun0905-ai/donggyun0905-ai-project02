@@ -29,8 +29,8 @@ public class UserProjectDao {
 
     public Long insert(Connection conn, UserProjectDto project) throws SQLException {
         String sql = "INSERT INTO USER_PROJECTS " +
-                "(user_id, title, description, tech_stack, start_date, end_date, upgraded_from_project_id) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?)";
+                "(user_id, title, description, tech_stack, start_date, end_date, upgraded_from_project_id, " +
+                " repo_url, deploy_url, retrospective) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setLong(1, project.getUserId());
             pstmt.setString(2, project.getTitle());
@@ -39,6 +39,9 @@ public class UserProjectDao {
             setNullableDate(pstmt, 5, project.getStartDate());
             setNullableDate(pstmt, 6, project.getEndDate());
             setNullableLong(pstmt, 7, project.getUpgradedFromProjectId());
+            pstmt.setString(8, project.getRepoUrl());
+            pstmt.setString(9, project.getDeployUrl());
+            pstmt.setString(10, project.getRetrospective());
             pstmt.executeUpdate();
             try (ResultSet keys = pstmt.getGeneratedKeys()) {
                 return keys.next() ? keys.getLong(1) : null;
@@ -75,17 +78,28 @@ public class UserProjectDao {
         }
     }
 
+    // 로드맵 화면이 "이전에 제출한 프로젝트"를 폼에 미리 채울 때 — 본인 것만 읽는다.
+    public UserProjectDto findById(Long id, Long userId) throws SQLException {
+        try (Connection conn = DBUtil.getConnection()) {
+            return findById(conn, id, userId);
+        }
+    }
+
     public void update(Connection conn, UserProjectDto project, Long userId) throws SQLException {
         String sql = "UPDATE USER_PROJECTS SET title = ?, description = ?, tech_stack = ?, " +
-                "start_date = ?, end_date = ? WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
+                "start_date = ?, end_date = ?, repo_url = ?, deploy_url = ?, retrospective = ? " +
+                "WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, project.getTitle());
             pstmt.setString(2, project.getDescription());
             pstmt.setString(3, project.getTechStack());
             setNullableDate(pstmt, 4, project.getStartDate());
             setNullableDate(pstmt, 5, project.getEndDate());
-            pstmt.setLong(6, project.getId());
-            pstmt.setLong(7, userId);
+            pstmt.setString(6, project.getRepoUrl());
+            pstmt.setString(7, project.getDeployUrl());
+            pstmt.setString(8, project.getRetrospective());
+            pstmt.setLong(9, project.getId());
+            pstmt.setLong(10, userId);
             pstmt.executeUpdate();
         }
     }
@@ -111,6 +125,9 @@ public class UserProjectDao {
         java.sql.Date endDate = rs.getDate("end_date");
         project.setEndDate(endDate == null ? null : endDate.toLocalDate());
         project.setUpgradedFromProjectId(rs.getObject("upgraded_from_project_id", Long.class));
+        project.setRepoUrl(rs.getString("repo_url"));
+        project.setDeployUrl(rs.getString("deploy_url"));
+        project.setRetrospective(rs.getString("retrospective"));
         project.setCreatedAt(toLocalDateTime(rs.getTimestamp("created_at")));
         project.setUpdatedAt(toLocalDateTime(rs.getTimestamp("updated_at")));
         project.setDeleted(rs.getBoolean("is_deleted"));

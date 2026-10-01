@@ -84,6 +84,7 @@ public class RoadmapService {
     private final UserSkillDao userSkillDao = new UserSkillDao();
     private final UserProjectDao userProjectDao = new UserProjectDao();
     private final DocumentDao documentDao = new DocumentDao();
+    private final ProjectSubmissionService projectSubmissionService = new ProjectSubmissionService();
     private final RoadmapDao roadmapDao = new RoadmapDao();
     private final RoadmapStepDao roadmapStepDao = new RoadmapStepDao();
     private final ScoreService scoreService = new ScoreService();
@@ -345,40 +346,36 @@ public class RoadmapService {
         });
     }
 
-    // PROJECT 단계 완료 — 제목/설명/기술스택 + 증빙 파일 1개 이상을 함께 받아야 완료할 수 있다(팀 합의).
-    // SKILL/CERT와 달리 자동으로 채울 수 있는 값이 없어 completeStep과는 별도 진입점으로 뒀다.
-    // 파일은 호출부(RoadmapServlet)가 FileStorageUtil로 디스크에 이미 저장한 뒤 DocumentDto로 넘겨준다
+    // PROJECT 단계 완료 — 프로젝트 정보 + 문서 체크리스트(README·실행 화면 필수) + 기술 활용 설명서를 받는다
+    // (개발일지 4-4). SKILL/CERT와 달리 자동으로 채울 수 있는 값이 없어 completeStep과는 별도 진입점으로 뒀다.
+    // 파일은 호출부(RoadmapServlet)가 FileStorageUtil로 디스크에 이미 저장한 뒤 넘겨준다
     // — 디스크 쓰기는 DB 트랜잭션 대상이 아니라서 여기 안에서 하지 않는다.
+    // 완료를 취소해도 프로젝트·서류는 그대로 남고(파일 삭제는 서류 보관함에서), 다시 완료하면
+    // 단계에 연결된 기존 프로젝트(evidence_project_id)를 갱신한다 — 프로젝트가 중복으로 생기지 않는다.
     // 반환값 false(이미 완료됐거나 소유자가 아님)면 아무 것도 반영 안 됐다는 뜻이라, 호출부가 그때
     // 디스크에 이미 써놓은 파일을 지워야 한다 — 안 그러면 DB에 참조 없는 고아 파일이 남는다.
-    public boolean completeProjectStep(Long userId, Long stepId, UserProjectDto projectInput,
-            List<DocumentDto> uploadedFiles) throws SQLException {
-        if (uploadedFiles == null || uploadedFiles.isEmpty()) {
-            throw new IllegalArgumentException("증빙 파일을 최소 1개 첨부해야 합니다.");
-        }
+    public boolean completeProjectStep(Long userId, Long stepId, ProjectSubmission submission) throws SQLException {
         return TransactionUtil.runInTransaction(conn -> {
-            RoadmapStepDto step = roadmapStepDao.findById(conn, stepId);
-            if (step == null || !"PROJECT".equals(step.getStepType())) {
+            RoadmapStepDto step = roadmapStepDao.findByIdForUser(conn, stepId, userId);
+            if (step == null) {
+                return false;
+            }
+            if (!"PROJECT".equals(step.getStepType())) {
                 throw new IllegalArgumentException("PROJECT 단계가 아닙니다.");
             }
             if (step.isCompleted()) {
                 // 이미 완료된 단계를 다시 제출한 것 — 프로젝트가 중복 생성되지 않게 조용히 무시한다.
                 return false;
             }
+            projectSubmissionService.validate(submission, step.getEvidenceProjectId());
 
             int updatedRows = roadmapStepDao.updateCompleted(conn, stepId, userId, true, LocalDateTime.now());
             if (updatedRows == 0) {
-                // 소유자가 아니면(다른 사용자 id) 프로젝트도 파일도 만들면 안 된다.
                 return false;
             }
-
-            projectInput.setUserId(userId);
-            Long projectId = userProjectDao.insert(conn, projectInput);
-            for (DocumentDto file : uploadedFiles) {
-                file.setUserId(userId);
-                file.setProjectId(projectId);
-                documentDao.insert(conn, file);
-            }
+            Long projectId = projectSubmissionService.save(conn, userId, stepId, step.getEvidenceProjectId(),
+                    null, submission);
+            roadmapStepDao.setEvidenceProject(conn, stepId, userId, projectId);
 
             scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId,
                     ROADMAP_STEP_COMPLETE_POINTS);
@@ -438,11 +435,8 @@ public class RoadmapService {
     // 증빙이다. upgradeFromProjectId가 있으면 본인 소유가 맞는지 먼저 확인한다.
     // CORE/ADVANCED 구분(2026-09-30 팀 확정): CORE는 신규/업그레이드 둘 다 허용하지만, ADVANCED는
     // "심화" 단계 취지상 반드시 기존 프로젝트를 업그레이드해야 한다 — 신규 프로젝트로는 완료할 수 없다.
-    public boolean submitSkillProjectStep(Long userId, Long stepId, UserProjectDto projectInput,
-            List<DocumentDto> uploadedFiles, Long upgradeFromProjectId) throws SQLException {
-        if (uploadedFiles == null || uploadedFiles.isEmpty()) {
-            throw new IllegalArgumentException("증빙 파일을 최소 1개 첨부해야 합니다.");
-        }
+    public boolean submitSkillProjectStep(Long userId, Long stepId, ProjectSubmission submission,
+            Long upgradeFromProjectId) throws SQLException {
         return TransactionUtil.runInTransaction(conn -> {
             RoadmapStepDto step = roadmapStepDao.findByIdForUser(conn, stepId, userId);
             if (step == null) {
@@ -459,20 +453,15 @@ public class RoadmapService {
                 return false;
             }
 
-            projectInput.setUserId(userId);
-            if (upgradeFromProjectId != null) {
-                UserProjectDto source = userProjectDao.findById(conn, upgradeFromProjectId, userId);
-                if (source == null) {
-                    throw new IllegalArgumentException("업그레이드할 프로젝트를 찾을 수 없습니다.");
-                }
-                projectInput.setUpgradedFromProjectId(upgradeFromProjectId);
+            if (upgradeFromProjectId != null
+                    && userProjectDao.findById(conn, upgradeFromProjectId, userId) == null) {
+                throw new IllegalArgumentException("업그레이드할 프로젝트를 찾을 수 없습니다.");
             }
-            Long projectId = userProjectDao.insert(conn, projectInput);
-            for (DocumentDto file : uploadedFiles) {
-                file.setUserId(userId);
-                file.setProjectId(projectId);
-                documentDao.insert(conn, file);
-            }
+            // 완료를 취소했다가 다시 제출하는 경우 — 단계에 연결된 프로젝트를 갱신한다(새로 만들지 않는다)
+            Long existingProjectId = step.getEvidenceProjectId();
+            projectSubmissionService.validate(submission, existingProjectId);
+            Long projectId = projectSubmissionService.save(conn, userId, stepId, existingProjectId,
+                    upgradeFromProjectId, submission);
 
             roadmapStepDao.updateProof(conn, stepId, userId, PROOF_PROJECT_LINK, null, projectId,
                     SkillProofGrader.PASSED, "프로젝트 등록/업그레이드로 자동 확인", true, LocalDateTime.now());

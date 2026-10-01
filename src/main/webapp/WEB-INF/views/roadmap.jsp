@@ -51,6 +51,9 @@
     <c:otherwise>
         <h1>🗺️ 내 로드맵</h1>
 
+        <c:if test="${not empty roadmapNotice}">
+            <p style="background:var(--teal-bg); color:var(--teal); border-radius:6px; padding:10px 14px;"><c:out value="${roadmapNotice}" /></p>
+        </c:if>
         <c:if test="${not empty errorMessage}">
             <p class="error-message">${errorMessage}</p>
         </c:if>
@@ -202,14 +205,13 @@
                                 <c:if test="${markerClass != 'locked'}">
                                 <c:choose>
                                     <c:when test="${step.completed}">
-                                        <c:if test="${step.stepType != 'PROJECT'}">
-                                            <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">
-                                                <input type="hidden" name="action" value="complete">
-                                                <input type="hidden" name="stepId" value="${step.id}">
-                                                <input type="hidden" name="completed" value="false">
-                                                <button type="submit" class="link-button">완료 취소</button>
-                                            </form>
-                                        </c:if>
+                                        <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form cancel-step"
+                                              data-project="${step.stepType == 'PROJECT'}">
+                                            <input type="hidden" name="action" value="complete">
+                                            <input type="hidden" name="stepId" value="${step.id}">
+                                            <input type="hidden" name="completed" value="false">
+                                            <button type="submit" class="link-button">완료 취소</button>
+                                        </form>
                                     </c:when>
                                     <c:when test="${step.stepType == 'PROJECT'}">
                                         <button type="button" class="open-step-dialog" data-dialog="stepDialog-${step.id}">프로젝트 등록하고 완료하기</button>
@@ -220,14 +222,8 @@
                                                   enctype="multipart/form-data" style="margin-top:10px;">
                                                 <input type="hidden" name="action" value="completeProject">
                                                 <input type="hidden" name="stepId" value="${step.id}">
-                                                <p><label>프로젝트명</label><input type="text" name="title" required></p>
-                                                <p><label>설명 (무엇을 했는지)</label><textarea name="description" required></textarea></p>
-                                                <p><label>사용 기술</label><input type="text" name="techStack" placeholder="예: Java, Spring, MySQL"></p>
-                                                <p class="row">
-                                                    <span style="flex:1;"><label>시작일</label><input type="date" name="startDate"></span>
-                                                    <span style="flex:1;"><label>종료일</label><input type="date" name="endDate"></span>
-                                                </p>
-                                                <p><label>증빙 파일(여러 개 가능, 필수)</label><input type="file" name="files" multiple required></p>
+                                                <c:set var="draft" value="${projectDrafts[step.id]}" scope="request" />
+                                                <jsp:include page="/WEB-INF/views/common/project-submit-fields.jsp" />
                                                 <button type="submit">등록하고 완료하기</button>
                                             </form>
                                         </dialog>
@@ -315,14 +311,8 @@
                                                                 </select>
                                                             </p>
                                                         </c:if>
-                                                        <p><label>프로젝트명</label><input type="text" name="title" required></p>
-                                                        <p><label>설명 (무엇을 했는지)</label><textarea name="description" required></textarea></p>
-                                                        <p><label>사용 기술</label><input type="text" name="techStack" placeholder="예: Java, Spring, MySQL"></p>
-                                                        <p class="row">
-                                                            <span style="flex:1;"><label>시작일</label><input type="date" name="startDate"></span>
-                                                            <span style="flex:1;"><label>종료일</label><input type="date" name="endDate"></span>
-                                                        </p>
-                                                        <p><label>증빙 파일(여러 개 가능, 필수)</label><input type="file" name="files" multiple required></p>
+                                                        <c:set var="draft" value="${projectDrafts[step.id]}" scope="request" />
+                                                        <jsp:include page="/WEB-INF/views/common/project-submit-fields.jsp" />
                                                         <button type="submit">등록하고 완료하기</button>
                                                     </form>
                                                 </dialog>
@@ -472,6 +462,17 @@
 
 <%-- 단계 작업 창 열기/닫기 — 카드(박스) 아무 데나 누르면 그 단계의 창이 열린다. 카드 안의 버튼·폼·링크를
      누른 경우는 그 동작을 그대로 두고, 창이 닫힐 때 backdrop(창 바깥) 클릭도 닫기로 처리한다. --%>
+<script>
+    // 프로젝트 단계의 완료 취소는 표시만 푼다 — 프로젝트와 서류는 남고, 파일 삭제는 서류 보관함에서 한다.
+    document.querySelectorAll('.cancel-step').forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            if (form.getAttribute('data-project') === 'true'
+                    && !confirm('완료 표시만 해제됩니다.\n등록한 프로젝트와 서류는 그대로 남고, 파일을 지우려면 서류 보관함에서 삭제하세요.\n(이미 받은 점수는 유지됩니다.)')) {
+                event.preventDefault();
+            }
+        });
+    });
+</script>
 <script>
 (function () {
     document.querySelectorAll('.journey-card').forEach(function (card) {
