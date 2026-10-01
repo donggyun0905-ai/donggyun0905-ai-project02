@@ -563,7 +563,8 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | `id` | BIGINT | PK | 식별자 |
 | `title` | VARCHAR(200) |  | 문제 제목 |
 | `description` | TEXT |  | 본문 (AI 생성 문제만) |
-| `difficulty_level` | INT |  | 내부 난이도 1~5 — 플랫폼 레벨과 매핑 |
+| `difficulty_level` | INT |  | 내부 난이도 0~5 — 플랫폼 레벨과 매핑 (0 = 프로그래머스 Lv.0 입문, LEVEL_TIER 비기너 범위) |
+| `category` | VARCHAR(20) |  | SQL / ALGORITHM (기본 ALGORITHM) — 목표 직무별 출제 비율 기준 |
 | `source_type` | VARCHAR(20) |  | AI_GENERATED / EXTERNAL_LINK / OPEN_DATASET |
 | `external_url` | VARCHAR(500) |  | 링크 추천형 — 콘텐츠 복제 금지 |
 | `answer_key` | TEXT |  | AI 생성 문제 정답 검증용 |
@@ -573,6 +574,7 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 - 초안에서는 문제 자체와 "누구에게 언제 배정됐는지"가 한 테이블에 섞여 있었다. 그러면 같은 문제를 여러 사용자에게 다른 날 배정할 수 없다. 그래서 둘로 쪼갰다.
 - 세 종류 출처가 섞인다 — AI 생성(본문 보유), 링크 추천(백준 N번 링크만), 오픈 라이선스 문제셋. 저작권 크롤링은 금지다(TD-3).
 - answer_key는 AI 생성 문제에만 있다. 정답 검증 로직이 필요하기 때문.
+- category는 일일 미션을 목표 직무에 맞추려고 추가했다. 데이터 직무는 SQL 2 + 알고리즘 1, 백엔드·기획은 SQL 1 + 알고리즘 2, 나머지는 알고리즘 3. 제목만으로는 SQL/알고리즘 구분이 안 돼("소수 찾기" vs "동명 동물 수 찾기") 컬럼으로 둔다. (category, difficulty_level) 인덱스.
 
 #### USER_DAILY_MISSION (일일 미션 배정) — 신설
 
@@ -589,6 +591,9 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | `is_completed` | BOOLEAN |  | 완료 체크 |
 | `completed_at` | DATETIME |  | 완료 시각 |
 | `is_correct` | BOOLEAN |  | 정답 여부 — 점수 배점 기준 |
+| `submitted_code` | MEDIUMTEXT |  | "정답 입력하기"로 제출한 풀이 코드 — 컴파일(문법) 확인 통과분만 저장 |
+| `submitted_language` | VARCHAR(20) |  | 제출 언어 — JAVA / PYTHON / CPP / C / JAVASCRIPT / SQL |
+| `submitted_at` | DATETIME |  | 마지막 제출 시각 (다시 제출하면 덮어씀) |
 
 **복합 UNIQUE**: (user_id, assigned_date, problem_id) — 같은 날 같은 문제 중복 배정 방지
 
@@ -596,6 +601,7 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 
 - (user_id, assigned_date, problem_id) 복합 UK로 같은 날 같은 문제가 중복 배정되지 않게 막는다.
 - 난이도는 사용자의 현재 등급(USER_SCORE_SUMMARY)에 맞춰 조정된다. 비기너에게는 Lv1, 실전러에게는 Lv2~3(TD-5 c).
+- 제출 코드는 미션 1건당 마지막 제출분 하나만 둔다. 제출 이력까지 남길 필요는 없어서 별도 테이블을 만들지 않았다. 컴파일 확인은 Judge0 API로 하고, 채점(정답 판정)은 하지 않아 is_correct는 건드리지 않는다.
 - 스트릭은 여기 두지 않고 USER_SCORE_SUMMARY에서 관리한다. 매번 로그 전체를 훑어 연속 일수를 세는 건 대시보드 조회마다 부담이다.
 
 #### SCORE_LOG (점수 적립 로그) — 신설
