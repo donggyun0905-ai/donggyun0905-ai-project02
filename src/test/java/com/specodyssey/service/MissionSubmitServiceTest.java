@@ -33,6 +33,18 @@ class MissionSubmitServiceTest {
     }
 
     @Test
+    void 등급별_문제풀이_점수() {
+        assertEquals(15, MissionSubmitService.pointsForTierOrder(0)); // 비기너
+        assertEquals(15, MissionSubmitService.pointsForTierOrder(1)); // 취준생
+        assertEquals(20, MissionSubmitService.pointsForTierOrder(2)); // 실전러
+        assertEquals(25, MissionSubmitService.pointsForTierOrder(3)); // 취뽀 임박
+        assertEquals(30, MissionSubmitService.pointsForTierOrder(4)); // 취뽀
+        // 등급이 늘어나거나 순서 계산이 어긋나도 범위를 벗어나지 않는다
+        assertEquals(30, MissionSubmitService.pointsForTierOrder(9));
+        assertEquals(15, MissionSubmitService.pointsForTierOrder(-1));
+    }
+
+    @Test
     void 기본_언어는_이전_제출_언어_없으면_유형별() {
         DailyMissionViewDto sql = new DailyMissionViewDto();
         sql.setCategory("SQL");

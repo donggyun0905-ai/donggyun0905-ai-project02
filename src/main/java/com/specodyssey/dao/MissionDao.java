@@ -11,11 +11,13 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 일일 미션(외부 링크 추천 문제) 배정·조회·제출 전용 DAO.
- * 관련 요구사항: FR-51 일일 미션, FR-52 난이도 조정, FR-53 완료 체크, TD-3 코테 문제 소스
+ * 관련 요구사항: FR-51 일일 미션, FR-52 난이도 조정, FR-53 완료 체크·스트릭, TD-3 코테 문제 소스
  * 기존 ProblemDao/UserDailyMissionDao는 건드리지 않고, 미션 화면에 필요한 조회·저장만 여기에 모았다.
  */
 public class MissionDao {
@@ -184,6 +186,76 @@ public class MissionDao {
             pstmt.setLong(2, missionId);
             pstmt.setLong(3, userId);
             return pstmt.executeUpdate();
+        }
+    }
+
+    // 본인 미션의 배정일. 없거나 남의 미션이면 null.
+    public LocalDate findAssignedDate(Connection conn, Long userId, Long missionId) throws SQLException {
+        String sql = "SELECT assigned_date FROM USER_DAILY_MISSION WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, missionId);
+            pstmt.setLong(2, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? rs.getDate(1).toLocalDate() : null;
+            }
+        }
+    }
+
+    // FR-53 날짜별 배정 수·완료 수 [total, completed] — 기간 [from, to] 안에서 배정이 있던 날만 담긴다
+    public Map<LocalDate, int[]> countMissionsByDate(Connection conn, Long userId, LocalDate from, LocalDate to)
+            throws SQLException {
+        String sql = "SELECT assigned_date, COUNT(*) AS total, SUM(is_completed) AS completed " +
+                "FROM USER_DAILY_MISSION WHERE user_id = ? AND assigned_date BETWEEN ? AND ? AND is_deleted = FALSE " +
+                "GROUP BY assigned_date";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            pstmt.setDate(2, java.sql.Date.valueOf(from));
+            pstmt.setDate(3, java.sql.Date.valueOf(to));
+            try (ResultSet rs = pstmt.executeQuery()) {
+                Map<LocalDate, int[]> counts = new HashMap<>();
+                while (rs.next()) {
+                    counts.put(rs.getDate("assigned_date").toLocalDate(),
+                            new int[]{rs.getInt("total"), rs.getInt("completed")});
+                }
+                return counts;
+            }
+        }
+    }
+
+    /** 스트릭 상태 — USER_SCORE_SUMMARY.streak_count / last_mission_date. */
+    public record StreakRow(int streakCount, LocalDate lastMissionDate) {
+    }
+
+    // 요약 행이 없으면 null (점수·스트릭 기록이 한 번도 없는 사용자)
+    public StreakRow findStreak(Connection conn, Long userId) throws SQLException {
+        String sql = "SELECT streak_count, last_mission_date FROM USER_SCORE_SUMMARY " +
+                "WHERE user_id = ? AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (!rs.next()) {
+                    return null;
+                }
+                java.sql.Date last = rs.getDate("last_mission_date");
+                return new StreakRow(rs.getInt("streak_count"), last == null ? null : last.toLocalDate());
+            }
+        }
+    }
+
+    // FR-53 스트릭 저장 — 점수·등급 칸은 건드리지 않는다. 요약 행이 없으면 0점·가장 낮은 등급으로 만든다.
+    // ScoreService가 적립할 때 요약 행 전체를 다시 쓰므로, 같은 트랜잭션이면 적립 뒤에 불러야 덮이지 않는다.
+    public void saveStreak(Connection conn, Long userId, int streakCount, LocalDate lastMissionDate)
+            throws SQLException {
+        String sql = "INSERT INTO USER_SCORE_SUMMARY (user_id, total_score, current_tier_id, streak_count, last_mission_date) " +
+                "SELECT ?, 0, (SELECT id FROM LEVEL_TIER WHERE is_deleted = FALSE ORDER BY min_score LIMIT 1), ?, ? " +
+                "ON DUPLICATE KEY UPDATE streak_count = ?, last_mission_date = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            pstmt.setInt(2, streakCount);
+            pstmt.setDate(3, java.sql.Date.valueOf(lastMissionDate));
+            pstmt.setInt(4, streakCount);
+            pstmt.setDate(5, java.sql.Date.valueOf(lastMissionDate));
+            pstmt.executeUpdate();
         }
     }
 
