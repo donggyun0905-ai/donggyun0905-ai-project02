@@ -80,6 +80,12 @@ public class RoadmapServlet extends HttpServlet {
                 return;
             }
 
+            // 주기가 지난 기술의 복습 단계를 여정 뒤에 이어 붙인다 — 부가 기능이라 실패해도 로드맵 조회는 막지 않는다.
+            try {
+                roadmapService.appendDueReviews(userId, java.time.LocalDateTime.now());
+            } catch (SQLException e) {
+                getServletContext().log("복습 단계 생성 실패", e);
+            }
             RoadmapDto roadmap = roadmapService.getPrimaryRoadmap(userId);
             req.setAttribute("roadmap", roadmap);
             List<RoadmapStepDto> steps = roadmap == null
@@ -162,7 +168,7 @@ public class RoadmapServlet extends HttpServlet {
         // 바뀌므로 "방금 티어를 끝냈다"로 오인하면 안 된다.
         boolean mayCompleteStep = "complete".equals(action) || "completeProject".equals(action)
                 || "submitSkillNote".equals(action) || "submitSkillProject".equals(action)
-                || "submitCertProof".equals(action);
+                || "submitCertProof".equals(action) || "completeReview".equals(action);
         Long scoreTierBefore = null;
 
         try {
@@ -184,6 +190,12 @@ public class RoadmapServlet extends HttpServlet {
             } else if ("submitSkillProject".equals(action)) {
                 if (!handleSubmitSkillProject(req, resp, userId)) {
                     return;
+                }
+            } else if ("completeReview".equals(action)) {
+                int points = roadmapService.completeReview(userId, Long.valueOf(req.getParameter("stepId")),
+                        req.getParameter("reviewNote"));
+                if (points > 0) {
+                    req.getSession().setAttribute("roadmapNotice", "복습 완료! +" + points + "점을 받았어요.");
                 }
             } else if ("submitCertProof".equals(action)) {
                 if (!handleSubmitCertProof(req, resp, userId)) {

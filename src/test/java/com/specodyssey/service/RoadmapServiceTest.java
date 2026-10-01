@@ -627,6 +627,112 @@ class RoadmapServiceTest {
         assertEquals(List.of("없는기술xyz"), submission.getSkippedTechNotes());
     }
 
+    // ---- 기술 복습(끝없는 로드맵) — 단계별 차등 주기, 기존 여정 뒤에 이어 붙이기, 점수 감쇠
+
+    @Test
+    void 복습_주기는_단계가_높을수록_길고_점수는_복습할수록_줄어든다() {
+        assertEquals(30, RoadmapService.reviewIntervalDays("ENTRY"));
+        assertEquals(60, RoadmapService.reviewIntervalDays("CORE"));
+        assertEquals(90, RoadmapService.reviewIntervalDays("ADVANCED"));
+        assertEquals(120, RoadmapService.reviewIntervalDays("EXPERT"));
+        assertEquals(40, RoadmapService.reviewPoints(0));
+        assertEquals(30, RoadmapService.reviewPoints(1));
+        assertEquals(10, RoadmapService.reviewPoints(3));
+        assertEquals(5, RoadmapService.reviewPoints(4));
+        assertEquals(5, RoadmapService.reviewPoints(50), "최저 점수 아래로는 내려가지 않는다");
+    }
+
+    @Test
+    void 입문을_끝낸_지_30일이_지나야_복습이_생기고_여정_맨_뒤에_이어_붙는다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto entry = firstEntrySkillStep(roadmapId);
+        roadmapService.completeStep(userId, entry.getId(), true);
+
+        setCompletedAt(entry.getId(), LocalDateTime.now().minusDays(29));
+        assertEquals(0, roadmapService.appendDueReviews(userId, LocalDateTime.now()), "29일째는 아직");
+
+        setCompletedAt(entry.getId(), LocalDateTime.now().minusDays(31));
+        assertEquals(1, roadmapService.appendDueReviews(userId, LocalDateTime.now()));
+
+        List<RoadmapStepDto> steps = roadmapService.getSteps(roadmapId);
+        RoadmapStepDto review = steps.get(steps.size() - 1);
+        assertEquals("REVIEW", review.getStepType());
+        assertEquals(entry.getRelatedSkillId(), review.getRelatedSkillId());
+        assertFalse(review.isCompleted());
+        assertEquals(steps.stream().mapToInt(RoadmapStepDto::getStepOrder).max().getAsInt(), review.getStepOrder());
+
+        assertEquals(0, roadmapService.appendDueReviews(userId, LocalDateTime.now()), "열린 복습이 있으면 또 만들지 않는다");
+        // 복습 단계는 계단식 잠금 계산(티어별 진행도)에 끼어들지 않는다
+        assertEquals(4, roadmapService.computeProgress(steps).getTiers().size());
+    }
+
+    @Test
+    void 핵심까지_끝낸_기술은_60일이_지나야_복습이_생긴다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto entry = firstEntrySkillStep(roadmapId);
+        RoadmapStepDto core = roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> "SKILL".equals(s.getStepType()) && "CORE".equals(s.getTier())
+                        && entry.getRelatedSkillId().equals(s.getRelatedSkillId()))
+                .findFirst().orElseThrow();
+        roadmapService.completeStep(userId, entry.getId(), true);
+        roadmapService.completeStep(userId, core.getId(), true);
+
+        setCompletedAt(entry.getId(), LocalDateTime.now().minusDays(100));
+        setCompletedAt(core.getId(), LocalDateTime.now().minusDays(45));
+        assertEquals(0, roadmapService.appendDueReviews(userId, LocalDateTime.now()), "입문 기준(30일)이 아니라 핵심 기준(60일)");
+
+        setCompletedAt(core.getId(), LocalDateTime.now().minusDays(61));
+        assertEquals(1, roadmapService.appendDueReviews(userId, LocalDateTime.now()));
+    }
+
+    @Test
+    void 복습은_기록을_내야_끝나고_점수가_복습할수록_줄어든다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto entry = firstEntrySkillStep(roadmapId);
+        roadmapService.completeStep(userId, entry.getId(), true);
+        int afterEntry = scoreService.getSummary(userId).getTotalScore();
+        setCompletedAt(entry.getId(), LocalDateTime.now().minusDays(31));
+        roadmapService.appendDueReviews(userId, LocalDateTime.now());
+        RoadmapStepDto review = lastStep(roadmapId);
+
+        assertThrows(IllegalArgumentException.class, () -> roadmapService.completeStep(userId, review.getId(), true),
+                "체크만으로는 복습을 끝낼 수 없다");
+        assertThrows(IllegalArgumentException.class, () -> roadmapService.completeReview(userId, review.getId(), "짧음"));
+        assertEquals(0, roadmapService.completeReview(userId + 999_999L, review.getId(), "가".repeat(30)),
+                "남의 복습 단계는 끝낼 수 없다");
+
+        assertEquals(40, roadmapService.completeReview(userId, review.getId(), "복습 기록을 충분히 길게 적었습니다. 핵심 개념 정리"));
+        assertEquals(afterEntry + 40, scoreService.getSummary(userId).getTotalScore());
+        assertEquals(0, roadmapService.completeReview(userId, review.getId(), "복습 기록을 충분히 길게 적었습니다. 핵심 개념 정리"),
+                "이미 끝낸 복습에 또 점수를 주지 않는다");
+
+        // 한 주기 뒤 두 번째 복습 — 점수가 30으로 줄어든다
+        setCompletedAt(review.getId(), LocalDateTime.now().minusDays(31));
+        assertEquals(1, roadmapService.appendDueReviews(userId, LocalDateTime.now()));
+        RoadmapStepDto second = lastStep(roadmapId);
+        assertEquals(30, roadmapService.completeReview(userId, second.getId(), "두 번째 복습 기록도 충분히 길게 적습니다 하하"));
+    }
+
+    private RoadmapStepDto firstEntrySkillStep(Long roadmapId) throws Exception {
+        return roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> "SKILL".equals(s.getStepType()) && "ENTRY".equals(s.getTier()))
+                .findFirst().orElseThrow();
+    }
+
+    private RoadmapStepDto lastStep(Long roadmapId) throws Exception {
+        List<RoadmapStepDto> steps = roadmapService.getSteps(roadmapId);
+        return steps.get(steps.size() - 1);
+    }
+
+    private void setCompletedAt(Long stepId, LocalDateTime at) throws Exception {
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement("UPDATE ROADMAP_STEP SET completed_at = ? WHERE id = ?")) {
+            pstmt.setTimestamp(1, java.sql.Timestamp.valueOf(at));
+            pstmt.setLong(2, stepId);
+            pstmt.executeUpdate();
+        }
+    }
+
     // SKILL 단계 학습 검증(2026-09-30 팀 결정, 규칙 기반) — ENTRY 공부노트 제출.
     @Test
     void ENTRY_SKILL_단계에_기준_미달_노트를_제출하면_NEEDS_REVISION이고_완료되지_않는다() throws Exception {

@@ -152,7 +152,7 @@
                 <c:set var="rowIndex" value="0" scope="page" />
                 <c:forEach var="step" items="${steps}">
                     <%-- 완료한 건 티어 상관없이 전부, 미완료는 지금 열린 티어 + 바로 다음 잠긴 티어까지 --%>
-                    <c:if test="${step.completed
+                    <c:if test="${step.completed || step.stepType == 'REVIEW'
                                   || (not progress.journeyComplete && step.tier == currentTier.tier)
                                   || (not empty nextLockedTier && step.tier == nextLockedTier.tier)}">
                         <c:set var="rowIndex" value="${rowIndex + 1}" scope="page" />
@@ -161,6 +161,12 @@
                                 <c:set var="markerClass" value="completed is-past" />
                                 <c:set var="markerIcon" value="✓" />
                                 <c:set var="cardClass" value="is-past" />
+                            </c:when>
+                            <%-- 복습은 시간이 지나 생기는 단계라 잠그지 않고 바로 할 수 있게 둔다(끝없는 로드맵) --%>
+                            <c:when test="${step.stepType == 'REVIEW'}">
+                                <c:set var="markerClass" value="remaining" />
+                                <c:set var="markerIcon" value="🔁" />
+                                <c:set var="cardClass" value="" />
                             </c:when>
                             <c:when test="${not empty nextLockedTier && step.tier == nextLockedTier.tier}">
                                 <c:set var="markerClass" value="locked" />
@@ -188,6 +194,7 @@
                                         <c:choose>
                                             <c:when test="${step.stepType == 'CERT'}">자격증</c:when>
                                             <c:when test="${step.stepType == 'PROJECT'}">프로젝트</c:when>
+                                            <c:when test="${step.stepType == 'REVIEW'}">복습</c:when>
                                             <c:otherwise>기술</c:otherwise>
                                         </c:choose>
                                     </span>
@@ -211,6 +218,9 @@
                                 </c:if>
                                 <c:if test="${markerClass != 'locked'}">
                                 <c:choose>
+                                    <c:when test="${step.completed && step.stepType == 'REVIEW'}">
+                                        <%-- 복습은 완료 취소가 없다 — 점수를 받은 기록이라 되돌리지 않는다 --%>
+                                    </c:when>
                                     <c:when test="${step.completed}">
                                         <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form cancel-step"
                                               data-project="${step.stepType == 'PROJECT'}">
@@ -219,6 +229,21 @@
                                             <input type="hidden" name="completed" value="false">
                                             <button type="submit" class="link-button">완료 취소</button>
                                         </form>
+                                    </c:when>
+                                    <c:when test="${step.stepType == 'REVIEW'}">
+                                        <button type="button" class="open-step-dialog" data-dialog="stepDialog-${step.id}">복습 기록하고 완료하기</button>
+                                        <dialog id="stepDialog-${step.id}" class="step-dialog">
+                                        <div class="step-dialog-head"><h3>복습 기록하고 완료하기</h3><button type="button" class="dialog-close link-button" aria-label="닫기">✕</button></div>
+                                            <p class="muted" style="line-height:1.6;"><c:out value="${step.reason}" /></p>
+                                            <form action="${pageContext.request.contextPath}/roadmap" method="post" style="margin-top:10px;">
+                                                <input type="hidden" name="action" value="completeReview">
+                                                <input type="hidden" name="stepId" value="${step.id}">
+                                                <p><label>복습 기록 (20자 이상) — 기억나는 핵심 개념, 헷갈렸던 점, 다시 찾아본 내용</label>
+                                                    <textarea name="reviewNote" minlength="20" maxlength="1000" required></textarea></p>
+                                                <p class="muted" style="font-size:0.8rem;">같은 기술을 복습할수록 받는 점수가 줄어요 (40 → 30 → 20 → 10 → 5점).</p>
+                                                <button type="submit">복습 완료</button>
+                                            </form>
+                                        </dialog>
                                     </c:when>
                                     <c:when test="${step.stepType == 'PROJECT'}">
                                         <button type="button" class="open-step-dialog" data-dialog="stepDialog-${step.id}">프로젝트 등록하고 완료하기</button>

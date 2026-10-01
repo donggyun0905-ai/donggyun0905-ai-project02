@@ -625,8 +625,8 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | `id` | BIGINT | PK | 식별자 |
 | `roadmap_id` | BIGINT | FK | → ROADMAP |
 | `step_order` | INT |  | 단계 순서 |
-| `step_type` | VARCHAR(20) |  | CERT / PROJECT / SKILL |
-| `tier` | VARCHAR(20) |  | ENTRY / CORE / ADVANCED / EXPERT |
+| `step_type` | VARCHAR(20) |  | CERT / PROJECT / SKILL / REVIEW (기술 복습 — 주기가 지나면 자동으로 이어 붙음) |
+| `tier` | VARCHAR(20) |  | ENTRY / CORE / ADVANCED / EXPERT / REVIEW (복습 단계) |
 | `certification_id` | BIGINT | FK | → CERTIFICATION (CERT 단계일 때) |
 | `related_skill_id` | BIGINT | FK | → SKILL (어떤 부족 역량을 메우는지) |
 | `reason` | TEXT |  | "왜 지금 이걸 해야 하는지" (FR-33) |

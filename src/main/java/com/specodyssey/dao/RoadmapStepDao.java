@@ -182,6 +182,25 @@ public class RoadmapStepDao {
         }
     }
 
+    // 기술 복습 주기 계산용 — 이 사용자가 끝낸 SKILL·REVIEW 단계 전부(로드맵이 재생성돼도 이어지도록 로드맵을 가리지 않는다).
+    public List<RoadmapStepDto> findCompletedSkillRowsByUser(Long userId) throws SQLException {
+        String sql = "SELECT rs.* FROM ROADMAP_STEP rs JOIN ROADMAP r ON rs.roadmap_id = r.id " +
+                "WHERE r.user_id = ? AND r.is_deleted = FALSE AND rs.is_deleted = FALSE " +
+                "AND rs.is_completed = TRUE AND rs.related_skill_id IS NOT NULL " +
+                "AND rs.step_type IN ('SKILL', 'REVIEW')";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                List<RoadmapStepDto> rows = new ArrayList<>();
+                while (rs.next()) {
+                    rows.add(mapRow(rs));
+                }
+                return rows;
+            }
+        }
+    }
+
     private RoadmapStepDto mapRow(ResultSet rs) throws SQLException {
         RoadmapStepDto step = new RoadmapStepDto();
         step.setId(rs.getLong("id"));
