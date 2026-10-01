@@ -47,6 +47,49 @@ public class JobRequiredSkillDao {
         }
     }
 
+    // 재수집 전 정리 — 이 직무의 해당 출처(예: NCS) 행만 논리 삭제한다. 다른 출처(MANUAL·WORKNET) 행은 건드리지 않는다.
+    public int softDeleteByJobAndSource(Connection conn, Long jobId, String source) throws SQLException {
+        String sql = "UPDATE JOB_REQUIRED_SKILL SET is_deleted = TRUE WHERE job_id = ? AND source = ? AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, jobId);
+            pstmt.setString(2, source);
+            return pstmt.executeUpdate();
+        }
+    }
+
+    /**
+     * 같은 출처 행은 되살리고 갱신, 다른 출처가 이미 가진 (job_id, skill_id)는 그대로 둔다.
+     * 복합 UNIQUE(job_id, skill_id) 때문에 한 기술에 출처는 하나 — 먼저 들어온 MANUAL·WORKNET 값을 NCS가 덮어쓰지 않는다.
+     */
+    public void upsertForSource(Connection conn, JobRequiredSkillDto item) throws SQLException {
+        String sql = "INSERT INTO JOB_REQUIRED_SKILL " +
+                "(job_id, skill_id, importance, required_level, source, is_estimated, collected_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?) " +
+                "ON DUPLICATE KEY UPDATE " +
+                "importance = IF(source = ?, ?, importance), " +
+                "is_estimated = IF(source = ?, ?, is_estimated), " +
+                "collected_at = IF(source = ?, ?, collected_at), " +
+                "is_deleted = IF(source = ?, FALSE, is_deleted)";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            Timestamp collectedAt = toTimestamp(item.getCollectedAt());
+            pstmt.setLong(1, item.getJobId());
+            pstmt.setLong(2, item.getSkillId());
+            pstmt.setString(3, item.getImportance());
+            pstmt.setString(4, item.getRequiredLevel());
+            pstmt.setString(5, item.getSource());
+            pstmt.setBoolean(6, item.isEstimated());
+            pstmt.setTimestamp(7, collectedAt);
+            pstmt.setString(8, item.getSource());
+            pstmt.setString(9, item.getImportance());
+            pstmt.setString(10, item.getSource());
+            pstmt.setBoolean(11, item.isEstimated());
+            pstmt.setString(12, item.getSource());
+            pstmt.setTimestamp(13, collectedAt);
+            pstmt.setString(14, item.getSource());
+            pstmt.executeUpdate();
+        }
+    }
+
     // FR-31 격차 분석의 기준 — 직무별 요구 기술 전체 조회
     public List<JobRequiredSkillDto> findByJobId(Long jobId) throws SQLException {
         String sql = "SELECT * FROM JOB_REQUIRED_SKILL WHERE job_id = ? AND is_deleted = FALSE";

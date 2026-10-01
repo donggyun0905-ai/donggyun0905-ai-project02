@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LeetCode 문제 검색</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+    <style>
+        body { font-family: sans-serif; background-color: #f4f6f8; padding: 30px; display: flex; justify-content: center; margin: 0; }
+        .card { background: #fff; max-width: 720px; width: 100%; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); box-sizing: border-box; }
+        .search-box { display: flex; gap: 8px; margin-bottom: 12px; }
+        #search { flex: 1; padding: 10px 12px; font-size: 15px; border: 1px solid #cbd5e1; border-radius: 8px; }
+        #search:focus { outline: 2px solid #3b82f6; border-color: transparent; }
+        #back { padding: 10px 14px; border: 1px solid #cbd5e1; background: #fff; border-radius: 8px; cursor: pointer; display: none; }
+        #status { color: #666; font-size: 14px; line-height: 1.5; margin: 8px 0; }
+        #list { list-style: none; padding: 0; margin: 0; max-height: 480px; overflow-y: auto; }
+        #list li { display: flex; align-items: center; gap: 10px; padding: 10px 8px; border-bottom: 1px solid #eef2f6; cursor: pointer; }
+        #list li:hover, #list li:focus { background: #f1f5f9; outline: none; }
+        .num { color: #94a3b8; width: 48px; flex-shrink: 0; font-size: 13px; }
+        .name { flex: 1; }
+        .badge { display: inline-block; padding: 3px 9px; font-size: 12px; font-weight: bold; border-radius: 15px; }
+        .Easy { background: #e6f7ec; color: #00875a; }
+        .Medium { background: #fff4e0; color: #b76e00; }
+        .Hard { background: #fdecec; color: #c62828; }
+        .paid { font-size: 11px; color: #94a3b8; }
+        h1 { margin: 10px 0 15px 0; font-size: 22px; }
+        .content pre { background: #f8fafc; padding: 12px; border-radius: 6px; overflow-x: auto; border: 1px solid #e2e8f0; }
+        .content code { background: #f1f5f9; padding: 2px 4px; border-radius: 4px; font-family: monospace; }
+        #solution-btn { margin-top: 24px; padding: 10px 16px; border: none; background: #2563eb; color: #fff; border-radius: 8px; cursor: pointer; font-size: 14px; }
+        #solution-btn:disabled { background: #94a3b8; cursor: default; }
+        #solution { margin-top: 20px; padding-top: 20px; border-top: 2px dashed #e2e8f0; display: none; }
+        #solution img { max-width: 100%; }
+        .playground-link { display: inline-block; margin: 8px 0; padding: 8px 12px; background: #eef2ff; color: #3730a3; border-radius: 6px; text-decoration: none; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="search-box">
+        <button id="back">← 목록</button>
+        <input id="search" type="text" placeholder="문제 번호, 제목, 슬러그로 검색 (예: 1, two sum)" disabled />
+    </div>
+    <div id="status">문제 목록을 불러오는 중입니다... (무료 서버 특성상 최초 로딩에 최대 30초가 걸릴 수 있습니다.)</div>
+    <ul id="list"></ul>
+
+    <div id="problem-area" style="display: none;">
+        <span class="badge" id="difficulty"></span>
+        <h1 id="title"></h1>
+        <div class="content" id="description"></div>
+        <button id="solution-btn">해설 보기</button>
+        <div class="content" id="solution"></div>
+    </div>
+</div>
+
+<script>
+    const API_BASE = "https://alfa-leetcode-api.onrender.com";
+    const MAX_RESULTS = 50;
+    const CACHE_KEY = "leetcode-problem-list";
+    const CACHE_HOURS = 24;
+
+    const searchEl = document.getElementById("search");
+    const statusEl = document.getElementById("status");
+    const listEl = document.getElementById("list");
+    const problemAreaEl = document.getElementById("problem-area");
+    const backEl = document.getElementById("back");
+
+    const solutionBtn = document.getElementById("solution-btn");
+    const solutionEl = document.getElementById("solution");
+
+    let allProblems = [];
+    let currentSlug = "";
+
+    // 직접 호출 → 실패 시 프록시 경유
+    async function fetchJson(url) {
+        try {
+            const res = await fetch(url);
+            if (res.ok) return await res.json();
+        } catch (e) {
+            console.warn("직접 호출 실패, 프록시로 재시도합니다.", e);
+        }
+        const res = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(url)}`);
+        if (!res.ok) throw new Error("네트워크 응답에 실패했습니다.");
+        return await res.json();
+    }
+
+    // 전체 문제 목록 불러오기 (24시간 캐시)
+    async function loadProblemList() {
+        try {
+            const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
+            if (cached && Date.now() - cached.savedAt < CACHE_HOURS * 3600 * 1000) {
+                return cached.problems;
+            }
+        } catch (e) { /* 캐시 없음 */ }
+
+        const data = await fetchJson(`${API_BASE}/problems?limit=5000`);
+        const problems = (data.problemsetQuestionList || []).map(p => ({
+            id: p.questionFrontendId,
+            title: p.title,
+            slug: p.titleSlug,
+            difficulty: p.difficulty,
+            paid: p.isPaidOnly
+        }));
+
+        try {
+            localStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), problems }));
+        } catch (e) { /* 저장 실패해도 동작에는 지장 없음 */ }
+        return problems;
+    }
+
+    // 검색 결과 목록 그리기
+    function renderList(keyword) {
+        const q = keyword.trim().toLowerCase();
+        const matched = q === ""
+            ? allProblems
+            : allProblems.filter(p =>
+                p.id === q ||
+                p.title.toLowerCase().includes(q) ||
+                p.slug.includes(q.replace(/\s+/g, "-"))
+            );
+
+        listEl.innerHTML = "";
+        matched.slice(0, MAX_RESULTS).forEach(p => {
+            const li = document.createElement("li");
+            li.tabIndex = 0;
+
+            const num = document.createElement("span");
+            num.className = "num";
+            num.textContent = p.id;
+
+            const name = document.createElement("span");
+            name.className = "name";
+            name.textContent = p.title;
+            if (p.paid) {
+                const paid = document.createElement("span");
+                paid.className = "paid";
+                paid.textContent = " (프리미엄)";
+                name.appendChild(paid);
+            }
+
+            const badge = document.createElement("span");
+            badge.className = `badge ${p.difficulty}`;
+            badge.textContent = p.difficulty;
+
+            li.append(num, name, badge);
+            li.addEventListener("click", () => loadProblem(p.slug));
+            li.addEventListener("keydown", e => { if (e.key === "Enter") loadProblem(p.slug); });
+            listEl.appendChild(li);
+        });
+
+        statusEl.style.display = "block";
+        statusEl.innerText = matched.length === 0
+            ? "검색 결과가 없습니다. 다른 번호나 제목으로 검색해 보세요."
+            : `${matched.length}개 문제${matched.length > MAX_RESULTS ? ` 중 상위 ${MAX_RESULTS}개 표시` : ""}`;
+    }
+
+    // 문제 본문 불러오기
+    async function loadProblem(slug) {
+        listEl.style.display = "none";
+        problemAreaEl.style.display = "none";
+        backEl.style.display = "inline-block";
+        statusEl.style.display = "block";
+        statusEl.innerText = "문제를 불러오는 중입니다...";
+        currentSlug = slug;
+        solutionEl.style.display = "none";
+        solutionEl.innerHTML = "";
+        solutionBtn.style.display = "inline-block";
+        solutionBtn.disabled = false;
+        solutionBtn.innerText = "해설 보기";
+
+        try {
+            const data = await fetchJson(`${API_BASE}/select?titleSlug=${encodeURIComponent(slug)}`);
+            if (!data || !data.questionTitle) throw new Error("문제 데이터를 찾을 수 없습니다.");
+
+            document.getElementById("title").innerText = `${data.questionFrontendId || data.questionId}. ${data.questionTitle}`;
+            const diffEl = document.getElementById("difficulty");
+            diffEl.innerText = data.difficulty;
+            diffEl.className = `badge ${data.difficulty}`;
+            document.getElementById("description").innerHTML =
+                data.question || "<p>프리미엄 문제라 본문을 불러올 수 없습니다.</p>";
+
+            statusEl.style.display = "none";
+            problemAreaEl.style.display = "block";
+        } catch (error) {
+            console.error("상세 에러 로그:", error);
+            showError(error);
+        }
+    }
+
+    // 공식 해설 불러오기 (스포일러 방지를 위해 버튼을 눌렀을 때만)
+    async function loadSolution() {
+        solutionBtn.disabled = true;
+        solutionBtn.innerText = "해설을 불러오는 중...";
+        const linkToSite = `<p><a class="playground-link" href="https://leetcode.com/problems/${currentSlug}/solutions/" target="_blank" rel="noopener">리트코드에서 다른 사람 풀이 보기</a></p>`;
+
+        try {
+            const data = await fetchJson(`${API_BASE}/officialSolution?titleSlug=${encodeURIComponent(currentSlug)}`);
+            const sol = data?.question?.solution;
+
+            if (!sol) {
+                solutionEl.innerHTML = `<p>이 문제는 공식 해설이 없습니다.</p>${linkToSite}`;
+            } else if (sol.paidOnly || !sol.canSeeDetail || !sol.content) {
+                solutionEl.innerHTML = `<p>이 문제의 공식 해설은 프리미엄 전용입니다.</p>${linkToSite}`;
+            } else {
+                solutionEl.innerHTML = renderMarkdown(sol.content) + linkToSite;
+                if (window.renderMathInElement) {
+                    renderMathInElement(solutionEl, {
+                        delimiters: [{ left: "$$", right: "$$", display: false }]
+                    });
+                }
+            }
+            solutionEl.style.display = "block";
+            solutionBtn.style.display = "none";
+        } catch (error) {
+            console.error("해설 에러 로그:", error);
+            solutionBtn.disabled = false;
+            solutionBtn.innerText = "해설 다시 불러오기";
+            solutionEl.style.display = "block";
+            solutionEl.innerHTML = `<p style="color:red;">해설을 불러오지 못했습니다: ${error.message}</p>${linkToSite}`;
+        }
+    }
+
+    // 리트코드 해설 마크다운 → HTML
+    function renderMarkdown(md) {
+        // 수식이 마크다운 문법에 깨지지 않게 잠시 빼 둠
+        const maths = [];
+        let text = md
+            .replace(/\[TOC\]/g, "")
+            .replace(/\$\$[\s\S]+?\$\$/g, m => { maths.push(m); return `@@MATH${maths.length - 1}@@`; });
+
+        // 코드 플레이그라운드(iframe)는 링크로 바꿈
+        text = text.replace(/<iframe[^>]*src="([^"]+)"[^>]*>\s*<\/iframe>/g,
+            (_, src) => `<a class="playground-link" href="${src}" target="_blank" rel="noopener">▶ 코드 보기 (리트코드 플레이그라운드)</a>`);
+
+        let html = window.marked ? marked.parse(text) : `<pre>${text.replace(/</g, "&lt;")}</pre>`;
+        return html.replace(/@@MATH(\d+)@@/g, (_, i) => maths[i]);
+    }
+
+    function showList() {
+        problemAreaEl.style.display = "none";
+        backEl.style.display = "none";
+        listEl.style.display = "block";
+        renderList(searchEl.value);
+        searchEl.focus();
+    }
+
+    function showError(error) {
+        statusEl.style.display = "block";
+        statusEl.innerHTML = `
+        <b style="color: red;">❌ 에러 발생</b><br>
+        <span style="font-size:12px; color:#555;">원인: ${error.message}</span><br><br>
+        새로고침(F5)을 누르고 10초만 기다려보세요. 무료 서버가 깨어나는 중일 수 있습니다.
+      `;
+    }
+
+    // 입력할 때마다 검색 (0.2초 디바운스)
+    let timer;
+    searchEl.addEventListener("input", () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+            if (listEl.style.display === "none") showList();
+            else renderList(searchEl.value);
+        }, 200);
+    });
+    backEl.addEventListener("click", showList);
+    solutionBtn.addEventListener("click", loadSolution);
+
+    (async () => {
+        try {
+            allProblems = await loadProblemList();
+            searchEl.disabled = false;
+            searchEl.focus();
+            renderList("");
+        } catch (error) {
+            console.error("상세 에러 로그:", error);
+            showError(error);
+        }
+    })();
+</script>
+</body>
+</html>
