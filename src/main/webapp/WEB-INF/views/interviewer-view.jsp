@@ -18,7 +18,11 @@
         <c:set var="user" value="${view.user}" />
         <div class="spread" style="margin-bottom:16px;">
             <span class="pill">👁 읽기 전용 · 지원자가 공유한 이력</span>
-            <a class="btn secondary" href="${pageContext.request.contextPath}/share/compare">비교 목록에 담기</a>
+            <form action="${pageContext.request.contextPath}/share/compare" method="post" class="inline-form">
+                <input type="hidden" name="action" value="addCandidate">
+                <input type="hidden" name="linkInput" value="${link.token}">
+                <button type="submit" class="secondary">비교 목록에 담기</button>
+            </form>
         </div>
         <h1>지원자 이력</h1>
         <p class="muted">지원자가 직접 발급한 링크로 열린 페이지입니다. 지원자가 고른 항목만 보이고, 지원자는 언제든 공유를 멈출 수 있습니다.</p>

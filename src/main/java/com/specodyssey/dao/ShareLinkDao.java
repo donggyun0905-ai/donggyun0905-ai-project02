@@ -61,6 +61,21 @@ public class ShareLinkDao {
         }
     }
 
+    // 평가 비교(EVALUATION_SESSION_ITEM)가 담아둔 share_link_id로 지원자를 다시 찾을 때 쓴다(FR-82).
+    // findByToken과 똑같이 활성·미만료 여부를 함께 확인한다 — 지원자가 나중에 공유를 멈추거나 링크가
+    // 만료되면 이미 담아둔 비교표에서도 자연히 빠져야 한다(화면설계 "비교표에서 빠집니다" 문구).
+    public ShareLinkDto findById(Long id) throws SQLException {
+        String sql = "SELECT * FROM SHARE_LINK WHERE id = ? AND is_active = TRUE " +
+                "AND (expires_at IS NULL OR expires_at > NOW()) AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, id);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        }
+    }
+
     // 면접관이 토큰으로 접근할 때 조회 (FR-85)
     // is_active·expires_at도 함께 확인한다 — 안 그러면 지원자가 링크를 비활성화(FR-86)해도 계속 열람 가능해진다.
     public ShareLinkDto findByToken(String token) throws SQLException {
