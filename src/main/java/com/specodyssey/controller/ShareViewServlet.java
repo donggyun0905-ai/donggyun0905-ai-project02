@@ -1,16 +1,13 @@
 package com.specodyssey.controller;
 
-import com.specodyssey.dto.EvaluationSessionDto;
 import com.specodyssey.dto.DocumentDto;
 import com.specodyssey.dto.ShareViewDto;
 import com.specodyssey.dto.UserDto;
-import com.specodyssey.service.EvaluationCompareService;
 import com.specodyssey.service.ShareViewService;
 import com.specodyssey.util.FileStorageUtil;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -28,33 +25,22 @@ import java.sql.SQLException;
  * 화면설계 PDF "13. 면접관 뷰", "14. 면접관 비교 뷰", "6-4. 유효하지 않은 공유 링크" 기준.
  * "/share/*"는 SessionFilter의 PUBLIC_PREFIXES에 있어 로그인 없이 열린다(FR-14 면접관은 계정이 없음).
  * "/share/{token}"은 지원자 이력(ShareViewService). 접근 제어는 ShareViewService가 토큰·활성·만료·공개 범위로 대신한다.
- * 비교(FR-82·83)는 두 갈래다 — 로그인한 면접관 계정은 InterviewerServlet "/interviewer/compare"로 보내고,
- * 계정 없이 들어온 접속은 "/share/compare"(EvaluationCompareService)에서 쿠키의 session_token을
- * 소유 증명으로 쓴다(EVALUATION_SESSION.user_id가 NULL인 익명 세션).
+ * 비교(FR-82·83)는 면접관 계정 화면(InterviewerServlet "/interviewer/compare")이 처리한다.
  */
 @WebServlet("/share/*")
 public class ShareViewServlet extends HttpServlet {
 
-    private static final String SESSION_COOKIE_NAME = "evalSessionToken";
-    private static final int SESSION_COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60; // 30일
     private static final String RESUME_SUFFIX = "/resume";
 
     private final ShareViewService shareViewService = new ShareViewService();
-    private final EvaluationCompareService evaluationCompareService = new EvaluationCompareService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         String pathInfo = req.getPathInfo();
 
-        // 비교: 로그인한 면접관 계정은 계정 화면으로, 계정 없는 접속은 쿠키 세션 비교(익명)로 처리한다.
+        // 지원자 비교는 면접관 계정 화면으로 옮겼다 — 예전 주소로 들어오면 그쪽으로 보낸다(로그인 필요).
         if ("/compare".equals(pathInfo)) {
-            UserDto compareUser = (UserDto) (req.getSession(false) == null
-                    ? null : req.getSession(false).getAttribute("loginUser"));
-            if (compareUser != null && RoleFilter.INTERVIEWER.equals(compareUser.getUserType())) {
-                resp.sendRedirect(req.getContextPath() + "/interviewer/compare");
-                return;
-            }
-            handleCompareGet(req, resp);
+            resp.sendRedirect(req.getContextPath() + "/interviewer/compare");
             return;
         }
 
@@ -85,86 +71,6 @@ public class ShareViewServlet extends HttpServlet {
         req.setAttribute("token", token);
         req.setAttribute("interviewer", loginUser != null && RoleFilter.INTERVIEWER.equals(loginUser.getUserType()));
         req.getRequestDispatcher("/WEB-INF/views/interviewer-view.jsp").forward(req, resp);
-    }
-
-    @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        if (!"/compare".equals(req.getPathInfo())) {
-            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "잘못된 요청입니다.");
-            return;
-        }
-
-        EvaluationSessionDto session;
-        try {
-            session = resolveSession(req, resp);
-            String action = req.getParameter("action");
-            if ("addCandidate".equals(action)) {
-                evaluationCompareService.addCandidate(session.getId(), req.getParameter("linkInput"));
-            } else if ("removeCandidate".equals(action)) {
-                evaluationCompareService.removeCandidate(Long.valueOf(req.getParameter("itemId")),
-                        session.getSessionToken());
-            } else if ("addCriterion".equals(action)) {
-                int weight = Integer.parseInt(req.getParameter("weight"));
-                evaluationCompareService.addOrUpdateCriterion(session.getId(), session.getSessionToken(),
-                        req.getParameter("skillName"), weight);
-            } else if ("removeCriterion".equals(action)) {
-                evaluationCompareService.removeCriterion(Long.valueOf(req.getParameter("criteriaId")),
-                        session.getSessionToken());
-            } else if ("renameSession".equals(action)) {
-                evaluationCompareService.renameSession(session.getId(), session.getSessionToken(),
-                        req.getParameter("companyName"));
-            } else {
-                resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "잘못된 요청입니다.");
-                return;
-            }
-        } catch (IllegalArgumentException e) {
-            req.setAttribute("errorMessage", e.getMessage());
-            handleCompareGet(req, resp);
-            return;
-        } catch (SQLException e) {
-            throw new ServletException("비교 세션 처리 중 오류가 발생했습니다.", e);
-        }
-
-        resp.sendRedirect(req.getContextPath() + "/share/compare");
-    }
-
-    private void handleCompareGet(HttpServletRequest req, HttpServletResponse resp)
-            throws ServletException, IOException {
-        try {
-            EvaluationSessionDto session = resolveSession(req, resp);
-            req.setAttribute("compareView", evaluationCompareService.buildCompareView(
-                    session.getId(), session.getSessionToken()));
-        } catch (SQLException e) {
-            throw new ServletException("비교 목록을 불러오는 중 오류가 발생했습니다.", e);
-        }
-        req.getRequestDispatcher("/WEB-INF/views/share-compare.jsp").forward(req, resp);
-    }
-
-    // 쿠키의 세션 토큰을 재사용하거나, 없거나 만료됐으면 새로 만들어 쿠키를 다시 심는다.
-    private EvaluationSessionDto resolveSession(HttpServletRequest req, HttpServletResponse resp)
-            throws SQLException {
-        String existingToken = readCookie(req, SESSION_COOKIE_NAME);
-        EvaluationSessionDto session = evaluationCompareService.getOrCreateSession(existingToken);
-        if (!session.getSessionToken().equals(existingToken)) {
-            Cookie cookie = new Cookie(SESSION_COOKIE_NAME, session.getSessionToken());
-            cookie.setPath(req.getContextPath() + "/share");
-            cookie.setHttpOnly(true);
-            cookie.setMaxAge(SESSION_COOKIE_MAX_AGE_SECONDS);
-            resp.addCookie(cookie);
-        }
-        return session;
-    }
-
-    private String readCookie(HttpServletRequest req, String name) {
-        if (req.getCookies() == null) {
-            return null;
-        }
-        for (Cookie cookie : req.getCookies()) {
-            if (name.equals(cookie.getName())) {
-                return cookie.getValue();
-            }
-        }
-        return null;
     }
 
     // 지원자가 이 링크에 이력서 공개를 고른 경우에만 내려준다 — 조건 확인은 ShareViewService.loadResume이 한다.

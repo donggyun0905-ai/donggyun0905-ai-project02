@@ -76,12 +76,6 @@ public class ShareLinkDao {
         }
     }
 
-    // 면접관 비교(장바구니, FR-82·83)에서 담아둔 후보를 다시 불러올 때 쓴다(익명 비교 쪽 호출부 이름).
-    // findActiveById와 같다 — 지원자가 나중에 공유를 멈추거나 링크가 만료되면 비교표에서도 자연히 빠진다.
-    public ShareLinkDto findById(Long id) throws SQLException {
-        return findActiveById(id);
-    }
-
     // 면접관이 담아 둔 링크를 id로 다시 읽을 때 — findByToken과 같은 조건(활성·만료 전)으로 확인한다.
     public ShareLinkDto findActiveById(Long id) throws SQLException {
         String sql = "SELECT * FROM SHARE_LINK WHERE id = ? AND is_active = TRUE " +
