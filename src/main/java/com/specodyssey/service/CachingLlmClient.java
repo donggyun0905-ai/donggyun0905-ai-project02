@@ -24,9 +24,10 @@ import java.util.logging.Logger;
  *
  * 순서: 캐시 조회 → (유효기간 안이면 바로 반환) → 호출 → 성공하면 저장 / 실패하면 직전 성공 결과로 대체.
  * 직전 성공 결과도 없으면 FAILED로 기록하고 예외를 그대로 던진다 — 그때 화면 문구는 호출부가 정한다.
+ * 화면이 대체 여부를 알아야 하면 completeJsonWithStatus로 LlmResult(상태·시각·안내 문구)를 받는다.
  * 같은 프롬프트·같은 타입이면 같은 캐시 키다. 캐시 DB 오류는 LLM 결과를 막지 않도록 로그만 남긴다.
  *
- * 사용 예: LlmClient llm = new CachingLlmClient(GroqLlmClient.fromConfig());
+ * 사용 예: CachingLlmClient llm = new CachingLlmClient(어떤 LlmClient 구현체든);
  */
 public class CachingLlmClient implements LlmClient {
 
@@ -52,29 +53,42 @@ public class CachingLlmClient implements LlmClient {
 
     @Override
     public <T> T completeJson(String prompt, Class<T> type) throws ExternalApiException {
+        LlmResult<T> result = completeJsonWithStatus(prompt, type);
+        if (result.isUnavailable()) {
+            throw result.cause();
+        }
+        return result.getValue();
+    }
+
+    /**
+     * completeJson과 같지만 예외를 던지지 않고, 결과와 함께 상태(새로 받음·캐시·직전 결과 대체·없음)를 돌려준다.
+     * 화면이 "직전 결과로 대체" 안내나 "다시 시도" 버튼을 띄워야 할 때 쓴다 (FR-111).
+     */
+    public <T> LlmResult<T> completeJsonWithStatus(String prompt, Class<T> type) {
         String key = requestKey(prompt, type);
         ExternalApiCacheDto cached = readCache(key);
         LocalDateTime now = LocalDateTime.now();
 
-        if (cached != null && cached.getExpiresAt() != null && cached.getExpiresAt().isAfter(now)) {
+        // 재사용 여부는 저장 때 정한 expires_at이 아니라 지금 이 객체의 ttl로 판단한다 — ttl 0이면 항상 새로 호출
+        if (cached != null && cached.getCachedAt() != null && cached.getCachedAt().plus(ttl).isAfter(now)) {
             T hit = parseOrNull(cached, type);
             if (hit != null) {
-                return hit;
+                return LlmResult.cached(hit, cached.getCachedAt());
             }
         }
 
         try {
             T result = delegate.completeJson(prompt, type);
             writeSuccess(key, GSON.toJson(result), now);
-            return result;
+            return LlmResult.fresh(result, now);
         } catch (ExternalApiException e) {
             T fallback = cached == null ? null : parseOrNull(cached, type);
             if (fallback != null) {
                 LOG.log(Level.WARNING, "LLM 호출 실패(HTTP " + e.getStatusCode() + ") — 직전 결과로 대체합니다: " + key);
-                return fallback;
+                return LlmResult.fallback(fallback, cached.getCachedAt(), e);
             }
             writeFailure(key, now);
-            throw e;
+            return LlmResult.unavailable(e);
         }
     }
 
