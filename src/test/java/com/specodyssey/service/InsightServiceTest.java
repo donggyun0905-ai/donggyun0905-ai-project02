@@ -3,9 +3,11 @@ package com.specodyssey.service;
 import com.specodyssey.dao.InsightDao.GapCellRow;
 import com.specodyssey.dao.InsightDao.PeerScoreRow;
 import com.specodyssey.dao.InsightDao.TrendRow;
+import com.specodyssey.dto.InsightViewDto;
 import com.specodyssey.dto.InsightViewDto.BenchmarkTier;
 import com.specodyssey.dto.InsightViewDto.HeatRow;
 import com.specodyssey.dto.InsightViewDto.HeatmapView;
+import com.specodyssey.dto.InsightViewDto.Notice;
 import com.specodyssey.dto.InsightViewDto.PeerView;
 import com.specodyssey.dto.InsightViewDto.TrendSkill;
 import com.specodyssey.dto.InsightViewDto.TrendView;
@@ -54,6 +56,36 @@ class InsightServiceTest {
 
         PeerView noScore = InsightService.comparePeers(1L, "컴퓨터공학", "4", null, Collections.emptyList());
         assertFalse(noScore.isComparable());
+    }
+
+    @Test
+    void 완성도_0점이면_비교하지_않고_프로필_안내() {
+        PeerView view = InsightService.comparePeers(1L, "컴퓨터공학", "4", new BigDecimal("0.00"),
+                List.of(new PeerScoreRow(2L, new BigDecimal("50"))));
+        assertFalse(view.isComparable());
+        assertNull(view.myScore());
+        assertTrue(view.message().contains("프로필"));
+    }
+
+    // ---------- 상단 안내 ----------
+
+    @Test
+    void 프로필이_빈_사용자는_프로필과_격차분석_안내를_받는다() {
+        InsightViewDto view = new InsightViewDto();
+        view.setPeer(InsightService.comparePeers(1L, "응소", "4", BigDecimal.ZERO, Collections.emptyList()));
+        view.setHeatmap(InsightService.buildHeatmap(List.of(new GapCellRow("언어", "BASIC", true))));
+
+        List<Notice> notices = InsightService.buildNotices(view, true);
+        assertEquals(List.of("/profile", "/profile", "/gap-analysis"), notices.stream().map(Notice::path).toList());
+    }
+
+    @Test
+    void 데이터가_다_있으면_안내가_없다() {
+        InsightViewDto view = new InsightViewDto();
+        view.setPeer(InsightService.comparePeers(1L, "컴퓨터공학", "4", new BigDecimal("64"),
+                List.of(new PeerScoreRow(2L, new BigDecimal("57")))));
+        view.setHeatmap(InsightService.buildHeatmap(List.of(new GapCellRow("언어", "BASIC", false))));
+        assertTrue(InsightService.buildNotices(view, false).isEmpty());
     }
 
     // ---------- FR-47 요구 기술 변화 ----------

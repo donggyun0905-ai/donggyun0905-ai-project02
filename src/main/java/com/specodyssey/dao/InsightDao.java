@@ -65,6 +65,18 @@ public class InsightDao {
         }
     }
 
+    // FR-48 보유 기술 수 — 0이면 히트맵이 전부 "부족"으로 나오므로 안내로 대체한다
+    public int countUserSkills(Long userId) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM USER_SKILLS WHERE user_id = ? AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        }
+    }
+
     // FR-47 목표 직무의 최근 N개월 기술별 언급 비율 (오래된 달 → 최근 달)
     public List<TrendRow> findRecentTrend(Long jobId, int months) throws SQLException {
         String sql = "SELECT t.skill_id, s.skill_name, t.period_ym, t.mention_ratio FROM JOB_SKILL_TREND t " +

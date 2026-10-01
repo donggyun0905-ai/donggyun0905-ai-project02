@@ -11,6 +11,7 @@ import com.specodyssey.dto.InsightViewDto.BenchmarkTier;
 import com.specodyssey.dto.InsightViewDto.HeatCell;
 import com.specodyssey.dto.InsightViewDto.HeatRow;
 import com.specodyssey.dto.InsightViewDto.HeatmapView;
+import com.specodyssey.dto.InsightViewDto.Notice;
 import com.specodyssey.dto.InsightViewDto.PeerView;
 import com.specodyssey.dto.InsightViewDto.TrendSkill;
 import com.specodyssey.dto.InsightViewDto.TrendView;
@@ -81,7 +82,11 @@ public class InsightService {
         view.setBenchmark(groupBenchmark(benchmarkDao.findByJobId(jobId)));
 
         // FR-48
-        view.setHeatmap(buildHeatmap(insightDao.findLatestGapCells(user.getId(), jobId)));
+        HeatmapView heatmap = buildHeatmap(insightDao.findLatestGapCells(user.getId(), jobId));
+        boolean noSkills = insightDao.countUserSkills(user.getId()) == 0;
+        view.setHeatmap(heatmap.withNoOwnedSkills(noSkills && !heatmap.rows().isEmpty()));
+
+        view.setNotices(buildNotices(view, noSkills));
         return view;
     }
 
@@ -92,9 +97,10 @@ public class InsightService {
             return new PeerView(major, grade, toInt(myScore), null, 0,
                     "프로필에 전공과 학년을 입력하면 같은 전공·학년 평균과 비교할 수 있습니다.");
         }
-        if (myScore == null) {
+        // 0점은 프로필이 비어 있다는 뜻이라 비교해도 의미가 없다
+        if (myScore == null || myScore.signum() <= 0) {
             return new PeerView(major, grade, null, null, 0,
-                    "아직 스펙 완성도 기록이 없습니다. 프로필을 채우면 다음 날부터 비교됩니다.");
+                    "아직 스펙 완성도 점수가 없습니다. 프로필에 자격증·프로젝트·기술을 채우면 비교할 수 있습니다.");
         }
 
         BigDecimal sum = BigDecimal.ZERO;
@@ -192,7 +198,7 @@ public class InsightService {
     // FR-48 기술 분야(SKILL.category) × 요구 수준(required_level)별 부족 기술 수.
     static HeatmapView buildHeatmap(List<GapCellRow> rows) {
         if (rows.isEmpty()) {
-            return new HeatmapView(Collections.emptyList(), Collections.emptyList(), 0, null);
+            return new HeatmapView(Collections.emptyList(), Collections.emptyList(), 0, null, false);
         }
 
         List<String> levelKeys = new ArrayList<>(LEVEL_LABELS.keySet());
@@ -251,7 +257,27 @@ public class InsightService {
         for (String level : levelKeys) {
             levelLabels.add(labelOf(level));
         }
-        return new HeatmapView(levelLabels, heatRows, missingTotal, weakest);
+        return new HeatmapView(levelLabels, heatRows, missingTotal, weakest, false);
+    }
+
+    // 데이터가 부족한 카드마다 "먼저 해 볼 일"을 한 줄씩 만든다. 사용자가 직접 채울 수 없는 것(공고 집계·참고 루트)은 뺀다.
+    static List<Notice> buildNotices(InsightViewDto view, boolean noSkills) {
+        List<Notice> notices = new ArrayList<>();
+        PeerView peer = view.getPeer();
+        if (isBlank(peer.major()) || isBlank(peer.grade())) {
+            notices.add(new Notice("프로필에 전공과 학년을 입력하면 또래 비교가 열립니다.", "/profile", "프로필 입력"));
+        } else if (peer.myScore() == null) {
+            notices.add(new Notice("프로필에 자격증·프로젝트·기술을 채우면 스펙 완성도 점수가 생깁니다.", "/profile", "프로필 채우기"));
+        }
+        if (noSkills) {
+            notices.add(new Notice("보유 기술을 입력해야 약점 히트맵이 정확해집니다.", "/profile", "기술 입력"));
+        }
+        if (view.getHeatmap().rows().isEmpty()) {
+            notices.add(new Notice("목표 직무로 격차 분석을 한 번 실행하면 약점 히트맵이 생깁니다.", "/gap-analysis", "격차 분석"));
+        } else if (noSkills) {
+            notices.add(new Notice("기술을 입력한 뒤 격차 분석을 다시 실행하세요.", "/gap-analysis", "격차 분석"));
+        }
+        return notices;
     }
 
     // 가장 많이 부족한 칸을 3으로 놓고 1~3단계로 나눈다. 부족이 없으면 0.

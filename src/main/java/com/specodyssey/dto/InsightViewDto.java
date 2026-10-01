@@ -15,6 +15,7 @@ public class InsightViewDto {
     private TrendView trend;
     private List<BenchmarkTier> benchmark;
     private HeatmapView heatmap;
+    private List<Notice> notices;
 
     /** FR-45 또래 비교. myScore/peerAverage는 데이터가 없으면 null. */
     public record PeerView(String major, String grade, Integer myScore, Integer peerAverage, int peerCount,
@@ -93,8 +94,12 @@ public class InsightViewDto {
         }
     }
 
-    /** FR-48 분야(행) × 요구 수준(열) 약점 히트맵. weakest는 가장 많이 부족한 칸 설명(없으면 null). */
-    public record HeatmapView(List<String> levels, List<HeatRow> rows, int missingTotal, String weakest) {
+    /**
+     * FR-48 분야(행) × 요구 수준(열) 약점 히트맵. weakest는 가장 많이 부족한 칸 설명(없으면 null).
+     * noOwnedSkills: 보유 기술이 하나도 없어 전부 "부족"으로 나오는 상태 — 표 대신 안내를 보여준다.
+     */
+    public record HeatmapView(List<String> levels, List<HeatRow> rows, int missingTotal, String weakest,
+                              boolean noOwnedSkills) {
         public List<String> getLevels() {
             return levels;
         }
@@ -109,6 +114,14 @@ public class InsightViewDto {
 
         public String getWeakest() {
             return weakest;
+        }
+
+        public boolean isNoOwnedSkills() {
+            return noOwnedSkills;
+        }
+
+        public HeatmapView withNoOwnedSkills(boolean value) {
+            return new HeatmapView(levels, rows, missingTotal, weakest, value);
         }
 
         public boolean isEmpty() {
@@ -138,6 +151,21 @@ public class InsightViewDto {
 
         public int getShade() {
             return shade;
+        }
+    }
+
+    /** 화면 상단 "먼저 해 볼 일" 안내 한 줄. path는 컨텍스트 경로를 뺀 링크(JSP에서 붙인다). */
+    public record Notice(String text, String path, String linkLabel) {
+        public String getText() {
+            return text;
+        }
+
+        public String getPath() {
+            return path;
+        }
+
+        public String getLinkLabel() {
+            return linkLabel;
         }
     }
 
@@ -179,5 +207,13 @@ public class InsightViewDto {
 
     public void setHeatmap(HeatmapView heatmap) {
         this.heatmap = heatmap;
+    }
+
+    public List<Notice> getNotices() {
+        return notices;
+    }
+
+    public void setNotices(List<Notice> notices) {
+        this.notices = notices;
     }
 }

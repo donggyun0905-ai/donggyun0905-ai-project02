@@ -19,8 +19,30 @@
         </div>
     </c:when>
     <c:otherwise>
+<style>
+    /* 인사이트 화면 전용 — 데이터가 부족한 카드의 안내 상자 */
+    .insight-empty { margin-top:10px; padding:14px 16px; border:1px dashed var(--border); border-radius:8px; text-align:center; }
+    .insight-empty .icon { font-size:1.6rem; }
+    .insight-empty p { margin:6px 0 10px; }
+    .insight-notice { border-left:4px solid var(--primary); }
+    .insight-notice ul { margin:8px 0 0; padding-left:18px; }
+    .insight-notice li { margin:4px 0; }
+</style>
+
 <h1>데이터 인사이트</h1>
 <p class="muted"><strong><c:out value="${insight.jobName}" /></strong> 채용 흐름과 나의 위치를 한 화면에서 봅니다.</p>
+
+<c:if test="${not empty insight.notices}">
+    <div class="card insight-notice" style="margin-top:16px;">
+        <h2>💡 인사이트를 더 정확하게 보려면</h2>
+        <p class="muted" style="margin:4px 0 0;">아직 내 정보가 부족해 일부 카드가 비어 있습니다. 아래를 먼저 해 보세요.</p>
+        <ul>
+            <c:forEach var="n" items="${insight.notices}">
+                <li><c:out value="${n.text}" /> <a href="${ctx}${n.path}"><c:out value="${n.linkLabel}" /> →</a></li>
+            </c:forEach>
+        </ul>
+    </div>
+</c:if>
 
 <div class="two-col" style="margin-top:16px;">
     <div class="primary">
@@ -30,7 +52,10 @@
             <div class="spread"><h2>요구 기술 변화</h2><span class="pill">채용공고 집계</span></div>
             <c:choose>
                 <c:when test="${empty insight.trend.skills}">
-                    <p class="muted" style="margin-top:8px; margin-bottom:0;">아직 이 직무의 채용공고 집계가 없습니다. 주간 수집이 돌면 채워집니다.</p>
+                    <div class="insight-empty">
+                        <div class="icon">📭</div>
+                        <p class="muted">아직 이 직무의 채용공고 집계가 없습니다. 주간 수집이 돌면 자동으로 채워집니다.</p>
+                    </div>
                 </c:when>
                 <c:otherwise>
                     <p class="muted" style="margin-top:4px;">최근 공고에서 기술이 언급된 비율(%) · 최신 달 상위 기술</p>
@@ -81,15 +106,26 @@
             <c:if test="${not empty peer.major and not empty peer.grade}">
                 <p class="muted" style="margin-top:4px;"><c:out value="${peer.major}" />·<c:out value="${peer.grade}" />학년 평균과 비교<c:if test="${peer.peerCount > 0}"> (비교 대상 ${peer.peerCount}명)</c:if></p>
             </c:if>
-            <c:if test="${peer.comparable}">
+            <c:choose>
+            <c:when test="${peer.comparable}">
                 <div style="margin-top:12px; font-size:0.88rem;">
                     <div class="spread" style="margin-bottom:6px;"><span>나</span><span>${peer.myScore}</span></div>
                     <div class="progress-track" style="margin:0 0 12px;"><div class="progress-fill" style="width:${peer.myScore}%;"></div></div>
                     <div class="spread" style="margin-bottom:6px;"><span>같은 전공·학년 평균</span><span>${peer.peerAverage}</span></div>
                     <div class="progress-track" style="margin:0;"><div class="progress-fill" style="width:${peer.peerAverage}%; background:var(--locked);"></div></div>
                 </div>
-            </c:if>
-            <p class="muted" style="margin-top:10px; margin-bottom:0;"><c:out value="${peer.message}" /></p>
+                <p class="muted" style="margin-top:10px; margin-bottom:0;"><c:out value="${peer.message}" /></p>
+            </c:when>
+            <c:otherwise>
+                <div class="insight-empty">
+                    <div class="icon">👥</div>
+                    <p class="muted"><c:out value="${peer.message}" /></p>
+                    <c:if test="${empty peer.major or empty peer.grade or peer.myScore == null}">
+                        <a class="btn secondary" href="${ctx}/profile">프로필 채우기</a>
+                    </c:if>
+                </div>
+            </c:otherwise>
+            </c:choose>
         </div>
 
         <%-- FR-46 합격자 스펙 역산(참고 루트) --%>
@@ -97,7 +133,11 @@
             <div class="spread"><h2>합격자 참고 루트</h2><span class="pill">예시적 추정</span></div>
             <c:choose>
                 <c:when test="${empty insight.benchmark}">
-                    <p class="muted" style="margin-top:8px; margin-bottom:0;">이 직무의 참고 루트를 준비 중입니다.</p>
+                    <div class="insight-empty">
+                        <div class="icon">🧭</div>
+                        <p class="muted">이 직무의 합격자 참고 루트를 준비 중입니다. 그동안은 로드맵에서 단계별 목표를 확인해 보세요.</p>
+                        <a class="btn secondary" href="${ctx}/roadmap">로드맵 보기</a>
+                    </div>
                 </c:when>
                 <c:otherwise>
                     <p class="muted" style="margin-top:4px;">실제 합격자 데이터가 아니라, AI가 단계별로 정리한 참고 기준입니다.</p>
@@ -119,7 +159,21 @@
             <c:set var="heat" value="${insight.heatmap}" />
             <c:choose>
                 <c:when test="${empty heat.rows}">
-                    <p class="muted" style="margin-top:8px; margin-bottom:0;">이 직무로 격차 분석을 한 기록이 없습니다. <a href="${ctx}/gap-analysis">격차 분석 하러 가기</a></p>
+                    <div class="insight-empty">
+                        <div class="icon">🔍</div>
+                        <p class="muted">이 직무로 격차 분석을 한 기록이 없습니다. 분석을 한 번 실행하면 약한 분야가 표시됩니다.</p>
+                        <a class="btn secondary" href="${ctx}/gap-analysis">격차 분석 하러 가기</a>
+                    </div>
+                </c:when>
+                <c:when test="${heat.noOwnedSkills}">
+                    <div class="insight-empty">
+                        <div class="icon">🧩</div>
+                        <p class="muted">등록된 보유 기술이 없어 요구 기술 ${heat.missingTotal}개가 모두 부족으로 나옵니다. 프로필에 기술을 입력하고 격차 분석을 다시 실행해 주세요.</p>
+                        <div class="row" style="justify-content:center; gap:10px;">
+                            <a class="btn" href="${ctx}/profile">기술 입력하기</a>
+                            <a class="btn secondary" href="${ctx}/gap-analysis">격차 분석 다시 하기</a>
+                        </div>
+                    </div>
                 </c:when>
                 <c:otherwise>
                     <p class="muted" style="margin-top:4px;">분야와 요구 수준별 부족한 기술 수 / 요구 기술 수 · 색이 진할수록 많이 부족합니다</p>
