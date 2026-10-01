@@ -1,8 +1,6 @@
 package com.specodyssey.service;
 
-import com.specodyssey.dao.CertScheduleDao;
 import com.specodyssey.dao.CertificationDao;
-import com.specodyssey.dao.DdayAlertDao;
 import com.specodyssey.dao.GapAnalysisDao;
 import com.specodyssey.dao.GapAnalysisItemDao;
 import com.specodyssey.dao.JobDao;
@@ -16,9 +14,7 @@ import com.specodyssey.dao.DocumentDao;
 import com.specodyssey.dao.UserProjectDao;
 import com.specodyssey.dao.UserSkillDao;
 import com.specodyssey.dao.UserSpecDao;
-import com.specodyssey.dto.CertScheduleDto;
 import com.specodyssey.dto.CertificationDto;
-import com.specodyssey.dto.DdayAlertDto;
 import com.specodyssey.dto.DocumentDto;
 import com.specodyssey.dto.GapAnalysisDto;
 import com.specodyssey.dto.GapAnalysisItemDto;
@@ -72,8 +68,6 @@ class RoadmapServiceTest {
     private final UserSpecDao userSpecDao = new UserSpecDao();
     private final UserProjectDao userProjectDao = new UserProjectDao();
     private final DocumentDao documentDao = new DocumentDao();
-    private final CertScheduleDao certScheduleDao = new CertScheduleDao();
-    private final DdayAlertDao ddayAlertDao = new DdayAlertDao();
 
     private Long userId;
     private Long jobId;
@@ -728,51 +722,6 @@ class RoadmapServiceTest {
 
         assertTrue(roadmapService.submitCertProof(userId, certStep.getId(), sampleDocument()));
         assertFalse(roadmapService.submitCertProof(userId, certStep.getId(), sampleDocument()));
-    }
-
-    // FR-71 D-day 자동 생성(2026-10-01 연결) — 로드맵이 추천하는 자격증에 접수 마감 전 회차가
-    // 있으면 generate() 트랜잭션 안에서 DDAY_ALERT가 같이 만들어져야 한다.
-    @Test
-    void 로드맵_생성_시_추천_자격증에_다가오는_시험_일정이_있으면_Dday가_자동_생성된다() throws Exception {
-        Long roadmapId = roadmapService.generate(userId);
-        RoadmapStepDto certStep = roadmapService.getSteps(roadmapId).get(0);
-        assertEquals("CERT", certStep.getStepType());
-        Long certificationId = certStep.getCertificationId();
-
-        Long scheduleId;
-        try (Connection conn = DBUtil.getConnection()) {
-            CertScheduleDto schedule = new CertScheduleDto();
-            schedule.setCertificationId(certificationId);
-            schedule.setRoundName("테스트 회차");
-            schedule.setApplyStart(java.time.LocalDate.now().plusDays(1));
-            schedule.setApplyEnd(java.time.LocalDate.now().plusDays(5));
-            schedule.setExamDate(java.time.LocalDate.now().plusDays(20));
-            scheduleId = certScheduleDao.insert(conn, schedule);
-        }
-
-        try {
-            // 같은 분석으로 다시 generate()하면 기존 로드맵을 그대로 반환하고 새로 안 만든다(기존
-            // 동작) — 이 테스트는 "CERT 단계가 처음 만들어지는 순간"을 보려는 거라, 로드맵을 지우고
-            // 같은 분석으로 처음부터 다시 만든다.
-            try (Connection conn = DBUtil.getConnection()) {
-                for (RoadmapStepDto step : roadmapStepDao.findByRoadmapId(roadmapId)) {
-                    TestFixtures.hardDelete(conn, "ROADMAP_STEP", step.getId());
-                }
-                TestFixtures.hardDelete(conn, "ROADMAP", roadmapId);
-            }
-
-            roadmapService.generate(userId);
-
-            List<DdayAlertDto> alerts = ddayAlertDao.findByUserId(userId);
-            assertEquals(1, alerts.size());
-            assertEquals(scheduleId, alerts.get(0).getCertScheduleId());
-            assertEquals("CERT", alerts.get(0).getAlertType());
-        } finally {
-            try (Connection conn = DBUtil.getConnection()) {
-                TestFixtures.hardDeleteByColumn(conn, "DDAY_ALERT", "user_id", userId);
-                TestFixtures.hardDelete(conn, "CERT_SCHEDULE", scheduleId);
-            }
-        }
     }
 
     private UserProjectDto sampleProject() {

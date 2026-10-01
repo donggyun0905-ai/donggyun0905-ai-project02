@@ -88,7 +88,6 @@ public class RoadmapService {
     private final RoadmapStepDao roadmapStepDao = new RoadmapStepDao();
     private final ScoreService scoreService = new ScoreService();
     private final ProjectIdeaService projectIdeaService = new ProjectIdeaService();
-    private final DdayAutoGenerationService ddayAutoGenerationService = new DdayAutoGenerationService();
 
     // TD-5 배점: 로드맵 단계 완료당 +100 (여정 서비스의 핵심이라 배점 최상)
     private static final int ROADMAP_STEP_COMPLETE_POINTS = 100;
@@ -627,9 +626,6 @@ public class RoadmapService {
                     if (suggestedCert != null) {
                         order = insertStep(conn, roadmapId, order, "CERT", tier, suggestedCert.getId(), null,
                                 buildCertReason(job, suggestedCert));
-                        // FR-71 D-day 자동 생성 — 이 자격증에 접수 마감 전 가까운 시험 회차가 있으면
-                        // 알림을 자동으로 만든다. 일정이 없으면(수집 전·상시시험) 조용히 넘어간다.
-                        ddayAutoGenerationService.autoCreateCertDday(conn, userId, suggestedCert.getId());
                     }
                     if (!tierSkills.isEmpty()) {
                         order = insertStep(conn, roadmapId, order, "PROJECT", tier, null, null, projectReason);
