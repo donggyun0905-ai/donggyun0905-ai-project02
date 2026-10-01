@@ -333,43 +333,36 @@
     </c:otherwise>
 </c:choose>
 
-<%-- 티어 돌파 환영 모달(2026-10-01) — 방금 이 요청으로 티어가 100% 완료됐을 때만 서버가
+<%-- 티어 돌파 환영 창(2026-10-01) — 방금 이 요청으로 티어가 100% 완료됐을 때만 서버가
      celebrateTier를 넘겨준다(세션에 한 번 실었다가 꺼내며 지우므로 새로고침하면 다시 안 뜬다).
-     공통 CSS는 A 담당 파일이라 이 모달 스타일은 이 화면 안에 둔다. --%>
+     사용자 요청대로 배경 없이 투명하게, 달성한 등급 이미지만 중앙에 크게 보여주고 몇 초 뒤
+     저절로 사라져 원래 화면으로 돌아간다(클릭해도 바로 닫힌다). 달성 등급 이미지는
+     입문→취준생, 핵심→실전러, 심화→취뽀 임박, 전문가→취뽀로 매핑한다.
+     공통 CSS는 A 담당 파일이라 이 창의 스타일은 이 화면 안에 둔다. --%>
 <c:if test="${not empty celebrateTier}">
+    <c:set var="celebrateImage"
+           value="${celebrateTier == 'ENTRY' ? 'tier-2-jobseeker' : celebrateTier == 'CORE' ? 'tier-3-practitioner' : celebrateTier == 'ADVANCED' ? 'tier-4-almost' : 'tier-5-legend'}" />
     <c:set var="celebrateLabel"
            value="${celebrateTier == 'ENTRY' ? '입문' : celebrateTier == 'CORE' ? '핵심' : celebrateTier == 'ADVANCED' ? '심화' : '전문가'}" />
-    <c:set var="celebrateNextLabel"
-           value="${celebrateNextTier == 'ENTRY' ? '입문' : celebrateNextTier == 'CORE' ? '핵심' : celebrateNextTier == 'ADVANCED' ? '심화' : '전문가'}" />
     <style>
-        .tier-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000;
-            display: flex; align-items: center; justify-content: center; padding: 16px; }
-        .tier-modal { background: var(--card-bg); border-radius: var(--radius); padding: 28px 32px;
-            max-width: 420px; width: 100%; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
-        .tier-modal .big { font-size: 3rem; }
+        .tier-celebrate { position: fixed; inset: 0; z-index: 1000; display: flex;
+            align-items: center; justify-content: center; background: transparent;
+            animation: tierCelebrateOut 0.6s ease-in 2.6s forwards; cursor: pointer; }
+        .tier-celebrate img { max-width: min(70vw, 420px); max-height: 70vh;
+            filter: drop-shadow(0 8px 24px rgba(0,0,0,0.35));
+            animation: tierCelebrateIn 0.7s cubic-bezier(.2,1.4,.4,1) both; }
+        @keyframes tierCelebrateIn { from { transform: scale(0.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        @keyframes tierCelebrateOut { to { opacity: 0; transform: scale(0.6); } }
     </style>
-    <div class="tier-modal-backdrop" id="tierModal" role="dialog" aria-modal="true" aria-labelledby="tierModalTitle">
-        <div class="tier-modal">
-            <div class="big">🎉</div>
-            <h2 id="tierModalTitle">${celebrateLabel} 티어 돌파!</h2>
-            <c:choose>
-                <c:when test="${not empty celebrateNextTier}">
-                    <p>${celebrateLabel} 티어의 모든 단계를 완료했어요.<br><strong>${celebrateNextLabel}</strong> 티어가 새로 열렸습니다.</p>
-                </c:when>
-                <c:otherwise>
-                    <p>${celebrateLabel} 티어의 모든 단계를 완료했어요.<br>지금까지 분석된 부족 기술을 모두 채웠습니다!</p>
-                </c:otherwise>
-            </c:choose>
-            <button type="button" id="tierModalClose">계속하기</button>
-        </div>
+    <div class="tier-celebrate" id="tierCelebrate" role="img" aria-label="${celebrateLabel} 티어 돌파">
+        <img src="${pageContext.request.contextPath}/image/${celebrateImage}.png" alt="${celebrateLabel} 티어 돌파">
     </div>
     <script>
     (function () {
-        var modal = document.getElementById('tierModal');
-        function close() { modal.parentNode.removeChild(modal); }
-        document.getElementById('tierModalClose').addEventListener('click', close);
-        modal.addEventListener('click', function (e) { if (e.target === modal) { close(); } });
-        document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.parentNode) { close(); } });
+        var el = document.getElementById('tierCelebrate');
+        function close() { if (el.parentNode) { el.parentNode.removeChild(el); } }
+        el.addEventListener('click', close);
+        el.addEventListener('animationend', function (e) { if (e.animationName === 'tierCelebrateOut') { close(); } });
     })();
     </script>
 </c:if>

@@ -51,7 +51,6 @@ public class RoadmapServlet extends HttpServlet {
     private final UserProjectDao userProjectDao = new UserProjectDao();
 
     private static final String CELEBRATION_COMPLETED_KEY = "roadmapCelebrateTier";
-    private static final String CELEBRATION_NEXT_KEY = "roadmapCelebrateNextTier";
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -457,7 +456,7 @@ public class RoadmapServlet extends HttpServlet {
         return roadmap == null ? null : roadmapService.computeProgress(roadmapService.getSteps(roadmap.getId()));
     }
 
-    // 이번 요청으로 티어가 방금 100% 완료됐으면 (완료한 티어, 새로 열린 티어)를 세션에 한 번만 쓸 수 있게 실어둔다.
+    // 이번 요청으로 티어가 방금 100% 완료됐으면 완료한 티어를 세션에 한 번만 쓸 수 있게 실어둔다.
     private void recordTierCelebration(HttpServletRequest req, Long userId,
             RoadmapService.RoadmapProgress before) throws SQLException {
         RoadmapService.RoadmapProgress after = currentProgress(userId);
@@ -467,12 +466,6 @@ public class RoadmapServlet extends HttpServlet {
         }
         HttpSession session = req.getSession(false);
         session.setAttribute(CELEBRATION_COMPLETED_KEY, completed.getTier());
-        RoadmapService.TierProgress next = after.getCurrentTier();
-        if (next != null) {
-            session.setAttribute(CELEBRATION_NEXT_KEY, next.getTier());
-        } else {
-            session.removeAttribute(CELEBRATION_NEXT_KEY);
-        }
     }
 
     private void consumeTierCelebration(HttpServletRequest req) {
@@ -482,9 +475,7 @@ public class RoadmapServlet extends HttpServlet {
             return;
         }
         req.setAttribute("celebrateTier", completed);
-        req.setAttribute("celebrateNextTier", session.getAttribute(CELEBRATION_NEXT_KEY));
         session.removeAttribute(CELEBRATION_COMPLETED_KEY);
-        session.removeAttribute(CELEBRATION_NEXT_KEY);
     }
 
     private Long currentUserId(HttpServletRequest req) {
