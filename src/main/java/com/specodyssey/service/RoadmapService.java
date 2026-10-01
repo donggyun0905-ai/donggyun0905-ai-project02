@@ -24,6 +24,7 @@ import com.specodyssey.dto.SkillDto;
 import com.specodyssey.dto.UserProjectDto;
 import com.specodyssey.dto.UserSkillDto;
 import com.specodyssey.dto.UserSpecDto;
+import com.specodyssey.util.GroqLlmClient;
 import com.specodyssey.util.TransactionUtil;
 
 import java.sql.Connection;
@@ -48,7 +49,8 @@ import java.util.stream.Collectors;
  *   1) JOB_REQUIRED_SKILL.importance가 REQUIRED면 +2점, PREFERRED면 +1점, 정보 없으면 0점
  *   2) 자격증(CERT) 단계는 커버리지를 정량화할 매핑 테이블이 없어 점수 경쟁에 넣지 않고 있으면 항상 1번으로 고정
  *   3) 프로젝트(PROJECT) 단계도 1개 생성해 2번에 고정 (상위 점수 기술을 반영한 안내 문구만 제공 — 구체 프로젝트 추천은 LLM 붙을 때 고도화)
- *   4) SKILL 단계들은 위 점수 내림차순으로 정렬해 3번부터 배치
+ *   4) 점수 상위 기술 5개(라운드)를 골라, 기술마다 입문→핵심→심화→전문가 SKILL 단계를 티어 순으로 배치
+ *      (부족 기술이 5개 미만이면 직무 요구 기술로 보충 — SkillDeepenService)
  */
 public class RoadmapService {
 
@@ -62,17 +64,15 @@ public class RoadmapService {
     private static final String TIER_CORE = "CORE";
     private static final String TIER_ADVANCED = "ADVANCED";
     private static final String TIER_EXPERT = "EXPERT";
-    // db-design.md: "ENTRY를 다 걸으면 CORE가, CORE를 마치면 ADVANCED가 열리는 식으로 로드맵이
-    // 계속 연장된다" — 끝없는 여정 구조. 부족 기술을 점수 내림차순으로 정렬한 뒤 이 순서대로
-    // 5개씩 잘라 담고, 마지막(EXPERT)은 남은 걸 전부 받는다(팀 합의, 2026-09-29).
+    // 기술 하나가 입문(공부노트) → 핵심(프로젝트) → 심화(프로젝트 업그레이드) → 전문가(기술 설명 글)를
+    // 차례로 거치는 "기술별 사다리" 구조(2026-10-01 팀 결정). 티어는 우선순위 묶음이 아니라 숙련 단계다.
+    // 한 번에 다 펼치면 단계가 너무 많이 쏟아지므로, 한 로드맵(라운드)엔 우선순위 상위 기술
+    // ROUND_SKILL_COUNT개만 담는다. 다 끝낸 기술은 프로필에 반영돼 다음 재분석에서 빠지므로
+    // "재분석하면 다음 라운드가 이어진다"(db-design.md의 끝없는 여정).
     private static final List<String> SKILL_TIER_ORDER = List.of(TIER_ENTRY, TIER_CORE, TIER_ADVANCED, TIER_EXPERT);
     private static final int SCORE_REQUIRED = 2;
     private static final int SCORE_PREFERRED = 1;
-
-    // 부족한 기술이 아무리 많아도 한 티어엔 상위 N개만 노출한다 — 신규 사용자에게 수십 단계가
-    // 한꺼번에 쏟아지는 걸 막기 위함(db-design.md의 tier 단계적 노출 원칙). 나머지는 버리지 않고
-    // 다음 티어로 넘겨서 "다음 단계"에서 볼 수 있게 한다.
-    private static final int MAX_SKILL_STEPS_PER_TIER = 5;
+    private static final int ROUND_SKILL_COUNT = 5;
 
     private final GapAnalysisDao gapAnalysisDao = new GapAnalysisDao();
     private final GapAnalysisItemDao gapAnalysisItemDao = new GapAnalysisItemDao();
@@ -88,15 +88,22 @@ public class RoadmapService {
     private final RoadmapStepDao roadmapStepDao = new RoadmapStepDao();
     private final ScoreService scoreService = new ScoreService();
     private final ProjectIdeaService projectIdeaService;
+    private final SkillDeepenService skillDeepenService;
 
     public RoadmapService() {
-        this(new ProjectIdeaService());
+        this(new ProjectIdeaService(), new SkillDeepenService(GroqLlmClient.fromConfig()));
     }
 
     // 테스트에서 StubLlmClient 기반 ProjectIdeaService를 넣어 실제 Groq 호출을 피하려고 열어둔 생성자
     // (2026-10-01, RoadmapServiceTest가 매번 실제 LLM을 불러 429로 1시간 넘게 걸리던 문제).
+    // 기술 보충(SkillDeepenService)은 LLM 없이 중요도 순 대체만 쓴다.
     public RoadmapService(ProjectIdeaService projectIdeaService) {
+        this(projectIdeaService, new SkillDeepenService(null));
+    }
+
+    public RoadmapService(ProjectIdeaService projectIdeaService, SkillDeepenService skillDeepenService) {
         this.projectIdeaService = projectIdeaService;
+        this.skillDeepenService = skillDeepenService;
     }
 
     // TD-5 배점: 로드맵 단계 완료당 +100 (여정 서비스의 핵심이라 배점 최상)
@@ -189,8 +196,9 @@ public class RoadmapService {
             SkillDto skill = skillDao.findById(step.getRelatedSkillId());
             if (skill != null && skill.getSkillName() != null
                     && normalizedName.equals(skill.getSkillName().trim().toLowerCase())) {
-                // rankMissingSkills는 GAP_ANALYSIS_ITEM당 한 단계만 만들어서 같은 스킬이 한 로드맵에
-                // 두 번 나올 수 없다 — 찾으면 바로 끝낸다 (CERT 쪽과 동일한 전제).
+                // 기술 하나에 입문→핵심→심화→전문가 단계가 모두 있으므로, 프로필에 추가한 것은 가장 앞의
+                // 미완료 단계(입문, step_order 순) 하나만 완료로 본다 — 프로젝트·글까지 대신 끝낸 걸로
+                // 치면 안 된다. 옛 로드맵(기술당 단계 1개)에서도 그 하나가 그대로 완료된다.
                 completeStep(userId, step.getId(), true);
                 return;
             }
@@ -511,15 +519,20 @@ public class RoadmapService {
     // (사용자 입력이 필요해서 여기서 자동으로 채울 수 없다).
     private void syncProfileOnComplete(Connection conn, Long userId, RoadmapStepDto step) throws SQLException {
         if ("SKILL".equals(step.getStepType()) && step.getRelatedSkillId() != null) {
-            syncSkill(conn, userId, step.getRelatedSkillId());
+            syncSkill(conn, userId, step.getRelatedSkillId(), step.getTier());
         } else if ("CERT".equals(step.getStepType()) && step.getCertificationId() != null) {
             syncCertification(conn, userId, step.getCertificationId());
         }
     }
 
-    private void syncSkill(Connection conn, Long userId, Long skillId) throws SQLException {
+    // 숙련도 = 완료 횟수 기준(옛 규칙)과 도달한 단계 기준 중 높은 쪽 — 입문 노트 BEGINNER, 핵심·심화 프로젝트
+    // INTERMEDIATE, 전문가 글 ADVANCED(2026-10-01). 한 기술이 로드맵에 한 번씩만 나오면 횟수 기준은
+    // 도달할 수 없어서 단계 기준을 추가했다.
+    private void syncSkill(Connection conn, Long userId, Long skillId, String tier) throws SQLException {
         int completedCount = roadmapStepDao.countCompletedByUserAndSkill(conn, userId, skillId);
-        String proficiency = resolveProficiency(completedCount);
+        String byCount = resolveProficiency(completedCount);
+        String byTier = proficiencyForTier(tier);
+        String proficiency = proficiencyRank(byTier) > proficiencyRank(byCount) ? byTier : byCount;
 
         UserSkillDto existing = userSkillDao.findByUserIdAndSkillId(conn, userId, skillId);
         if (existing != null) {
@@ -561,6 +574,16 @@ public class RoadmapService {
             return PROFICIENCY_ADVANCED;
         }
         if (completedCount >= PROFICIENCY_INTERMEDIATE_THRESHOLD) {
+            return PROFICIENCY_INTERMEDIATE;
+        }
+        return PROFICIENCY_BEGINNER;
+    }
+
+    private String proficiencyForTier(String tier) {
+        if (TIER_EXPERT.equals(tier)) {
+            return PROFICIENCY_ADVANCED;
+        }
+        if (TIER_CORE.equals(tier) || TIER_ADVANCED.equals(tier)) {
             return PROFICIENCY_INTERMEDIATE;
         }
         return PROFICIENCY_BEGINNER;
@@ -617,12 +640,15 @@ public class RoadmapService {
 
         List<GapAnalysisItemDto> rankedMissing = rankMissingSkills(analysis);
         JobDto job = jobDao.findById(analysis.getJobId());
+        Map<Long, String> importanceBySkillId = importanceMap(analysis.getJobId());
+        // 이번 라운드에 담을 기술 — 부족 기술 상위 N개, 모자라면 이미 갖춘 직무 요구 기술로 보충한다.
+        // LLM 호출이 들어갈 수 있어서 DB 트랜잭션을 열기 전에 끝낸다.
+        List<Long> roundSkillIds = selectRoundSkills(job, rankedMissing, importanceBySkillId);
         CertificationDto suggestedCert = findSuggestedCertification(userId, job);
         // ENTRY 티어의 PROJECT 단계 안내 문구를 미리 만들어둔다 — LLM 호출은 DB 트랜잭션을 열기
         // 전에 끝내야 한다(claude.md: 외부 API 호출에 타임아웃을 직접 두고, 느리거나 실패해도
         // DB 커넥션을 물고 있으면 안 됨). 실패해도 로드맵 생성 자체는 막지 않는다(FR-111).
-        List<GapAnalysisItemDto> entryTierSkills = chunkForTier(rankedMissing, 0);
-        String projectReason = entryTierSkills.isEmpty() ? null : buildProjectReason(job, entryTierSkills);
+        String projectReason = roundSkillIds.isEmpty() ? null : buildProjectReason(job, roundSkillIds);
         RoadmapDto previousPrimary = roadmapDao.findPrimaryByUserId(userId);
         int nextVersion = nextVersion(userId);
 
@@ -640,29 +666,27 @@ public class RoadmapService {
             roadmap.setTargetLevel("EXPERT");
             Long roadmapId = roadmapDao.insert(conn, roadmap);
 
-            // 점수 내림차순으로 정렬된 부족 기술을 티어당 5개씩(마지막 EXPERT는 남은 전부) 잘라 담는다
-            // — "끝없는 여정" 구조(db-design.md), ENTRY가 끝나야 CORE가, CORE가 끝나야 ADVANCED가
+            // 티어 순서대로 라운드 기술 전부에 같은 티어 단계를 하나씩 만든다 — 같은 기술이 입문 노트 →
+            // 핵심 프로젝트 → 심화 업그레이드 → 전문가 글로 이어진다. 앞 티어를 끝내야 다음 티어가
             // 열리는 계단식 잠금은 computeProgress에서 매 조회 시 계산한다.
             int order = 1;
-            for (int tierIndex = 0; tierIndex < SKILL_TIER_ORDER.size(); tierIndex++) {
-                String tier = SKILL_TIER_ORDER.get(tierIndex);
-                List<GapAnalysisItemDto> tierSkills = chunkForTier(rankedMissing, tierIndex);
-
+            for (String tier : SKILL_TIER_ORDER) {
                 if (TIER_ENTRY.equals(tier)) {
-                    // CERT/PROJECT는 여정의 첫 진입점 성격이라 ENTRY 티어에만 둔다 — 뒤 티어는 SKILL로만 구성.
+                    // CERT/PROJECT는 여정의 첫 진입점 성격이라 ENTRY 티어에만 둔다.
                     if (suggestedCert != null) {
                         order = insertStep(conn, roadmapId, order, "CERT", tier, suggestedCert.getId(), null,
                                 buildCertReason(job, suggestedCert));
                     }
-                    if (!tierSkills.isEmpty()) {
+                    if (!roundSkillIds.isEmpty()) {
                         order = insertStep(conn, roadmapId, order, "PROJECT", tier, null, null, projectReason);
                     }
                 }
-                for (GapAnalysisItemDto item : tierSkills) {
-                    String importance = importanceOf(analysis.getJobId(), item.getSkillId());
-                    boolean alreadyLearned = roadmapStepDao.countCompletedByUserAndSkill(conn, userId, item.getSkillId()) > 0;
-                    order = insertStep(conn, roadmapId, order, "SKILL", tier, null, item.getSkillId(),
-                            buildSkillReason(item.getSkillId(), importance), alreadyLearned);
+                for (Long skillId : roundSkillIds) {
+                    // 같은 기술의 같은 단계를 이전 로드맵에서 이미 끝냈으면 완료로 승계한다(점수는 다시 안 줌).
+                    boolean alreadyLearned =
+                            roadmapStepDao.countCompletedByUserSkillAndTier(conn, userId, skillId, tier) > 0;
+                    order = insertStep(conn, roadmapId, order, "SKILL", tier, null, skillId,
+                            buildSkillReason(skillId, importanceBySkillId.get(skillId), tier), alreadyLearned);
                 }
             }
 
@@ -670,13 +694,75 @@ public class RoadmapService {
         });
     }
 
-    // rankedMissing을 SKILL_TIER_ORDER 순서대로 MAX_SKILL_STEPS_PER_TIER개씩 잘라준다.
-    // 마지막 티어(EXPERT)는 남은 걸 전부 받아서 기술이 버려지는 일이 없게 한다.
-    private List<GapAnalysisItemDto> chunkForTier(List<GapAnalysisItemDto> rankedMissing, int tierIndex) {
-        int from = Math.min(tierIndex * MAX_SKILL_STEPS_PER_TIER, rankedMissing.size());
-        boolean lastTier = tierIndex == SKILL_TIER_ORDER.size() - 1;
-        int to = lastTier ? rankedMissing.size() : Math.min(from + MAX_SKILL_STEPS_PER_TIER, rankedMissing.size());
-        return rankedMissing.subList(from, to);
+    // 부족 기술 상위 ROUND_SKILL_COUNT개를 담고, 모자라면 직무 요구 기술 중 아직 라운드에 없는 것으로
+    // 보충한다. 보충 후보 선택은 LLM(SkillDeepenService)에 맡기고, 실패하거나 모자라면 중요도 순으로 채운다.
+    private List<Long> selectRoundSkills(JobDto job, List<GapAnalysisItemDto> rankedMissing,
+            Map<Long, String> importanceBySkillId) throws SQLException {
+        List<Long> selected = new ArrayList<>();
+        for (GapAnalysisItemDto item : rankedMissing) {
+            if (selected.size() >= ROUND_SKILL_COUNT) {
+                break;
+            }
+            if (!selected.contains(item.getSkillId())) {
+                selected.add(item.getSkillId());
+            }
+        }
+        int needed = ROUND_SKILL_COUNT - selected.size();
+        if (needed <= 0) {
+            return selected;
+        }
+
+        // 후보: 직무 요구 기술 중 라운드에 아직 없는 것, 중요도 높은 순(동점은 DB 순서 유지).
+        Map<Long, SkillDto> candidates = new java.util.LinkedHashMap<>();
+        importanceBySkillId.entrySet().stream()
+                .sorted((x, y) -> Integer.compare(scoreOf(y.getValue()), scoreOf(x.getValue())))
+                .map(Map.Entry::getKey)
+                .filter(id -> !selected.contains(id))
+                .forEach(id -> candidates.put(id, null));
+        for (Long id : new ArrayList<>(candidates.keySet())) {
+            SkillDto skill = skillDao.findById(id);
+            if (skill == null || skill.getSkillName() == null) {
+                candidates.remove(id);
+            } else {
+                candidates.put(id, skill);
+            }
+        }
+        if (candidates.isEmpty()) {
+            return selected;
+        }
+
+        List<Long> additions = new ArrayList<>();
+        try {
+            List<String> plannedNames = new ArrayList<>();
+            for (Long id : selected) {
+                SkillDto skill = skillDao.findById(id);
+                if (skill != null) {
+                    plannedNames.add(skill.getSkillName());
+                }
+            }
+            List<String> picked = skillDeepenService.pick(
+                    job == null || job.getJobName() == null ? "이 직무" : job.getJobName(), plannedNames,
+                    candidates.values().stream().map(SkillDto::getSkillName).collect(Collectors.toList()), needed);
+            for (String name : picked) {
+                for (Map.Entry<Long, SkillDto> candidate : candidates.entrySet()) {
+                    if (name.equals(candidate.getValue().getSkillName()) && !additions.contains(candidate.getKey())) {
+                        additions.add(candidate.getKey());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // LLM 없음·실패·형식 오류 — 로드맵 생성을 막지 않고 아래 중요도 순 보충으로 대체한다(FR-111).
+        }
+        for (Long id : candidates.keySet()) {
+            if (additions.size() >= needed) {
+                break;
+            }
+            if (!additions.contains(id)) {
+                additions.add(id);
+            }
+        }
+        selected.addAll(additions.subList(0, Math.min(needed, additions.size())));
+        return selected;
     }
 
     private int insertStep(Connection conn, Long roadmapId, int order, String stepType, String tier,
@@ -723,10 +809,6 @@ public class RoadmapService {
         return map;
     }
 
-    private String importanceOf(Long jobId, Long skillId) throws SQLException {
-        return importanceMap(jobId).get(skillId);
-    }
-
     private int scoreOf(String importance) {
         if ("REQUIRED".equals(importance)) {
             return SCORE_REQUIRED;
@@ -770,13 +852,13 @@ public class RoadmapService {
     // LLM(ProjectIdeaService)이 목표 직무 + 부족 기술로 구체적인 프로젝트 아이디어를 만들어준다.
     // 실패(API 키 없음·타임아웃·응답 형식 오류 등)해도 로드맵 생성 자체를 막으면 안 되므로(FR-111),
     // 여기서 예외를 잡아 기존 고정 문구로 조용히 대체한다 — 2026-09-30, 집 PC 작업에서 신규 도입.
-    private String buildProjectReason(JobDto job, List<GapAnalysisItemDto> rankedMissing) throws SQLException {
+    private String buildProjectReason(JobDto job, List<Long> skillIds) throws SQLException {
         List<String> names = new ArrayList<>();
-        for (GapAnalysisItemDto item : rankedMissing) {
+        for (Long skillId : skillIds) {
             if (names.size() >= 3) {
                 break;
             }
-            SkillDto skill = skillDao.findById(item.getSkillId());
+            SkillDto skill = skillDao.findById(skillId);
             if (skill != null) {
                 names.add(skill.getSkillName());
             }
@@ -791,9 +873,18 @@ public class RoadmapService {
         }
     }
 
-    private String buildSkillReason(Long skillId, String importance) throws SQLException {
+    private String buildSkillReason(Long skillId, String importance, String tier) throws SQLException {
         SkillDto skill = skillDao.findById(skillId);
         String skillName = skill == null ? "이 기술" : skill.getSkillName();
+        if (TIER_CORE.equals(tier)) {
+            return skillName + "을(를) 직접 써본 프로젝트를 등록해 배운 내용을 실전에 적용합니다.";
+        }
+        if (TIER_ADVANCED.equals(tier)) {
+            return "앞서 만든 프로젝트를 " + skillName + " 기준으로 한 단계 업그레이드해 완성도를 높입니다.";
+        }
+        if (TIER_EXPERT.equals(tier)) {
+            return skillName + "을(를) 다른 사람이 이해할 수 있게 설명하는 글을 써서 진짜 내 것으로 만듭니다.";
+        }
         if (SCORE_REQUIRED == scoreOf(importance)) {
             return skillName + "은(는) 이 직무에서 필수로 요구하는 기술인데 아직 부족합니다. 우선적으로 채워야 합니다.";
         }
