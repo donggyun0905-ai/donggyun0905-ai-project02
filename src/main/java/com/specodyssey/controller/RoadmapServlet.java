@@ -4,6 +4,8 @@ import com.specodyssey.dao.DocumentDao;
 import com.specodyssey.dao.UserDao;
 import com.specodyssey.dao.UserProjectDao;
 import com.specodyssey.dto.DocumentDto;
+import com.specodyssey.dto.LevelTierDto;
+import com.specodyssey.dto.UserScoreSummaryDto;
 import com.specodyssey.dto.RoadmapDto;
 import com.specodyssey.dto.RoadmapStepDto;
 import com.specodyssey.dto.UserDto;
@@ -12,6 +14,7 @@ import com.specodyssey.service.DailyMissionService;
 import com.specodyssey.service.GapAnalysisService;
 import com.specodyssey.service.NoteService;
 import com.specodyssey.service.RoadmapService;
+import com.specodyssey.service.ScoreService;
 import com.specodyssey.util.FileStorageUtil;
 import com.specodyssey.util.PdfTextUtil;
 
@@ -55,6 +58,7 @@ public class RoadmapServlet extends HttpServlet {
     private final DailyMissionService dailyMissionService = new DailyMissionService();
     private final DocumentDao documentDao = new DocumentDao();
     private final NoteService noteService = new NoteService();
+    private final ScoreService scoreService = new ScoreService();
     private static final int RECENT_DOCUMENT_COUNT = 5;
 
     private static final String CELEBRATION_COMPLETED_KEY = "roadmapCelebrateTier";
@@ -130,10 +134,10 @@ public class RoadmapServlet extends HttpServlet {
         boolean mayCompleteStep = "complete".equals(action) || "completeProject".equals(action)
                 || "submitSkillNote".equals(action) || "submitSkillProject".equals(action)
                 || "submitCertProof".equals(action);
-        RoadmapService.RoadmapProgress progressBefore = null;
+        Long scoreTierBefore = null;
 
         try {
-            progressBefore = mayCompleteStep ? currentProgress(userId) : null;
+            scoreTierBefore = mayCompleteStep ? currentScoreTierId(userId) : null;
             if ("generate".equals(action)) {
                 roadmapService.generate(userId);
             } else if ("complete".equals(action)) {
@@ -187,7 +191,7 @@ public class RoadmapServlet extends HttpServlet {
 
         if (mayCompleteStep) {
             try {
-                recordTierCelebration(req, userId, progressBefore);
+                recordTierCelebration(req, userId, scoreTierBefore);
             } catch (SQLException e) {
                 // 축하 모달은 부가 기능 — 조회 실패로 이미 끝난 완료 처리 응답까지 망치지 않는다.
             }
@@ -490,26 +494,46 @@ public class RoadmapServlet extends HttpServlet {
         return roadmap == null ? null : roadmapService.computeProgress(roadmapService.getSteps(roadmap.getId()));
     }
 
-    // 이번 요청으로 티어가 방금 100% 완료됐으면 완료한 티어를 세션에 한 번만 쓸 수 있게 실어둔다.
-    private void recordTierCelebration(HttpServletRequest req, Long userId,
-            RoadmapService.RoadmapProgress before) throws SQLException {
-        RoadmapService.RoadmapProgress after = currentProgress(userId);
-        RoadmapService.TierProgress completed = roadmapService.findNewlyCompletedTier(before, after);
-        if (completed == null) {
-            return;
+    // 티어는 로드맵 단계(입문·핵심·심화·전문가)가 아니라 점수로 오르는 LEVEL_TIER(비기너→…→취뽀)다.
+    // 요약 행이 없는(점수를 한 번도 못 쌓은) 계정은 0점 기준 등급으로 본다.
+    private Long currentScoreTierId(Long userId) throws SQLException {
+        UserScoreSummaryDto summary = scoreService.getSummary(userId);
+        if (summary != null && summary.getCurrentTierId() != null) {
+            return summary.getCurrentTierId();
         }
-        HttpSession session = req.getSession(false);
-        session.setAttribute(CELEBRATION_COMPLETED_KEY, completed.getTier());
+        LevelTierDto base = scoreService.getTierForScore(summary == null || summary.getTotalScore() == null
+                ? 0 : summary.getTotalScore());
+        return base == null ? null : base.getId();
     }
 
-    private void consumeTierCelebration(HttpServletRequest req) {
-        HttpSession session = req.getSession(false);
-        Object completed = session.getAttribute(CELEBRATION_COMPLETED_KEY);
-        if (completed == null) {
+    // 이번 요청으로 점수 등급(LEVEL_TIER)이 방금 올랐으면 새 등급을 세션에 한 번만 쓸 수 있게 실어둔다.
+    private void recordTierCelebration(HttpServletRequest req, Long userId, Long tierIdBefore) throws SQLException {
+        Long tierIdAfter = currentScoreTierId(userId);
+        if (tierIdBefore == null || tierIdAfter == null || tierIdBefore.equals(tierIdAfter)) {
             return;
         }
-        req.setAttribute("celebrateTier", completed);
+        LevelTierDto before = scoreService.getTier(tierIdBefore);
+        LevelTierDto after = scoreService.getTier(tierIdAfter);
+        if (before == null || after == null || after.getMinScore() <= before.getMinScore()) {
+            return;
+        }
+        req.getSession(false).setAttribute(CELEBRATION_COMPLETED_KEY, tierIdAfter);
+    }
+
+    private void consumeTierCelebration(HttpServletRequest req) throws SQLException {
+        HttpSession session = req.getSession(false);
+        Object tierId = session.getAttribute(CELEBRATION_COMPLETED_KEY);
+        if (!(tierId instanceof Long id)) {
+            return;
+        }
         session.removeAttribute(CELEBRATION_COMPLETED_KEY);
+        LevelTierDto tier = scoreService.getTier(id);
+        String logoPath = scoreService.getTierLogoPath(id);
+        if (tier == null || logoPath == null) {
+            return;
+        }
+        req.setAttribute("celebrateTierName", tier.getTierName());
+        req.setAttribute("celebrateTierImage", logoPath);
     }
 
     private Long currentUserId(HttpServletRequest req) {

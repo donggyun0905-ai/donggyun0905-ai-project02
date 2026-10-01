@@ -393,17 +393,12 @@
     </c:otherwise>
 </c:choose>
 
-<%-- 티어 돌파 환영 창(2026-10-01) — 방금 이 요청으로 티어가 100% 완료됐을 때만 서버가
-     celebrateTier를 넘겨준다(세션에 한 번 실었다가 꺼내며 지우므로 새로고침하면 다시 안 뜬다).
+<%-- 티어 돌파 환영 창(2026-10-01) — 방금 이 요청으로 점수 등급(LEVEL_TIER: 비기너→취준생→실전러→
+     취뽀 임박→취뽀)이 올랐을 때만 서버가 celebrateTierName·celebrateTierImage를 넘겨준다(세션에 한 번 실었다가 꺼내며 지우므로 새로고침하면 다시 안 뜬다).
      사용자 요청대로 배경 없이 투명하게, 달성한 등급 이미지만 중앙에 크게 보여주고 몇 초 뒤
-     저절로 사라져 원래 화면으로 돌아간다(클릭해도 바로 닫힌다). 달성 등급 이미지는
-     입문→취준생, 핵심→실전러, 심화→취뽀 임박, 전문가→취뽀로 매핑한다.
+     저절로 사라져 원래 화면으로 돌아간다(클릭해도 바로 닫힌다). 이미지는 올라간 등급(ScoreService.getTierLogoPath)의 로고다.
      공통 CSS는 A 담당 파일이라 이 창의 스타일은 이 화면 안에 둔다. --%>
-<c:if test="${not empty celebrateTier}">
-    <c:set var="celebrateImage"
-           value="${celebrateTier == 'ENTRY' ? 'tier-2-jobseeker' : celebrateTier == 'CORE' ? 'tier-3-practitioner' : celebrateTier == 'ADVANCED' ? 'tier-4-almost' : 'tier-5-legend'}" />
-    <c:set var="celebrateLabel"
-           value="${celebrateTier == 'ENTRY' ? '입문' : celebrateTier == 'CORE' ? '핵심' : celebrateTier == 'ADVANCED' ? '심화' : '전문가'}" />
+<c:if test="${not empty celebrateTierName}">
     <style>
         .tier-celebrate { position: fixed; inset: 0; z-index: 1000; display: flex;
             align-items: center; justify-content: center; background: transparent;
@@ -414,8 +409,8 @@
         @keyframes tierCelebrateIn { from { transform: scale(0.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         @keyframes tierCelebrateOut { to { opacity: 0; transform: scale(0.6); } }
     </style>
-    <div class="tier-celebrate" id="tierCelebrate" role="img" aria-label="${celebrateLabel} 티어 돌파">
-        <img src="${pageContext.request.contextPath}/image/${celebrateImage}.png" alt="${celebrateLabel} 티어 돌파">
+    <div class="tier-celebrate" id="tierCelebrate" role="img" aria-label="${celebrateTierName} 티어 돌파">
+        <img src="${pageContext.request.contextPath}${celebrateTierImage}" alt="${celebrateTierName} 티어 돌파">
     </div>
     <script>
     (function () {

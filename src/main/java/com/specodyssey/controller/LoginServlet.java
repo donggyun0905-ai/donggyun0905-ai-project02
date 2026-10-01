@@ -24,6 +24,13 @@ public class LoginServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        // 이미 로그인한 상태에서 로고("/" → index.jsp → "/login")를 눌렀을 때 로그인 화면이 또 뜨지 않게,
+        // 로그인 성공 후와 같은 메인 화면(로드맵)으로 보낸다.
+        HttpSession session = req.getSession(false);
+        if (session != null && session.getAttribute("loginUser") != null) {
+            resp.sendRedirect(req.getContextPath() + "/roadmap");
+            return;
+        }
         req.getRequestDispatcher("/WEB-INF/views/login.jsp").forward(req, resp);
     }
 
