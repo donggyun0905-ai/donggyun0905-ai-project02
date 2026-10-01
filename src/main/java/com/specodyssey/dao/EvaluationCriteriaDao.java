@@ -55,6 +55,21 @@ public class EvaluationCriteriaDao {
         }
     }
 
+    // 요구 역량 추가 — 이미 있는 역량이면 가중치만 바꾸고, 지웠던(is_deleted) 역량이면 되살린다.
+    // (session_id, skill_id) UNIQUE는 지운 행에도 걸려서 그냥 INSERT하면 다시 추가할 때 실패한다.
+    public void save(Long sessionId, Long skillId, int weight) throws SQLException {
+        String sql = "INSERT INTO EVALUATION_CRITERIA (session_id, skill_id, weight) VALUES (?, ?, ?) " +
+                "ON DUPLICATE KEY UPDATE weight = ?, is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, sessionId);
+            pstmt.setLong(2, skillId);
+            pstmt.setInt(3, weight);
+            pstmt.setInt(4, weight);
+            pstmt.executeUpdate();
+        }
+    }
+
     public void update(Connection conn, Long id, int weight, String sessionToken) throws SQLException {
         String sql = "UPDATE EVALUATION_CRITERIA SET weight = ? " +
                 "WHERE id = ? AND session_id IN (SELECT id FROM EVALUATION_SESSION WHERE session_token = ?)";

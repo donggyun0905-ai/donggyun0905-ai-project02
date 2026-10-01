@@ -16,12 +16,12 @@
 <p class="muted">
     목표 직무 <strong><c:out value="${empty desiredJobName ? '미설정' : desiredJobName}" /></strong> ·
     <c:choose>
-        <c:when test="${not empty currentTier}">
+        <c:when test="${not empty journeyCurrentTier}">
             지금은
             <c:choose>
-                <c:when test="${currentTier.tier == 'ENTRY'}">입문(ENTRY)</c:when>
-                <c:when test="${currentTier.tier == 'CORE'}">핵심(CORE)</c:when>
-                <c:when test="${currentTier.tier == 'ADVANCED'}">심화(ADVANCED)</c:when>
+                <c:when test="${journeyCurrentTier.tier == 'ENTRY'}">입문(ENTRY)</c:when>
+                <c:when test="${journeyCurrentTier.tier == 'CORE'}">핵심(CORE)</c:when>
+                <c:when test="${journeyCurrentTier.tier == 'ADVANCED'}">심화(ADVANCED)</c:when>
                 <c:otherwise>전문가(EXPERT)</c:otherwise>
             </c:choose>
             단계를 걷고 있습니다.

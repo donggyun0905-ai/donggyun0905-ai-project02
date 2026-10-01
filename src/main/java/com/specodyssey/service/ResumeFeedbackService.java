@@ -104,6 +104,11 @@ public class ResumeFeedbackService {
         public boolean isAnyEstimated() {
             return keywords.stream().anyMatch(Keyword::estimated);
         }
+
+        // Tomcat 11(EL 6)의 RecordELResolver는 x() 형태 접근자만 찾는다 — MissionStreakService.StreakView 주석 참고.
+        public boolean anyEstimated() {
+            return isAnyEstimated();
+        }
     }
 
     private final LlmClient llm;

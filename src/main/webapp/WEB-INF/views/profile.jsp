@@ -47,7 +47,10 @@
                     <input type="hidden" name="confirmedJobId" value="${pendingJobMatch.job.id}">
                     <input type="hidden" name="email" value="${pendingEmail}">
                     <input type="hidden" name="major" value="${pendingMajor}">
-                    <input type="hidden" name="grade" value="${pendingGrade}">
+                    <input type="hidden" name="name" value="<c:out value='${pendingPersonalInfo.name}' />">
+                    <input type="hidden" name="age" value="${pendingPersonalInfo.age}">
+                    <input type="hidden" name="careerStatus" value="${pendingPersonalInfo.careerStatus}">
+                    <input type="hidden" name="grade" value="<c:out value='${pendingPersonalInfo.grade}' />">
                     <input type="hidden" name="interestField" value="${pendingInterestField}">
                     <button type="submit">예, 이 직무로 저장</button>
                 </form>
@@ -58,9 +61,22 @@
     <c:otherwise>
         <div class="card">
             <form action="${pageContext.request.contextPath}/profile" method="post">
+                <%-- 저장에 실패해 다시 그릴 때는 방금 입력한 값(param)을, 아니면 저장된 값을 보여준다 --%>
+                <c:set var="statusValue" value="${empty param.careerStatus ? user.careerStatus : param.careerStatus}" />
+                <p><label>이름</label><input type="text" name="name" maxlength="50" required value="<c:out value='${empty param.name ? user.name : param.name}' />"></p>
+                <p><label>나이</label><input type="number" name="age" min="1" max="120" required value="<c:out value='${empty param.age ? user.age : param.age}' />"></p>
+                <p>
+                    <label>구분</label>
+                    <select name="careerStatus" id="careerStatus" required>
+                        <option value="" ${empty statusValue ? 'selected' : ''} disabled>선택해주세요</option>
+                        <option value="STUDENT" ${statusValue == 'STUDENT' ? 'selected' : ''}>학생</option>
+                        <option value="JOB_SEEKER" ${statusValue == 'JOB_SEEKER' ? 'selected' : ''}>취준생</option>
+                        <option value="EMPLOYED" ${statusValue == 'EMPLOYED' ? 'selected' : ''}>직장인</option>
+                    </select>
+                </p>
+                <p id="grade-field"><label>학년</label><input type="text" name="grade" maxlength="20" required placeholder="예) 3학년" value="<c:out value='${empty param.grade ? user.grade : param.grade}' />"></p>
                 <p><label>이메일</label><input type="email" name="email" value="${user.email}"></p>
                 <p><label>전공</label><input type="text" name="major" value="${user.major}"></p>
-                <p><label>학년</label><input type="text" name="grade" value="${user.grade}"></p>
                 <p><label>관심 분야</label><input type="text" name="interestField" value="${user.interestField}"></p>
                 <p>
                     <label>희망 직무</label>
@@ -84,8 +100,104 @@
                 <button type="submit">기본정보 저장</button>
             </form>
         </div>
+        <script>
+            // 학년은 구분이 학생일 때만 받는다 — 숨긴 칸은 필수 검사와 전송에서도 뺀다
+            (function () {
+                var careerStatus = document.getElementById('careerStatus');
+                var gradeField = document.getElementById('grade-field');
+                function toggle() {
+                    var student = careerStatus.value === 'STUDENT';
+                    gradeField.style.display = student ? '' : 'none';
+                    gradeField.querySelector('input').disabled = !student;
+                }
+                careerStatus.addEventListener('change', toggle);
+                toggle();
+            })();
+        </script>
     </c:otherwise>
 </c:choose>
+
+<h2 style="margin-top:24px; margin-bottom:10px;">이력서 · 자소서 <span class="muted" style="font-weight:normal; font-size:0.85rem;">(선택)</span></h2>
+<%-- 팀 회의에서 정한 안내 문구(2026-10-01): 이력서·자소서를 선택으로 올려 두면 면접관이 한 화면에서 한눈에 볼 수 있다는 점을 알린다. --%>
+<div class="card" style="background:var(--card-bg, #fff); border-left:4px solid var(--teal, #2E7D6B);">
+    <p style="margin:0 0 6px;"><strong>💡 이력서와 자소서를 올려 두면 면접관이 한눈에 볼 수 있어 편해요</strong></p>
+    <p class="muted" style="margin:0; font-size:0.88rem; line-height:1.6;">
+        공유 링크를 만들 때 <strong>이력서 파일</strong>·<strong>자소서 파일</strong>을 함께 골라 두면, 면접관은 링크 하나로 내 기본 이력과 기술 스택부터 이력서·자소서까지
+        한 화면에서 확인하고 바로 내려받을 수 있어요. 파일을 따로 주고받거나 여러 군데를 찾아다니지 않아도 되니 면접관에게도 훨씬 수월하고, 내 이야기가 빠짐없이 전해집니다.
+        둘 다 <strong>선택</strong>이라 올리지 않아도 가입·분석·로드맵에는 아무 영향이 없고, 개인정보가 들어 있는 파일이라 링크를 만들 때 직접 체크한 경우에만 공개돼요.
+    </p>
+</div>
+<c:if test="${not empty resumeMessage}">
+    <p class="error-message"><c:out value="${resumeMessage}" /></p>
+</c:if>
+<div class="card">
+    <h3 style="margin:0 0 8px; font-size:1rem;">이력서 <span class="muted" style="font-weight:normal; font-size:0.8rem;">· 선택</span></h3>
+    <c:choose>
+        <c:when test="${not empty resume}">
+            <p style="margin-top:0;">
+                <a href="${pageContext.request.contextPath}/documents/${resume.id}">📎 <c:out value="${resume.originalName}" /></a>
+                <span class="muted">· ${resume.createdAt.toLocalDate()}에 올림</span>
+            </p>
+        </c:when>
+        <c:otherwise>
+            <p class="muted" style="margin-top:0;">아직 올린 이력서가 없습니다. 안 올려도 괜찮아요.</p>
+        </c:otherwise>
+    </c:choose>
+    <form action="${pageContext.request.contextPath}/profile/resume" method="post" enctype="multipart/form-data" class="row">
+        <input type="file" name="resume" required accept=".pdf,.doc,.docx,.hwp,.hwpx" style="flex:1;">
+        <button type="submit">${empty resume ? '이력서 올리기' : '새 파일로 바꾸기'}</button>
+    </form>
+    <p class="muted" style="font-size:0.8rem; margin:8px 0 0;">PDF, Word(doc·docx), 한글(hwp·hwpx) 파일을 10MB까지 올릴 수 있습니다. 새 파일을 올리면 이전 이력서는 지워집니다.</p>
+    <c:if test="${not empty resume}">
+        <form action="${pageContext.request.contextPath}/profile/resume" method="post" class="delete-resume" style="margin-top:8px;">
+            <input type="hidden" name="action" value="delete">
+            <button type="submit" class="link-button">이력서 삭제</button>
+        </form>
+        <script>
+            document.querySelector('.delete-resume').addEventListener('submit', function (event) {
+                if (!confirm('이력서를 삭제할까요?')) {
+                    event.preventDefault();
+                }
+            });
+        </script>
+    </c:if>
+</div>
+
+<c:if test="${not empty coverLetterMessage}">
+    <p class="error-message"><c:out value="${coverLetterMessage}" /></p>
+</c:if>
+<div class="card">
+    <h3 style="margin:0 0 8px; font-size:1rem;">자소서 <span class="muted" style="font-weight:normal; font-size:0.8rem;">· 선택</span></h3>
+    <c:choose>
+        <c:when test="${not empty coverLetter}">
+            <p style="margin-top:0;">
+                <a href="${pageContext.request.contextPath}/documents/${coverLetter.id}">📎 <c:out value="${coverLetter.originalName}" /></a>
+                <span class="muted">· ${coverLetter.createdAt.toLocalDate()}에 올림</span>
+            </p>
+        </c:when>
+        <c:otherwise>
+            <p class="muted" style="margin-top:0;">아직 올린 자소서가 없습니다. 안 올려도 괜찮아요.</p>
+        </c:otherwise>
+    </c:choose>
+    <form action="${pageContext.request.contextPath}/profile/cover-letter" method="post" enctype="multipart/form-data" class="row">
+        <input type="file" name="coverLetter" required accept=".pdf,.doc,.docx,.hwp,.hwpx" style="flex:1;">
+        <button type="submit">${empty coverLetter ? '자소서 올리기' : '새 파일로 바꾸기'}</button>
+    </form>
+    <p class="muted" style="font-size:0.8rem; margin:8px 0 0;">PDF, Word(doc·docx), 한글(hwp·hwpx) 파일을 10MB까지 올릴 수 있습니다. 새 파일을 올리면 이전 자소서는 지워집니다.</p>
+    <c:if test="${not empty coverLetter}">
+        <form action="${pageContext.request.contextPath}/profile/cover-letter" method="post" class="delete-coverLetter" style="margin-top:8px;">
+            <input type="hidden" name="action" value="delete">
+            <button type="submit" class="link-button">자소서 삭제</button>
+        </form>
+        <script>
+            document.querySelector('.delete-coverLetter').addEventListener('submit', function (event) {
+                if (!confirm('자소서를 삭제할까요?')) {
+                    event.preventDefault();
+                }
+            });
+        </script>
+    </c:if>
+</div>
 
 <h2 style="margin-top:24px; margin-bottom:10px;">보유 스펙</h2>
 <ul class="item-list">

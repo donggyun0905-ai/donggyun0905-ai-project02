@@ -70,6 +70,12 @@ class ShareViewServiceTest {
         skill.setRawInput("Spring Boot");
         skill.setProficiency("INTERMEDIATE");
         new UserSkillDao().insert(skill);
+
+        // 숙련도를 고르지 않은 기술
+        UserSkillDto noProficiency = new UserSkillDto();
+        noProficiency.setUserId(userId);
+        noProficiency.setRawInput("Docker");
+        new UserSkillDao().insert(noProficiency);
     }
 
     @AfterAll
@@ -102,6 +108,7 @@ class ShareViewServiceTest {
         assertEquals("2026-09-01 ~ 2026-09-20", view.getTimeline().get(1).getDateText());
         assertEquals("사용 기술: Java, MySQL", view.getTimeline().get(1).getDetail());
         assertEquals("Spring Boot · 중급", view.getSkills().get(0));
+        assertEquals("Docker", view.getSkills().get(1)); // 숙련도가 없으면 기술명만
         assertEquals(1, new ShareLinkViewLogDao().findByShareLinkId(link.getId()).size());
     }
 
@@ -123,7 +130,7 @@ class ShareViewServiceTest {
         assertNull(view.getMajor());
         assertNull(view.getGrade());
         assertTrue(view.getTimeline().isEmpty());
-        assertEquals(1, view.getSkills().size());
+        assertEquals(2, view.getSkills().size());
     }
 
     @Test

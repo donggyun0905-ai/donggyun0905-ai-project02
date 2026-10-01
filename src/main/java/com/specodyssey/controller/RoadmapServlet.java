@@ -1,14 +1,20 @@
 package com.specodyssey.controller;
 
+import com.specodyssey.dao.DocumentDao;
 import com.specodyssey.dao.UserDao;
 import com.specodyssey.dao.UserProjectDao;
 import com.specodyssey.dto.DocumentDto;
+import com.specodyssey.dto.LevelTierDto;
+import com.specodyssey.dto.UserScoreSummaryDto;
 import com.specodyssey.dto.RoadmapDto;
 import com.specodyssey.dto.RoadmapStepDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.dto.UserProjectDto;
+import com.specodyssey.service.DailyMissionService;
 import com.specodyssey.service.GapAnalysisService;
+import com.specodyssey.service.NoteService;
 import com.specodyssey.service.RoadmapService;
+import com.specodyssey.service.ScoreService;
 import com.specodyssey.util.FileStorageUtil;
 import com.specodyssey.util.PdfTextUtil;
 
@@ -49,6 +55,13 @@ public class RoadmapServlet extends HttpServlet {
     private final GapAnalysisService gapAnalysisService = new GapAnalysisService();
     private final UserDao userDao = new UserDao();
     private final UserProjectDao userProjectDao = new UserProjectDao();
+    private final DailyMissionService dailyMissionService = new DailyMissionService();
+    private final DocumentDao documentDao = new DocumentDao();
+    private final NoteService noteService = new NoteService();
+    private final ScoreService scoreService = new ScoreService();
+    private static final int RECENT_DOCUMENT_COUNT = 5;
+
+    private static final String CELEBRATION_COMPLETED_KEY = "roadmapCelebrateTier";
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -70,6 +83,9 @@ public class RoadmapServlet extends HttpServlet {
                     : roadmapService.getSteps(roadmap.getId());
             req.setAttribute("steps", steps);
             req.setAttribute("progress", roadmapService.computeProgress(steps));
+            // 티어 돌파 환영 모달 — 완료 처리 직후 한 번만 뜨도록 세션에 잠깐 실어둔 신호를 꺼내 쓰고 지운다
+            // (새로고침하면 이미 지워져 있어서 다시 안 뜬다).
+            consumeTierCelebration(req);
             // CORE/ADVANCED SKILL 단계의 "기존 프로젝트 업그레이드" 선택지용 — 2026-09-30 팀 결정.
             req.setAttribute("userProjects", userProjectDao.findByUserId(userId));
             // "요구 기술이 바뀌었어요" 배너 — 로드맵이 기준으로 삼은 분석이 낡았는지(2026-09-30 팀 결정).
@@ -79,15 +95,49 @@ public class RoadmapServlet extends HttpServlet {
         } catch (SQLException e) {
             throw new ServletException("로드맵을 불러오는 중 오류가 발생했습니다.", e);
         }
+        loadSideWidgets(req, userId);
         req.getRequestDispatcher("/WEB-INF/views/roadmap.jsp").forward(req, resp);
+    }
+
+    // 로드맵 좌우 위젯(왼쪽: 일일 미션·최근 서류, 오른쪽: 연습장 노트) 데이터. 부가 영역이라 하나가
+    // 실패해도 로드맵 본문까지 막지 않고 그 위젯만 빈 상태로 둔다.
+    private void loadSideWidgets(HttpServletRequest req, Long userId) {
+        try {
+            DailyMissionService.TodayMissions today = dailyMissionService.getOrAssignToday(userId);
+            int total = today.getMissions().size();
+            req.setAttribute("dailyMissions", today.getMissions());
+            req.setAttribute("dailyMissionDone", today.getDoneCount());
+            req.setAttribute("dailyMissionPercent", total == 0 ? 0 : (int) (today.getDoneCount() * 100 / total));
+        } catch (SQLException e) {
+            getServletContext().log("로드맵 일일 미션 위젯 조회 실패", e);
+        }
+        try {
+            List<DocumentDto> documents = documentDao.findByUserId(userId);
+            req.setAttribute("recentDocuments",
+                    documents.subList(0, Math.min(RECENT_DOCUMENT_COUNT, documents.size())));
+        } catch (SQLException e) {
+            getServletContext().log("로드맵 최근 서류 위젯 조회 실패", e);
+        }
+        try {
+            req.setAttribute("noteText", noteService.load(userId));
+        } catch (SQLException e) {
+            getServletContext().log("로드맵 노트 조회 실패", e);
+        }
     }
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         Long userId = currentUserId(req);
         String action = req.getParameter("action");
+        // 단계 완료로 이어질 수 있는 액션만 전/후 진행도를 비교한다 — generate 등은 티어 구성 자체가
+        // 바뀌므로 "방금 티어를 끝냈다"로 오인하면 안 된다.
+        boolean mayCompleteStep = "complete".equals(action) || "completeProject".equals(action)
+                || "submitSkillNote".equals(action) || "submitSkillProject".equals(action)
+                || "submitCertProof".equals(action);
+        Long scoreTierBefore = null;
 
         try {
+            scoreTierBefore = mayCompleteStep ? currentScoreTierId(userId) : null;
             if ("generate".equals(action)) {
                 roadmapService.generate(userId);
             } else if ("complete".equals(action)) {
@@ -139,6 +189,13 @@ public class RoadmapServlet extends HttpServlet {
             throw new ServletException("로드맵 처리 중 오류가 발생했습니다.", e);
         }
 
+        if (mayCompleteStep) {
+            try {
+                recordTierCelebration(req, userId, scoreTierBefore);
+            } catch (SQLException e) {
+                // 축하 모달은 부가 기능 — 조회 실패로 이미 끝난 완료 처리 응답까지 망치지 않는다.
+            }
+        }
         resp.sendRedirect(req.getContextPath() + "/roadmap");
     }
 
@@ -430,6 +487,53 @@ public class RoadmapServlet extends HttpServlet {
             return null;
         }
         return LocalDate.parse(value);
+    }
+
+    private RoadmapService.RoadmapProgress currentProgress(Long userId) throws SQLException {
+        RoadmapDto roadmap = roadmapService.getPrimaryRoadmap(userId);
+        return roadmap == null ? null : roadmapService.computeProgress(roadmapService.getSteps(roadmap.getId()));
+    }
+
+    // 티어는 로드맵 단계(입문·핵심·심화·전문가)가 아니라 점수로 오르는 LEVEL_TIER(비기너→…→취뽀)다.
+    // 요약 행이 없는(점수를 한 번도 못 쌓은) 계정은 0점 기준 등급으로 본다.
+    private Long currentScoreTierId(Long userId) throws SQLException {
+        UserScoreSummaryDto summary = scoreService.getSummary(userId);
+        if (summary != null && summary.getCurrentTierId() != null) {
+            return summary.getCurrentTierId();
+        }
+        LevelTierDto base = scoreService.getTierForScore(summary == null || summary.getTotalScore() == null
+                ? 0 : summary.getTotalScore());
+        return base == null ? null : base.getId();
+    }
+
+    // 이번 요청으로 점수 등급(LEVEL_TIER)이 방금 올랐으면 새 등급을 세션에 한 번만 쓸 수 있게 실어둔다.
+    private void recordTierCelebration(HttpServletRequest req, Long userId, Long tierIdBefore) throws SQLException {
+        Long tierIdAfter = currentScoreTierId(userId);
+        if (tierIdBefore == null || tierIdAfter == null || tierIdBefore.equals(tierIdAfter)) {
+            return;
+        }
+        LevelTierDto before = scoreService.getTier(tierIdBefore);
+        LevelTierDto after = scoreService.getTier(tierIdAfter);
+        if (before == null || after == null || after.getMinScore() <= before.getMinScore()) {
+            return;
+        }
+        req.getSession(false).setAttribute(CELEBRATION_COMPLETED_KEY, tierIdAfter);
+    }
+
+    private void consumeTierCelebration(HttpServletRequest req) throws SQLException {
+        HttpSession session = req.getSession(false);
+        Object tierId = session.getAttribute(CELEBRATION_COMPLETED_KEY);
+        if (!(tierId instanceof Long id)) {
+            return;
+        }
+        session.removeAttribute(CELEBRATION_COMPLETED_KEY);
+        LevelTierDto tier = scoreService.getTier(id);
+        String logoPath = scoreService.getTierLogoPath(id);
+        if (tier == null || logoPath == null) {
+            return;
+        }
+        req.setAttribute("celebrateTierName", tier.getTierName());
+        req.setAttribute("celebrateTierImage", logoPath);
     }
 
     private Long currentUserId(HttpServletRequest req) {

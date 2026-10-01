@@ -210,13 +210,18 @@ class RoadmapServiceTest {
         assertEquals("PROJECT", steps.get(1).getStepType());
         assertFalse(steps.get(1).getReason().isBlank());
 
-        List<RoadmapStepDto> skillSteps = steps.subList(2, steps.size());
-        assertEquals(2, skillSteps.size());
+        // 기술별 사다리 — 시드 직무에 요구 기술이 더 있어 5개(라운드)로 보충되고, 기술마다 4개 티어 단계가 생긴다.
+        // 입문 티어의 SKILL 단계는 점수 내림차순이어야 한다.
+        List<RoadmapStepDto> entrySkillSteps = steps.stream()
+                .filter(st -> "SKILL".equals(st.getStepType()) && "ENTRY".equals(st.getTier()))
+                .toList();
+        assertEquals(5, entrySkillSteps.size());
         // REQUIRED였던 requiredSkillId가 PREFERRED였던 preferredSkillId보다 먼저 나와야 한다 (점수 내림차순).
-        assertEquals(requiredSkillId, skillSteps.get(0).getRelatedSkillId());
-        assertEquals(preferredSkillId, skillSteps.get(1).getRelatedSkillId());
-        assertTrue(skillSteps.get(0).getReason().contains("필수"));
-        assertTrue(skillSteps.get(1).getReason().contains("우대"));
+        assertEquals(requiredSkillId, entrySkillSteps.get(0).getRelatedSkillId());
+        assertTrue(entrySkillSteps.get(0).getReason().contains("필수"));
+        assertTrue(entrySkillSteps.stream().anyMatch(st -> preferredSkillId.equals(st.getRelatedSkillId())));
+        assertEquals(20, steps.stream().filter(st -> "SKILL".equals(st.getStepType())).count(),
+                "5개 기술 × 4개 티어");
 
         for (int i = 0; i < steps.size(); i++) {
             assertEquals(i + 1, steps.get(i).getStepOrder());
@@ -417,7 +422,7 @@ class RoadmapServiceTest {
                 step.setRoadmapId(roadmapId);
                 step.setStepOrder(100 + i);
                 step.setStepType("SKILL");
-                step.setTier("CORE");
+                step.setTier("ENTRY"); // 단계 기준 승급(핵심 이상)과 섞이지 않게 횟수 기준만 검증한다
                 step.setRelatedSkillId(skillId);
                 step.setReason("승급 테스트용");
                 step.setCompleted(false);
@@ -897,7 +902,7 @@ class RoadmapServiceTest {
     // ADVANCED/EXPERT 확장(2026-09-29): 부족 기술이 12개를 넘으면 ENTRY(5)/CORE(5)/ADVANCED(2)로
     // 나뉘고 EXPERT는 비어 있어야 하며, 앞 티어를 끝내야 그 다음 티어가 진행도상 "지금 할 일"로 풀려야 한다.
     @Test
-    void 부족한_기술이_많으면_ADVANCED까지_생성되고_앞_티어를_끝내야_다음_티어가_풀린다() throws Exception {
+    void 부족한_기술이_많아도_라운드_5개가_4개_티어를_모두_거치고_앞_티어를_끝내야_다음_티어가_풀린다() throws Exception {
         List<Long> extraSkillIds = new ArrayList<>();
         Long manyGapAnalysisId;
         try (Connection conn = DBUtil.getConnection()) {
@@ -936,16 +941,17 @@ class RoadmapServiceTest {
             long coreCount = steps.stream().filter(s -> "SKILL".equals(s.getStepType()) && "CORE".equals(s.getTier())).count();
             long advancedCount = steps.stream().filter(s -> "SKILL".equals(s.getStepType()) && "ADVANCED".equals(s.getTier())).count();
             long expertCount = steps.stream().filter(s -> "SKILL".equals(s.getStepType()) && "EXPERT".equals(s.getTier())).count();
+            // 기술별 사다리 — 부족 기술이 12개여도 한 라운드엔 상위 5개만 담기고, 그 5개가 4개 티어를 모두 거친다.
             assertEquals(5, entryCount);
             assertEquals(5, coreCount);
-            assertEquals(2, advancedCount);
-            assertEquals(0, expertCount);
+            assertEquals(5, advancedCount);
+            assertEquals(5, expertCount);
 
             RoadmapService.RoadmapProgress progress = roadmapService.computeProgress(steps);
             assertTrue(progress.getTier("ENTRY").isUnlocked());
             assertFalse(progress.getTier("CORE").isUnlocked(), "ENTRY를 안 끝냈으면 CORE는 아직 잠겨 있어야 한다");
             assertFalse(progress.getTier("ADVANCED").isUnlocked());
-            assertTrue(progress.getTier("EXPERT").isEmptyTier(), "12개는 ADVANCED까지만 채우므로 EXPERT는 비어 있어야 한다");
+            assertFalse(progress.getTier("EXPERT").isEmptyTier(), "라운드의 기술은 전문가 티어까지 이어져야 한다");
             assertEquals("ENTRY", progress.getCurrentTier().getTier());
             assertEquals("CORE", progress.getNextLockedTier().getTier());
 
@@ -994,7 +1000,7 @@ class RoadmapServiceTest {
 
     // 부족한 기술이 5개(MAX_SKILL_STEPS_PER_TIER)를 넘으면, 넘는 만큼은 버리지 않고 tier=CORE로 남는다.
     @Test
-    void 부족한_기술이_5개_넘으면_상위_5개만_ENTRY고_나머지는_CORE로_밀린다() throws Exception {
+    void 부족한_기술이_5개_넘으면_상위_5개만_라운드에_담기고_각_티어에_같은_5개가_이어진다() throws Exception {
         List<Long> extraSkillIds = new ArrayList<>();
         Long manyGapAnalysisId;
         try (Connection conn = DBUtil.getConnection()) {
@@ -1038,8 +1044,14 @@ class RoadmapServiceTest {
                     .filter(s -> "SKILL".equals(s.getStepType()) && "CORE".equals(s.getTier()))
                     .count();
 
-            assertEquals(5, entrySkillCount, "ENTRY SKILL 단계는 최대 5개여야 한다");
-            assertEquals(2, coreSkillCount, "나머지 2개는 CORE로 남아야 한다 (버려지면 안 됨)");
+            assertEquals(5, entrySkillCount, "ENTRY SKILL 단계는 라운드 기술 5개여야 한다");
+            assertEquals(5, coreSkillCount, "CORE에도 같은 5개 기술이 이어져야 한다");
+            // 같은 기술이 티어마다 한 번씩 — 입문 기술 집합과 핵심 기술 집합이 같다.
+            assertEquals(
+                    steps.stream().filter(s -> "SKILL".equals(s.getStepType()) && "ENTRY".equals(s.getTier()))
+                            .map(RoadmapStepDto::getRelatedSkillId).collect(java.util.stream.Collectors.toSet()),
+                    steps.stream().filter(s -> "SKILL".equals(s.getStepType()) && "CORE".equals(s.getTier()))
+                            .map(RoadmapStepDto::getRelatedSkillId).collect(java.util.stream.Collectors.toSet()));
 
             // CORE 단계는 완료 체크 대상이 아니므로 step_order가 ENTRY 단계들 뒤에 와야 한다.
             int lastEntryOrder = steps.stream()
@@ -1065,6 +1077,121 @@ class RoadmapServiceTest {
                     TestFixtures.hardDeleteByColumn(conn, "JOB_REQUIRED_SKILL", "skill_id", skillId);
                     TestFixtures.hardDelete(conn, "SKILL", skillId);
                 }
+            }
+        }
+    }
+
+    // 기술 보충(2026-10-01) — 부족 기술이 5개 미만이면 직무 요구 기술로 5개를 채운다. LLM(Groq)이 고른 기술이
+    // 우선이고, 후보에 없는 이름은 무시하며, LLM이 실패하면 중요도 순으로 채운다.
+    @Test
+    void 부족한_기술이_5개_미만이면_LLM이_고른_직무_요구_기술로_보충한다() throws Exception {
+        Long extraSkillId;
+        String extraSkillName = "보충후보스킬_" + System.nanoTime();
+        try (Connection conn = DBUtil.getConnection()) {
+            extraSkillId = TestFixtures.insertSkill(conn, extraSkillName);
+            JobRequiredSkillDto req = new JobRequiredSkillDto();
+            req.setJobId(jobId);
+            req.setSkillId(extraSkillId);
+            req.setImportance("PREFERRED");
+            req.setSource("MANUAL");
+            req.setEstimated(false);
+            jobRequiredSkillDao.insert(conn, req);
+        }
+        try {
+            RoadmapService withLlm = new RoadmapService(
+                    new ProjectIdeaService(new StubLlmClient().register(ProjectIdeaService.ProjectIdea.class,
+                            "{\"title\":\"t\",\"description\":\"d\"}")),
+                    new SkillDeepenService(new StubLlmClient().register(SkillDeepenService.Picks.class,
+                            "{\"skills\":[\"" + extraSkillName + "\",\"후보에 없는 기술\"]}")));
+            Long roadmapId = withLlm.generate(userId);
+            List<RoadmapStepDto> entrySkills = roadmapService.getSteps(roadmapId).stream()
+                    .filter(s -> "SKILL".equals(s.getStepType()) && "ENTRY".equals(s.getTier())).toList();
+            assertEquals(5, entrySkills.size(), "부족 기술 2개 + 보충 3개");
+            assertTrue(entrySkills.stream().anyMatch(s -> extraSkillId.equals(s.getRelatedSkillId())),
+                    "LLM이 고른 기술이 포함돼야 한다");
+        } finally {
+            try (Connection conn = DBUtil.getConnection()) {
+                for (RoadmapDto roadmap : roadmapDao.findByUserId(userId)) {
+                    for (RoadmapStepDto step : roadmapStepDao.findByRoadmapId(roadmap.getId())) {
+                        TestFixtures.hardDelete(conn, "ROADMAP_STEP", step.getId());
+                    }
+                    TestFixtures.hardDelete(conn, "ROADMAP", roadmap.getId());
+                }
+                TestFixtures.hardDeleteByColumn(conn, "JOB_REQUIRED_SKILL", "skill_id", extraSkillId);
+                TestFixtures.hardDelete(conn, "SKILL", extraSkillId);
+            }
+        }
+    }
+
+    @Test
+    void LLM이_실패해도_중요도_순으로_보충해_로드맵이_만들어진다() throws Exception {
+        RoadmapService failingLlm = new RoadmapService(
+                new ProjectIdeaService(StubLlmClient.failing(429)),
+                new SkillDeepenService(StubLlmClient.failing(429)));
+        Long roadmapId = failingLlm.generate(userId);
+        long entrySkills = roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> "SKILL".equals(s.getStepType()) && "ENTRY".equals(s.getTier())).count();
+        assertEquals(5, entrySkills);
+    }
+
+    @Test
+    void 핵심_단계를_완료하면_숙련도가_중급으로_오르고_전문가_단계는_고급이다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        List<RoadmapStepDto> steps = roadmapService.getSteps(roadmapId);
+        Long skillId = requiredSkillId;
+        RoadmapStepDto core = steps.stream().filter(s -> "CORE".equals(s.getTier())
+                && "SKILL".equals(s.getStepType()) && skillId.equals(s.getRelatedSkillId())).findFirst().orElseThrow();
+        RoadmapStepDto expert = steps.stream().filter(s -> "EXPERT".equals(s.getTier())
+                && skillId.equals(s.getRelatedSkillId())).findFirst().orElseThrow();
+
+        roadmapService.completeStep(userId, core.getId(), true);
+        assertEquals("INTERMEDIATE", currentProficiency(skillId));
+        roadmapService.completeStep(userId, expert.getId(), true);
+        assertEquals("ADVANCED", currentProficiency(skillId));
+    }
+
+    @Test
+    void 재생성하면_같은_기술의_같은_단계만_완료로_승계된다() throws Exception {
+        Long firstRoadmapId = roadmapService.generate(userId);
+        RoadmapStepDto entry = roadmapService.getSteps(firstRoadmapId).stream()
+                .filter(s -> "ENTRY".equals(s.getTier()) && "SKILL".equals(s.getStepType())
+                        && requiredSkillId.equals(s.getRelatedSkillId())).findFirst().orElseThrow();
+        roadmapService.completeStep(userId, entry.getId(), true);
+
+        Long secondGapAnalysisId;
+        try (Connection conn = DBUtil.getConnection()) {
+            GapAnalysisDto second = new GapAnalysisDto();
+            second.setUserId(userId);
+            second.setJobId(jobId);
+            second.setMatchRate(new BigDecimal("50.00"));
+            second.setAnalyzedAt(LocalDateTime.now().plusMinutes(1));
+            secondGapAnalysisId = gapAnalysisDao.insert(conn, second);
+            GapAnalysisItemDto item = new GapAnalysisItemDto();
+            item.setGapAnalysisId(secondGapAnalysisId);
+            item.setSkillId(requiredSkillId);
+            item.setStatus("MISSING");
+            gapAnalysisItemDao.insert(conn, item);
+        }
+        try {
+            Long secondRoadmapId = roadmapService.generate(userId);
+            List<RoadmapStepDto> steps = roadmapService.getSteps(secondRoadmapId).stream()
+                    .filter(s -> "SKILL".equals(s.getStepType()) && requiredSkillId.equals(s.getRelatedSkillId()))
+                    .toList();
+            assertTrue(steps.stream().filter(s -> "ENTRY".equals(s.getTier())).findFirst().orElseThrow().isCompleted());
+            assertFalse(steps.stream().filter(s -> "CORE".equals(s.getTier())).findFirst().orElseThrow().isCompleted(),
+                    "입문만 끝낸 기술의 핵심 단계까지 완료로 승계하면 안 된다");
+        } finally {
+            try (Connection conn = DBUtil.getConnection()) {
+                for (RoadmapDto roadmap : roadmapDao.findByUserId(userId)) {
+                    if (roadmap.getGapAnalysisId().equals(secondGapAnalysisId)) {
+                        for (RoadmapStepDto step : roadmapStepDao.findByRoadmapId(roadmap.getId())) {
+                            TestFixtures.hardDelete(conn, "ROADMAP_STEP", step.getId());
+                        }
+                        TestFixtures.hardDelete(conn, "ROADMAP", roadmap.getId());
+                    }
+                }
+                TestFixtures.hardDeleteByColumn(conn, "GAP_ANALYSIS_ITEM", "gap_analysis_id", secondGapAnalysisId);
+                TestFixtures.hardDelete(conn, "GAP_ANALYSIS", secondGapAnalysisId);
             }
         }
     }

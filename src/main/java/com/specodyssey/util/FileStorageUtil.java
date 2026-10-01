@@ -88,6 +88,11 @@ public final class FileStorageUtil {
         Files.copy(Paths.get(filePath), out);
     }
 
+    // 텍스트 파일(연습장 노트 등)을 UTF-8 문자열로 읽는다. 호출부가 소유자 확인을 끝낸 경로만 넘긴다.
+    public static String readText(String filePath) throws IOException {
+        return Files.readString(Paths.get(filePath), java.nio.charset.StandardCharsets.UTF_8);
+    }
+
     private static String extensionOf(String filename) {
         if (filename == null) {
             return "";

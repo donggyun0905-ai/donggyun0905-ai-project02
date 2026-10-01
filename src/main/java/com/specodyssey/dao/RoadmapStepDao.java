@@ -136,6 +136,23 @@ public class RoadmapStepDao {
         }
     }
 
+    // 재생성할 때 "같은 기술의 같은 단계(티어)"를 이전에 이미 끝냈는지 확인한다 — 기술 하나가 입문→핵심→
+    // 심화→전문가를 차례로 거치는 구조라서, 입문 노트만 끝낸 기술의 프로젝트 단계까지 완료로 승계하면 안 된다.
+    public int countCompletedByUserSkillAndTier(Connection conn, Long userId, Long skillId, String tier)
+            throws SQLException {
+        String sql = "SELECT COUNT(*) FROM ROADMAP_STEP rs JOIN ROADMAP r ON rs.roadmap_id = r.id " +
+                "WHERE r.user_id = ? AND rs.related_skill_id = ? AND rs.tier = ? AND rs.step_type = 'SKILL' " +
+                "AND rs.is_completed = TRUE AND rs.is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            pstmt.setLong(2, skillId);
+            pstmt.setString(3, tier);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        }
+    }
+
     // SKILL 단계 완료 횟수 — 숙련도 자동 승급 기준(팀 합의: 10회 INTERMEDIATE, 30회 ADVANCED).
     // 로드맵이 재생성돼도(새 ROADMAP) 같은 스킬이 다시 나오면 계속 누적되도록 roadmap_id로 좁히지 않는다.
     public int countCompletedByUserAndSkill(Connection conn, Long userId, Long skillId) throws SQLException {

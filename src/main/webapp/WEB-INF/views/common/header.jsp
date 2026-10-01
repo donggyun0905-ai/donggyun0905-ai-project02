@@ -34,6 +34,18 @@
     <div class="nav-drawer-panel">
         <div class="drawer-head">목록 <label for="nav-toggle">✕</label></div>
 
+        <c:choose>
+        <%-- 면접관 계정은 공유받은 이력·지원자 비교·내 프로필만 쓴다 (RoleFilter) --%>
+        <c:when test="${sessionScope.loginUser.userType == 'INTERVIEWER'}">
+        <div class="nav-group-title">면접관</div>
+        <a href="${ctx}/interviewer/shared">📨 공유받은 이력</a>
+        <a href="${ctx}/interviewer/compare">⚖️ 지원자 비교</a>
+
+        <div class="nav-group-title">계정</div>
+        <a href="${ctx}/interviewer/profile">👤 내 프로필</a>
+        <a href="${ctx}/logout">↩ 로그아웃</a>
+        </c:when>
+        <c:otherwise>
         <div class="nav-group-title">여정</div>
         <a href="${ctx}/dashboard" class="${path == '/dashboard' ? 'active' : ''}">📊 대시보드</a>
         <a href="${ctx}/roadmap" class="${path == '/roadmap' ? 'active' : ''}">🗺️ 내 로드맵</a>
@@ -51,6 +63,8 @@
         <a href="${ctx}/share-links" class="${path == '/share-links' ? 'active' : ''}">🔗 공유 링크</a>
         <a href="${ctx}/profile" class="${path == '/profile' ? 'active' : ''}">👤 내 프로필</a>
         <a href="${ctx}/logout">↩ 로그아웃</a>
+        </c:otherwise>
+        </c:choose>
     </div>
 </div>
 </c:if>

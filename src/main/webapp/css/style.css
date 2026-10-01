@@ -265,10 +265,12 @@ footer.site-footer {
 .journey-card h3 { margin: 4px 0; font-size: 1.05rem; }
 .journey-card p { margin: 0 0 10px; font-size: 0.92rem; color: var(--ink-soft); }
 
-/* 지나온(완료한) 길 — 클릭해서 펼치는 게 아니라 그냥 스크롤해서 보이되, "이미 끝난 일"이라
-   눈에 덜 띄게 색을 옅게(뿌옇게) 뺀다. */
-.journey-card.is-past { opacity: 0.55; filter: grayscale(35%); box-shadow: none; }
-.journey-marker.is-past { opacity: 0.6; filter: grayscale(35%); }
+/* 지나온(완료한) 길 — 흐리게 빼면 "비활성"처럼 보여서, 완료는 초록색으로 또렷하게 표시한다
+   (2026-10-01 사용자 요청). 마커는 .journey-marker.completed가 이미 teal이다. */
+.journey-card.is-past {
+    background: var(--teal-bg);
+    border-color: var(--teal); box-shadow: none;
+}
 
 @media (max-width: 720px) {
     .journey-track::before { left: 26px; width: 52px; background-size: 52px 120px; }

@@ -33,6 +33,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -56,6 +57,7 @@ public class ShareViewService {
     private final ShareLinkDao shareLinkDao = new ShareLinkDao();
     private final ShareLinkViewLogDao viewLogDao = new ShareLinkViewLogDao();
     private final UserDao userDao = new UserDao();
+    private final DocumentDao documentDao = new DocumentDao();
     private final JobDao jobDao = new JobDao();
     private final UserSpecDao userSpecDao = new UserSpecDao();
     private final UserProjectDao userProjectDao = new UserProjectDao();
@@ -64,7 +66,6 @@ public class ShareViewService {
     private final CertificationDao certificationDao = new CertificationDao();
     private final RoadmapDao roadmapDao = new RoadmapDao();
     private final RoadmapStepDao roadmapStepDao = new RoadmapStepDao();
-    private final DocumentDao documentDao = new DocumentDao();
 
     /**
      * @param viewerUserId 로그인한 사람이 열었으면 그 사용자 id, 아니면 null
@@ -75,6 +76,73 @@ public class ShareViewService {
             return null;
         }
         ShareLinkDto link = shareLinkDao.findByToken(token);
+        ShareViewDto view = buildView(link);
+        // 지원자 본인이 미리보기로 연 것은 열람 횟수에 넣지 않는다
+        if (view != null && !link.getUserId().equals(viewerUserId)) {
+            recordView(link.getId(), viewerIp);
+        }
+        return view;
+    }
+
+    /**
+     * 면접관이 담아 둔 링크를 목록·비교 화면에서 다시 읽는다. 열람 기록은 남기지 않는다
+     * (화면을 열 때마다 담아 둔 지원자 전원의 열람 횟수가 올라가면 안 된다).
+     * @return 공유가 중단됐거나, 만료됐거나, 지원자가 탈퇴했으면 null
+     */
+    public ShareViewDto loadViewByLinkId(Long shareLinkId) throws SQLException {
+        return buildView(shareLinkDao.findActiveById(shareLinkId));
+    }
+
+    /**
+     * 공유 링크로 이력서 파일을 내려받을 때 — 링크가 유효하고, 지원자가 이 링크에 이력서 공개를 골랐고,
+     * 올려 둔 이력서가 있을 때만 파일 정보를 돌려준다. 로그인하지 않은 사람도 호출하므로 조건을 모두 여기서 확인한다.
+     * @return 조건에 하나라도 안 맞으면 null
+     */
+    public DocumentDto loadResume(String token) throws SQLException {
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+        ShareLinkDto link = shareLinkDao.findByToken(token);
+        if (link == null || !link.isScopeResume()) {
+            return null;
+        }
+        UserDto user = userDao.findById(link.getUserId());
+        return user == null ? null : findResume(user);
+    }
+
+    /**
+     * 공유 링크로 자소서 파일을 내려받을 때 — loadResume과 같은 조건(유효한 링크 + 이 링크에 자소서 공개를 골랐음 +
+     * 올려 둔 자소서가 있음)을 모두 여기서 확인한다.
+     * @return 조건에 하나라도 안 맞으면 null
+     */
+    public DocumentDto loadCoverLetter(String token) throws SQLException {
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+        ShareLinkDto link = shareLinkDao.findByToken(token);
+        if (link == null || !link.isScopeCoverLetter()) {
+            return null;
+        }
+        UserDto user = userDao.findById(link.getUserId());
+        return user == null ? null : findProfileDocument(user, user.getCoverLetterDocumentId());
+    }
+
+    // 지원자가 지정한 이력서. 지정하지 않았거나 그 서류가 지워졌으면 null
+    private DocumentDto findResume(UserDto user) throws SQLException {
+        return findProfileDocument(user, user.getResumeDocumentId());
+    }
+
+    // 이력서·자소서 공통 — 본인이 올린 파일만 인정한다
+    private DocumentDto findProfileDocument(UserDto user, Long documentId) throws SQLException {
+        if (documentId == null) {
+            return null;
+        }
+        DocumentDto document = documentDao.findById(documentId);
+        return (document == null || !document.getUserId().equals(user.getId())) ? null : document;
+    }
+
+    // link는 이미 활성·만료 확인을 거친 것이어야 한다. 링크의 scope_*가 켜진 범위만 읽는다.
+    private ShareViewDto buildView(ShareLinkDto link) throws SQLException {
         if (link == null) {
             return null;
         }
@@ -88,36 +156,45 @@ public class ShareViewService {
         view.setScopeBasic(link.isScopeBasic());
         view.setScopeSkills(link.isScopeSkills());
         view.setScopeGrowth(link.isScopeGrowth());
+        view.setScopeResume(link.isScopeResume());
+        view.setScopeCoverLetter(link.isScopeCoverLetter());
 
         if (link.isScopeBasic()) {
+            view.setName(user.getName());
             view.setMajor(user.getMajor());
             view.setGrade(user.getGrade());
             if (user.getDesiredJobId() != null) {
                 JobDto job = jobDao.findById(user.getDesiredJobId());
                 view.setDesiredJobName(job == null ? null : job.getJobName());
             }
-            view.setTimeline(buildTimeline(user.getId()));
+            fillTimeline(view, user.getId());
         }
         if (link.isScopeSkills()) {
-            view.setSkills(buildSkills(user.getId()));
+            fillSkills(view, user.getId());
+        }
+        if (link.isScopeResume()) {
+            DocumentDto resume = findResume(user);
+            view.setResumeFileName(resume == null ? null : resume.getOriginalName());
+        }
+        if (link.isScopeCoverLetter()) {
+            DocumentDto coverLetter = findProfileDocument(user, user.getCoverLetterDocumentId());
+            view.setCoverLetterFileName(coverLetter == null ? null : coverLetter.getOriginalName());
         }
         if (link.isScopeGrowth()) {
             List<SpecScoreHistoryDto> history = specScoreHistoryDao.findByUserId(user.getId());
             view.setGrowth(history.subList(Math.max(0, history.size() - GROWTH_POINTS), history.size()));
         }
-
-        // 지원자 본인이 미리보기로 연 것은 열람 횟수에 넣지 않는다
-        if (!user.getId().equals(viewerUserId)) {
-            recordView(link.getId(), viewerIp);
-        }
         return view;
     }
 
     // FR-81 자격증·어학·수상과 프로젝트를 한 줄로 세워 시간순으로 정렬한다. 날짜가 없는 항목은 맨 뒤.
-    private List<TimelineItem> buildTimeline(Long userId) throws SQLException {
+    private void fillTimeline(ShareViewDto view, Long userId) throws SQLException {
         List<Dated> dated = new ArrayList<>();
         RoadmapDto primaryRoadmap = roadmapDao.findPrimaryByUserId(userId);
         for (UserSpecDto spec : userSpecDao.findByUserId(userId)) {
+            if ("CERT".equals(spec.getSpecType())) {
+                view.getCertNames().add(spec.getTitle());
+            }
             String detail = join(spec.getIssuer(), spec.getScore());
             // CERT 증빙 서류는 내용을 검증하지 않고 첨부 자체를 신뢰하는 대신(RoadmapService 팀
             // 결정), 제출 시점에 "면접관 공유 화면에 노출된다"고 안내한다(2026-10-01 사용자 요청)
@@ -129,7 +206,9 @@ public class ShareViewService {
                     SPEC_TYPE_LABELS.getOrDefault(spec.getSpecType(), spec.getSpecType()),
                     spec.getTitle(), detail, documentId)));
         }
-        for (UserProjectDto project : userProjectDao.findByUserId(userId)) {
+        List<UserProjectDto> projects = userProjectDao.findByUserId(userId);
+        view.setProjectCount(projects.size());
+        for (UserProjectDto project : projects) {
             String techStack = isBlank(project.getTechStack()) ? null : "사용 기술: " + project.getTechStack();
             dated.add(new Dated(project.getStartDate(), new TimelineItem(
                     period(project.getStartDate(), project.getEndDate()),
@@ -137,11 +216,9 @@ public class ShareViewService {
         }
         dated.sort(Comparator.comparing((Dated d) -> d.date, Comparator.nullsLast(Comparator.naturalOrder())));
 
-        List<TimelineItem> timeline = new ArrayList<>();
         for (Dated d : dated) {
-            timeline.add(d.item);
+            view.getTimeline().add(d.item);
         }
-        return timeline;
     }
 
     // USER_SPECS에는 로드맵 단계로 직접 연결하는 FK가 없어서 "대표 로드맵의 완료된 CERT 단계 중
@@ -165,13 +242,18 @@ public class ShareViewService {
         return null;
     }
 
-    private List<String> buildSkills(Long userId) throws SQLException {
-        List<String> skills = new ArrayList<>();
+    private void fillSkills(ShareViewDto view, Long userId) throws SQLException {
         for (UserSkillDto skill : userSkillDao.findByUserId(userId)) {
-            String proficiency = PROFICIENCY_LABELS.get(skill.getProficiency());
-            skills.add(proficiency == null ? skill.getRawInput() : skill.getRawInput() + " · " + proficiency);
+            // 숙련도는 선택 입력이라 null일 수 있다 — Map.of로 만든 맵은 null 키 조회에서 예외를 던진다
+            String proficiency = skill.getProficiency() == null
+                    ? null : PROFICIENCY_LABELS.get(skill.getProficiency());
+            view.getSkills().add(
+                    proficiency == null ? skill.getRawInput() : skill.getRawInput() + " · " + proficiency);
+            if (skill.getSkillId() != null) {
+                view.getSkillIds().add(skill.getSkillId());
+            }
+            view.getSkillNames().add(skill.getRawInput().trim().toLowerCase(Locale.ROOT));
         }
-        return skills;
     }
 
     // NFR-9 열람 기록. 기록에 실패했다고 면접관 화면까지 막지는 않는다.

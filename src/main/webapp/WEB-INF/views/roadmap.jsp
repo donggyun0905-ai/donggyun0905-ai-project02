@@ -1,8 +1,38 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <c:set var="pageTitle" value="로드맵 - 스펙 오디세이" scope="request" />
 <c:set var="mainWide" value="true" scope="request" />
 <jsp:include page="/WEB-INF/views/common/header.jsp" />
+<style>
+    /* 로드맵 화면 전용 레이아웃(2026-10-01, 오늘할일 7·8번) — 가운데 여정 기록을 크게 중앙에 두고
+       왼쪽에 일일 미션·최근 서류, 오른쪽에 트렌드 기술·연습장을 작은 박스로 둔다.
+       공통 CSS는 A 담당 파일이라 이 화면에서만 쓰는 규칙은 여기에 둔다. */
+    main.wide { max-width: 1680px; }
+    .roadmap-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr) 250px; gap: 16px;
+        align-items: start; margin-top: 16px; }
+    .rm-left, .rm-right { display: flex; flex-direction: column; gap: 16px; }
+    .rm-left .card, .rm-right .card { margin-bottom: 0; padding: 16px 18px; }
+    @media (max-width: 1100px) {
+        .roadmap-layout { grid-template-columns: minmax(0, 1fr); }
+        .rm-center { order: -1; }
+    }
+    /* 여정 카드·마커를 키운다 */
+    .journey-card { padding: 22px 26px; }
+    .journey-card p { font-size: 1rem; }
+    .journey-row { grid-template-columns: 1fr 76px 1fr; gap: 0 16px; margin: 22px 0; }
+    .journey-marker { width: 64px; height: 64px; font-size: 1.6rem; }
+    .journey-track-scroll { max-height: 80vh; }
+    .journey-card.has-dialog { cursor: pointer; }
+    /* 단계 작업 창 — 카드 안에서 토글로 펼치던 폼을 별도 창으로 띄운다 */
+    .open-step-dialog { margin-top: 4px; }
+    .step-dialog { border: none; border-radius: var(--radius); padding: 24px 28px; width: min(560px, 92vw);
+        background: var(--card-bg); color: var(--ink); box-shadow: 0 12px 40px rgba(0,0,0,0.35); }
+    .step-dialog::backdrop { background: rgba(0,0,0,0.45); }
+    .step-dialog-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .step-dialog-head h3 { margin: 0; }
+    .rm-note textarea { width: 100%; min-height: 180px; resize: vertical; box-sizing: border-box; }
+</style>
 
 <c:choose>
     <%-- 희망 직무 미설정 — 로드맵은 목표 직무가 있어야 의미가 있어서 내용 대신 작은 안내 카드만 보여준다.
@@ -38,8 +68,11 @@
             </div>
         </c:if>
 
-        <div class="two-col" style="margin-top:16px;">
-        <div class="primary">
+        <div class="roadmap-layout">
+        <aside class="rm-left">
+            <jsp:include page="/WEB-INF/views/common/roadmap-left-widgets.jsp" />
+        </aside>
+        <div class="rm-center">
         <c:choose>
             <c:when test="${empty roadmap}">
                 <div class="card">
@@ -61,7 +94,7 @@
                        value="${t.tier == 'ENTRY' ? '입문' : t.tier == 'CORE' ? '핵심' : t.tier == 'ADVANCED' ? '심화' : '전문가'}" />
                 <span class="chip ${t.emptyTier ? 'chip-locked' : !t.unlocked ? 'chip-locked' : t.complete ? 'chip-teal' : 'chip-gold'}">
                     <c:choose>
-                        <c:when test="${t.emptyTier}">${tierLabel} · 해당 없음</c:when>
+                        <c:when test="${t.emptyTier}">${tierLabel} · 해당 없음 (남은 부족 기술 없음)</c:when>
                         <c:when test="${!t.unlocked}">🔒 ${tierLabel}</c:when>
                         <c:otherwise>${tierLabel} ${t.done}/${t.total} (${t.percent}%)</c:otherwise>
                     </c:choose>
@@ -150,7 +183,19 @@
                                     </span>
                                     <c:if test="${step.completed}"><span style="color:var(--teal); font-weight:bold; font-size:0.85rem;">✔ 완료</span></c:if>
                                 </div>
-                                <p>${step.reason}</p>
+                                <%-- "💡 제목 — 긴 설명" 형태의 프로젝트 아이디어는 카드에 제목만 두고, 설명은 박스를 눌렀을 때 뜨는 창에 보여준다. --%>
+                                <c:set var="ideaSplit" value="${fn:startsWith(step.reason, '💡') && fn:contains(step.reason, ' — ')}" scope="page" />
+                                <c:choose>
+                                    <c:when test="${ideaSplit}">
+                                        <c:set var="ideaTitle" value="${fn:substringBefore(step.reason, ' — ')}" scope="page" />
+                                        <c:set var="ideaDesc" value="${fn:substringAfter(step.reason, ' — ')}" scope="page" />
+                                        <p>${ideaTitle}</p>
+                                    </c:when>
+                                    <c:otherwise>
+                                        <c:set var="ideaDesc" value="" scope="page" />
+                                        <p>${step.reason}</p>
+                                    </c:otherwise>
+                                </c:choose>
                                 <c:if test="${markerClass == 'locked'}">
                                     <p class="muted" style="margin:0; font-size:0.82rem;">지금 할 일을 다 끝내면 완료 체크를 할 수 있게 풀립니다.</p>
                                 </c:if>
@@ -167,8 +212,10 @@
                                         </c:if>
                                     </c:when>
                                     <c:when test="${step.stepType == 'PROJECT'}">
-                                        <details>
-                                            <summary>프로젝트 등록하고 완료하기</summary>
+                                        <button type="button" class="open-step-dialog" data-dialog="stepDialog-${step.id}">프로젝트 등록하고 완료하기</button>
+                                        <dialog id="stepDialog-${step.id}" class="step-dialog">
+                                        <div class="step-dialog-head"><h3>프로젝트 등록하고 완료하기</h3><button type="button" class="dialog-close link-button" aria-label="닫기">✕</button></div>
+                                        <c:if test="${not empty ideaDesc}"><p class="muted" style="line-height:1.6;">💡 ${ideaTitle}<br>${ideaDesc}</p></c:if>
                                             <form action="${pageContext.request.contextPath}/roadmap" method="post"
                                                   enctype="multipart/form-data" style="margin-top:10px;">
                                                 <input type="hidden" name="action" value="completeProject">
@@ -183,7 +230,7 @@
                                                 <p><label>증빙 파일(여러 개 가능, 필수)</label><input type="file" name="files" multiple required></p>
                                                 <button type="submit">등록하고 완료하기</button>
                                             </form>
-                                        </details>
+                                        </dialog>
                                         <%-- [TEST] 파일 없이 통과 — 테스트할 때마다 파일을 매번 첨부하기 번거로워서 다시 추가함
                                              (2026-09-30, 사용자 요청). 실제 운영 배포 전에는 반드시 지울 것. --%>
                                         <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">
@@ -199,8 +246,9 @@
                                         <c:if test="${step.reviewStatus == 'NEEDS_REVISION'}">
                                             <p class="error-message" style="font-size:0.85rem; margin:6px 0;">📝 ${step.reviewNote}</p>
                                         </c:if>
-                                        <details>
-                                            <summary>${step.tier == 'EXPERT' ? '기술 설명 글 PDF 제출하기' : '공부노트 PDF 제출하기'}</summary>
+                                        <button type="button" class="open-step-dialog" data-dialog="stepDialog-${step.id}">${step.tier == 'EXPERT' ? '기술 설명 글 PDF 제출하기' : '공부노트 PDF 제출하기'}</button>
+                                        <dialog id="stepDialog-${step.id}" class="step-dialog">
+                                        <div class="step-dialog-head"><h3>${step.tier == 'EXPERT' ? '기술 설명 글 PDF 제출하기' : '공부노트 PDF 제출하기'}</h3><button type="button" class="dialog-close link-button" aria-label="닫기">✕</button></div>
                                             <form action="${pageContext.request.contextPath}/roadmap" method="post"
                                                   enctype="multipart/form-data" style="margin-top:10px;">
                                                 <input type="hidden" name="action" value="submitSkillNote">
@@ -216,7 +264,7 @@
                                                 </p>
                                                 <button type="submit">제출하기</button>
                                             </form>
-                                        </details>
+                                        </dialog>
                                         <%-- [TEST] 파일 없이 통과 — 테스트할 때마다 PDF를 매번 만들어 첨부하기 번거로워서
                                              다시 추가함(2026-09-30, 사용자 요청). action=complete를 그대로 재사용해서
                                              review_status/proof_content 없이 바로 완료 처리한다(규칙 판정 자체는 건너뜀).
@@ -237,10 +285,20 @@
                                         <c:choose>
                                             <c:when test="${step.tier == 'ADVANCED' && empty userProjects}">
                                                 <p class="muted" style="font-size:0.85rem;">ADVANCED는 기존 프로젝트를 업그레이드해야 완료할 수 있어요. 먼저 CORE 단계에서 프로젝트를 하나 등록해주세요.</p>
+                                                <%-- [TEST] 프로젝트가 하나도 없으면(CORE를 [TEST]로만 통과했거나 프로필·재생성 승계로 완료된
+                                                     경우) ADVANCED를 완료할 방법이 없어 전문가 티어가 영영 안 열리던 문제(2026-10-01 확인)라서,
+                                                     테스트 통과 버튼만은 이 경우에도 보이게 한다. 운영 배포 전에는 다른 [TEST] 버튼과 함께 지울 것. --%>
+                                                <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">
+                                                    <input type="hidden" name="action" value="complete">
+                                                    <input type="hidden" name="stepId" value="${step.id}">
+                                                    <input type="hidden" name="completed" value="true">
+                                                    <button type="submit" class="link-button">[TEST] 파일 없이 통과</button>
+                                                </form>
                                             </c:when>
                                             <c:otherwise>
-                                                <details>
-                                                    <summary>프로젝트 등록/업그레이드하고 완료하기</summary>
+                                                <button type="button" class="open-step-dialog" data-dialog="stepDialog-${step.id}">프로젝트 등록/업그레이드하고 완료하기</button>
+                                        <dialog id="stepDialog-${step.id}" class="step-dialog">
+                                        <div class="step-dialog-head"><h3>프로젝트 등록/업그레이드하고 완료하기</h3><button type="button" class="dialog-close link-button" aria-label="닫기">✕</button></div>
                                                     <form action="${pageContext.request.contextPath}/roadmap" method="post"
                                                           enctype="multipart/form-data" style="margin-top:10px;">
                                                         <input type="hidden" name="action" value="submitSkillProject">
@@ -267,7 +325,7 @@
                                                         <p><label>증빙 파일(여러 개 가능, 필수)</label><input type="file" name="files" multiple required></p>
                                                         <button type="submit">등록하고 완료하기</button>
                                                     </form>
-                                                </details>
+                                                </dialog>
                                                 <%-- [TEST] 파일 없이 통과 — 다시 추가함(2026-09-30, 사용자 요청). ADVANCED의
                                                      "업그레이드 필수" 검증도 이걸로는 건너뛴다 — 테스트 전용이라 상관없음.
                                                      실제 운영 배포 전에는 반드시 지울 것. --%>
@@ -283,8 +341,9 @@
                                     <%-- CERT 단계 — 자격증 취득 증빙 서류(합격 확인서·자격증 사진 등) 첨부로 완료
                                          (2026-09-30 팀 결정). 별도 규칙 판정 없이 첨부 자체를 신뢰한다. --%>
                                     <c:otherwise>
-                                        <details>
-                                            <summary>증빙 서류 첨부하고 완료하기</summary>
+                                        <button type="button" class="open-step-dialog" data-dialog="stepDialog-${step.id}">증빙 서류 첨부하고 완료하기</button>
+                                        <dialog id="stepDialog-${step.id}" class="step-dialog">
+                                        <div class="step-dialog-head"><h3>증빙 서류 첨부하고 완료하기</h3><button type="button" class="dialog-close link-button" aria-label="닫기">✕</button></div>
                                             <%-- 서류 내용은 검증하지 않고 첨부 자체를 신뢰하는 대신(팀 결정),
                                                  제출 전에 면접관 공유 화면에 그대로 노출된다는 걸 분명히 알린다
                                                  (2026-10-01 사용자 요청). --%>
@@ -296,7 +355,7 @@
                                                 <p><label>증빙 서류 (합격 확인서·자격증 사진 등)</label><input type="file" name="file" required></p>
                                                 <button type="submit">제출하고 완료하기</button>
                                             </form>
-                                        </details>
+                                        </dialog>
                                         <%-- [TEST] 파일 없이 통과 — 다른 단계들과 동일하게 테스트 편의용으로 추가함
                                              (2026-09-30, 사용자 요청). action=complete는 CERT 단계에 대해 서버에서
                                              거부하도록 막아뒀으므로(진짜 증빙 요구가 이번 요청의 핵심), submitCertProof에
@@ -326,12 +385,42 @@
             </c:otherwise>
         </c:choose>
         </div>
-        <div class="side">
+        <aside class="rm-right">
             <jsp:include page="/WEB-INF/views/common/trend-widget.jsp" />
-        </div>
+            <jsp:include page="/WEB-INF/views/common/roadmap-note-widget.jsp" />
+        </aside>
         </div>
     </c:otherwise>
 </c:choose>
+
+<%-- 티어 돌파 환영 창(2026-10-01) — 방금 이 요청으로 점수 등급(LEVEL_TIER: 비기너→취준생→실전러→
+     취뽀 임박→취뽀)이 올랐을 때만 서버가 celebrateTierName·celebrateTierImage를 넘겨준다(세션에 한 번 실었다가 꺼내며 지우므로 새로고침하면 다시 안 뜬다).
+     사용자 요청대로 배경 없이 투명하게, 달성한 등급 이미지만 중앙에 크게 보여주고 몇 초 뒤
+     저절로 사라져 원래 화면으로 돌아간다(클릭해도 바로 닫힌다). 이미지는 올라간 등급(ScoreService.getTierLogoPath)의 로고다.
+     공통 CSS는 A 담당 파일이라 이 창의 스타일은 이 화면 안에 둔다. --%>
+<c:if test="${not empty celebrateTierName}">
+    <style>
+        .tier-celebrate { position: fixed; inset: 0; z-index: 1000; display: flex;
+            align-items: center; justify-content: center; background: transparent;
+            animation: tierCelebrateOut 0.6s ease-in 2.6s forwards; cursor: pointer; }
+        .tier-celebrate img { max-width: min(70vw, 420px); max-height: 70vh;
+            filter: drop-shadow(0 8px 24px rgba(0,0,0,0.35));
+            animation: tierCelebrateIn 0.7s cubic-bezier(.2,1.4,.4,1) both; }
+        @keyframes tierCelebrateIn { from { transform: scale(0.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        @keyframes tierCelebrateOut { to { opacity: 0; transform: scale(0.6); } }
+    </style>
+    <div class="tier-celebrate" id="tierCelebrate" role="img" aria-label="${celebrateTierName} 티어 돌파">
+        <img src="${pageContext.request.contextPath}${celebrateTierImage}" alt="${celebrateTierName} 티어 돌파">
+    </div>
+    <script>
+    (function () {
+        var el = document.getElementById('tierCelebrate');
+        function close() { if (el.parentNode) { el.parentNode.removeChild(el); } }
+        el.addEventListener('click', close);
+        el.addEventListener('animationend', function (e) { if (e.animationName === 'tierCelebrateOut') { close(); } });
+    })();
+    </script>
+</c:if>
 
 <%-- 완료 체크 등 폼 제출은 전부 전체 페이지 리로드라, 매번 "여정 기록" 스크롤이 맨 위로 튕겨서
      방금 작업하던 위치를 잃어버리는 문제(사용자, 2026-09-30). 처음엔 스크롤 위치를 픽셀 값
@@ -359,7 +448,16 @@
             sessionStorage.removeItem(STORAGE_KEY);
         }
     }
+    // 폼 제출 → 리다이렉트로 페이지가 새로 로드되면 브라우저 창 스크롤도 맨 위로 돌아간다.
+    // 위의 컨테이너 내부 스크롤과 별개로, 창 스크롤 위치도 저장했다가 복원한다.
+    var WINDOW_KEY = 'roadmapWindowScrollY';
+    var savedY = sessionStorage.getItem(WINDOW_KEY);
+    if (savedY !== null) {
+        sessionStorage.removeItem(WINDOW_KEY);
+        window.scrollTo(0, parseInt(savedY, 10) || 0);
+    }
     document.addEventListener('submit', function (e) {
+        sessionStorage.setItem(WINDOW_KEY, String(window.scrollY));
         var stepIdField = e.target.querySelector && e.target.querySelector('input[name="stepId"]');
         if (stepIdField && stepIdField.value) {
             sessionStorage.setItem(STORAGE_KEY, stepIdField.value);
@@ -369,6 +467,32 @@
             sessionStorage.removeItem(STORAGE_KEY);
         }
     }, true);
+})();
+</script>
+
+<%-- 단계 작업 창 열기/닫기 — 카드(박스) 아무 데나 누르면 그 단계의 창이 열린다. 카드 안의 버튼·폼·링크를
+     누른 경우는 그 동작을 그대로 두고, 창이 닫힐 때 backdrop(창 바깥) 클릭도 닫기로 처리한다. --%>
+<script>
+(function () {
+    document.querySelectorAll('.journey-card').forEach(function (card) {
+        var opener = card.querySelector('.open-step-dialog');
+        if (!opener) { return; }
+        card.classList.add('has-dialog');
+        card.addEventListener('click', function (e) {
+            if (e.target.closest('dialog, form, a, button')) { return; }
+            opener.click();
+        });
+    });
+    document.querySelectorAll('.open-step-dialog').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var dlg = document.getElementById(btn.getAttribute('data-dialog'));
+            if (dlg && !dlg.open) { dlg.showModal(); }
+        });
+    });
+    document.querySelectorAll('.step-dialog').forEach(function (dlg) {
+        dlg.querySelector('.dialog-close').addEventListener('click', function () { dlg.close(); });
+        dlg.addEventListener('click', function (e) { if (e.target === dlg) { dlg.close(); } });
+    });
 })();
 </script>
 
