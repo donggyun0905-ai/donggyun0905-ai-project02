@@ -12,6 +12,7 @@ public class UserProjectDto {
     private String techStack;
     private LocalDate startDate;
     private LocalDate endDate;
+    private Long upgradedFromProjectId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private boolean deleted;
@@ -70,6 +71,14 @@ public class UserProjectDto {
 
     public void setEndDate(LocalDate endDate) {
         this.endDate = endDate;
+    }
+
+    public Long getUpgradedFromProjectId() {
+        return upgradedFromProjectId;
+    }
+
+    public void setUpgradedFromProjectId(Long upgradedFromProjectId) {
+        this.upgradedFromProjectId = upgradedFromProjectId;
     }
 
     public LocalDateTime getCreatedAt() {

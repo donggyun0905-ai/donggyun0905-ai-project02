@@ -34,14 +34,16 @@ CREATE TABLE PROBLEM (
     id                BIGINT       NOT NULL AUTO_INCREMENT,
     title             VARCHAR(200) NOT NULL,
     description       TEXT         NULL,
-    difficulty_level  INT          NOT NULL,
+    difficulty_level  INT          NOT NULL, -- 0~5 (0 = 프로그래머스 Lv.0 입문)
+    category          VARCHAR(20)  NOT NULL DEFAULT 'ALGORITHM', -- SQL / ALGORITHM — 목표 직무별 출제 비율 기준
     source_type       VARCHAR(20)  NOT NULL, -- AI_GENERATED / EXTERNAL_LINK / OPEN_DATASET
     external_url      VARCHAR(500) NULL,
     answer_key        TEXT         NULL,
     created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     is_deleted        BOOLEAN      NOT NULL DEFAULT FALSE,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id),
+    KEY idx_problem_category_level (category, difficulty_level)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =========================================================
@@ -130,6 +132,48 @@ CREATE TABLE JOB_REQUIRED_SKILL (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =========================================================
+-- JOB_POSTING (채용공고) — 신설
+-- 관련 요구사항: FR-113 데이터 없는 직무 보완 (On-demand 조회 결과 공고 0건 시 LLM 일반화 요구스펙 보완의 근거 데이터)
+-- 담당: B(로드맵) — 최초 36개 테이블 스캐폴딩(2주차 이전) 시점엔 없었고, 팀 확인 결과
+-- 담당자가 안 정해져 있던 테이블이라 이번에 추가한다. .env의 WORK24_JOB_POSTING_API_KEY가
+-- 고용24 채용정보 API 연동을 염두에 두고 이미 발급돼 있었음(실제 수집 배치는 별도 작업).
+--
+-- 컬럼은 실제 수집 대시보드 샘플(docs/saved_resource.html, 원티드·고용24 등 10개 출처
+-- 1,606건 집계)을 보고 다시 확정했다 — 처음엔 개별 공고 상세 7개 필드만 생각했는데,
+-- 실제 목록 화면 기준으로 회사명·기술스택·경력·지역·마감일·등록일·출처 시스템명이 더 있었다.
+-- 지금은 "있는 데이터를 다 담아두는" 단계라 필드를 넉넉히 두고, 실제 화면에 보여줄 항목은
+-- 나중에 조회 쿼리/화면 쪽에서 추린다(팀 방침, 2026-09-29).
+-- =========================================================
+CREATE TABLE JOB_POSTING (
+    id                BIGINT        NOT NULL AUTO_INCREMENT,
+    job_id            BIGINT        NOT NULL,
+    source            VARCHAR(50)   NOT NULL, -- 출처 시스템명 (원티드/고용24/CSI/CJK/CAT/CIN/KOS/MIT/PRD/CWK 등)
+    source_url        VARCHAR(500)  NULL,     -- 출처 원문 링크("보기") — 재수집 시 중복 저장 방지용 키
+    title             VARCHAR(200)  NOT NULL, -- 명칭(제목)
+    company_name      VARCHAR(150)  NULL,     -- 회사명
+    summary           TEXT          NULL,     -- 무슨 일을 하는지 요약 (상세 페이지 전용, 목록에는 없을 수 있음)
+    tech_stack        TEXT          NULL,     -- 기술스택 원문 목록 — 콤마 구분 텍스트(정규화는 다음 단계)
+    qualifications    TEXT          NULL,     -- 자격요건
+    preferred         TEXT          NULL,     -- 우대사항
+    career_level      VARCHAR(50)   NULL,     -- 경력 (예: 경력, 경력무관, 신입, 경력8년)
+    education_level   VARCHAR(50)   NULL,     -- 학력 (예: 학력무관, 대졸(4년))
+    salary            VARCHAR(100)  NULL,     -- 급여 — 범위·"회사내규에 따름" 등 텍스트 혼재라 문자열로 둠
+    region            VARCHAR(100)  NULL,     -- 지역 (예: 서울 강남구, 지역무관)
+    deadline          VARCHAR(50)   NULL,     -- 마감 — "상시"처럼 날짜가 아닌 값도 있어 DATE 대신 문자열로 둠
+    posted_at         DATE          NULL,     -- 원문 사이트 등록일 (우리가 수집한 시각인 collected_at과 별개)
+    collected_at      DATETIME      NULL,     -- 우리 배치가 이 행을 수집한 시각
+    created_at        DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted        BOOLEAN       NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_job_posting_source_url (source_url),
+    KEY idx_job_posting_job_id (job_id),
+    CONSTRAINT fk_job_posting_job
+        FOREIGN KEY (job_id) REFERENCES JOB (id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
 -- JOB_BENCHMARK_SPEC (합격자 스펙 역산, LLM 생성) — 신설
 -- 관련 요구사항: FR-46 데이터 인사이트
 -- =========================================================
@@ -184,6 +228,9 @@ CREATE TABLE GAP_ANALYSIS (
     user_id        BIGINT        NOT NULL,
     job_id         BIGINT        NOT NULL,
     match_rate     DECIMAL(5,2)  NOT NULL,
+    -- 이 분석이 어느 JOB.requirement_version 기준인지 저장 — 이후 JOB 쪽이 갱신되면 낡은 분석인지
+    -- 판단하는 근거가 된다(2026-09-30 팀 결정).
+    job_requirement_version INT  NULL,
     analyzed_at    DATETIME      NOT NULL,
     created_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -263,6 +310,16 @@ CREATE TABLE ROADMAP_STEP (
     certification_id    BIGINT        NULL,
     related_skill_id    BIGINT        NULL,
     reason              TEXT          NULL,
+    -- SKILL 단계 학습 검증(규칙 기반, 2026-09-30 팀 결정) — proof_type으로 티어별 증빙 방식을
+    -- 명시적으로 저장한다: ENTRY는 NOTE(공부노트), CORE/ADVANCED는 PROJECT_LINK(프로젝트 등록/업그레이드),
+    -- EXPERT는 TEACHING_POST(기술 설명 글). proof_content는 NOTE·TEACHING_POST의 제출 원문을
+    -- 직접 저장한다 — db-design 원안은 DOCUMENTS 테이블 재사용이었으나, 파일이 아닌 순수 텍스트라
+    -- 업로드 파이프라인을 타지 않고 TEXT 컬럼에 바로 저장하는 쪽으로 단순화했다(팀 확인 필요, 2026-09-30).
+    proof_type          VARCHAR(20)   NULL, -- NOTE / PROJECT_LINK / TEACHING_POST
+    proof_content       TEXT          NULL,
+    evidence_project_id BIGINT        NULL, -- PROJECT_LINK일 때 어느 프로젝트로 완료했는지
+    review_status       VARCHAR(20)   NULL, -- PENDING / PASSED / NEEDS_REVISION
+    review_note         TEXT          NULL, -- 규칙 판정 근거·피드백
     is_completed        BOOLEAN       NOT NULL DEFAULT FALSE,
     completed_at        DATETIME      NULL,
     created_at          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -272,6 +329,7 @@ CREATE TABLE ROADMAP_STEP (
     KEY idx_roadmap_step_roadmap_id (roadmap_id),
     KEY idx_roadmap_step_certification_id (certification_id),
     KEY idx_roadmap_step_related_skill_id (related_skill_id),
+    KEY idx_roadmap_step_evidence_project_id (evidence_project_id),
     CONSTRAINT fk_roadmap_step_roadmap
         FOREIGN KEY (roadmap_id) REFERENCES ROADMAP (id)
         ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -280,6 +338,9 @@ CREATE TABLE ROADMAP_STEP (
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_roadmap_step_skill
         FOREIGN KEY (related_skill_id) REFERENCES SKILL (id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_roadmap_step_evidence_project
+        FOREIGN KEY (evidence_project_id) REFERENCES USER_PROJECTS (id)
         ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -408,18 +469,22 @@ CREATE TABLE JOB_SKILL_TREND (
 -- 관련 요구사항: FR-51~53
 -- 복합 UNIQUE: (user_id, assigned_date, problem_id) — 같은 날 같은 문제 중복 배정 방지
 -- is_correct는 완료 전까지 알 수 없으므로 NULL 허용.
+-- submitted_*: "정답 입력하기"로 제출한 풀이 코드 — 컴파일(문법) 확인을 통과한 마지막 제출분 (FR-53)
 -- =========================================================
 CREATE TABLE USER_DAILY_MISSION (
-    id               BIGINT      NOT NULL AUTO_INCREMENT,
-    user_id          BIGINT      NOT NULL,
-    problem_id       BIGINT      NOT NULL,
-    assigned_date    DATE        NOT NULL,
-    is_completed     BOOLEAN     NOT NULL DEFAULT FALSE,
-    completed_at     DATETIME    NULL,
-    is_correct       BOOLEAN     NULL,
-    created_at       DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at       DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted       BOOLEAN     NOT NULL DEFAULT FALSE,
+    id                  BIGINT      NOT NULL AUTO_INCREMENT,
+    user_id             BIGINT      NOT NULL,
+    problem_id          BIGINT      NOT NULL,
+    assigned_date       DATE        NOT NULL,
+    is_completed        BOOLEAN     NOT NULL DEFAULT FALSE,
+    completed_at        DATETIME    NULL,
+    is_correct          BOOLEAN     NULL,
+    submitted_code      MEDIUMTEXT  NULL,
+    submitted_language  VARCHAR(20) NULL, -- JAVA / PYTHON / CPP / C / JAVASCRIPT / SQL
+    submitted_at        DATETIME    NULL,
+    created_at          DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted          BOOLEAN     NOT NULL DEFAULT FALSE,
     PRIMARY KEY (id),
     UNIQUE KEY uk_user_daily_mission_user_date_problem (user_id, assigned_date, problem_id),
     KEY idx_user_daily_mission_problem_id (problem_id),
@@ -594,6 +659,9 @@ CREATE TABLE DOCUMENTS (
     id               BIGINT       NOT NULL AUTO_INCREMENT,
     user_id          BIGINT       NOT NULL,
     project_id       BIGINT       NULL, -- FR-63 특정 프로젝트와 연결(선택)
+    -- 공부노트·기술 설명 글(PDF)을 프로젝트 없이 바로 SKILL 단계에 붙이기 위함
+    -- (2026-09-30 팀 결정, ENTRY/EXPERT 학습 검증).
+    roadmap_step_id  BIGINT       NULL,
     original_name    VARCHAR(255) NOT NULL,
     stored_name      VARCHAR(255) NOT NULL, -- 한글·중복 파일명 대응 저장명
     file_path        VARCHAR(500) NOT NULL,
@@ -606,11 +674,15 @@ CREATE TABLE DOCUMENTS (
     PRIMARY KEY (id),
     KEY idx_documents_user_id (user_id),
     KEY idx_documents_project_id (project_id),
+    KEY idx_documents_roadmap_step_id (roadmap_step_id),
     CONSTRAINT fk_documents_user
         FOREIGN KEY (user_id) REFERENCES USERS (id)
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_documents_project
         FOREIGN KEY (project_id) REFERENCES USER_PROJECTS (id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_documents_roadmap_step
+        FOREIGN KEY (roadmap_step_id) REFERENCES ROADMAP_STEP (id)
         ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

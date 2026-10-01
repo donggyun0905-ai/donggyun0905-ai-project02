@@ -1,13 +1,16 @@
 package com.specodyssey.controller;
 
 import com.specodyssey.dao.UserDao;
+import com.specodyssey.dao.UserProjectDao;
 import com.specodyssey.dto.DocumentDto;
 import com.specodyssey.dto.RoadmapDto;
 import com.specodyssey.dto.RoadmapStepDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.dto.UserProjectDto;
+import com.specodyssey.service.GapAnalysisService;
 import com.specodyssey.service.RoadmapService;
 import com.specodyssey.util.FileStorageUtil;
+import com.specodyssey.util.PdfTextUtil;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.MultipartConfig;
@@ -18,7 +21,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.http.Part;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -41,7 +46,9 @@ import java.util.List;
 public class RoadmapServlet extends HttpServlet {
 
     private final RoadmapService roadmapService = new RoadmapService();
+    private final GapAnalysisService gapAnalysisService = new GapAnalysisService();
     private final UserDao userDao = new UserDao();
+    private final UserProjectDao userProjectDao = new UserProjectDao();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -63,6 +70,12 @@ public class RoadmapServlet extends HttpServlet {
                     : roadmapService.getSteps(roadmap.getId());
             req.setAttribute("steps", steps);
             req.setAttribute("progress", roadmapService.computeProgress(steps));
+            // CORE/ADVANCED SKILL 단계의 "기존 프로젝트 업그레이드" 선택지용 — 2026-09-30 팀 결정.
+            req.setAttribute("userProjects", userProjectDao.findByUserId(userId));
+            // "요구 기술이 바뀌었어요" 배너 — 로드맵이 기준으로 삼은 분석이 낡았는지(2026-09-30 팀 결정).
+            if (roadmap != null) {
+                req.setAttribute("requirementOutdated", roadmapService.isJobRequirementOutdated(userId));
+            }
         } catch (SQLException e) {
             throw new ServletException("로드맵을 불러오는 중 오류가 발생했습니다.", e);
         }
@@ -85,6 +98,26 @@ public class RoadmapServlet extends HttpServlet {
                 if (!handleCompleteProject(req, resp, userId)) {
                     return;
                 }
+            } else if ("submitSkillNote".equals(action)) {
+                if (!handleSubmitSkillNote(req, resp, userId)) {
+                    return;
+                }
+            } else if ("submitSkillProject".equals(action)) {
+                if (!handleSubmitSkillProject(req, resp, userId)) {
+                    return;
+                }
+            } else if ("submitCertProof".equals(action)) {
+                if (!handleSubmitCertProof(req, resp, userId)) {
+                    return;
+                }
+            } else if ("reanalyzeAndRegenerate".equals(action)) {
+                // "요구 기술이 바뀌었어요" 배너의 액션 — 여기서만 실제 재분석(비용 발생 지점)이 일어난다
+                // (2026-09-30 팀 결정). 목표 직무는 UserDto.desiredJobId를 그대로 쓴다.
+                UserDto user = userDao.findById(userId);
+                if (user.getDesiredJobId() != null) {
+                    gapAnalysisService.analyze(userId, user.getDesiredJobId());
+                    roadmapService.generate(userId);
+                }
             } else {
                 resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "잘못된 요청입니다.");
                 return;
@@ -93,6 +126,12 @@ public class RoadmapServlet extends HttpServlet {
             resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "잘못된 요청입니다.");
             return;
         } catch (RoadmapService.NoGapAnalysisException e) {
+            req.setAttribute("errorMessage", e.getMessage());
+            doGet(req, resp);
+            return;
+        } catch (IllegalArgumentException e) {
+            // "complete" 액션으로 CERT 단계를 직접 완료 시도한 경우 등 — 파일 첨부가 없는 액션이라
+            // handleXxx의 failWith 패턴을 쓸 수 없어 여기서 한 번에 처리한다.
             req.setAttribute("errorMessage", e.getMessage());
             doGet(req, resp);
             return;
@@ -117,9 +156,214 @@ public class RoadmapServlet extends HttpServlet {
         project.setEndDate(parseDate(req.getParameter("endDate")));
 
         if (project.getTitle() == null || project.getDescription() == null || project.getTechStack() == null) {
-            return failCompleteProject(req, resp, "프로젝트명·설명·기술스택은 모두 필수입니다.");
+            return failWith(req, resp, "프로젝트명·설명·기술스택은 모두 필수입니다.");
         }
 
+        List<DocumentDto> savedFiles;
+        try {
+            savedFiles = collectUploadedFiles(req);
+        } catch (IllegalArgumentException e) {
+            return failWith(req, resp, e.getMessage());
+        }
+
+        boolean applied;
+        try {
+            applied = roadmapService.completeProjectStep(userId, stepId, project, savedFiles);
+        } catch (IllegalArgumentException e) {
+            for (DocumentDto document : savedFiles) {
+                FileStorageUtil.deleteQuietly(document.getFilePath());
+            }
+            return failWith(req, resp, e.getMessage());
+        } catch (SQLException e) {
+            // DB 저장이 실패해도 디스크엔 이미 파일이 써져 있으니, DB에 남길 게 없으면 지운다.
+            for (DocumentDto document : savedFiles) {
+                FileStorageUtil.deleteQuietly(document.getFilePath());
+            }
+            throw e;
+        }
+        if (!applied) {
+            // 이미 완료된 단계거나 소유자가 아니라서 아무 것도 반영 안 됨 — 방금 저장한 파일은 고아가 되니 지운다.
+            for (DocumentDto document : savedFiles) {
+                FileStorageUtil.deleteQuietly(document.getFilePath());
+            }
+        }
+        return true;
+    }
+
+    // ENTRY(공부노트)/EXPERT(기술 설명 글) SKILL 단계 제출 — PDF 1개를 받아 PdfTextUtil로 텍스트를
+    // 꺼낸 뒤 서비스에 넘긴다. 통과/미통과 여부는 서비스가 ROADMAP_STEP.review_status/review_note에
+    // 저장해두므로, 여기서는 그냥 리다이렉트만 해도 다음 GET에서 roadmap.jsp가 최신 판정 결과를
+    // 그대로 보여준다. PDFBox가 텍스트와 파일 저장에 각각 스트림을 소비하므로 한 번만 읽어 바이트
+    // 배열로 들고 있다가 두 번 재사용한다.
+    private boolean handleSubmitSkillNote(HttpServletRequest req, HttpServletResponse resp, Long userId)
+            throws ServletException, IOException, SQLException {
+        Long stepId = Long.valueOf(req.getParameter("stepId"));
+
+        Part filePart;
+        try {
+            filePart = req.getPart("file");
+        } catch (IllegalStateException e) {
+            return failWith(req, resp, "첨부 파일 용량이 너무 큽니다 (파일당 20MB 이하).");
+        }
+        if (filePart == null || filePart.getSubmittedFileName() == null || filePart.getSubmittedFileName().isBlank()) {
+            return failWith(req, resp, "PDF 파일을 첨부해야 합니다.");
+        }
+        String filename = filePart.getSubmittedFileName();
+        if (!filename.toLowerCase().endsWith(".pdf")) {
+            return failWith(req, resp, "PDF 파일만 업로드할 수 있습니다.");
+        }
+
+        byte[] fileBytes;
+        try (InputStream in = filePart.getInputStream()) {
+            fileBytes = in.readAllBytes();
+        }
+
+        String extractedText;
+        try (InputStream textIn = new ByteArrayInputStream(fileBytes)) {
+            extractedText = PdfTextUtil.extractText(textIn);
+        } catch (IOException e) {
+            return failWith(req, resp, "PDF 내용을 읽을 수 없습니다: " + e.getMessage());
+        }
+
+        FileStorageUtil.SavedFile saved;
+        try (InputStream saveIn = new ByteArrayInputStream(fileBytes)) {
+            saved = FileStorageUtil.save(saveIn, filename);
+        }
+        DocumentDto document = new DocumentDto();
+        document.setOriginalName(filename);
+        document.setStoredName(saved.getStoredName());
+        document.setFilePath(saved.getFilePath());
+        document.setFileSize(saved.getFileSize());
+        document.setMimeType(filePart.getContentType());
+        document.setChecksum(saved.getChecksum());
+
+        try {
+            roadmapService.submitSkillNote(userId, stepId, extractedText, document);
+        } catch (IllegalArgumentException e) {
+            FileStorageUtil.deleteQuietly(document.getFilePath());
+            return failWith(req, resp, e.getMessage());
+        } catch (SQLException e) {
+            FileStorageUtil.deleteQuietly(document.getFilePath());
+            throw e;
+        }
+        return true;
+    }
+
+    // CERT 단계 제출 — 자격증 취득을 증명하는 서류(합격 확인서 캡처·자격증 사진 등) 1개를 받아
+    // 완료 처리한다(2026-09-30 팀 결정). 텍스트 추출·규칙 판정 없이 첨부 자체를 증빙으로 신뢰하므로
+    // 파일 형식 제한은 FileStorageUtil의 공통 확장자 차단만 적용한다(이미지·PDF 등 다 허용).
+    private boolean handleSubmitCertProof(HttpServletRequest req, HttpServletResponse resp, Long userId)
+            throws ServletException, IOException, SQLException {
+        Long stepId = Long.valueOf(req.getParameter("stepId"));
+
+        // [TEST] 파일 없이 통과 — roadmap.jsp의 테스트 전용 버튼 하나만 이 파라미터를 보낸다.
+        // 실제 운영 배포 전에는 이 분기와 그 버튼을 함께 지울 것(2026-09-30, 사용자 요청).
+        if ("1".equals(req.getParameter("testShortcut"))) {
+            DocumentDto testDocument = new DocumentDto();
+            testDocument.setOriginalName("test-cert-shortcut.txt");
+            testDocument.setStoredName("test-cert-shortcut-" + System.nanoTime() + ".txt");
+            testDocument.setFilePath("");
+            testDocument.setFileSize(0L);
+            testDocument.setMimeType("text/plain");
+            testDocument.setChecksum("test-shortcut");
+            try {
+                roadmapService.submitCertProof(userId, stepId, testDocument);
+            } catch (IllegalArgumentException e) {
+                return failWith(req, resp, e.getMessage());
+            }
+            return true;
+        }
+
+        Part filePart;
+        try {
+            filePart = req.getPart("file");
+        } catch (IllegalStateException e) {
+            return failWith(req, resp, "첨부 파일 용량이 너무 큽니다 (파일당 20MB 이하).");
+        }
+        if (filePart == null || filePart.getSubmittedFileName() == null || filePart.getSubmittedFileName().isBlank()) {
+            return failWith(req, resp, "자격증 증빙 서류를 첨부해야 합니다.");
+        }
+        String filename = filePart.getSubmittedFileName();
+        if (FileStorageUtil.isExtensionBlocked(filename)) {
+            return failWith(req, resp, "업로드할 수 없는 파일 형식입니다: " + filename);
+        }
+
+        FileStorageUtil.SavedFile saved;
+        try (InputStream in = filePart.getInputStream()) {
+            saved = FileStorageUtil.save(in, filename);
+        }
+        DocumentDto document = new DocumentDto();
+        document.setOriginalName(filename);
+        document.setStoredName(saved.getStoredName());
+        document.setFilePath(saved.getFilePath());
+        document.setFileSize(saved.getFileSize());
+        document.setMimeType(filePart.getContentType());
+        document.setChecksum(saved.getChecksum());
+
+        try {
+            roadmapService.submitCertProof(userId, stepId, document);
+        } catch (IllegalArgumentException e) {
+            FileStorageUtil.deleteQuietly(document.getFilePath());
+            return failWith(req, resp, e.getMessage());
+        } catch (SQLException e) {
+            FileStorageUtil.deleteQuietly(document.getFilePath());
+            throw e;
+        }
+        return true;
+    }
+
+    // CORE/ADVANCED SKILL 단계 제출 — "프로젝트 등록 또는 기존 프로젝트 업그레이드 + 증빙 파일"로
+    // 완료 처리한다. handleCompleteProject와 파일 업로드 방식은 같고, 대상 단계 타입(PROJECT vs SKILL)과
+    // upgradeFromProjectId 유무만 다르다.
+    private boolean handleSubmitSkillProject(HttpServletRequest req, HttpServletResponse resp, Long userId)
+            throws ServletException, IOException, SQLException {
+        Long stepId = Long.valueOf(req.getParameter("stepId"));
+
+        UserProjectDto project = new UserProjectDto();
+        project.setTitle(trimToNull(req.getParameter("title")));
+        project.setDescription(trimToNull(req.getParameter("description")));
+        project.setTechStack(trimToNull(req.getParameter("techStack")));
+        project.setStartDate(parseDate(req.getParameter("startDate")));
+        project.setEndDate(parseDate(req.getParameter("endDate")));
+        if (project.getTitle() == null || project.getDescription() == null || project.getTechStack() == null) {
+            return failWith(req, resp, "프로젝트명·설명·기술스택은 모두 필수입니다.");
+        }
+
+        String upgradeParam = trimToNull(req.getParameter("upgradeFromProjectId"));
+        Long upgradeFromProjectId = upgradeParam == null ? null : Long.valueOf(upgradeParam);
+
+        List<DocumentDto> savedFiles;
+        try {
+            savedFiles = collectUploadedFiles(req);
+        } catch (IllegalArgumentException e) {
+            return failWith(req, resp, e.getMessage());
+        }
+
+        boolean applied;
+        try {
+            applied = roadmapService.submitSkillProjectStep(userId, stepId, project, savedFiles, upgradeFromProjectId);
+        } catch (IllegalArgumentException e) {
+            for (DocumentDto document : savedFiles) {
+                FileStorageUtil.deleteQuietly(document.getFilePath());
+            }
+            return failWith(req, resp, e.getMessage());
+        } catch (SQLException e) {
+            for (DocumentDto document : savedFiles) {
+                FileStorageUtil.deleteQuietly(document.getFilePath());
+            }
+            throw e;
+        }
+        if (!applied) {
+            for (DocumentDto document : savedFiles) {
+                FileStorageUtil.deleteQuietly(document.getFilePath());
+            }
+        }
+        return true;
+    }
+
+    // 첨부 파일(files 파트)을 모아 디스크에 저장한다. 검증 실패·저장 실패는 전부
+    // IllegalArgumentException(사용자에게 보여줄 메시지)으로 통일해 호출부가 failWith로 처리하게 한다.
+    private List<DocumentDto> collectUploadedFiles(HttpServletRequest req) throws ServletException, IOException {
         List<Part> fileParts = new ArrayList<>();
         try {
             for (Part part : req.getParts()) {
@@ -130,14 +374,14 @@ public class RoadmapServlet extends HttpServlet {
             }
         } catch (IllegalStateException e) {
             // 컨테이너가 @MultipartConfig의 maxFileSize/maxRequestSize 초과를 이렇게(비검사 예외) 알린다.
-            return failCompleteProject(req, resp, "첨부 파일 용량이 너무 큽니다 (파일당 20MB, 전체 100MB 이하).");
+            throw new IllegalArgumentException("첨부 파일 용량이 너무 큽니다 (파일당 20MB, 전체 100MB 이하).");
         }
         if (fileParts.isEmpty()) {
-            return failCompleteProject(req, resp, "증빙 파일을 최소 1개 첨부해야 합니다.");
+            throw new IllegalArgumentException("증빙 파일을 최소 1개 첨부해야 합니다.");
         }
         for (Part part : fileParts) {
             if (FileStorageUtil.isExtensionBlocked(part.getSubmittedFileName())) {
-                return failCompleteProject(req, resp, "업로드할 수 없는 파일 형식입니다: " + part.getSubmittedFileName());
+                throw new IllegalArgumentException("업로드할 수 없는 파일 형식입니다: " + part.getSubmittedFileName());
             }
         }
 
@@ -161,34 +405,12 @@ public class RoadmapServlet extends HttpServlet {
             for (DocumentDto document : savedFiles) {
                 FileStorageUtil.deleteQuietly(document.getFilePath());
             }
-            return failCompleteProject(req, resp, "파일 저장 중 오류가 발생했습니다.");
+            throw new IllegalArgumentException("파일 저장 중 오류가 발생했습니다.");
         }
-
-        boolean applied;
-        try {
-            applied = roadmapService.completeProjectStep(userId, stepId, project, savedFiles);
-        } catch (IllegalArgumentException e) {
-            for (DocumentDto document : savedFiles) {
-                FileStorageUtil.deleteQuietly(document.getFilePath());
-            }
-            return failCompleteProject(req, resp, e.getMessage());
-        } catch (SQLException e) {
-            // DB 저장이 실패해도 디스크엔 이미 파일이 써져 있으니, DB에 남길 게 없으면 지운다.
-            for (DocumentDto document : savedFiles) {
-                FileStorageUtil.deleteQuietly(document.getFilePath());
-            }
-            throw e;
-        }
-        if (!applied) {
-            // 이미 완료된 단계거나 소유자가 아니라서 아무 것도 반영 안 됨 — 방금 저장한 파일은 고아가 되니 지운다.
-            for (DocumentDto document : savedFiles) {
-                FileStorageUtil.deleteQuietly(document.getFilePath());
-            }
-        }
-        return true;
+        return savedFiles;
     }
 
-    private boolean failCompleteProject(HttpServletRequest req, HttpServletResponse resp, String message)
+    private boolean failWith(HttpServletRequest req, HttpServletResponse resp, String message)
             throws ServletException, IOException {
         req.setAttribute("errorMessage", message);
         doGet(req, resp);

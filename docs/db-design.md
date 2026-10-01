@@ -37,6 +37,7 @@ erDiagram
     JOB ||--o{ JOB_BENCHMARK_SPEC : "합격 기준"
     JOB ||--o{ JOB_RECOMMENDATION : "후보"
     JOB ||--o{ GAP_ANALYSIS : "목표"
+    JOB ||--o{ JOB_POSTING : "채용공고"
     GAP_ANALYSIS ||--o{ GAP_ANALYSIS_ITEM : "상세 항목"
     GAP_ANALYSIS ||--|| ROADMAP : "길 생성"
     ROADMAP ||--o{ ROADMAP_STEP : "단계"
@@ -44,6 +45,7 @@ erDiagram
     SURVEY_QUESTION ||--o{ USER_SURVEY_ANSWER : "문항"
     CERTIFICATION ||--o{ CERT_SCHEDULE : "시험 일정"
     JOB ||--o{ JOB_ALIAS : "별칭"
+    SKILL ||--o{ SKILL_ALIAS : "별칭"
     USERS ||--o{ ROADMAP : "소유"
     SKILL ||--o{ ROADMAP_STEP : "목표 역량"
 ```
@@ -85,6 +87,7 @@ erDiagram
     USERS ||--o{ AI_USAGE_LOG : "제출"
     SKILL ||--o{ EVALUATION_CRITERIA : "요구 역량"
     JOB ||--o{ JOB_ALIAS : "별칭"
+    SKILL ||--o{ SKILL_ALIAS : "별칭"
 ```
 
 ## 테이블 정의
@@ -155,10 +158,12 @@ erDiagram
 | `tech_stack` | VARCHAR(255) |  | 사용 기술 — 스킬 역산 보조 |
 | `start_date` | DATE |  | 시작일 |
 | `end_date` | DATE |  | 종료일 |
+| `upgraded_from_project_id` | BIGINT | FK | → USER_PROJECTS(자기참조). "기존 프로젝트 업그레이드"로 로드맵 CORE/ADVANCED SKILL 단계를 완료했을 때 이전 버전 연결. NULL이면 신규 프로젝트 |
 
 설계 판단:
 
 - tech_stack을 둔 이유는 직무 발굴 때문이다. 사용자가 보유 기술을 따로 입력하지 않아도 프로젝트에 쓴 기술에서 역으로 스킬을 뽑아낼 수 있다(FR-38).
+- upgraded_from_project_id는 2026-09-30 팀 결정(SKILL 단계 학습 검증)에서 추가됐다. CORE/ADVANCED는 "신규/업그레이드 둘 다 허용"이 원칙이라, 둘을 구분해서 로드맵 여정에 "이 프로젝트를 발전시켰다"는 이력을 남길 수 있게 한다.
 
 #### USER_SKILLS (보유 기술 스택)
 
@@ -245,6 +250,31 @@ erDiagram
 - embedding_model 컬럼을 남겨둔 이유: 로컬 세팅이 1주차에 안 잡히면 임베딩 API로 갈아탈 수 있고, 그때 어떤 벡터가 어느 모델 산출물인지 구분해 재계산 대상만 골라낼 수 있다.
 - 벡터를 별도 컬럼으로 뺀 덕에 나중에 pgvector나 전용 벡터DB로 옮겨도 나머지 스키마는 손댈 필요가 없다.
 - IT 계열 한정이라 500개 안팎이면 충분하고, 한 번 계산해 저장하면 재계산이 거의 없다.
+- **진행 상황(2026-09-30, 임베딩 마무리 완료)**: DJL+ONNX 세팅(youngjun 시작) 이어받아 실제로 완성했다. `EmbeddingMatcher`(SkillMatcher 구현체)가 GapAnalysisService·JobDiscoveryService 양쪽 기본값이다. 매칭 순서: ① SKILL.skill_name 정확 일치 ② SKILL_ALIAS 사전 정확 일치 ③ 편집거리(오타·표기 차이) ④ 그래도 실패하면 로컬 임베딩 코사인 유사도. `EmbeddingBackfillService`로 SKILL 181건(시드 163 + 테스트로 늘어난 행 포함) 전부 embedding_vector를 채워뒀다(model=ko-sroberta-multitask).
+  - **임계값 실측(2026-09-30)**: 이 모델은 짧은 기술명끼리는 "같다/다르다"를 깔끔히 못 가른다 — Java↔JavaScript(다른 기술) = 0.805인데 자바↔Java(같은 기술, 표기만 다름) = 0.680으로 오히려 더 낮다. 반면 "웹 서버 구축 기술"↔"백엔드 서버 개발 능력"(진짜 비슷한 문장) = 0.783. 진짜 유사 문장(0.783)이 오탐 위험 쌍(0.805)보다 낮아서, 어떤 임계값을 잡아도 짧은 기술명끼리는 완벽히 못 가른다. 임계값(0.75)은 진짜 유사 문장을 놓치지 않는 쪽에 맞췄고, 짧은 이름끼리의 오탐은 대부분 SKILL_ALIAS가 먼저 정확 일치로 잡아줘서 실무에서는 이 단계까지 잘 안 온다 — 사전에 없는 새 조합에서는 여전히 오탐 가능성이 남아 있음을 인지하고 채택했다.
+  - 모델 파일(440MB, model.onnx + tokenizer.json)은 팀원 각자 `EMBEDDING_MODEL_DIR`에 받아둬야 한다(https://huggingface.co/jhgan/ko-sroberta-multitask). 없는 PC에서는 EmbeddingMatcher가 조용히 건너뛰고 FuzzyNameMatcher(정확 일치·SKILL_ALIAS·편집거리)까지만 동작한다 — 앱이 깨지지 않는다.
+
+#### SKILL_ALIAS (기술 별칭) — 신설
+
+관련 요구사항: TD-1 임베딩 시맨틱 매칭 (임베딩 전 중간 단계)
+
+JOB_ALIAS와 같은 발상 — 사용자가 표준 명칭(SKILL.skill_name, 대부분 영문) 대신 흔히 쓰는 한글 표기·줄임말을 미리 등록해둔 사전. FuzzyNameMatcher가 정확 일치 다음 순서로 참고한다.
+
+| 컬럼 | 타입 | 키 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK | 식별자 |
+| `skill_id` | BIGINT | FK | → SKILL (표준 기술) |
+| `alias_name` | VARCHAR(100) | UK | 한글 표기·줄임말 (예: "파이썬", "JS", "쿠버네티스") |
+| `match_type` | VARCHAR(20) |  | MANUAL(수기) / EMBEDDING(유사도 매칭) |
+| `similarity_score` | DECIMAL(5,4) |  | 임베딩 매칭 시 유사도 |
+
+**복합 UNIQUE**: (alias_name) — 같은 표기가 두 기술을 가리키지 않게
+
+설계 판단:
+
+- 2026-09-30 팀 결정("시맨틱 매칭, 이름 일치라도 먼저")으로 신설. sql/10_seed_skill_alias.sql에 163개 SKILL 중 142개에 대해 확실히 널리 쓰이는 한글 표기·줄임말을 미리 채워뒀다. sql/11_seed_skill_alias_english.sql에서 영어권에서도 벤더/프로젝트 접두사를 빼고 부르는 표현(Postgres, Spark, Kafka, Azure 등 24개)을 추가로 보강했다 — 편집거리로는 원래 이름과 차이가 너무 커서 못 잡는 것들이다. 현재 총 187건.
+- 애매하거나 이미 짧은 약어뿐인 기술(SQL, PHP, R, DNS, VPN, PKI, IAM, SIEM, TDD, OAuth 2.0 등 21개)은 잘못된 별칭을 심느니 비워뒀다 — 더 필요하면 이 테이블에 행만 추가하면 된다(스키마 변경 없음).
+- match_type/similarity_score는 JOB_ALIAS와 같은 이유로 존재한다 — 나중에 임베딩 유사도로 자동 채운 별칭과 수기 등록 별칭을 구분해 오매칭을 걸러낼 수 있게.
 
 #### JOB (직무 마스터) — 신설
 
@@ -259,12 +289,14 @@ erDiagram
 | `job_category` | VARCHAR(50) |  | BACKEND / FRONTEND / DATA / DEVOPS / SECURITY / PM |
 | `is_popular` | BOOLEAN |  | 사전 수집 대상 여부 |
 | `last_collected_at` | DATETIME |  | 마지막 수집 시각 — 재수집 판단 기준 |
+| `requirement_version` | INT |  | JOB_REQUIRED_SKILL 목록이 실제로 바뀔 때마다 +1 (내용이 같으면 재수집해도 안 올림) |
 
 설계 판단:
 
 - IT 계열로 한정하기로 확정했다. 초기 대상이 15~20개로 줄어 명세서 TD-2의 "수기 구축 5~10개"보다 넓은 커버리지를 확보할 수 있고, 스킬 마스터도 IT 기술로만 채워져 임베딩 품질이 올라간다.
 - is_popular가 true면 미리 수집해 둔다(조회가 빠름). false면 사용자가 요청할 때 워크넷을 호출하고 결과를 캐싱해 다음 사용자부터 빨라진다.
 - 재수집은 워크넷 배치 주 1회(일요일 새벽), On-demand 캐시는 TTL 7일로 추천.
+- **requirement_version(2026-09-30 팀 결정)** — "로드맵이 한 번 만들면 고정되는 문제" 해결책. 트렌드가 바뀔 때마다 관련 유저 전원의 로드맵을 자동 재생성하면 AI 비용이 유저 수 × 갱신 주기만큼 반복돼서 기각. 대신 ① 이 값 변화는 DB 비교만으로 감지(비용 0원) ② 목표 직무로 삼은 유저에게 배너로만 알림 ③ 유저가 직접 눌러야 재분석·재생성(여기서만 AI 비용 발생)하는 구조로 확정. `GAP_ANALYSIS.job_requirement_version`과 짝을 이룬다.
 
 #### JOB_REQUIRED_SKILL (직무 요구 기술) — 신설
 
@@ -290,6 +322,62 @@ erDiagram
 - 초안에서는 이게 JSON 한 덩어리였다. 그러면 TD-1이 정의한 "규칙기반 DB 대조"를 SQL로 할 수 없고 인사이트 집계도 막힌다. 그래서 행 단위로 풀었다.
 - is_estimated를 직무가 아니라 행에 둔 게 핵심이다. 한 직무 안에서도 워크넷 실측 기술과 대기업 보완용 LLM 추정 기술이 섞이므로, 직무 단위 플래그로는 어느 항목이 추정인지 구분할 수 없다.
 - 대기업 요구스펙은 명세서 대안 B 확정 — LLM이 "해당 직무 대기업의 일반적 요구 역량"을 생성하고 화면에 "예시적 추정"으로 명시한다.
+
+#### JOB_POSTING (채용공고) — 신설
+
+관련 요구사항: FR-113 데이터 없는 직무 보완
+
+원티드·고용24 등 여러 출처에서 수집한 개별 채용공고. On-demand 조회 결과 공고가 0건일 때 LLM이
+일반화된 요구스펙으로 보완하는 근거 데이터이자, 향후 채용공고 원문 기반 기능(요약·추천 근거 제시 등)의
+토대가 된다.
+
+| 컬럼 | 타입 | 키 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK | 식별자 |
+| `job_id` | BIGINT | FK | → JOB |
+| `source` | VARCHAR(50) |  | 출처 시스템명 (원티드/고용24/CSI/CJK/CAT/CIN/KOS/MIT/PRD/CWK 등) |
+| `source_url` | VARCHAR(500) | UK | 출처 원문 링크("보기") |
+| `title` | VARCHAR(200) |  | 명칭(제목) |
+| `company_name` | VARCHAR(150) |  | 회사명 |
+| `summary` | TEXT |  | 무슨 일을 하는지 요약 (상세 페이지 전용, 목록에는 없을 수 있음) |
+| `tech_stack` | TEXT |  | 기술스택 원문 목록 — 콤마 구분 텍스트(정규화는 다음 단계) |
+| `qualifications` | TEXT |  | 자격요건 |
+| `preferred` | TEXT |  | 우대사항 |
+| `career_level` | VARCHAR(50) |  | 경력 (예: 경력, 경력무관, 신입, 경력8년) |
+| `education_level` | VARCHAR(50) |  | 학력 (예: 학력무관, 대졸(4년)) |
+| `salary` | VARCHAR(100) |  | 급여 (원문이 범위·텍스트 혼재라 문자열로 둠, 예: "회사내규에 따름") |
+| `region` | VARCHAR(100) |  | 지역 (예: 서울 강남구, 지역무관) |
+| `deadline` | VARCHAR(50) |  | 마감 — "상시"처럼 날짜가 아닌 값도 있어 DATE 대신 문자열로 둠 |
+| `posted_at` | DATE |  | 원문 사이트 등록일 (collected_at과 별개) |
+| `collected_at` | DATETIME |  | 우리 배치가 이 행을 수집한 시각 |
+
+설계 판단:
+
+- 최초 36개 테이블 스캐폴딩(2주차 이전) 당시엔 이 테이블이 없었다. 팀 확인 결과 채용공고 저장 담당이
+  비어 있었고(`.env`의 `WORK24_JOB_POSTING_API_KEY`만 미리 발급돼 있던 상태), 로드맵 담당이 맡기로
+  확정해 이번에 추가했다.
+- 컬럼은 실제 수집 대시보드 샘플(`docs/saved_resource.html` — 원티드·고용24 등 10개 출처, 1,606건 집계
+  목록)을 보고 다시 확정했다. 처음엔 개별 공고 상세 7개 필드(명칭/요약/자격요건/우대사항/학력/급여/출처)만
+  생각했는데, 실제 목록 화면 기준으로 회사명·기술스택·경력·지역·마감·등록일과 "출처가 URL이 아니라
+  시스템명(원티드/고용24/...)"이라는 점이 추가로 드러나 반영했다.
+  지금은 "있는 데이터를 다 담아두는" 단계라 필드를 넉넉히 두고, 실제 화면에 뭘 보여줄지는 나중에 조회
+  쿼리·화면 쪽에서 추린다(팀 방침, 2026-09-29).
+- `tech_stack`은 공고 하나에 여러 기술이 딸린 다중값이라 원래는 SKILL과 N:M 연결 테이블(JOB_REQUIRED_SKILL과
+  같은 패턴)로 빼는 게 정석이다. 다만 원문 기술명이 SKILL 마스터(163개)와 표기가 다르거나 아직 없는 경우가
+  많아(예: Playwright, NestJS, Vite, gRPC 등) 지금 단계에서 무리하게 정규화하면 매칭 실패로 데이터가
+  누락된다. 우선 콤마 구분 원문 텍스트로 전부 보존하고, SKILL 매칭이 필요해지면 그때 연결 테이블로 승격한다
+  (CERTIFICATION.job_category를 단일 컬럼으로 시작한 것과 같은 판단 근거).
+- `source`(시스템명)와 `source_url`(원문 링크)을 분리했다 — 목록 화면에 "출처" 필터가 시스템명 기준으로
+  동작하고, "보기" 버튼은 별개로 원문 URL을 가리키기 때문에 하나의 컬럼으로 합칠 수 없었다.
+- `deadline`을 DATE가 아니라 VARCHAR로 둔 이유: 실제 데이터에 "상시"(마감 없음)가 굉장히 흔해서, DATE
+  컬럼이면 이 값을 못 담는다. `posted_at`(등록일)은 전부 실제 날짜라 DATE로 뒀다.
+- `salary`를 DECIMAL이 아니라 VARCHAR로 둔 이유: 고용24 원문 급여 표기가 "회사내규에 따름", "연봉
+  2,600만원~2,800만원", "시급 10,320원~10,320원" 등 텍스트로 오는 경우가 많아 숫자 하나로 정규화하면
+  정보 손실이 크다. 통계용 숫자 비교가 필요해지면 그때 별도 컬럼(min/max)을 추가한다.
+- `source_url`을 UNIQUE로 둔 이유는 TREND_TECH와 같다 — 같은 공고를 주기적으로 재수집해도 중복 저장을
+  막기 위함(재수집 시 `existsBySourceUrl`로 먼저 확인).
+- `job_id`는 NOT NULL이다 — 어느 직무 계열 조회로 수집된 공고인지 항상 알아야 격차 분석·인사이트에서
+  재사용할 수 있다.
 
 #### JOB_BENCHMARK_SPEC (합격 기준 스펙) — 신설
 
@@ -391,6 +479,7 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | `user_id` | BIGINT | FK | → USERS |
 | `job_id` | BIGINT | FK | → JOB (목표 직무) |
 | `match_rate` | DECIMAL(5,2) |  | 전체 충족률 — 완성도 게이지 재료 |
+| `job_requirement_version` | INT |  | 분석 시점 `JOB.requirement_version` 스냅샷. 나중에 JOB 쪽이 갱신되면 이 값과 비교해 로드맵이 낡았는지 판단(2026-09-30 팀 결정) |
 | `analyzed_at` | DATETIME |  | 분석 시각 — 재분석 판단 기준 |
 
 설계 판단:
@@ -398,6 +487,7 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 - 한 사용자가 여러 직무를 각각 진단할 수 있도록 1:N으로 확정했다. IT 계열 안에서 백엔드·데이터·DevOps를 저울질하는 건 자연스러운 행동이고, "어느 길로 갈지 비교한다"는 여정 컨셉과도 맞는다.
 - analyzed_at이 프로필 변경 시 재분석 트리거 기준이 된다(FR-37). 프로필이 이 시각 이후에 바뀌었으면 다시 분석한다.
 - match_rate는 대시보드 완성도 게이지(FR-41)의 재료로 그대로 쓰인다.
+- job_requirement_version은 GapAnalysisService.analyze()가 분석할 때마다 그 시점 JOB.requirement_version을 그대로 복사해 저장한다. ROADMAP은 이 GAP_ANALYSIS를 gap_analysis_id로 물고 있으므로, 로드맵 화면은 "이 값 != 현재 JOB.requirement_version"이면 배너로 변화를 알린다.
 
 #### GAP_ANALYSIS_ITEM (격차 분석 항목) — 신설
 
@@ -458,6 +548,11 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | `certification_id` | BIGINT | FK | → CERTIFICATION (CERT 단계일 때) |
 | `related_skill_id` | BIGINT | FK | → SKILL (어떤 부족 역량을 메우는지) |
 | `reason` | TEXT |  | "왜 지금 이걸 해야 하는지" (FR-33) |
+| `proof_type` | VARCHAR(20) |  | 단계 증빙 방식 — NOTE(ENTRY 공부노트) / PROJECT_LINK(CORE·ADVANCED 프로젝트 등록·업그레이드) / TEACHING_POST(EXPERT 기술 설명 글) / CERT_DOCUMENT(CERT 자격증 증빙 서류). tier·타입으로 자동 결정되지만 기준이 바뀔 수 있어 명시적으로 저장 |
+| `proof_content` | TEXT |  | NOTE·TEACHING_POST — 제출된 PDF에서 추출한 텍스트(규칙 판정용 원문 캐시). 원본 파일 자체는 DOCUMENTS(roadmap_step_id로 연결)에 저장 |
+| `evidence_project_id` | BIGINT | FK | → USER_PROJECTS. PROJECT_LINK일 때 어느 프로젝트로 완료했는지 |
+| `review_status` | VARCHAR(20) |  | PENDING / PASSED / NEEDS_REVISION — 규칙 기반 판정 결과 |
+| `review_note` | TEXT |  | 판정 근거·피드백 (어떤 기준을 못 채웠는지) |
 | `is_completed` | BOOLEAN |  | 완료 체크 |
 | `completed_at` | DATETIME |  | 완료 시각 — 점수 적립 근거 |
 
@@ -468,6 +563,14 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 - certification_id로 자격증 마스터와 이어져 D-day가 자동 생성된다.
 - completed_at은 스코어 적립(SCORE_LOG)의 근거가 된다. 단계 완료당 +100점.
 - 재분석으로 로드맵이 새 version으로 만들어질 때, 이전 version에서 완료한 단계는 승계해야 한다. 안 그러면 이미 딴 자격증을 다시 따라고 시킨다. CERT 단계는 USER_SPECS에 같은 자격증이 등록돼 있으면 생성 시점에 바로 완료 처리하는 편이 안전하다.
+- **SKILL 단계 학습 검증(2026-09-30 팀 결정, 규칙 기반)**: 지금까지 SKILL 단계는 "완료 체크" 버튼 하나뿐이라 실제로 배웠는지 확인하는 절차가 없었다. tier별로 증빙 방식을 다르게 한다.
+  - ENTRY: 공부노트를 PDF로 업로드 → PDFBox로 텍스트를 추출해 규칙 판정(300자 이상 + 기술명 2회 이상 + 코드 블록 1개 이상). 배움의 시작 단계라 "이해했는지"를 느슨하게 확인.
+  - CORE/ADVANCED: 기존 로직(tech_stack 변화·증빙 파일) 그대로 — 프로젝트 등록 또는 기존 프로젝트 업그레이드(USER_PROJECTS.upgraded_from_project_id)로 자동 확인. **CORE/ADVANCED 구분(2026-09-30 팀 확정)**: CORE는 신규/업그레이드 둘 다 허용하지만, ADVANCED는 "심화" 단계 취지상 반드시 기존 프로젝트를 업그레이드해야 한다(신규 프로젝트로는 완료 불가).
+  - EXPERT: 기술 설명 글을 PDF로 업로드 → 텍스트 추출 후 규칙 판정(800자 이상 + 기술명 3회 이상 + 외부 링크 1개 이상). "가르칠 수 있어야 진짜 아는 것"이 기준.
+  - PDF 원본은 DOCUMENTS(roadmap_step_id로 연결)에 저장하고, 추출한 텍스트는 ROADMAP_STEP.proof_content에 캐시해 재판정·화면 표시에 재사용한다.
+  - AI 채점안도 검토했으나(비용·일관성), 학생 프로젝트 규모에서는 규칙 기반으로 우선 가고 AI는 나중에 끼워 넣기로 함(4-1안 채택, 팀 결정 2026-09-30). 관리자 검수 화면은 추후 과제로 미룸 — 지금은 자동 판정 결과를 그대로 신뢰한다.
+  - 키워드·글자수 기준이라 의미 없는 내용으로도 통과할 수 있다는 한계가 있음 — 학생 프로젝트 규모라 악용 유인이 적다고 보고 우선 이 트레이드오프를 감수한다.
+- **CERT 단계 학습 검증(2026-09-30 팀 결정)**: CERT 단계도 그동안 "완료 체크" 버튼 하나뿐이었다(뒤늦게 발견). 자격증 취득을 증명하는 서류(합격 확인서·자격증 사진 등) 첨부를 요구하도록 바꿨다 — CORE/ADVANCED와 같은 트레이드오프로, 별도 자동 판정 규칙 없이 서류 첨부 자체를 신뢰한다(proof_type='CERT_DOCUMENT'). 화면(roadmap.jsp)에서 CERT용 완료 체크 버튼을 없애 이 흐름으로만 유도하지만, `completeStep`(범용 완료/취소 메서드) 자체는 CERT를 막지 않는다 — 프로필에서 직접 자격증을 추가했을 때 일치하는 CERT 단계를 자동 완료하는 기존 기능(`syncCertAddedFromProfile`, 팀 합의 2026-09-23)이 내부적으로 이 메서드를 그대로 쓰기 때문이다.
 
 #### JOB_RECOMMENDATION (추천 직무)
 
@@ -506,7 +609,8 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | `id` | BIGINT | PK | 식별자 |
 | `title` | VARCHAR(200) |  | 문제 제목 |
 | `description` | TEXT |  | 본문 (AI 생성 문제만) |
-| `difficulty_level` | INT |  | 내부 난이도 1~5 — 플랫폼 레벨과 매핑 |
+| `difficulty_level` | INT |  | 내부 난이도 0~5 — 플랫폼 레벨과 매핑 (0 = 프로그래머스 Lv.0 입문, LEVEL_TIER 비기너 범위) |
+| `category` | VARCHAR(20) |  | SQL / ALGORITHM (기본 ALGORITHM) — 목표 직무별 출제 비율 기준 |
 | `source_type` | VARCHAR(20) |  | AI_GENERATED / EXTERNAL_LINK / OPEN_DATASET |
 | `external_url` | VARCHAR(500) |  | 링크 추천형 — 콘텐츠 복제 금지 |
 | `answer_key` | TEXT |  | AI 생성 문제 정답 검증용 |
@@ -516,6 +620,7 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 - 초안에서는 문제 자체와 "누구에게 언제 배정됐는지"가 한 테이블에 섞여 있었다. 그러면 같은 문제를 여러 사용자에게 다른 날 배정할 수 없다. 그래서 둘로 쪼갰다.
 - 세 종류 출처가 섞인다 — AI 생성(본문 보유), 링크 추천(백준 N번 링크만), 오픈 라이선스 문제셋. 저작권 크롤링은 금지다(TD-3).
 - answer_key는 AI 생성 문제에만 있다. 정답 검증 로직이 필요하기 때문.
+- category는 일일 미션을 목표 직무에 맞추려고 추가했다. 데이터 직무는 SQL 2 + 알고리즘 1, 백엔드·기획은 SQL 1 + 알고리즘 2, 나머지는 알고리즘 3. 제목만으로는 SQL/알고리즘 구분이 안 돼("소수 찾기" vs "동명 동물 수 찾기") 컬럼으로 둔다. (category, difficulty_level) 인덱스.
 
 #### USER_DAILY_MISSION (일일 미션 배정) — 신설
 
@@ -532,6 +637,9 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | `is_completed` | BOOLEAN |  | 완료 체크 |
 | `completed_at` | DATETIME |  | 완료 시각 |
 | `is_correct` | BOOLEAN |  | 정답 여부 — 점수 배점 기준 |
+| `submitted_code` | MEDIUMTEXT |  | "정답 입력하기"로 제출한 풀이 코드 — 컴파일(문법) 확인 통과분만 저장 |
+| `submitted_language` | VARCHAR(20) |  | 제출 언어 — JAVA / PYTHON / CPP / C / JAVASCRIPT / SQL |
+| `submitted_at` | DATETIME |  | 마지막 제출 시각 (다시 제출하면 덮어씀) |
 
 **복합 UNIQUE**: (user_id, assigned_date, problem_id) — 같은 날 같은 문제 중복 배정 방지
 
@@ -539,6 +647,7 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 
 - (user_id, assigned_date, problem_id) 복합 UK로 같은 날 같은 문제가 중복 배정되지 않게 막는다.
 - 난이도는 사용자의 현재 등급(USER_SCORE_SUMMARY)에 맞춰 조정된다. 비기너에게는 Lv1, 실전러에게는 Lv2~3(TD-5 c).
+- 제출 코드는 미션 1건당 마지막 제출분 하나만 둔다. 제출 이력까지 남길 필요는 없어서 별도 테이블을 만들지 않았다. 컴파일 확인은 Judge0 API로 하고, 채점(정답 판정)은 하지 않아 is_correct는 건드리지 않는다.
 - 스트릭은 여기 두지 않고 USER_SCORE_SUMMARY에서 관리한다. 매번 로그 전체를 훑어 연속 일수를 세는 건 대시보드 조회마다 부담이다.
 
 #### SCORE_LOG (점수 적립 로그) — 신설
@@ -583,7 +692,7 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 
 설계 판단:
 
-- 등급 구간과 호칭을 코드가 아니라 데이터로 관리한다. 명세서 값(0~499 비기너/뉴비 항해사, 500~1499 취준생/견습 항해사, 1500~2999 실전러/정식 항해사, 3000~4999 취뽀 임박/선장, 5000~ 취뽀/전설의 선장)을 초기 INSERT로 넣는다.
+- 등급 구간과 호칭을 코드가 아니라 데이터로 관리한다. 명세서 초안 값은 "항해사" 테마(0~499 비기너/뉴비 항해사, 500~1499 취준생/견습 항해사, 1500~2999 실전러/정식 항해사, 3000~4999 취뽀 임박/선장, 5000~ 취뽀/전설의 선장)였으나, 팀이 "오디세이(여정)" 테마로 다시 정했다(2026-09-30) — 실제 초기 INSERT는 0~499 첫걸음, 500~1499 방랑자, 1500~2999 항해자, 3000~4999 개척자, 5000~ 오디세이아. `sql/04_seed_extended.sql` 기준.
 - 팀 논의로 구간이나 호칭이 바뀌어도 UPDATE만 하면 되고 재배포가 필요 없다.
 - 게임식이라 뒤로 갈수록 구간을 넓혀 레벨업이 점점 어려워지는 구조다.
 
@@ -626,10 +735,13 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 
 설계 판단:
 
-- 실사용자가 없으면 "같은 전공·학년 평균"이 계산되지 않는다. 발표 때 가입자가 팀원 몇 명뿐일 가능성이 높으므로, is_seed로 시연용 가상 사용자 데이터를 넣고 화면에 "샘플 데이터 기준"을 명시하기로 확정했다.
+- 이 테이블은 다른 테이블을 FK로 참조하지 않는다(설계 의도, 2026-09-30 재확인) — "면접관에게 뭘 했는지 보여주는" 것은 FR-81 타임라인이 USER_PROJECTS·USER_SPECS·USER_SKILLS를 직접 시간순으로 읽어서 하는 별개의 일이고, 이 테이블은 그 성취들을 종합한 "완성도 숫자"만 시계열로 쌓는다.
+- **completeness_score 공식(2026-09-30 확정, SpecScoreService)**: 0~100점 — 목표 직무 격차 분석 충족률(GapAnalysisDto.matchRate) 40점 + 스펙 총량(자격증 최대 5개×4점=20, 프로젝트 최대 5개×4점=20, 보유기술 최대 20개×1점=20) 60점. 목표 직무가 없으면 40점 몫을 스펙 총량 쪽으로 재배분(60→100)한다.
+- 스냅샷은 SpecScoreScheduler가 매일 00:00에 전체 사용자 1행씩 쌓고(멱등, 이미 오늘 기록했으면 스킵), 대시보드 접속 시에도 그날 첫 접속이면 즉시 한 번 기록한다(서버가 자정에 꺼져 있었을 경우 보완).
+- 실사용자가 없으면 "같은 전공·학년 평균"이 계산되지 않는다. 발표 때 가입자가 팀원 몇 명뿐일 가능성이 높으므로, is_seed로 시연용 가상 사용자 데이터를 넣고 화면에 "샘플 데이터 기준"을 명시하기로 확정했다 — **단, user_id가 NOT NULL FK라 가상 데이터도 실제 USERS 행이 있어야 한다.** 가짜 USERS 계정을 만들지, 이 시드는 보류할지는 아직 미정(2026-09-30 기준).
 - 시드 규모는 전공 3~4종 × 학년 4개 = 16조합, 조합당 25명 정도면 또래 비교가 그럴듯해 보인다.
 - 실사용자가 쌓이면 is_seed = false 조건만 붙이면 된다.
-- 성장 잠재력(FR-84)은 최근 스냅샷들의 기울기로 계산한다.
+- 성장 잠재력(FR-84)은 SpecScoreService.getGrowthSummary가 계산 — 가장 오래된 스냅샷과 최근 스냅샷의 점수 차이 + 그 기간 동안 USER_SPECS/USER_PROJECTS/USER_SKILLS에 새로 생긴 행 수(각 테이블의 created_at으로 필터). 새 컬럼을 추가하지 않고 기존 테이블의 시각 정보만으로 구했다.
 
 #### JOB_SKILL_TREND (직무 기술 시계열) — 신설
 
@@ -811,6 +923,7 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | `id` | BIGINT | PK | 식별자 |
 | `user_id` | BIGINT | FK | → USERS |
 | `project_id` | BIGINT | FK | → USER_PROJECTS (선택 연결) |
+| `roadmap_step_id` | BIGINT | FK | → ROADMAP_STEP (선택 연결). 공부노트·기술 설명 글(PDF)을 프로젝트 없이 바로 SKILL 단계에 붙일 때 사용 |
 | `original_name` | VARCHAR(255) |  | 원본 파일명 — 화면 표시용 |
 | `stored_name` | VARCHAR(255) |  | 저장 파일명 — 중복 방지 |
 | `file_path` | VARCHAR(500) |  | 저장 경로 |

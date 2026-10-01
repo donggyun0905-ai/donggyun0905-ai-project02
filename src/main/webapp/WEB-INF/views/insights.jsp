@@ -25,15 +25,22 @@
         </div>
 
         <div class="card">
-            <div class="spread"><h2>또래 비교</h2><span class="pill">샘플 데이터 기준</span></div>
-            <p class="muted" style="margin-top:4px;">컴퓨터공학과·4학년 평균과 스펙 완성도 비교</p>
-            <div style="margin-top:12px; font-size:0.88rem;">
-                <div class="spread" style="margin-bottom:6px;"><span>나</span><span>62</span></div>
-                <div class="progress-track" style="margin:0 0 12px;"><div class="progress-fill" style="width:62%;"></div></div>
-                <div class="spread" style="margin-bottom:6px;"><span>같은 전공·학년 평균</span><span>55</span></div>
-                <div class="progress-track" style="margin:0;"><div class="progress-fill" style="width:55%; background:var(--locked);"></div></div>
-            </div>
-            <p class="muted" style="margin-top:10px; margin-bottom:0;">평균보다 7점 높습니다. 자격증은 평균 수준이고, 프로젝트 수는 평균보다 적습니다.</p>
+            <div class="spread"><h2>또래 비교</h2><span class="pill">실제 데이터</span></div>
+            <c:choose>
+                <c:when test="${not empty peerComparison and peerComparison.peerAverage != null}">
+                    <p class="muted" style="margin-top:4px;">같은 전공·학년 <c:out value="${peerComparison.peerCount}" />명 평균과 스펙 완성도 비교</p>
+                    <div style="margin-top:12px; font-size:0.88rem;">
+                        <div class="spread" style="margin-bottom:6px;"><span>나</span><span><c:out value="${peerComparison.myScore}" /></span></div>
+                        <div class="progress-track" style="margin:0 0 12px;"><div class="progress-fill" style="width:${peerComparison.myScore}%;"></div></div>
+                        <div class="spread" style="margin-bottom:6px;"><span>같은 전공·학년 평균</span><span><c:out value="${peerComparison.peerAverage}" /></span></div>
+                        <div class="progress-track" style="margin:0;"><div class="progress-fill" style="width:${peerComparison.peerAverage}%; background:var(--locked);"></div></div>
+                    </div>
+                    <p class="muted" style="margin-top:10px; margin-bottom:0;"><c:out value="${peerDiffMessage}" /></p>
+                </c:when>
+                <c:otherwise>
+                    <p class="muted" style="margin-top:4px;">아직 같은 전공·학년의 비교 데이터가 없습니다. 사용자가 더 모이면 표시됩니다.</p>
+                </c:otherwise>
+            </c:choose>
         </div>
 
         <div class="card">

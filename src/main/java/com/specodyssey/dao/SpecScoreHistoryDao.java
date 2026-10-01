@@ -9,6 +9,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +40,18 @@ public class SpecScoreHistoryDao {
             pstmt.executeUpdate();
             try (ResultSet keys = pstmt.getGeneratedKeys()) {
                 return keys.next() ? keys.getLong(1) : null;
+            }
+        }
+    }
+
+    // SpecScoreService의 일 1회 스냅샷 가드 — 오늘 이미 기록했으면 다시 쌓지 않는다.
+    public boolean existsForUserOnDate(Connection conn, Long userId, LocalDate date) throws SQLException {
+        String sql = "SELECT 1 FROM SPEC_SCORE_HISTORY WHERE user_id = ? AND snapshot_date = ? AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            pstmt.setDate(2, java.sql.Date.valueOf(date));
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next();
             }
         }
     }

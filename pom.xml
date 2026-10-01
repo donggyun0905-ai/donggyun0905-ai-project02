@@ -72,6 +72,13 @@
             <version>2.11.0</version>
         </dependency>
 
+        <!-- 로드맵 SKILL 단계 학습 검증(공부노트·기술 설명 글) — 업로드된 PDF에서 텍스트를 꺼내 규칙 판정한다 -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>2.0.31</version>
+        </dependency>
+
         <!-- 로컬 임베딩 (TD-1): DJL + ONNX Runtime으로 ko-sroberta-multitask 실행. 모델 파일은 저장소 밖(EMBEDDING_MODEL_DIR) -->
         <dependency>
             <groupId>ai.djl</groupId>

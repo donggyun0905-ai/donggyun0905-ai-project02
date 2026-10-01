@@ -55,6 +55,7 @@ class GapAnalysisServiceTest {
     private Long metByRawInputSkillId;
     private String metByRawInputSkillName;
     private Long missingSkillId;
+    private String missingSkillName;
     private Long jobReqId1;
     private Long jobReqId2;
     private Long jobReqId3;
@@ -76,11 +77,12 @@ class GapAnalysisServiceTest {
         jobId = backendJob.getId();
 
         metByRawInputSkillName = "GapTestRawMatch_" + System.nanoTime();
+        missingSkillName = "GapTestMissing_" + System.nanoTime();
 
         try (Connection conn = DBUtil.getConnection()) {
             metBySkillIdSkillId = TestFixtures.insertSkill(conn, "GapTestSkillIdMatch_" + System.nanoTime());
             metByRawInputSkillId = TestFixtures.insertSkill(conn, metByRawInputSkillName);
-            missingSkillId = TestFixtures.insertSkill(conn, "GapTestMissing_" + System.nanoTime());
+            missingSkillId = TestFixtures.insertSkill(conn, missingSkillName);
 
             jobReqId1 = insertRequired(conn, metBySkillIdSkillId);
             jobReqId2 = insertRequired(conn, metByRawInputSkillId);
@@ -168,6 +170,43 @@ class GapAnalysisServiceTest {
 
         GapAnalysisDto latest = gapAnalysisService.getLatest(userId);
         assertEquals(secondId, latest.getId());
+    }
+
+    // "로드맵이 한 번 만들면 고정되는 문제" 해결(2026-09-30 팀 결정) — 분석 시점 JOB.requirement_version
+    // 스냅샷이 잘 찍히는지 확인. 공용 시드(BACKEND)를 직접 건드리지 않고 현재 값을 읽어서만 비교한다.
+    @Test
+    void analyze는_JOB의_requirement_version을_스냅샷으로_저장한다() throws Exception {
+        JobDto beforeAnalyze = jobDao.findById(jobId);
+
+        Long analysisId = gapAnalysisService.analyze(userId, jobId);
+
+        GapAnalysisDto analysis = gapAnalysisDao.findById(analysisId);
+        assertEquals(beforeAnalyze.getRequirementVersion(), analysis.getJobRequirementVersion());
+    }
+
+    // FuzzyNameMatcher 도입(2026-09-30, "이름 일치라도") — raw_input에 사소한 오타가 있어도
+    // MET로 잡히고, similarity_score(TD-1이 원래 비워뒀던 자리)가 채워지는지 확인.
+    @Test
+    void raw_input에_오타가_있어도_퍼지_매칭으로_MET_판정되고_similarity_score가_채워진다() throws Exception {
+        // missingSkillId는 setUp에서 아무도 소유하지 않은 스킬이라, owned2(정확 일치)의 영향을
+        // 받지 않고 순수하게 이 테스트의 오타 매칭만 검증할 수 있다.
+        String typoName = missingSkillName.substring(0, missingSkillName.length() - 1) + "Z";
+        try (Connection conn = DBUtil.getConnection()) {
+            UserSkillDto typoOwned = new UserSkillDto();
+            typoOwned.setUserId(userId);
+            typoOwned.setRawInput(typoName);
+            userSkillDao.insert(conn, typoOwned);
+        }
+
+        Long analysisId = gapAnalysisService.analyze(userId, jobId);
+        List<GapAnalysisItemDto> items = gapAnalysisService.getItems(analysisId);
+        GapAnalysisItemDto matchedItem = items.stream()
+                .filter(i -> missingSkillId.equals(i.getSkillId()))
+                .findFirst().orElseThrow();
+
+        assertEquals("MET", matchedItem.getStatus());
+        assertNotNull(matchedItem.getSimilarityScore());
+        assertTrue(matchedItem.getSimilarityScore().doubleValue() < 1.0);
     }
 
     @Test

@@ -61,12 +61,16 @@ public class CertificationDao {
     }
 
     // FR-32 로드맵 자격증 단계 후보 조회 — 난이도 낮은 순(ENTRY 티어에 맞는 것부터).
+    // job_category = 'COMMON'(컴활·정보처리기능사 등 특정 직무에 안 묶이는 범용 자격증)도 항상 같이
+    // 조회해야 한다 — db-design.md·role-plan.md에 명시된 원칙인데 누락돼 있었다(2026-09-30 수정).
+    // 대상 직무 카테고리를 COMMON보다 먼저 보여주도록 정렬한다.
     public List<CertificationDto> findByJobCategory(String jobCategory) throws SQLException {
-        String sql = "SELECT * FROM CERTIFICATION WHERE job_category = ? AND is_deleted = FALSE " +
-                "ORDER BY difficulty_level ASC, cert_name ASC";
+        String sql = "SELECT * FROM CERTIFICATION WHERE (job_category = ? OR job_category = 'COMMON') " +
+                "AND is_deleted = FALSE ORDER BY (job_category = ?) DESC, difficulty_level ASC, cert_name ASC";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, jobCategory);
+            pstmt.setString(2, jobCategory);
             try (ResultSet rs = pstmt.executeQuery()) {
                 List<CertificationDto> certifications = new ArrayList<>();
                 while (rs.next()) {

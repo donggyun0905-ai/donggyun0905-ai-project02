@@ -87,10 +87,17 @@ public class RoadmapService {
     private final RoadmapDao roadmapDao = new RoadmapDao();
     private final RoadmapStepDao roadmapStepDao = new RoadmapStepDao();
     private final ScoreService scoreService = new ScoreService();
+    private final ProjectIdeaService projectIdeaService = new ProjectIdeaService();
 
     // TD-5 배점: 로드맵 단계 완료당 +100 (여정 서비스의 핵심이라 배점 최상)
     private static final int ROADMAP_STEP_COMPLETE_POINTS = 100;
     private static final String SIGNAL_TYPE_ROADMAP = "ROADMAP";
+
+    // SKILL 단계 학습 검증(2026-09-30 팀 결정) — tier별 증빙 방식. ROADMAP_STEP.proof_type에 저장.
+    private static final String PROOF_NOTE = "NOTE";
+    private static final String PROOF_PROJECT_LINK = "PROJECT_LINK";
+    private static final String PROOF_TEACHING_POST = "TEACHING_POST";
+    private static final String PROOF_CERT_DOCUMENT = "CERT_DOCUMENT";
 
     // SKILL 단계 완료 → USER_SKILLS 숙련도 자동 승급 기준 (팀 합의, 2026-09-23).
     // 완료를 취소해도 이미 오른 숙련도는 안 내린다 — 점수 정책과 같은 원칙.
@@ -102,6 +109,23 @@ public class RoadmapService {
 
     public RoadmapDto getPrimaryRoadmap(Long userId) throws SQLException {
         return roadmapDao.findPrimaryByUserId(userId);
+    }
+
+    // "로드맵이 한 번 만들면 고정되는 문제" 해결책(2026-09-30 팀 결정) — 대표 로드맵이 기준으로 삼은
+    // 분석(GAP_ANALYSIS.job_requirement_version)이 JOB의 현재 requirement_version보다 낡았으면
+    // true. DB 비교만으로 판단해서 비용이 0원이다(AI 호출 없음) — 실제 재분석·재생성은 사용자가
+    // 배너를 보고 직접 눌러야만 일어난다.
+    public boolean isJobRequirementOutdated(Long userId) throws SQLException {
+        RoadmapDto primary = roadmapDao.findPrimaryByUserId(userId);
+        if (primary == null || primary.getGapAnalysisId() == null) {
+            return false;
+        }
+        GapAnalysisDto analysis = gapAnalysisDao.findById(primary.getGapAnalysisId());
+        if (analysis == null || analysis.getJobRequirementVersion() == null) {
+            return false;
+        }
+        JobDto job = jobDao.findById(analysis.getJobId());
+        return job != null && job.getRequirementVersion() != analysis.getJobRequirementVersion();
     }
 
     public List<RoadmapStepDto> getSteps(Long roadmapId) throws SQLException {
@@ -218,7 +242,9 @@ public class RoadmapService {
             return unlocked;
         }
 
-        public boolean isEmpty() {
+        // "empty"는 EL 예약어라 JSP에서 t.empty로 접근하면 태그 검증 단계에서 컴파일 자체가
+        // 깨진다(2026-09-29 실제 배포 중 발견) — isEmptyTier로 이름을 피해서 짓는다.
+        public boolean isEmptyTier() {
             return total == 0;
         }
 
@@ -245,14 +271,14 @@ public class RoadmapService {
         // 화면의 "지금 할 일" 섹션 — 열려 있고, 비어 있지 않고, 아직 다 안 끝난 첫 번째 티어.
         public TierProgress getCurrentTier() {
             return tiers.stream()
-                    .filter(t -> t.isUnlocked() && !t.isEmpty() && !t.isComplete())
+                    .filter(t -> t.isUnlocked() && !t.isEmptyTier() && !t.isComplete())
                     .findFirst().orElse(null);
         }
 
         // "다음 단계 미리보기" 섹션 — 아직 잠겨 있고 비어 있지 않은 첫 번째 티어.
         public TierProgress getNextLockedTier() {
             return tiers.stream()
-                    .filter(t -> !t.isUnlocked() && !t.isEmpty())
+                    .filter(t -> !t.isUnlocked() && !t.isEmptyTier())
                     .findFirst().orElse(null);
         }
 
@@ -265,6 +291,10 @@ public class RoadmapService {
     // 완료 취소해도 이미 적립된 점수·스펙·숙련도는 깎지 않는다
     // (TD-5: 상한 없는 게임식 누적, 완료 취소해도 실수로 배운 게 없어지진 않는다 — 팀 합의, 2026-09-23).
     // 완료 처리 + 점수 적립 + 스펙/스킬 반영을 한 트랜잭션으로 묶어 일부만 반영되는 불일치를 막는다.
+    // CERT는 화면상으로는 증빙 서류 제출(submitCertProof)로만 완료하도록 유도한다(roadmap.jsp에
+    // 더 이상 CERT용 완료 체크 버튼이 없음, 2026-09-30 팀 결정). 다만 이 메서드 자체는 계속 막지
+    // 않는다 — syncCertAddedFromProfile(프로필에서 직접 자격증을 추가했을 때 매칭되는 CERT 단계를
+    // 자동 완료)이 내부적으로 이 메서드를 그대로 쓰고 있어서, 여기서 CERT를 막으면 그 기능이 깨진다.
     public void completeStep(Long userId, Long stepId, boolean completed) throws SQLException {
         TransactionUtil.runInTransaction(conn -> {
             int updatedRows = roadmapStepDao.updateCompleted(conn, stepId, userId, completed,
@@ -317,6 +347,135 @@ public class RoadmapService {
 
             scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId,
                     ROADMAP_STEP_COMPLETE_POINTS);
+            return true;
+        });
+    }
+
+    // SKILL 단계 학습 검증(2026-09-30 팀 결정, 규칙 기반) — ENTRY(공부노트)/EXPERT(기술 설명 글)
+    // 단계에 제출한 PDF(호출부가 이미 디스크에 저장하고, PdfTextUtil로 텍스트까지 뽑아서 넘겨준다)를
+    // SkillProofGrader로 자동 판정한다. 통과하면 completeStep과 동일하게 점수 적립 + 프로필 반영까지
+    // 한 트랜잭션으로 묶는다. 미통과(NEEDS_REVISION)면 완료 처리는 안 하고 판정 근거만 저장해서
+    // 사용자가 고쳐서 다시 제출할 수 있게 한다. PDF 원본은 통과 여부와 관계없이 DOCUMENTS에 남긴다
+    // (제출 이력 자체가 증빙이라 실패한 시도도 지우지 않는다).
+    public SkillProofGrader.GradeResult submitSkillNote(Long userId, Long stepId, String extractedText,
+            DocumentDto proofFile) throws SQLException {
+        return TransactionUtil.runInTransaction(conn -> {
+            RoadmapStepDto step = roadmapStepDao.findByIdForUser(conn, stepId, userId);
+            if (step == null) {
+                throw new IllegalArgumentException("본인의 로드맵 단계만 제출할 수 있습니다.");
+            }
+            if (!"SKILL".equals(step.getStepType())
+                    || !(TIER_ENTRY.equals(step.getTier()) || TIER_EXPERT.equals(step.getTier()))) {
+                throw new IllegalArgumentException("공부노트/기술 글 제출 대상이 아닌 단계입니다.");
+            }
+            if (step.isCompleted()) {
+                throw new IllegalArgumentException("이미 완료된 단계입니다.");
+            }
+
+            SkillDto skill = step.getRelatedSkillId() == null ? null : skillDao.findById(step.getRelatedSkillId());
+            String skillName = skill == null ? "" : skill.getSkillName();
+            boolean isExpert = TIER_EXPERT.equals(step.getTier());
+            String proofType = isExpert ? PROOF_TEACHING_POST : PROOF_NOTE;
+            SkillProofGrader.GradeResult result = isExpert
+                    ? SkillProofGrader.gradeExpertArticle(extractedText, skillName)
+                    : SkillProofGrader.gradeEntryNote(extractedText, skillName);
+
+            boolean passed = result.passed();
+            roadmapStepDao.updateProof(conn, stepId, userId, proofType, extractedText, null,
+                    result.status(), result.note(), passed, passed ? LocalDateTime.now() : null);
+
+            proofFile.setUserId(userId);
+            proofFile.setRoadmapStepId(stepId);
+            documentDao.insert(conn, proofFile);
+
+            if (passed) {
+                scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId,
+                        ROADMAP_STEP_COMPLETE_POINTS);
+                syncProfileOnComplete(conn, userId, roadmapStepDao.findById(conn, stepId));
+            }
+            return result;
+        });
+    }
+
+    // CORE/ADVANCED SKILL 단계 완료 — "프로젝트 등록 또는 기존 프로젝트 업그레이드 + 증빙 파일"로
+    // 자동 확인한다(팀 결정, 2026-09-30). completeProjectStep(PROJECT 타입 전용 단계)과 달리 이건
+    // SKILL 타입 단계에 evidence_project_id로 프로젝트를 연결한다 — 별도 판정 규칙 없이 등록 자체가
+    // 증빙이다. upgradeFromProjectId가 있으면 본인 소유가 맞는지 먼저 확인한다.
+    // CORE/ADVANCED 구분(2026-09-30 팀 확정): CORE는 신규/업그레이드 둘 다 허용하지만, ADVANCED는
+    // "심화" 단계 취지상 반드시 기존 프로젝트를 업그레이드해야 한다 — 신규 프로젝트로는 완료할 수 없다.
+    public boolean submitSkillProjectStep(Long userId, Long stepId, UserProjectDto projectInput,
+            List<DocumentDto> uploadedFiles, Long upgradeFromProjectId) throws SQLException {
+        if (uploadedFiles == null || uploadedFiles.isEmpty()) {
+            throw new IllegalArgumentException("증빙 파일을 최소 1개 첨부해야 합니다.");
+        }
+        return TransactionUtil.runInTransaction(conn -> {
+            RoadmapStepDto step = roadmapStepDao.findByIdForUser(conn, stepId, userId);
+            if (step == null) {
+                throw new IllegalArgumentException("본인의 로드맵 단계만 제출할 수 있습니다.");
+            }
+            if (!"SKILL".equals(step.getStepType())
+                    || !(TIER_CORE.equals(step.getTier()) || TIER_ADVANCED.equals(step.getTier()))) {
+                throw new IllegalArgumentException("프로젝트 등록 대상이 아닌 단계입니다.");
+            }
+            if (TIER_ADVANCED.equals(step.getTier()) && upgradeFromProjectId == null) {
+                throw new IllegalArgumentException("ADVANCED 단계는 기존 프로젝트를 업그레이드해야만 완료할 수 있습니다.");
+            }
+            if (step.isCompleted()) {
+                return false;
+            }
+
+            projectInput.setUserId(userId);
+            if (upgradeFromProjectId != null) {
+                UserProjectDto source = userProjectDao.findById(conn, upgradeFromProjectId, userId);
+                if (source == null) {
+                    throw new IllegalArgumentException("업그레이드할 프로젝트를 찾을 수 없습니다.");
+                }
+                projectInput.setUpgradedFromProjectId(upgradeFromProjectId);
+            }
+            Long projectId = userProjectDao.insert(conn, projectInput);
+            for (DocumentDto file : uploadedFiles) {
+                file.setUserId(userId);
+                file.setProjectId(projectId);
+                documentDao.insert(conn, file);
+            }
+
+            roadmapStepDao.updateProof(conn, stepId, userId, PROOF_PROJECT_LINK, null, projectId,
+                    SkillProofGrader.PASSED, "프로젝트 등록/업그레이드로 자동 확인", true, LocalDateTime.now());
+            scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId,
+                    ROADMAP_STEP_COMPLETE_POINTS);
+            syncProfileOnComplete(conn, userId, roadmapStepDao.findById(conn, stepId));
+            return true;
+        });
+    }
+
+    // CERT 단계 완료 — 자격증 취득을 증명하는 서류(합격 확인서·자격증 사진 등)를 첨부해야만 완료할 수
+    // 있다(2026-09-30 팀 결정, "그냥 완료 체크만 있던 걸 뒤늦게 발견해서 고침"). CORE/ADVANCED 프로젝트
+    // 등록과 같은 트레이드오프 — 별도 자동 판정 규칙 없이 서류 첨부 자체를 증빙으로 신뢰한다.
+    public boolean submitCertProof(Long userId, Long stepId, DocumentDto certificateFile) throws SQLException {
+        if (certificateFile == null) {
+            throw new IllegalArgumentException("자격증 증빙 서류를 첨부해야 합니다.");
+        }
+        return TransactionUtil.runInTransaction(conn -> {
+            RoadmapStepDto step = roadmapStepDao.findByIdForUser(conn, stepId, userId);
+            if (step == null) {
+                throw new IllegalArgumentException("본인의 로드맵 단계만 제출할 수 있습니다.");
+            }
+            if (!"CERT".equals(step.getStepType())) {
+                throw new IllegalArgumentException("자격증 단계가 아닙니다.");
+            }
+            if (step.isCompleted()) {
+                return false;
+            }
+
+            certificateFile.setUserId(userId);
+            certificateFile.setRoadmapStepId(stepId);
+            documentDao.insert(conn, certificateFile);
+
+            roadmapStepDao.updateProof(conn, stepId, userId, PROOF_CERT_DOCUMENT, null, null,
+                    SkillProofGrader.PASSED, "자격증 증빙 서류 제출로 확인", true, LocalDateTime.now());
+            scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId,
+                    ROADMAP_STEP_COMPLETE_POINTS);
+            syncProfileOnComplete(conn, userId, roadmapStepDao.findById(conn, stepId));
             return true;
         });
     }
@@ -432,6 +591,11 @@ public class RoadmapService {
         List<GapAnalysisItemDto> rankedMissing = rankMissingSkills(analysis);
         JobDto job = jobDao.findById(analysis.getJobId());
         CertificationDto suggestedCert = findSuggestedCertification(userId, job);
+        // ENTRY 티어의 PROJECT 단계 안내 문구를 미리 만들어둔다 — LLM 호출은 DB 트랜잭션을 열기
+        // 전에 끝내야 한다(claude.md: 외부 API 호출에 타임아웃을 직접 두고, 느리거나 실패해도
+        // DB 커넥션을 물고 있으면 안 됨). 실패해도 로드맵 생성 자체는 막지 않는다(FR-111).
+        List<GapAnalysisItemDto> entryTierSkills = chunkForTier(rankedMissing, 0);
+        String projectReason = entryTierSkills.isEmpty() ? null : buildProjectReason(job, entryTierSkills);
         RoadmapDto previousPrimary = roadmapDao.findPrimaryByUserId(userId);
         int nextVersion = nextVersion(userId);
 
@@ -464,8 +628,7 @@ public class RoadmapService {
                                 buildCertReason(job, suggestedCert));
                     }
                     if (!tierSkills.isEmpty()) {
-                        order = insertStep(conn, roadmapId, order, "PROJECT", tier, null, null,
-                                buildProjectReason(tierSkills));
+                        order = insertStep(conn, roadmapId, order, "PROJECT", tier, null, null, projectReason);
                     }
                 }
                 for (GapAnalysisItemDto item : tierSkills) {
@@ -577,7 +740,10 @@ public class RoadmapService {
         return category + " 직무에서 기본 요건으로 자주 요구되는 자격증(" + cert.getCertName() + ")입니다.";
     }
 
-    private String buildProjectReason(List<GapAnalysisItemDto> rankedMissing) throws SQLException {
+    // LLM(ProjectIdeaService)이 목표 직무 + 부족 기술로 구체적인 프로젝트 아이디어를 만들어준다.
+    // 실패(API 키 없음·타임아웃·응답 형식 오류 등)해도 로드맵 생성 자체를 막으면 안 되므로(FR-111),
+    // 여기서 예외를 잡아 기존 고정 문구로 조용히 대체한다 — 2026-09-30, 집 PC 작업에서 신규 도입.
+    private String buildProjectReason(JobDto job, List<GapAnalysisItemDto> rankedMissing) throws SQLException {
         List<String> names = new ArrayList<>();
         for (GapAnalysisItemDto item : rankedMissing) {
             if (names.size() >= 3) {
@@ -588,8 +754,14 @@ public class RoadmapService {
                 names.add(skill.getSkillName());
             }
         }
-        String topSkills = String.join(", ", names);
-        return "부족한 기술을 실제로 다뤄볼 프로젝트를 진행해보세요. 우선순위가 높은 기술: " + topSkills;
+        try {
+            ProjectIdeaService.ProjectIdea idea = projectIdeaService.suggest(
+                    job == null || job.getJobName() == null ? "이 직무" : job.getJobName(), names);
+            return "💡 " + idea.title() + " — " + idea.description();
+        } catch (Exception e) {
+            String topSkills = String.join(", ", names);
+            return "부족한 기술을 실제로 다뤄볼 프로젝트를 진행해보세요. 우선순위가 높은 기술: " + topSkills;
+        }
     }
 
     private String buildSkillReason(Long skillId, String importance) throws SQLException {

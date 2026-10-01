@@ -30,17 +30,18 @@ public class DocumentDao {
 
     public Long insert(Connection conn, DocumentDto document) throws SQLException {
         String sql = "INSERT INTO DOCUMENTS " +
-                "(user_id, project_id, original_name, stored_name, file_path, file_size, mime_type, checksum) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                "(user_id, project_id, roadmap_step_id, original_name, stored_name, file_path, file_size, " +
+                " mime_type, checksum) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setLong(1, document.getUserId());
             setNullableLong(pstmt, 2, document.getProjectId());
-            pstmt.setString(3, document.getOriginalName());
-            pstmt.setString(4, document.getStoredName());
-            pstmt.setString(5, document.getFilePath());
-            pstmt.setLong(6, document.getFileSize());
-            pstmt.setString(7, document.getMimeType());
-            pstmt.setString(8, document.getChecksum());
+            setNullableLong(pstmt, 3, document.getRoadmapStepId());
+            pstmt.setString(4, document.getOriginalName());
+            pstmt.setString(5, document.getStoredName());
+            pstmt.setString(6, document.getFilePath());
+            pstmt.setLong(7, document.getFileSize());
+            pstmt.setString(8, document.getMimeType());
+            pstmt.setString(9, document.getChecksum());
             pstmt.executeUpdate();
             try (ResultSet keys = pstmt.getGeneratedKeys()) {
                 return keys.next() ? keys.getLong(1) : null;
@@ -103,6 +104,7 @@ public class DocumentDao {
         document.setId(rs.getLong("id"));
         document.setUserId(rs.getLong("user_id"));
         document.setProjectId(rs.getObject("project_id", Long.class));
+        document.setRoadmapStepId(rs.getObject("roadmap_step_id", Long.class));
         document.setOriginalName(rs.getString("original_name"));
         document.setStoredName(rs.getString("stored_name"));
         document.setFilePath(rs.getString("file_path"));
