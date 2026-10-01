@@ -1,5 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <c:set var="pageTitle" value="로드맵 - 스펙 오디세이" scope="request" />
 <c:set var="mainWide" value="true" scope="request" />
 <jsp:include page="/WEB-INF/views/common/header.jsp" />
@@ -7,8 +8,8 @@
     /* 로드맵 화면 전용 레이아웃(2026-10-01, 오늘할일 7·8번) — 가운데 여정 기록을 크게 중앙에 두고
        왼쪽에 일일 미션·최근 서류, 오른쪽에 트렌드 기술·연습장을 작은 박스로 둔다.
        공통 CSS는 A 담당 파일이라 이 화면에서만 쓰는 규칙은 여기에 둔다. */
-    main.wide { max-width: 1480px; }
-    .roadmap-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr) 270px; gap: 24px;
+    main.wide { max-width: 1680px; }
+    .roadmap-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr) 250px; gap: 16px;
         align-items: start; margin-top: 16px; }
     .rm-left, .rm-right { display: flex; flex-direction: column; gap: 16px; }
     .rm-left .card, .rm-right .card { margin-bottom: 0; padding: 16px 18px; }
@@ -19,7 +20,7 @@
     /* 여정 카드·마커를 키운다 */
     .journey-card { padding: 22px 26px; }
     .journey-card p { font-size: 1rem; }
-    .journey-row { grid-template-columns: 1fr 76px 1fr; margin: 22px 0; }
+    .journey-row { grid-template-columns: 1fr 76px 1fr; gap: 0 16px; margin: 22px 0; }
     .journey-marker { width: 64px; height: 64px; font-size: 1.6rem; }
     .journey-track-scroll { max-height: 80vh; }
     .journey-card.has-dialog { cursor: pointer; }
@@ -182,7 +183,19 @@
                                     </span>
                                     <c:if test="${step.completed}"><span style="color:var(--teal); font-weight:bold; font-size:0.85rem;">✔ 완료</span></c:if>
                                 </div>
-                                <p>${step.reason}</p>
+                                <%-- "💡 제목 — 긴 설명" 형태의 프로젝트 아이디어는 카드에 제목만 두고, 설명은 박스를 눌렀을 때 뜨는 창에 보여준다. --%>
+                                <c:set var="ideaSplit" value="${fn:startsWith(step.reason, '💡') && fn:contains(step.reason, ' — ')}" scope="page" />
+                                <c:choose>
+                                    <c:when test="${ideaSplit}">
+                                        <c:set var="ideaTitle" value="${fn:substringBefore(step.reason, ' — ')}" scope="page" />
+                                        <c:set var="ideaDesc" value="${fn:substringAfter(step.reason, ' — ')}" scope="page" />
+                                        <p>${ideaTitle}</p>
+                                    </c:when>
+                                    <c:otherwise>
+                                        <c:set var="ideaDesc" value="" scope="page" />
+                                        <p>${step.reason}</p>
+                                    </c:otherwise>
+                                </c:choose>
                                 <c:if test="${markerClass == 'locked'}">
                                     <p class="muted" style="margin:0; font-size:0.82rem;">지금 할 일을 다 끝내면 완료 체크를 할 수 있게 풀립니다.</p>
                                 </c:if>
@@ -202,6 +215,7 @@
                                         <button type="button" class="open-step-dialog" data-dialog="stepDialog-${step.id}">프로젝트 등록하고 완료하기</button>
                                         <dialog id="stepDialog-${step.id}" class="step-dialog">
                                         <div class="step-dialog-head"><h3>프로젝트 등록하고 완료하기</h3><button type="button" class="dialog-close link-button" aria-label="닫기">✕</button></div>
+                                        <c:if test="${not empty ideaDesc}"><p class="muted" style="line-height:1.6;">💡 ${ideaTitle}<br>${ideaDesc}</p></c:if>
                                             <form action="${pageContext.request.contextPath}/roadmap" method="post"
                                                   enctype="multipart/form-data" style="margin-top:10px;">
                                                 <input type="hidden" name="action" value="completeProject">
@@ -439,7 +453,16 @@
             sessionStorage.removeItem(STORAGE_KEY);
         }
     }
+    // 폼 제출 → 리다이렉트로 페이지가 새로 로드되면 브라우저 창 스크롤도 맨 위로 돌아간다.
+    // 위의 컨테이너 내부 스크롤과 별개로, 창 스크롤 위치도 저장했다가 복원한다.
+    var WINDOW_KEY = 'roadmapWindowScrollY';
+    var savedY = sessionStorage.getItem(WINDOW_KEY);
+    if (savedY !== null) {
+        sessionStorage.removeItem(WINDOW_KEY);
+        window.scrollTo(0, parseInt(savedY, 10) || 0);
+    }
     document.addEventListener('submit', function (e) {
+        sessionStorage.setItem(WINDOW_KEY, String(window.scrollY));
         var stepIdField = e.target.querySelector && e.target.querySelector('input[name="stepId"]');
         if (stepIdField && stepIdField.value) {
             sessionStorage.setItem(STORAGE_KEY, stepIdField.value);
