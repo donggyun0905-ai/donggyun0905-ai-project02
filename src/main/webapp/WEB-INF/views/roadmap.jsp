@@ -8,14 +8,21 @@
     /* 로드맵 화면 전용 레이아웃(2026-10-01, 오늘할일 7·8번) — 가운데 여정 기록을 크게 중앙에 두고
        왼쪽에 일일 미션·최근 서류, 오른쪽에 트렌드 기술·연습장을 작은 박스로 둔다.
        공통 CSS는 A 담당 파일이라 이 화면에서만 쓰는 규칙은 여기에 둔다. */
-    main.wide { max-width: 1680px; }
-    .roadmap-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr) 250px; gap: 16px;
-        align-items: start; margin-top: 16px; }
-    .rm-left, .rm-right { display: flex; flex-direction: column; gap: 16px; }
+    /* 왼쪽(일일 미션·최근 서류)·오른쪽(트렌드·연습장) 박스는 화면 좌우 끝에 붙여 고정한다(2026-10-01).
+       맨 위 헤더도 고정이라 스크롤해도 둘 다 항상 보이고, 박스가 길면 박스 안에서만 스크롤된다.
+       가운데 여정 기록은 두 박스 폭만큼 안쪽 여백을 두고 남은 폭을 다 쓴다. */
+    main.wide { max-width: none; padding-left: 262px; padding-right: 282px; }
+    .roadmap-layout { display: block; margin-top: 16px; }
+    .rm-left, .rm-right { display: flex; flex-direction: column; gap: 16px; position: fixed;
+        top: var(--header-h); bottom: 0; overflow-y: auto; padding: 16px 12px; background: var(--page-bg); z-index: 10; }
+    .rm-left { left: 0; width: 246px; border-right: 1px solid var(--border); }
+    .rm-right { right: 0; width: 266px; border-left: 1px solid var(--border); }
     .rm-left .card, .rm-right .card { margin-bottom: 0; padding: 16px 18px; }
     @media (max-width: 1100px) {
-        .roadmap-layout { grid-template-columns: minmax(0, 1fr); }
+        main.wide { padding-left: 24px; padding-right: 24px; }
+        .rm-left, .rm-right { position: static; width: auto; overflow: visible; padding: 0; border: none; margin-top: 16px; }
         .rm-center { order: -1; }
+        .roadmap-layout { display: flex; flex-direction: column; }
     }
     /* 여정 카드·마커를 키운다 */
     .journey-card { padding: 22px 26px; }

@@ -24,6 +24,7 @@
     --locked: #b8a88a;
 
     --radius: 10px;
+    --header-h: 64px;
     --shadow: 0 2px 8px rgba(58, 47, 36, 0.12);
 }
 
@@ -62,6 +63,11 @@ header {
     align-items: center;
     gap: 16px;
     border-bottom: 3px solid var(--gold);
+    /* 스크롤해도 맨 위에 고정(2026-10-01) — 높이는 --header-h로 고정해 두어 고정 사이드바가 그 아래에서 시작한다 */
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    min-height: var(--header-h);
 }
 
 header .brand {
@@ -107,7 +113,7 @@ header .spacer { flex-grow: 1; }
     position: fixed; inset: 0;
     background: rgba(58,47,36,0.35);
     display: none;
-    z-index: 50;
+    z-index: 60;
 }
 #nav-toggle:checked ~ .nav-drawer { display: block; }
 .nav-drawer-panel {
