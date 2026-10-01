@@ -39,6 +39,7 @@ public class DailyMissionService {
 
     private final MissionDao missionDao = new MissionDao();
     private final UserDailyMissionDao userDailyMissionDao = new UserDailyMissionDao();
+    private final MissionSubmitService missionSubmitService = new MissionSubmitService();
 
     /** 화면에 넘길 오늘의 미션 묶음. */
     public static class TodayMissions {
@@ -48,14 +49,29 @@ public class DailyMissionService {
         private final int levelMax;
         private final String targetJobName;
         private final int sqlQuota;
+        private final String tierName;
+        private final int solvePoints;
 
-        TodayMissions(List<DailyMissionViewDto> missions, int[] range, TargetJob job) {
+        TodayMissions(List<DailyMissionViewDto> missions, int[] range, TargetJob job,
+                      MissionSubmitService.CurrentTier tier) {
             this.missions = missions;
             this.doneCount = missions.stream().filter(DailyMissionViewDto::isCompleted).count();
             this.levelMin = range[0];
             this.levelMax = range[1];
             this.targetJobName = job == null ? null : job.getJobName();
             this.sqlQuota = sqlQuota(job == null ? null : job.getJobCategory());
+            this.tierName = tier.name();
+            this.solvePoints = tier.points();
+        }
+
+        /** 현재 등급 이름 (점수 기록이 없으면 가장 낮은 등급). */
+        public String getTierName() {
+            return tierName;
+        }
+
+        /** 지금 문제를 풀어 제출하면 받는 점수. */
+        public int getSolvePoints() {
+            return solvePoints;
         }
 
         public List<DailyMissionViewDto> getMissions() {
@@ -90,6 +106,8 @@ public class DailyMissionService {
     /** 오늘 배정분이 모자라면 채워서 돌려준다. 문제 풀이 비어 있으면 있는 만큼만 돌려준다. */
     public TodayMissions getOrAssignToday(Long userId) throws SQLException {
         LocalDate today = LocalDate.now(ZONE);
+        // 등급 표시·점수는 제출 적립과 같은 기준(MissionSubmitService.currentTier)으로 계산한다
+        MissionSubmitService.CurrentTier tier = missionSubmitService.currentTier(userId);
         synchronized (USER_LOCKS.computeIfAbsent(userId, id -> new Object())) {
             return TransactionUtil.runInTransaction(conn -> {
                 int[] range = levelRange(conn, userId);
@@ -105,7 +123,7 @@ public class DailyMissionService {
                     }
                 }
                 missions.forEach(m -> m.setSourceLabel(sourceLabel(m.getExternalUrl())));
-                return new TodayMissions(missions, range, job);
+                return new TodayMissions(missions, range, job, tier);
             });
         }
     }
