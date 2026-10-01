@@ -103,6 +103,18 @@ public class DocumentDao {
         }
     }
 
+    // 서류 보관함에서 연결 프로젝트만 바꿀 때 — 표시명은 건드리지 않는다. projectId가 null이면 연결을 푼다.
+    // 본인 소유가 아니면 0행 갱신이라 false를 돌려준다.
+    public boolean updateProject(Connection conn, Long documentId, Long userId, Long projectId) throws SQLException {
+        String sql = "UPDATE DOCUMENTS SET project_id = ? WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            setNullableLong(pstmt, 1, projectId);
+            pstmt.setLong(2, documentId);
+            pstmt.setLong(3, userId);
+            return pstmt.executeUpdate() > 0;
+        }
+    }
+
     public void delete(Connection conn, Long documentId, Long userId) throws SQLException {
         String sql = "UPDATE DOCUMENTS SET is_deleted = TRUE WHERE id = ? AND user_id = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
