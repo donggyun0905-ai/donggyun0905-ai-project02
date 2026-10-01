@@ -128,6 +128,30 @@ public class UserDao {
         }
     }
 
+    // 서류 보관함(DOCUMENTS)의 파일 하나를 이력서로 지정한다. documentId가 null이면 지정을 푼다.
+    // 본인이 올린, 지워지지 않은 파일만 지정할 수 있다 — 조건에 안 맞으면 0행 갱신이라 false를 돌려준다.
+    // 다른 기본정보 필드는 손대지 않기 위해 updateProfile과 분리했다.
+    public boolean updateResumeDocument(Long userId, Long documentId) throws SQLException {
+        try (Connection conn = DBUtil.getConnection()) {
+            return updateResumeDocument(conn, userId, documentId);
+        }
+    }
+
+    // 이력서 교체처럼 서류 저장과 한 트랜잭션으로 묶을 때 쓴다
+    public boolean updateResumeDocument(Connection conn, Long userId, Long documentId) throws SQLException {
+        String sql = "UPDATE USERS SET resume_document_id = ? WHERE id = ? AND is_deleted = FALSE " +
+                "AND (? IS NULL OR EXISTS (SELECT 1 FROM DOCUMENTS d " +
+                "WHERE d.id = ? AND d.user_id = ? AND d.is_deleted = FALSE))";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            setNullableLong(pstmt, 1, documentId);
+            pstmt.setLong(2, userId);
+            setNullableLong(pstmt, 3, documentId);
+            setNullableLong(pstmt, 4, documentId);
+            pstmt.setLong(5, userId);
+            return pstmt.executeUpdate() > 0;
+        }
+    }
+
     // FR-12 로그인 성공 시 마지막 접속 시각 갱신
     public void updateLastLogin(Long id) throws SQLException {
         String sql = "UPDATE USERS SET last_login_at = CURRENT_TIMESTAMP WHERE id = ? AND is_deleted = FALSE";
@@ -174,6 +198,7 @@ public class UserDao {
         user.setInterestField(rs.getString("interest_field"));
         user.setDesiredJobId(rs.getObject("desired_job_id", Long.class));
         user.setDesiredJobStatus(rs.getString("desired_job_status"));
+        user.setResumeDocumentId(rs.getObject("resume_document_id", Long.class));
         user.setPrivacyConsentAt(toLocalDateTime(rs.getTimestamp("privacy_consent_at")));
         user.setProfileUpdatedAt(toLocalDateTime(rs.getTimestamp("profile_updated_at")));
         user.setLastLoginAt(toLocalDateTime(rs.getTimestamp("last_login_at")));

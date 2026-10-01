@@ -538,6 +538,7 @@ CREATE TABLE SHARE_LINK (
     scope_basic      BOOLEAN      NOT NULL DEFAULT TRUE,
     scope_skills     BOOLEAN      NOT NULL DEFAULT FALSE,
     scope_growth     BOOLEAN      NOT NULL DEFAULT FALSE,
+    scope_resume     BOOLEAN      NOT NULL DEFAULT FALSE, -- 이력서 파일(USERS.resume_document_id) 공개
     label            VARCHAR(50)  NULL,
     created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -716,3 +717,13 @@ CREATE TABLE AI_USAGE_LOG (
         FOREIGN KEY (user_id) REFERENCES USERS (id)
         ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
+-- USERS.resume_document_id → DOCUMENTS (이력서 파일)
+-- USERS(01_schema.sql)가 DOCUMENTS보다 먼저 만들어져서, FK는 DOCUMENTS가 생긴 뒤인 여기서 건다.
+-- 이미 만든 DB에는 sql/09_alter_users_resume.sql을 실행한다.
+-- =========================================================
+ALTER TABLE USERS
+    ADD CONSTRAINT fk_users_resume_document
+        FOREIGN KEY (resume_document_id) REFERENCES DOCUMENTS (id)
+        ON DELETE RESTRICT ON UPDATE CASCADE;

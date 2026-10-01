@@ -15,6 +15,7 @@ public class ShareViewDto {
     private boolean scopeBasic;
     private boolean scopeSkills;
     private boolean scopeGrowth;
+    private boolean scopeResume;
 
     // scope_basic
     private String name;
@@ -31,6 +32,9 @@ public class ShareViewDto {
     // 아직 매칭되지 않은 기술은 입력한 이름(소문자)으로 비교한다.
     private Set<Long> skillIds = new HashSet<>();
     private Set<String> skillNames = new HashSet<>();
+
+    // scope_resume — 이력서 파일 이름. 공개했지만 올린 이력서가 없으면 null
+    private String resumeFileName;
 
     // scope_growth — 날짜 오름차순
     private List<SpecScoreHistoryDto> growth = new ArrayList<>();
@@ -88,6 +92,22 @@ public class ShareViewDto {
 
     public void setScopeGrowth(boolean scopeGrowth) {
         this.scopeGrowth = scopeGrowth;
+    }
+
+    public boolean isScopeResume() {
+        return scopeResume;
+    }
+
+    public void setScopeResume(boolean scopeResume) {
+        this.scopeResume = scopeResume;
+    }
+
+    public String getResumeFileName() {
+        return resumeFileName;
+    }
+
+    public void setResumeFileName(String resumeFileName) {
+        this.resumeFileName = resumeFileName;
     }
 
     public String getName() {

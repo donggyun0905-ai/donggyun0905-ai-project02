@@ -131,6 +131,17 @@
                     </tr>
                 </c:if>
                 <tr>
+                    <td>이력서</td>
+                    <c:forEach var="applicant" items="${compare.applicants}">
+                        <c:choose>
+                            <c:when test="${not applicant.available}"><td class="muted">-</td></c:when>
+                            <c:when test="${not applicant.view.scopeResume}"><td class="muted">지원자가 공개하지 않음</td></c:when>
+                            <c:when test="${empty applicant.view.resumeFileName}"><td class="muted">올린 이력서 없음</td></c:when>
+                            <c:otherwise><td><a href="${pageContext.request.contextPath}/share/${applicant.token}/resume">📎 내려받기</a></td></c:otherwise>
+                        </c:choose>
+                    </c:forEach>
+                </tr>
+                <tr>
                     <td>성장 잠재력</td>
                     <c:forEach var="applicant" items="${compare.applicants}">
                         <c:choose>

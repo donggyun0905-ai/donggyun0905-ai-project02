@@ -47,8 +47,25 @@
                 <c:if test="${view.scopeBasic}"><span class="chip chip-teal">기본 이력</span></c:if>
                 <c:if test="${view.scopeSkills}"><span class="chip chip-teal">보유 기술 스택</span></c:if>
                 <c:if test="${view.scopeGrowth}"><span class="chip chip-teal">성장 잠재력</span></c:if>
+                <c:if test="${view.scopeResume}"><span class="chip chip-teal">이력서 파일</span></c:if>
             </p>
         </div>
+
+        <c:if test="${view.scopeResume}">
+            <div class="card">
+                <h2>이력서</h2>
+                <c:choose>
+                    <c:when test="${empty view.resumeFileName}">
+                        <p class="muted" style="margin-top:10px;">지원자가 아직 이력서를 올리지 않았습니다.</p>
+                    </c:when>
+                    <c:otherwise>
+                        <p style="margin-top:10px; margin-bottom:0;">
+                            <a href="${pageContext.request.contextPath}/share/${token}/resume">📎 <c:out value="${view.resumeFileName}" /> 내려받기</a>
+                        </p>
+                    </c:otherwise>
+                </c:choose>
+            </div>
+        </c:if>
 
         <%-- FR-81 이력 타임라인 --%>
         <c:if test="${view.scopeBasic}">

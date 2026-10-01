@@ -1,5 +1,6 @@
 package com.specodyssey.service;
 
+import com.specodyssey.dao.DocumentDao;
 import com.specodyssey.dao.JobDao;
 import com.specodyssey.dao.ShareLinkDao;
 import com.specodyssey.dao.ShareLinkViewLogDao;
@@ -8,6 +9,7 @@ import com.specodyssey.dao.UserDao;
 import com.specodyssey.dao.UserProjectDao;
 import com.specodyssey.dao.UserSkillDao;
 import com.specodyssey.dao.UserSpecDao;
+import com.specodyssey.dto.DocumentDto;
 import com.specodyssey.dto.JobDto;
 import com.specodyssey.dto.ShareLinkDto;
 import com.specodyssey.dto.ShareLinkViewLogDto;
@@ -49,6 +51,7 @@ public class ShareViewService {
     private final ShareLinkDao shareLinkDao = new ShareLinkDao();
     private final ShareLinkViewLogDao viewLogDao = new ShareLinkViewLogDao();
     private final UserDao userDao = new UserDao();
+    private final DocumentDao documentDao = new DocumentDao();
     private final JobDao jobDao = new JobDao();
     private final UserSpecDao userSpecDao = new UserSpecDao();
     private final UserProjectDao userProjectDao = new UserProjectDao();
@@ -81,6 +84,32 @@ public class ShareViewService {
         return buildView(shareLinkDao.findActiveById(shareLinkId));
     }
 
+    /**
+     * 공유 링크로 이력서 파일을 내려받을 때 — 링크가 유효하고, 지원자가 이 링크에 이력서 공개를 골랐고,
+     * 올려 둔 이력서가 있을 때만 파일 정보를 돌려준다. 로그인하지 않은 사람도 호출하므로 조건을 모두 여기서 확인한다.
+     * @return 조건에 하나라도 안 맞으면 null
+     */
+    public DocumentDto loadResume(String token) throws SQLException {
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+        ShareLinkDto link = shareLinkDao.findByToken(token);
+        if (link == null || !link.isScopeResume()) {
+            return null;
+        }
+        UserDto user = userDao.findById(link.getUserId());
+        return user == null ? null : findResume(user);
+    }
+
+    // 지원자가 지정한 이력서. 지정하지 않았거나 그 서류가 지워졌으면 null
+    private DocumentDto findResume(UserDto user) throws SQLException {
+        if (user.getResumeDocumentId() == null) {
+            return null;
+        }
+        DocumentDto document = documentDao.findById(user.getResumeDocumentId());
+        return (document == null || !document.getUserId().equals(user.getId())) ? null : document;
+    }
+
     // link는 이미 활성·만료 확인을 거친 것이어야 한다. 링크의 scope_*가 켜진 범위만 읽는다.
     private ShareViewDto buildView(ShareLinkDto link) throws SQLException {
         if (link == null) {
@@ -96,6 +125,7 @@ public class ShareViewService {
         view.setScopeBasic(link.isScopeBasic());
         view.setScopeSkills(link.isScopeSkills());
         view.setScopeGrowth(link.isScopeGrowth());
+        view.setScopeResume(link.isScopeResume());
 
         if (link.isScopeBasic()) {
             view.setName(user.getName());
@@ -109,6 +139,10 @@ public class ShareViewService {
         }
         if (link.isScopeSkills()) {
             fillSkills(view, user.getId());
+        }
+        if (link.isScopeResume()) {
+            DocumentDto resume = findResume(user);
+            view.setResumeFileName(resume == null ? null : resume.getOriginalName());
         }
         if (link.isScopeGrowth()) {
             List<SpecScoreHistoryDto> history = specScoreHistoryDao.findByUserId(user.getId());

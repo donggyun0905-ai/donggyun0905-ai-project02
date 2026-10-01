@@ -78,6 +78,7 @@ CREATE TABLE USERS (
     interest_field        VARCHAR(50)  NULL,
     desired_job_id        BIGINT       NULL,
     desired_job_status    VARCHAR(10)  NOT NULL DEFAULT 'UNSET',
+    resume_document_id    BIGINT       NULL, -- 이력서 파일 → DOCUMENTS. FK는 DOCUMENTS가 생긴 뒤 03_schema_extended.sql에서 건다
     privacy_consent_at    DATETIME     NULL,
     profile_updated_at    DATETIME     NULL,
     last_login_at         DATETIME     NULL,
@@ -88,6 +89,7 @@ CREATE TABLE USERS (
     UNIQUE KEY uk_users_login_id (login_id),
     KEY idx_users_email (email),
     KEY idx_users_desired_job_id (desired_job_id),
+    KEY idx_users_resume_document_id (resume_document_id),
     CONSTRAINT fk_users_desired_job
         FOREIGN KEY (desired_job_id) REFERENCES JOB (id)
         ON DELETE RESTRICT ON UPDATE CASCADE

@@ -8,6 +8,7 @@ import com.specodyssey.dto.JobDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.service.PersonalInfo;
 import com.specodyssey.service.ProfileService;
+import com.specodyssey.service.ResumeService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -32,6 +33,7 @@ public class ProfileServlet extends HttpServlet {
     private final JobAliasDao jobAliasDao = new JobAliasDao();
     private final DocumentDao documentDao = new DocumentDao();
     private final ProfileService profileService = new ProfileService();
+    private final ResumeService resumeService = new ResumeService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -179,6 +181,14 @@ public class ProfileServlet extends HttpServlet {
         req.setAttribute("skills", profileService.getSkills(userId));
         // FR-62 프로젝트에 연결된 첨부 파일 조회·다운로드 — PROJECT 로드맵 단계 완료 시 자동 등록된다.
         req.setAttribute("documents", documentDao.findByUserId(userId));
+        req.setAttribute("resume", resumeService.findResume(userId));
+        // 이력서 올리기·삭제(ProfileResumeServlet)는 끝나면 이 화면으로 돌아온다 — 결과 문구를 한 번만 보여준다
+        HttpSession session = req.getSession(false);
+        Object resumeMessage = session.getAttribute("resumeMessage");
+        if (resumeMessage != null) {
+            session.removeAttribute("resumeMessage");
+            req.setAttribute("resumeMessage", resumeMessage);
+        }
     }
 
     private Long currentUserId(HttpServletRequest req) {

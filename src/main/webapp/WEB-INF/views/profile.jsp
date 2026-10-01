@@ -117,6 +117,42 @@
     </c:otherwise>
 </c:choose>
 
+<h2 style="margin-top:24px; margin-bottom:10px;">이력서</h2>
+<c:if test="${not empty resumeMessage}">
+    <p class="error-message"><c:out value="${resumeMessage}" /></p>
+</c:if>
+<div class="card">
+    <c:choose>
+        <c:when test="${not empty resume}">
+            <p style="margin-top:0;">
+                <a href="${pageContext.request.contextPath}/documents/${resume.id}">📎 <c:out value="${resume.originalName}" /></a>
+                <span class="muted">· ${resume.createdAt.toLocalDate()}에 올림</span>
+            </p>
+        </c:when>
+        <c:otherwise>
+            <p class="muted" style="margin-top:0;">아직 올린 이력서가 없습니다.</p>
+        </c:otherwise>
+    </c:choose>
+    <form action="${pageContext.request.contextPath}/profile/resume" method="post" enctype="multipart/form-data" class="row">
+        <input type="file" name="resume" required accept=".pdf,.doc,.docx,.hwp,.hwpx" style="flex:1;">
+        <button type="submit">${empty resume ? '이력서 올리기' : '새 파일로 바꾸기'}</button>
+    </form>
+    <p class="muted" style="font-size:0.8rem; margin:8px 0 0;">PDF, Word(doc·docx), 한글(hwp·hwpx) 파일을 10MB까지 올릴 수 있습니다. 새 파일을 올리면 이전 이력서는 지워집니다.</p>
+    <c:if test="${not empty resume}">
+        <form action="${pageContext.request.contextPath}/profile/resume" method="post" class="delete-resume" style="margin-top:8px;">
+            <input type="hidden" name="action" value="delete">
+            <button type="submit" class="link-button">이력서 삭제</button>
+        </form>
+        <script>
+            document.querySelector('.delete-resume').addEventListener('submit', function (event) {
+                if (!confirm('이력서를 삭제할까요?')) {
+                    event.preventDefault();
+                }
+            });
+        </script>
+    </c:if>
+</div>
+
 <h2 style="margin-top:24px; margin-bottom:10px;">보유 스펙</h2>
 <ul class="item-list">
     <c:forEach var="spec" items="${specs}">

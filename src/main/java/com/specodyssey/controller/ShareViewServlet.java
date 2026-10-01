@@ -1,8 +1,10 @@
 package com.specodyssey.controller;
 
+import com.specodyssey.dto.DocumentDto;
 import com.specodyssey.dto.ShareViewDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.service.ShareViewService;
+import com.specodyssey.util.FileStorageUtil;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -12,6 +14,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.sql.SQLException;
 
 /**
@@ -24,6 +30,8 @@ import java.sql.SQLException;
 @WebServlet("/share/*")
 public class ShareViewServlet extends HttpServlet {
 
+    private static final String RESUME_SUFFIX = "/resume";
+
     private final ShareViewService shareViewService = new ShareViewService();
 
     @Override
@@ -33,6 +41,12 @@ public class ShareViewServlet extends HttpServlet {
         // 지원자 비교는 면접관 계정 화면으로 옮겼다 — 예전 주소로 들어오면 그쪽으로 보낸다(로그인 필요).
         if ("/compare".equals(pathInfo)) {
             resp.sendRedirect(req.getContextPath() + "/interviewer/compare");
+            return;
+        }
+
+        // "/share/{토큰}/resume" — 이력서 파일 내려받기
+        if (pathInfo != null && pathInfo.endsWith(RESUME_SUFFIX)) {
+            downloadResume(resp, pathInfo.substring(1, pathInfo.length() - RESUME_SUFFIX.length()));
             return;
         }
 
@@ -57,5 +71,28 @@ public class ShareViewServlet extends HttpServlet {
         req.setAttribute("token", token);
         req.setAttribute("interviewer", loginUser != null && RoleFilter.INTERVIEWER.equals(loginUser.getUserType()));
         req.getRequestDispatcher("/WEB-INF/views/interviewer-view.jsp").forward(req, resp);
+    }
+
+    // 지원자가 이 링크에 이력서 공개를 고른 경우에만 내려준다 — 조건 확인은 ShareViewService.loadResume이 한다.
+    // 받을 수 없는 경우는 이유를 구분하지 않고 404로 답한다(링크가 유효한지 떠볼 단서를 주지 않는다).
+    private void downloadResume(HttpServletResponse resp, String token) throws ServletException, IOException {
+        DocumentDto resume;
+        try {
+            resume = shareViewService.loadResume(token);
+        } catch (SQLException e) {
+            throw new ServletException("이력서를 불러오는 중 오류가 발생했습니다.", e);
+        }
+        // 업로드 폴더는 서버 PC마다 따로라, DB에는 있는데 이 서버에는 파일이 없을 수 있다
+        if (resume == null || !Files.isRegularFile(Paths.get(resume.getFilePath()))) {
+            resp.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+
+        resp.setHeader("Cache-Control", "no-store");
+        resp.setHeader("X-Robots-Tag", "noindex, nofollow");
+        resp.setContentType(resume.getMimeType() != null ? resume.getMimeType() : "application/octet-stream");
+        resp.setHeader("Content-Disposition", "attachment; filename*=UTF-8''"
+                + URLEncoder.encode(resume.getOriginalName(), StandardCharsets.UTF_8));
+        FileStorageUtil.writeTo(resume.getFilePath(), resp.getOutputStream());
     }
 }

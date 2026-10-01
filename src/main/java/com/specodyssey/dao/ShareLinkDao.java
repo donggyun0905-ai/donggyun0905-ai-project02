@@ -28,8 +28,8 @@ public class ShareLinkDao {
 
     public Long insert(Connection conn, ShareLinkDto link) throws SQLException {
         String sql = "INSERT INTO SHARE_LINK " +
-                "(user_id, token, is_active, expires_at, scope_basic, scope_skills, scope_growth, label) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                "(user_id, token, is_active, expires_at, scope_basic, scope_skills, scope_growth, " +
+                " scope_resume, label) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setLong(1, link.getUserId());
             pstmt.setString(2, link.getToken());
@@ -38,7 +38,8 @@ public class ShareLinkDao {
             pstmt.setBoolean(5, link.isScopeBasic());
             pstmt.setBoolean(6, link.isScopeSkills());
             pstmt.setBoolean(7, link.isScopeGrowth());
-            pstmt.setString(8, link.getLabel());
+            pstmt.setBoolean(8, link.isScopeResume());
+            pstmt.setString(9, link.getLabel());
             pstmt.executeUpdate();
             try (ResultSet keys = pstmt.getGeneratedKeys()) {
                 return keys.next() ? keys.getLong(1) : null;
@@ -91,16 +92,18 @@ public class ShareLinkDao {
     // 본인 소유가 아닌 id는 WHERE 조건에서 자연히 걸러진다 (0행 갱신)
     public void update(Connection conn, ShareLinkDto link, Long userId) throws SQLException {
         String sql = "UPDATE SHARE_LINK SET is_active = ?, expires_at = ?, scope_basic = ?, scope_skills = ?, " +
-                "scope_growth = ?, label = ? WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
+                "scope_growth = ?, scope_resume = ?, label = ? " +
+                "WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setBoolean(1, link.isActive());
             pstmt.setTimestamp(2, toTimestamp(link.getExpiresAt()));
             pstmt.setBoolean(3, link.isScopeBasic());
             pstmt.setBoolean(4, link.isScopeSkills());
             pstmt.setBoolean(5, link.isScopeGrowth());
-            pstmt.setString(6, link.getLabel());
-            pstmt.setLong(7, link.getId());
-            pstmt.setLong(8, userId);
+            pstmt.setBoolean(6, link.isScopeResume());
+            pstmt.setString(7, link.getLabel());
+            pstmt.setLong(8, link.getId());
+            pstmt.setLong(9, userId);
             pstmt.executeUpdate();
         }
     }
@@ -137,6 +140,7 @@ public class ShareLinkDao {
         link.setScopeBasic(rs.getBoolean("scope_basic"));
         link.setScopeSkills(rs.getBoolean("scope_skills"));
         link.setScopeGrowth(rs.getBoolean("scope_growth"));
+        link.setScopeResume(rs.getBoolean("scope_resume"));
         link.setLabel(rs.getString("label"));
         link.setCreatedAt(toLocalDateTime(rs.getTimestamp("created_at")));
         link.setUpdatedAt(toLocalDateTime(rs.getTimestamp("updated_at")));

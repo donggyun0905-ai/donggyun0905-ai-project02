@@ -17,6 +17,7 @@ public class UserDto {
     private String interestField;
     private Long desiredJobId;
     private String desiredJobStatus;
+    private Long resumeDocumentId; // 이력서 파일 → DOCUMENTS. 지정하지 않았으면 null
     private LocalDateTime privacyConsentAt;
     private LocalDateTime profileUpdatedAt;
     private LocalDateTime lastLoginAt;
@@ -62,6 +63,14 @@ public class UserDto {
 
     public void setCareerStatus(String careerStatus) {
         this.careerStatus = careerStatus;
+    }
+
+    public Long getResumeDocumentId() {
+        return resumeDocumentId;
+    }
+
+    public void setResumeDocumentId(Long resumeDocumentId) {
+        this.resumeDocumentId = resumeDocumentId;
     }
 
     public String getLoginId() {
