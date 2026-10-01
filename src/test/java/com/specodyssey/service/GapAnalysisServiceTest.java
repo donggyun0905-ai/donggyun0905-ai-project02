@@ -17,6 +17,7 @@ import com.specodyssey.dto.RoadmapDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.dto.UserSkillDto;
 import com.specodyssey.util.DBUtil;
+import com.specodyssey.util.StubLlmClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,7 +48,10 @@ class GapAnalysisServiceTest {
     private final RoadmapDao roadmapDao = new RoadmapDao();
     private final RoadmapStepDao roadmapStepDao = new RoadmapStepDao();
     private final GapAnalysisService gapAnalysisService = new GapAnalysisService();
-    private final RoadmapService roadmapService = new RoadmapService();
+    // 실제 Groq를 부르지 않는다 — RoadmapServiceTest와 같은 이유(2026-10-01, youngjun 제안).
+    private final RoadmapService roadmapService = new RoadmapService(new ProjectIdeaService(
+            new StubLlmClient().register(ProjectIdeaService.ProjectIdea.class,
+                    "{\"title\":\"테스트 프로젝트\",\"description\":\"테스트용 고정 설명\"}")));
 
     private Long userId;
     private Long jobId;

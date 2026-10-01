@@ -28,6 +28,7 @@ import com.specodyssey.dto.UserProjectDto;
 import com.specodyssey.dto.UserSkillDto;
 import com.specodyssey.dto.UserSpecDto;
 import com.specodyssey.util.DBUtil;
+import com.specodyssey.util.StubLlmClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,7 +63,11 @@ class RoadmapServiceTest {
     private final GapAnalysisItemDao gapAnalysisItemDao = new GapAnalysisItemDao();
     private final RoadmapDao roadmapDao = new RoadmapDao();
     private final RoadmapStepDao roadmapStepDao = new RoadmapStepDao();
-    private final RoadmapService roadmapService = new RoadmapService();
+    // 실제 Groq를 부르지 않는다 — 전체 테스트를 돌릴 때마다 429(한도 초과)로 20·40·60초씩
+    // 기다려 1시간 넘게 걸리고 Groq 무료 한도도 같이 소모되던 문제(2026-10-01, youngjun 제안).
+    private final RoadmapService roadmapService = new RoadmapService(new ProjectIdeaService(
+            new StubLlmClient().register(ProjectIdeaService.ProjectIdea.class,
+                    "{\"title\":\"테스트 프로젝트\",\"description\":\"테스트용 고정 설명\"}")));
     private final ScoreService scoreService = new ScoreService();
     private final UserSkillDao userSkillDao = new UserSkillDao();
     private final UserSpecDao userSpecDao = new UserSpecDao();

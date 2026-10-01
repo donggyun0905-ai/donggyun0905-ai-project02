@@ -87,7 +87,17 @@ public class RoadmapService {
     private final RoadmapDao roadmapDao = new RoadmapDao();
     private final RoadmapStepDao roadmapStepDao = new RoadmapStepDao();
     private final ScoreService scoreService = new ScoreService();
-    private final ProjectIdeaService projectIdeaService = new ProjectIdeaService();
+    private final ProjectIdeaService projectIdeaService;
+
+    public RoadmapService() {
+        this(new ProjectIdeaService());
+    }
+
+    // 테스트에서 StubLlmClient 기반 ProjectIdeaService를 넣어 실제 Groq 호출을 피하려고 열어둔 생성자
+    // (2026-10-01, RoadmapServiceTest가 매번 실제 LLM을 불러 429로 1시간 넘게 걸리던 문제).
+    public RoadmapService(ProjectIdeaService projectIdeaService) {
+        this.projectIdeaService = projectIdeaService;
+    }
 
     // TD-5 배점: 로드맵 단계 완료당 +100 (여정 서비스의 핵심이라 배점 최상)
     private static final int ROADMAP_STEP_COMPLETE_POINTS = 100;

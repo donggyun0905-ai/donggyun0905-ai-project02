@@ -1,78 +1,46 @@
 package com.specodyssey.service;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.specodyssey.util.AppConfig;
-import com.specodyssey.util.ExternalApiClient;
 import com.specodyssey.util.ExternalApiClient.ExternalApiException;
+import com.specodyssey.util.GroqLlmClient;
+import com.specodyssey.util.LlmClient;
+import com.specodyssey.util.LlmRetryPolicy;
 
-import java.time.Duration;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 목표 직무 + 부족 기술 목록을 주면, 신입 개발자가 2~4주 안에 혼자 완성할 수 있는 구체적인
  * 프로젝트 아이디어 1개를 Groq LLM에게 받는다. 관련 요구사항: FR-32(로드맵 PROJECT 단계),
  * FR-111(LLM 실패 시 대체 문구)
- * TrendLlmService와 같은 Groq 호출 패턴(재시도, JSON 강제 응답, 파싱 실패 시 예외)을 재사용한다.
  * 관련 규칙: claude.md "LLM 응답은 JSON으로 받고 파싱 실패를 예외 처리한다" — 실패하면 예외를 던져
  * 호출부(RoadmapService)가 로드맵 생성 자체는 막지 않고 기존 고정 문구로 조용히 대체하게 한다.
+ *
+ * 호출·재시도는 공용 LlmClient(GroqLlmClient + LlmRetryPolicy)에 맡긴다(2026-10-01, youngjun 제안
+ * 반영) — 예전엔 이 클래스가 직접 HTTP 재시도를 돌렸는데, RoadmapServiceTest처럼 매번 실제 Groq를
+ * 부르는 테스트가 429를 만나면 20·40·60초씩 기다려 전체 테스트가 1시간 넘게 걸리고 Groq 무료
+ * 한도도 같이 소모됐다. 테스트에서는 StubLlmClient로 바꿔 끼울 수 있다.
  */
 public class ProjectIdeaService {
 
-    private static final String ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
-    private static final String DEFAULT_MODEL = "openai/gpt-oss-120b";
-    private static final Duration TIMEOUT = Duration.ofSeconds(60);
-    private static final int MAX_RETRIES = 4;
-    private static final long RETRY_WAIT_MS = 20_000;
     private static final int MAX_TITLE_LENGTH = 100;
     private static final int MAX_DESCRIPTION_LENGTH = 500;
 
     public record ProjectIdea(String title, String description) {
     }
 
-    public ProjectIdea suggest(String jobName, List<String> missingSkillNames) throws ExternalApiException {
-        String apiKey = AppConfig.get("GROQ_API_KEY");
-        if (apiKey == null) {
-            throw new ExternalApiException("GROQ_API_KEY가 설정되지 않았습니다 (config.properties 또는 환경변수)", null);
-        }
-        String model = AppConfig.get("GROQ_MODEL");
+    private final LlmClient llm;
 
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("model", model == null ? DEFAULT_MODEL : model);
-        body.put("temperature", 0.4);
-        body.put("reasoning_effort", "low");
-        body.put("max_completion_tokens", 1000);
-        body.put("response_format", Map.of("type", "json_object"));
-        body.put("messages", List.of(
-                Map.of("role", "system", "content", systemPrompt()),
-                Map.of("role", "user", "content", userPrompt(jobName, missingSkillNames))));
-
-        String response = post(body, apiKey);
-        return parse(response);
+    public ProjectIdeaService() {
+        this(GroqLlmClient.fromConfig());
     }
 
-    // 일시적 실패는 다시 시도한다 — TrendLlmService.post()와 동일한 판단.
-    private String post(Map<String, Object> body, String apiKey) throws ExternalApiException {
-        for (int attempt = 1; ; attempt++) {
-            try {
-                return ExternalApiClient.postJson(ENDPOINT, body, Map.of("Authorization", "Bearer " + apiKey), TIMEOUT);
-            } catch (ExternalApiException e) {
-                int status = e.getStatusCode();
-                if ((status != 429 && status != 400) || attempt >= MAX_RETRIES) {
-                    throw e;
-                }
-                if (status == 429) {
-                    try {
-                        Thread.sleep(RETRY_WAIT_MS * attempt);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        throw e;
-                    }
-                }
-            }
-        }
+    public ProjectIdeaService(LlmClient llm) {
+        this.llm = llm;
+    }
+
+    public ProjectIdea suggest(String jobName, List<String> missingSkillNames) throws ExternalApiException {
+        String prompt = systemPrompt() + "\n\n" + userPrompt(jobName, missingSkillNames);
+        ProjectIdea idea = llm.completeJson(prompt, ProjectIdea.class);
+        return validate(idea);
     }
 
     private String systemPrompt() {
@@ -91,28 +59,20 @@ public class ProjectIdeaService {
         return "목표 직무: " + jobName + "\n부족한 기술: " + String.join(", ", missingSkillNames);
     }
 
-    // LLM 출력은 신뢰하지 않는다 — 형식 자체가 틀리거나 비어있으면 예외.
-    private ProjectIdea parse(String response) throws ExternalApiException {
-        try {
-            String content = JsonParser.parseString(response).getAsJsonObject()
-                    .getAsJsonArray("choices").get(0).getAsJsonObject()
-                    .getAsJsonObject("message").get("content").getAsString();
-            JsonObject obj = JsonParser.parseString(content).getAsJsonObject();
-            String title = obj.get("title").getAsString().trim();
-            String description = obj.get("description").getAsString().trim();
-            if (title.isEmpty() || description.isEmpty()) {
-                throw new IllegalStateException("LLM이 빈 제목/설명을 반환했습니다");
-            }
-            if (title.length() > MAX_TITLE_LENGTH) {
-                title = title.substring(0, MAX_TITLE_LENGTH);
-            }
-            if (description.length() > MAX_DESCRIPTION_LENGTH) {
-                description = description.substring(0, MAX_DESCRIPTION_LENGTH);
-            }
-            return new ProjectIdea(title, description);
-        } catch (RuntimeException e) {
-            // JsonSyntaxException, NPE, IllegalStateException 등 응답 형식 오류 전부 (NFR-6)
-            throw new ExternalApiException("LLM 응답 JSON 파싱 실패", e);
+    // LLM 출력은 신뢰하지 않는다 — 형식 자체가 틀리거나 비어있으면 예외 (NFR-6)
+    private ProjectIdea validate(ProjectIdea idea) throws ExternalApiException {
+        if (idea == null || idea.title() == null || idea.description() == null
+                || idea.title().isBlank() || idea.description().isBlank()) {
+            throw new ExternalApiException("LLM이 빈 제목/설명을 반환했습니다", null, LlmRetryPolicy.FORMAT_ERROR);
         }
+        String title = idea.title().trim();
+        String description = idea.description().trim();
+        if (title.length() > MAX_TITLE_LENGTH) {
+            title = title.substring(0, MAX_TITLE_LENGTH);
+        }
+        if (description.length() > MAX_DESCRIPTION_LENGTH) {
+            description = description.substring(0, MAX_DESCRIPTION_LENGTH);
+        }
+        return new ProjectIdea(title, description);
     }
 }
