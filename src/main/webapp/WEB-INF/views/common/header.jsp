@@ -43,7 +43,7 @@
 
         <div class="nav-group-title">성장 도구</div>
         <a href="${ctx}/insights" class="${path == '/insights' ? 'active' : ''}">📉 데이터 인사이트</a>
-        <a href="${ctx}/dday" class="${path == '/dday' ? 'active' : ''}">🗓️ D-day 알림 <span class="nav-badge">D-3</span></a>
+        <a href="${ctx}/dday" class="${path == '/dday' ? 'active' : ''}">🗓️ D-day 알림<c:if test="${not empty navDdayText}"> <span class="nav-badge">${navDdayText}</span></c:if></a>
         <a href="${ctx}/documents" class="${path == '/documents' ? 'active' : ''}">📁 서류 보관함</a>
         <a href="${ctx}/resume-feedback" class="${path == '/resume-feedback' ? 'active' : ''}">✏️ 자소서 첨삭</a>
 

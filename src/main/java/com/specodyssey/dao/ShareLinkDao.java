@@ -92,6 +92,18 @@ public class ShareLinkDao {
         }
     }
 
+    // FR-86 공유 중단·재개. 본인 소유가 아닌 id는 0행 갱신이라 false를 돌려준다.
+    public boolean updateActive(Long linkId, Long userId, boolean active) throws SQLException {
+        String sql = "UPDATE SHARE_LINK SET is_active = ? WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setBoolean(1, active);
+            pstmt.setLong(2, linkId);
+            pstmt.setLong(3, userId);
+            return pstmt.executeUpdate() > 0;
+        }
+    }
+
     // FR-86 공유 중단 — 논리 삭제
     public void delete(Connection conn, Long linkId, Long userId) throws SQLException {
         String sql = "UPDATE SHARE_LINK SET is_deleted = TRUE WHERE id = ? AND user_id = ?";

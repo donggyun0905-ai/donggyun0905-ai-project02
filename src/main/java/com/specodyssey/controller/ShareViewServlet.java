@@ -1,22 +1,30 @@
 package com.specodyssey.controller;
 
+import com.specodyssey.dto.ShareViewDto;
+import com.specodyssey.dto.UserDto;
+import com.specodyssey.service.ShareViewService;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
+import java.sql.SQLException;
 
 /**
  * 면접관 뷰(로그인 없이 링크로만 접근). 관련 요구사항: FR-81~86
- * 화면설계 PDF "13. 면접관 뷰", "14. 면접관 비교 뷰", "6-4. 유효하지 않은 공유 링크" 기준 —
- * 화면만(팀 지시). "/share/*"는 이미 SessionFilter의 PUBLIC_PREFIXES에 있어 로그인 없이 열린다
- * (FR-14 면접관은 계정이 없음). 실제 토큰 검증(ShareLinkDao.findByToken)은 담당자가 붙일 자리라,
- * 여기서는 "demo" 토큰만 유효한 것으로 흉내 내고 나머지는 만료/유효하지 않음 화면을 보여준다.
+ * 화면설계 PDF "13. 면접관 뷰", "14. 면접관 비교 뷰", "6-4. 유효하지 않은 공유 링크" 기준.
+ * "/share/*"는 SessionFilter의 PUBLIC_PREFIXES에 있어 로그인 없이 열린다(FR-14 면접관은 계정이 없음).
+ * 접근 제어는 ShareViewService가 토큰·활성·만료·공개 범위로 대신한다.
+ * 비교 뷰("/share/compare")는 아직 화면만 있다.
  */
 @WebServlet("/share/*")
 public class ShareViewServlet extends HttpServlet {
+
+    private final ShareViewService shareViewService = new ShareViewService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -28,7 +36,22 @@ public class ShareViewServlet extends HttpServlet {
         }
 
         String token = (pathInfo == null || pathInfo.length() < 2) ? "" : pathInfo.substring(1);
-        req.setAttribute("valid", "demo".equals(token));
+        HttpSession session = req.getSession(false);
+        UserDto loginUser = session == null ? null : (UserDto) session.getAttribute("loginUser");
+        ShareViewDto view;
+        try {
+            view = shareViewService.loadView(token, req.getRemoteAddr(), loginUser == null ? null : loginUser.getId());
+        } catch (SQLException e) {
+            throw new ServletException("공유 이력을 불러오는 중 오류가 발생했습니다.", e);
+        }
+
+        // 주소에 토큰이 들어 있으므로 캐시·검색 수집·외부 사이트로의 Referer 전달을 막는다
+        resp.setHeader("Cache-Control", "no-store");
+        resp.setHeader("X-Robots-Tag", "noindex, nofollow");
+        resp.setHeader("Referrer-Policy", "no-referrer");
+
+        req.setAttribute("valid", view != null);
+        req.setAttribute("view", view);
         req.getRequestDispatcher("/WEB-INF/views/interviewer-view.jsp").forward(req, resp);
     }
 }
