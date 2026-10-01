@@ -31,6 +31,7 @@ import java.sql.SQLException;
 public class ShareViewServlet extends HttpServlet {
 
     private static final String RESUME_SUFFIX = "/resume";
+    private static final String COVER_LETTER_SUFFIX = "/cover-letter";
 
     private final ShareViewService shareViewService = new ShareViewService();
 
@@ -46,7 +47,15 @@ public class ShareViewServlet extends HttpServlet {
 
         // "/share/{토큰}/resume" — 이력서 파일 내려받기
         if (pathInfo != null && pathInfo.endsWith(RESUME_SUFFIX)) {
-            downloadResume(resp, pathInfo.substring(1, pathInfo.length() - RESUME_SUFFIX.length()));
+            downloadFile(resp, pathInfo.substring(1, pathInfo.length() - RESUME_SUFFIX.length()),
+                    shareViewService::loadResume, "이력서");
+            return;
+        }
+
+        // "/share/{토큰}/cover-letter" — 자소서 파일 내려받기
+        if (pathInfo != null && pathInfo.endsWith(COVER_LETTER_SUFFIX)) {
+            downloadFile(resp, pathInfo.substring(1, pathInfo.length() - COVER_LETTER_SUFFIX.length()),
+                    shareViewService::loadCoverLetter, "자소서");
             return;
         }
 
@@ -73,26 +82,32 @@ public class ShareViewServlet extends HttpServlet {
         req.getRequestDispatcher("/WEB-INF/views/interviewer-view.jsp").forward(req, resp);
     }
 
-    // 지원자가 이 링크에 이력서 공개를 고른 경우에만 내려준다 — 조건 확인은 ShareViewService.loadResume이 한다.
+    // 지원자가 이 링크에 이력서·자소서 공개를 고른 경우에만 내려준다 — 조건 확인은 ShareViewService.loadResume·loadCoverLetter가 한다.
     // 받을 수 없는 경우는 이유를 구분하지 않고 404로 답한다(링크가 유효한지 떠볼 단서를 주지 않는다).
-    private void downloadResume(HttpServletResponse resp, String token) throws ServletException, IOException {
-        DocumentDto resume;
+    private void downloadFile(HttpServletResponse resp, String token, FileLoader loader, String label)
+            throws ServletException, IOException {
+        DocumentDto file;
         try {
-            resume = shareViewService.loadResume(token);
+            file = loader.load(token);
         } catch (SQLException e) {
-            throw new ServletException("이력서를 불러오는 중 오류가 발생했습니다.", e);
+            throw new ServletException(label + "를 불러오는 중 오류가 발생했습니다.", e);
         }
         // 업로드 폴더는 서버 PC마다 따로라, DB에는 있는데 이 서버에는 파일이 없을 수 있다
-        if (resume == null || !Files.isRegularFile(Paths.get(resume.getFilePath()))) {
+        if (file == null || !Files.isRegularFile(Paths.get(file.getFilePath()))) {
             resp.sendError(HttpServletResponse.SC_NOT_FOUND);
             return;
         }
 
         resp.setHeader("Cache-Control", "no-store");
         resp.setHeader("X-Robots-Tag", "noindex, nofollow");
-        resp.setContentType(resume.getMimeType() != null ? resume.getMimeType() : "application/octet-stream");
+        resp.setContentType(file.getMimeType() != null ? file.getMimeType() : "application/octet-stream");
         resp.setHeader("Content-Disposition", "attachment; filename*=UTF-8''"
-                + URLEncoder.encode(resume.getOriginalName(), StandardCharsets.UTF_8));
-        FileStorageUtil.writeTo(resume.getFilePath(), resp.getOutputStream());
+                + URLEncoder.encode(file.getOriginalName(), StandardCharsets.UTF_8));
+        FileStorageUtil.writeTo(file.getFilePath(), resp.getOutputStream());
+    }
+
+    @FunctionalInterface
+    private interface FileLoader {
+        DocumentDto load(String token) throws SQLException;
     }
 }

@@ -1,6 +1,7 @@
 # 스펙 오디세이 — DB 설계 및 ERD
 
-> 요구사항 명세서(총정리본 v2) 기준으로 설계한 테이블 36개. 관계 44개, 컬럼 227개.
+> 요구사항 명세서(총정리본 v2) 기준으로 설계한 테이블 46개. 관계(FK) 70개, 컬럼 318개(공통 컬럼 3개 제외).
+> (2026-10-01 기준 — 기술 글 게시판 6개, 프로젝트 문서 2개가 늘었다. 실제 DB와 `information_schema`로 대조해 맞춘 숫자다.)
 > 이 문서가 스키마의 기준입니다. 구조를 바꿔야 하면 먼저 팀에 확인하세요.
 
 ## 공통 규칙
@@ -88,6 +89,31 @@ erDiagram
     SKILL ||--o{ EVALUATION_CRITERIA : "요구 역량"
     JOB ||--o{ JOB_ALIAS : "별칭"
     SKILL ||--o{ SKILL_ALIAS : "별칭"
+    USERS }o--o| DOCUMENTS : "이력서·자소서(선택)"
+```
+
+### (C) 커뮤니티·프로젝트 문서 도메인 — 기술 글 게시판, 프로젝트 완료 서류
+
+```mermaid
+erDiagram
+    USERS ||--o{ TECH_ARTICLE : "작성"
+    SKILL ||--o{ TECH_ARTICLE : "기술별 글"
+    ROADMAP_STEP ||--o| TECH_ARTICLE : "EXPERT 증빙"
+    TECH_ARTICLE ||--o{ TECH_ARTICLE_COMMENT : "댓글"
+    TECH_ARTICLE_COMMENT ||--o{ TECH_ARTICLE_COMMENT : "대댓글"
+    USERS ||--o{ TECH_ARTICLE_COMMENT : "작성"
+    TECH_ARTICLE ||--o{ TECH_ARTICLE_LIKE : "하트"
+    USERS ||--o{ TECH_ARTICLE_LIKE : "누름"
+    TECH_ARTICLE ||--o{ TECH_ARTICLE_BOOKMARK : "북마크"
+    USERS ||--o{ TECH_ARTICLE_BOOKMARK : "저장"
+    TECH_ARTICLE ||--o{ TECH_ARTICLE_VIEW_LOG : "조회"
+    USERS ||--o{ TECH_ARTICLE_VIEW_LOG : "열람"
+    TECH_ARTICLE ||--o{ TECH_ARTICLE_REPORT : "신고"
+    USERS ||--o{ TECH_ARTICLE_REPORT : "신고함"
+    USER_PROJECTS ||--o{ PROJECT_TECH_NOTE : "기술 활용 설명"
+    SKILL ||--o{ PROJECT_TECH_NOTE : "기술"
+    USER_PROJECTS ||--o{ PROJECT_DOCUMENT_ITEM : "문서 체크리스트"
+    DOCUMENTS ||--o{ PROJECT_DOCUMENT_ITEM : "제출 파일"
 ```
 
 ## 테이블 정의
@@ -116,6 +142,7 @@ erDiagram
 | `desired_job_id` | BIGINT | FK | 희망 직무 → JOB (없으면 NULL) |
 | `desired_job_status` | VARCHAR(10) |  | SET / UNSET(아직 모르겠음) |
 | `resume_document_id` | BIGINT | FK | 이력서 파일 → DOCUMENTS (지정하지 않았으면 NULL) |
+| `cover_letter_document_id` | BIGINT | FK | 자소서 파일 → DOCUMENTS (선택, 지정하지 않았으면 NULL) |
 | `privacy_consent_at` | DATETIME |  | 민감정보 수집 동의 시점 (NFR-4) |
 | `profile_updated_at` | DATETIME |  | 스펙·프로젝트·스킬 중 하나라도 바뀐 시각 — 재분석 판단 기준 |
 | `last_login_at` | DATETIME |  | 마지막 접속 |
@@ -125,6 +152,7 @@ erDiagram
 - user_type은 면접관 계정을 나중에 붙일 때 테이블을 갈아엎지 않으려고 미리 뚫어둔 확장 필드였다(TD-4). 면접관 계정을 도입하면서 실제로 쓰기 시작했다 — 면접관은 공유받은 이력·지원자 비교·내 프로필만 쓸 수 있다.
 - (변경) name·age·career_status를 추가했다. 면접관이 여러 지원자를 비교할 때 "지원자 1, 2"로는 누가 누구인지 알 수 없어서 이름이 필요했고, 같이 나이와 구분(학생/취준생/직장인)을 가입 필수 항목으로 받기로 했다. 컬럼 추가 전에 가입한 회원은 값이 없어 NULL을 허용하고, 내 프로필에서 저장할 때 채우게 한다. 면접관 계정은 이름만 받는다. 이미 만든 DB에는 `sql/08_alter_users_profile.sql`을 실행한다.
 - (변경) resume_document_id를 추가했다. 이력서는 파일로 저장하기로 했고, 파일 자체는 이미 있는 서류 보관함(DOCUMENTS)에 올린다. 이 컬럼은 그중 어느 파일이 "내 이력서"인지만 가리킨다 — 파일 경로·크기·체크섬을 USERS에 또 두면 DOCUMENTS와 같은 정보를 두 곳에서 관리하게 된다. USERS가 DOCUMENTS보다 먼저 만들어지므로 FK는 03_schema_extended.sql 끝에서 ALTER로 건다. 이미 만든 DB에는 `sql/09_alter_users_resume.sql`을 실행한다.
+- (변경) cover_letter_document_id를 추가했다. 이력서와 같은 방식으로, 내 프로필에서 자소서를 **선택으로** 올려 두면 면접관이 공유 링크 하나로 이력서·자소서를 한눈에 볼 수 있다. 이력서·자소서 모두 안 올려도 가입·분석·로드맵에는 아무 지장이 없다(둘 다 NULL 허용). 파일은 DOCUMENTS에 한 행으로 저장하고 이 컬럼이 그 행을 가리킨다. 이력서와 자소서를 한 컬럼에 `종류` 구분으로 합치지 않고 컬럼을 따로 둔 이유는, 사용자당 각각 하나뿐이라 N:1 구조가 필요 없고 "내 이력서가 어느 파일인지"를 조인 없이 바로 읽을 수 있기 때문이다.
 - email은 명세서 가입 항목에 없었지만 FR-73 이메일 알림을 살릴 여지를 두려고 추가하기로 했다. 선택 입력.
 - profile_updated_at은 FR-37 재분석 트리거용이다. USERS.updated_at만으로는 안 된다. 사용자가 자격증을 추가해도 바뀌는 건 USER_SPECS이지 USERS가 아니라서, 자식 테이블 세 개의 MAX(updated_at)을 매번 구해야 한다. 자식이 바뀔 때 이 컬럼을 같이 찍어두면 GAP_ANALYSIS.analyzed_at과 한 번 비교하면 끝난다.
 - 희망 직무가 없으면 desired_job_id가 NULL이고 desired_job_status가 UNSET이 된다. 이 값으로 "직무 발굴" 화면으로 보낼지 "격차 분석"으로 보낼지 갈린다.
@@ -165,11 +193,57 @@ erDiagram
 | `start_date` | DATE |  | 시작일 |
 | `end_date` | DATE |  | 종료일 |
 | `upgraded_from_project_id` | BIGINT | FK | → USER_PROJECTS(자기참조). "기존 프로젝트 업그레이드"로 로드맵 CORE/ADVANCED SKILL 단계를 완료했을 때 이전 버전 연결. NULL이면 신규 프로젝트 |
+| `repo_url` | VARCHAR(500) |  | 코드 저장소 링크 — 파일 스크린샷보다 실제로 열어볼 수 있는 링크가 신뢰도가 높다. 완료 판정에는 안 쓴다(참고용) |
+| `deploy_url` | VARCHAR(500) |  | 배포 주소 (선택) — 있으면 완성도가 확실히 보이지만 강제하면 4주 일정에 부담이라 NULL 허용 |
+| `retrospective` | TEXT |  | 완료 회고 2~3줄 — "업그레이드했다"는 사실만이 아니라 무엇을 배우고 해결했는지. 완료 판정에는 안 쓴다 |
 
 설계 판단:
 
 - tech_stack을 둔 이유는 직무 발굴 때문이다. 사용자가 보유 기술을 따로 입력하지 않아도 프로젝트에 쓴 기술에서 역으로 스킬을 뽑아낼 수 있다(FR-38).
 - upgraded_from_project_id는 2026-09-30 팀 결정(SKILL 단계 학습 검증)에서 추가됐다. CORE/ADVANCED는 "신규/업그레이드 둘 다 허용"이 원칙이라, 둘을 구분해서 로드맵 여정에 "이 프로젝트를 발전시켰다"는 이력을 남길 수 있게 한다.
+
+- (변경) repo_url·deploy_url·retrospective를 추가했다(개발일지 4-4, 2026-09-30 확정). 지금까지 프로젝트 완료는 증빙 파일 업로드만으로 판정돼서 실제 동작 여부·학습 맥락·최소한의 문서화가 하나도 안 남았다는 문제 제기가 있었다. 세 값 모두 완료 판정에는 쓰지 않는다 — 판정은 PROJECT_DOCUMENT_ITEM의 필수 두 종류(README·실행 화면)로 한다.
+
+#### PROJECT_TECH_NOTE (프로젝트 기술 활용 설명서) — 신설
+
+관련 요구사항: FR-24 · NFR-4 · 개발일지 4-4
+
+프로젝트에 등록한 기술마다 "어떻게 활용했는지"를 문장으로 받는 곳. USER_SKILLS.raw_input이 짧은 원문↔표준 스킬을 쌍으로 저장하는 것과 같은 발상이지만, 이건 문장 단위의 실사용 맥락이라 데이터가 훨씬 풍부하다.
+
+| 컬럼 | 타입 | 키 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK | 식별자 |
+| `project_id` | BIGINT | FK | → USER_PROJECTS |
+| `skill_id` | BIGINT | FK | → SKILL |
+| `description` | TEXT |  | 이 기술을 어떻게 활용했는지 |
+| `consent_for_training` | BOOLEAN |  | 학습 데이터 활용 동의, 기본 false |
+
+설계 판단:
+
+- 예: "Redis로 세션 캐싱"과 "Redis를 메시지 큐로 사용"은 같은 기술이지만 활용 맥락이 다르다. 이런 차이를 쌓아두면 나중에 임베딩 모델을 이 서비스 도메인에 맞게 보정할 실제 데이터가 된다.
+- 명세서 NFR-4("민감 데이터는 본인 동의·본인 선택 공유만")를 지키려고 consent_for_training을 같이 받는다. 체크하지 않아도 회고·완료 처리에는 지장이 없고, 동의한 것만 나중에 학습 데이터로 뽑는다. 소급 동의를 구하는 건 훨씬 번거로워서 받을 때부터 같이 받기로 했다.
+- 복합 UNIQUE (project_id, skill_id)를 걸었다 — 한 프로젝트에서 같은 기술의 설명서가 두 개 생기지 않게. (개발일지 4-4에는 UNIQUE 언급이 없어 이번에 추가한 판단이다. 같은 기술을 한 프로젝트에서 여러 용도로 썼다면 한 줄에 함께 적는 것으로 갈음한다.)
+
+#### PROJECT_DOCUMENT_ITEM (프로젝트 문서 체크리스트) — 신설
+
+관련 요구사항: FR-24 · FR-61~63 · 개발일지 4-4
+
+README·실행 화면 캡처·기획서·설계 문서·API 명세서·테스트 결과서·발표자료를 종류별로 "제출" 또는 "해당 없음"으로 받는 곳. 실제 파일은 기존 DOCUMENTS를 그대로 재사용한다.
+
+| 컬럼 | 타입 | 키 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK | 식별자 |
+| `project_id` | BIGINT | FK | → USER_PROJECTS |
+| `doc_type` | VARCHAR(30) |  | README / SCREENSHOT / PLANNING / DESIGN / API_SPEC / TEST_REPORT / PRESENTATION |
+| `status` | VARCHAR(20) |  | SUBMITTED(제출) / NOT_APPLICABLE(해당 없음) |
+| `document_id` | BIGINT | FK | → DOCUMENTS. SUBMITTED일 때만 채운다 |
+
+설계 판단:
+
+- 전부 강제하면 없는 프로젝트도 억지로 빈 문서를 만들어 올리는 부작용이 생긴다. 그래서 문서 종류마다 "제출" 또는 "없음" 버튼을 두는 방식으로 확정했다.
+- 필수는 README와 SCREENSHOT 둘뿐이다. 이 둘은 "없음"을 못 누른다(애플리케이션 규칙). 5분이 안 걸리면서 "이게 실제로 존재하고 동작한다"는 최소 증빙이 확실히 되고, 그 이상 늘리면 학습 로직 자체를 회피하게 될 위험이 있다.
+- 완료 판정 규칙: doc_type이 README, SCREENSHOT인 두 행의 status가 둘 다 SUBMITTED여야 로드맵 PROJECT 단계를 완료 처리한다.
+- 복합 UNIQUE (project_id, doc_type) — 같은 종류 문서를 중복 체크하지 않게.
 
 #### USER_SKILLS (보유 기술 스택)
 
@@ -832,6 +906,7 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | `scope_skills` | BOOLEAN |  | 보유 기술 스택 공개 — 적합도 스코어링에 필요 |
 | `scope_growth` | BOOLEAN |  | 성장 잠재력 지표 공개 |
 | `scope_resume` | BOOLEAN |  | 이력서 파일(USERS.resume_document_id) 공개 (기본 false) |
+| `scope_cover_letter` | BOOLEAN |  | 자소서 파일(USERS.cover_letter_document_id) 공개 (기본 false) |
 | `label` | VARCHAR(50) |  | 지원자용 메모 (예: "A회사 지원") — 링크 여러 개 구분 |
 
 설계 판단:
@@ -839,6 +914,7 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 - scope_* 세 컬럼이 공개 범위를 통제한다. 토큰만 있으면 그 user_id의 모든 테이블을 읽을 수 있는 구조였는데, 부족 역량 히트맵·등급·코테 오답률·개인 서류가 전부 딸려 있어 지원자에게 불리하다. 애플리케이션 코드로만 막으면 화면 하나 추가하다 실수로 뚫린다.
 - NFR-4(민감 데이터는 본인 동의·본인 선택 공유만)를 스키마 차원에서 지키는 장치이기도 하다. FR-102의 AI 활용 기록은 아예 공유 대상에서 제외한다.
 - (변경) scope_resume을 추가했다. 면접관이 공유 링크로 지원자의 이력서 파일을 내려받게 하되, 이력서에는 연락처·주소 같은 개인정보가 들어 있어 scope_basic에 묶지 않고 링크마다 따로 고르게 했다. 기본값이 false라 컬럼 추가 전에 만든 링크는 모두 비공개로 남는다. 이력서가 아닌 서류(프로젝트 첨부 등)는 여전히 어떤 링크로도 공유되지 않는다. 이미 만든 DB에는 `sql/10_alter_share_link_scope_resume.sql`을 실행한다.
+- (변경) scope_cover_letter를 추가했다. 자소서도 이력서처럼 링크마다 따로 고르게 한다. 자소서에는 지원 동기·개인 경험처럼 이력서보다 사적인 이야기가 많아서 scope_basic에 묶지 않았고, 기본값이 false라 이 컬럼이 생기기 전에 만든 링크는 모두 자소서 비공개로 남는다(NFR-4).
 - 탈퇴(USERS.is_deleted = true) 시 이 사용자의 모든 SHARE_LINK을 is_active = false로 내려야 한다. 논리 삭제라 행은 남는데 토큰이 살아 있으면 면접관이 계속 열람할 수 있다.
 - 토큰은 추측 불가능한 랜덤 문자열이어야 한다(NFR-9). 읽기 전용이고 만료·비활성화가 가능하다.
 - is_active를 지원자가 언제든 false로 바꿀 수 있어야 한다(FR-86). 공유를 중단할 권한은 지원자에게 있다.
@@ -924,6 +1000,144 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 - 지원자 스킬과 이 기준을 JOIN하면 적합도 점수가 나온다. 격차 분석(GAP_ANALYSIS)과 같은 계산 로직을 재사용할 수 있다.
 - [권장] 항목이라 필수 완료 후 시간이 되면 붙인다.
 
+### 기술 글 게시판 (커뮤니티)
+
+> 개발일지 4-3("EXPERT 증빙을 블로그처럼 공개")에서 TECH_ARTICLE 한 테이블로 확정했던 것을, 댓글·하트·북마크·조회수가 붙는 **게시판**으로 넓힌 설계다.
+> 팀 회의 전 초안이다. 화면·서비스·DAO는 아직 없고 스키마(`sql/14_schema_tech_article_board.sql`)만 선점했다. 회의에서 정할 것은 이 절 끝에 모아 두었다.
+
+#### TECH_ARTICLE (기술 글) — 신설
+
+관련 요구사항: 없음(신규 제안 — 회의 후 요구사항에 추가) · 개발일지 4-3
+
+로드맵 EXPERT 단계의 "기술 설명 글"을 서비스 안에서 다른 사용자도 볼 수 있게 공개하는 글. 규칙 판정(글자 수·키워드·링크)을 통과하면 곧바로 공개되고, 문제가 있으면 팀이 나중에 내린다(자동 게시 + 사후 관리).
+
+| 컬럼 | 타입 | 키 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK | 식별자 |
+| `user_id` | BIGINT | FK | → USERS (작성자) |
+| `skill_id` | BIGINT | FK | → SKILL. 어떤 기술에 대한 글인지 — 다른 사용자가 이 기준으로 찾아본다 |
+| `roadmap_step_id` | BIGINT | FK | → ROADMAP_STEP. EXPERT 단계에서 나온 글이면 그 단계, 자유 글이면 NULL. UNIQUE |
+| `source_type` | VARCHAR(20) |  | ROADMAP_EXPERT(로드맵 증빙으로 자동 게시) / FREE(자유 작성) |
+| `title` | VARCHAR(200) |  | 제목 |
+| `content` | TEXT |  | 본문 |
+| `status` | VARCHAR(20) |  | DRAFT(임시저장) / PUBLISHED(공개) / HIDDEN(운영자가 내림) |
+| `published_at` | DATETIME |  | 공개된 시각. 최신순 정렬 기준 |
+| `hidden_reason` | VARCHAR(200) |  | 내린 이유 — 작성자에게 보여준다 |
+| `hidden_at` | DATETIME |  | 내린 시각 |
+| `view_count` | INT |  | 조회수 — 인기 글 정렬 기준 |
+| `like_count` | INT |  | 하트 수 |
+| `comment_count` | INT |  | 댓글 수 |
+| `bookmark_count` | INT |  | 북마크 수 |
+
+설계 판단:
+
+- 개발일지의 컬럼 목록(id·roadmap_step_id·user_id·skill_id·title·content·status·published_at·view_count)을 그대로 지키고, 게시판에 필요한 것만 더했다: source_type, hidden_reason·hidden_at, like·comment·bookmark_count.
+- skill_id 하나가 "태그" 역할을 한다. 별도 태그 테이블 없이 기술별 글 목록(`WHERE skill_id = ? AND status = 'PUBLISHED'`)이 되고, 트렌드 사이드바·데이터 인사이트 화면에 "이 기술 관련 글"로 얹을 수 있다. 인덱스 (skill_id, status, published_at)가 이 조회를 받친다.
+- 수동 승인을 먼저 거치는 안과 큐레이션(추천 글만 노출) 안은 완료 시점과 공개 시점이 갈려 사용자 경험이 나빠서 기각했다. 그래서 status는 승인 대기 값 없이 DRAFT/PUBLISHED/HIDDEN만 둔다.
+- 글을 지우지 않고 HIDDEN으로 내린다. 물리 삭제 금지 규칙과 같은 맥락이고, 내린 이유를 작성자에게 보여줘야 해서 행이 남아 있어야 한다.
+- *_count 4개는 집계값이다. 목록·정렬마다 하트·댓글 행을 COUNT하면 글이 쌓일수록 느려지므로(USER_SCORE_SUMMARY와 같은 이유) 하트·댓글·북마크·조회가 일어나는 **같은 트랜잭션**에서 함께 올리고 내린다.
+- roadmap_step_id에 UNIQUE를 건다 — EXPERT 단계 하나에서 글 하나. 로드맵 단계를 "완료 취소 → 재완료"하면 같은 단계에서 글이 또 생기려 하므로, 이미 있는 글을 갱신·되살리는 쪽으로 처리해야 한다(새 행 INSERT 금지). NULL은 여러 개 허용되므로 자유 글에는 영향이 없다.
+
+#### TECH_ARTICLE_COMMENT (기술 글 댓글) — 신설
+
+관련 요구사항: 없음(신규 제안)
+
+| 컬럼 | 타입 | 키 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK | 식별자 |
+| `article_id` | BIGINT | FK | → TECH_ARTICLE |
+| `user_id` | BIGINT | FK | → USERS (작성자) |
+| `parent_comment_id` | BIGINT | FK | → TECH_ARTICLE_COMMENT(자기참조). 대댓글이면 부모 댓글, 최상위 댓글이면 NULL |
+| `content` | VARCHAR(1000) |  | 댓글 내용 |
+
+설계 판단:
+
+- 대댓글은 한 단계만 허용한다. 부모가 최상위 댓글인지는 애플리케이션이 확인한다(스키마로는 깊이를 막지 못한다). 끝없이 들여쓰는 게시판은 읽기 어렵고 구현도 재귀가 된다.
+- 삭제는 is_deleted로 한다. 대댓글이 달린 댓글을 지우면 대댓글이 고아가 되므로 화면에는 "삭제된 댓글입니다"로 남기고, 대댓글만 보여준다.
+- 목록 조회는 (article_id, created_at) 인덱스를 쓴다.
+
+#### TECH_ARTICLE_LIKE (기술 글 하트) — 신설
+
+관련 요구사항: 없음(신규 제안)
+
+| 컬럼 | 타입 | 키 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK | 식별자 |
+| `article_id` | BIGINT | FK | → TECH_ARTICLE |
+| `user_id` | BIGINT | FK | → USERS (누른 사람) |
+
+설계 판단:
+
+- 복합 UNIQUE (article_id, user_id) — 한 사람이 한 글에 하트는 한 번. 애플리케이션 검사만으로는 더블클릭·동시 요청에서 중복이 생기므로 DB가 막는다.
+- 취소는 is_deleted = TRUE, 다시 누르면 **같은 행을 되살린다**(EVALUATION_SESSION_ITEM의 restore와 같은 방식). 물리 삭제 금지 규칙을 지키면서 UNIQUE와 충돌하지 않는다. 하트를 누르고 취소할 때마다 TECH_ARTICLE.like_count를 같은 트랜잭션에서 ±1 한다.
+
+#### TECH_ARTICLE_BOOKMARK (기술 글 북마크) — 신설
+
+관련 요구사항: 없음(신규 제안)
+
+| 컬럼 | 타입 | 키 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK | 식별자 |
+| `article_id` | BIGINT | FK | → TECH_ARTICLE |
+| `user_id` | BIGINT | FK | → USERS (저장한 사람) |
+
+설계 판단:
+
+- TECH_ARTICLE_LIKE와 구조·규칙이 같다(복합 UNIQUE, 취소·재등록은 행 되살리기, bookmark_count 동시 갱신). 하트는 "글 점수"이고 북마크는 "내 보관함"이라 쓰임이 달라서 한 테이블에 `type` 컬럼으로 합치지 않고 나눴다 — 내 북마크 목록은 (user_id, created_at) 인덱스로 바로 읽는다.
+
+#### TECH_ARTICLE_VIEW_LOG (기술 글 조회 이력) — 신설
+
+관련 요구사항: 없음(신규 제안)
+
+| 컬럼 | 타입 | 키 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK | 식별자 |
+| `article_id` | BIGINT | FK | → TECH_ARTICLE |
+| `viewer_user_id` | BIGINT | FK | → USERS (열람한 사람) |
+| `viewed_date` | DATE |  | 열람한 날 |
+
+설계 판단:
+
+- 조회수를 새로고침마다 올리면 숫자가 의미가 없어진다. "사용자 1명 × 글 1개 × 하루 1회"만 세려고 복합 UNIQUE (article_id, viewer_user_id, viewed_date)를 건다. INSERT가 성공했을 때만 TECH_ARTICLE.view_count를 올린다.
+- 작성자 본인의 조회는 세지 않는다(애플리케이션 규칙). 서비스 화면은 로그인이 필요해서 열람자는 항상 사용자다.
+- SHARE_LINK_VIEW_LOG(열람 이력)와 같은 역할의 테이블이다. 다만 그쪽은 IP를 남기는 append-only이고 이쪽은 "하루 1회" 판정이 목적이라 날짜 UNIQUE가 핵심이다.
+
+#### TECH_ARTICLE_REPORT (기술 글 신고) — 신설
+
+관련 요구사항: 없음(신규 제안) · 개발일지 4-3("문제가 있으면 팀원이 나중에 내린다")
+
+| 컬럼 | 타입 | 키 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK | 식별자 |
+| `article_id` | BIGINT | FK | → TECH_ARTICLE |
+| `reporter_user_id` | BIGINT | FK | → USERS (신고한 사람) |
+| `reason_type` | VARCHAR(20) |  | SPAM(광고) / ABUSE(비방) / COPYRIGHT(무단 복제) / INACCURATE(잘못된 내용) / OTHER |
+| `detail` | VARCHAR(500) |  | 자세한 설명 (선택) |
+| `status` | VARCHAR(20) |  | OPEN(대기) / ACTION_TAKEN(글을 내림) / DISMISSED(문제 없음) |
+| `handled_at` | DATETIME |  | 처리한 시각 |
+
+설계 판단:
+
+- 자동 게시 + 사후 관리 방식은 "문제 있는 글을 누가 어떻게 찾느냐"가 비어 있으면 성립하지 않는다. 팀이 일일이 훑는 대신, 사용자가 신고하고 팀은 OPEN 목록만 본다.
+- 복합 UNIQUE (article_id, reporter_user_id) — 한 사람이 같은 글을 여러 번 신고해 건수를 부풀리지 못하게.
+- 글을 내리면 TECH_ARTICLE.status = HIDDEN + hidden_reason을 채우고 이 행을 ACTION_TAKEN으로 바꾼다. 같은 글의 다른 OPEN 신고도 함께 처리한다.
+- 처리자(관리자) 컬럼은 두지 않았다. 지금 서비스에는 관리자 역할이 없다(USERS.user_type은 APPLICANT/INTERVIEWER). 아래 "회의에서 정할 것" 참고.
+
+#### 회의에서 정할 것
+
+게시판을 만들기 전에 팀이 정해야 하고, 답에 따라 위 스키마가 바뀐다.
+
+| 질문 | 바뀌는 곳 |
+| --- | --- |
+| 글쓴이를 실명(USERS.name)으로 보여줄까, 닉네임을 둘까? (NFR-4 개인정보) | 닉네임이면 USERS에 `nickname` 컬럼 추가 |
+| 로드맵과 무관한 **자유 글**도 허용할까, EXPERT 증빙 글만 둘까? | 증빙 글만이면 source_type 삭제, roadmap_step_id NOT NULL |
+| 신고된 글을 처리할 **관리자**는 누구인가? | USERS.user_type에 ADMIN 추가 또는 별도 운영 화면 |
+| 글 공개 범위(비공개·링크 공유)가 필요한가? | status에 값 추가 또는 visibility 컬럼 |
+| 본문에 이미지를 넣을 수 있게 할까? | DOCUMENTS 연결 컬럼 또는 별도 첨부 테이블 |
+| 댓글에도 하트를 달까? | TECH_ARTICLE_COMMENT_LIKE 신설 |
+| 새 댓글·하트 **알림**이 필요한가? | 알림 테이블 신설 (지금 서비스에 알림 테이블 없음) |
+| 인기 글 정렬 기준은 조회수? 하트? 둘의 가중 합? | 인덱스·집계 쿼리 |
+
 ### 부가·시스템
 
 #### DOCUMENTS (서류 보관함)
@@ -944,13 +1158,14 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | `file_size` | BIGINT |  | 용량 제한 검증 |
 | `mime_type` | VARCHAR(100) |  | 확장자 제한 검증 |
 | `checksum` | VARCHAR(64) |  | 무결성 관리 |
-| `uploaded_at` | DATETIME |  | 업로드 시각 |
 
 설계 판단:
 
 - original_name과 stored_name을 분리한 이유는 한글 파일명과 중복 파일명 때문이다. 원본명은 화면에 보여주고, 실제 저장은 충돌 없는 이름으로 한다.
 - file_size·mime_type·checksum이 NFR-7(용량·확장자 제한, 무결성 관리)의 근거가 된다.
+- 업로드 시각은 별도 컬럼 없이 공통 컬럼 created_at을 쓴다(예전 문서에 있던 uploaded_at은 실제 DB에 만든 적이 없어 2026-10-01에 문서에서 지웠다).
 - FR-64(AI 챗봇이 서류를 읽어 답변)는 보류 항목이라 스키마만 준비하고 기능은 만들지 않는다.
+- 이 테이블을 가리키는 곳이 늘었다: USERS.resume_document_id(이력서)·cover_letter_document_id(자소서)·PROJECT_DOCUMENT_ITEM.document_id(프로젝트 문서). 이력서·자소서는 project_id 없이 저장하고, 가리키는 쪽에서 "무슨 파일인지"를 정한다.
 
 #### DDAY_ALERT (D-day 알림)
 
@@ -1039,3 +1254,10 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | EVALUATION_CRITERIA | (session_id, skill_id) — 같은 역량에 가중치가 두 개 생기지 않게 |
 | DDAY_ALERT | (user_id, cert_schedule_id) — 같은 시험 일정 D-day 중복 등록 방지 |
 | EXTERNAL_API_CACHE | (api_type, request_key) — 단독 UNIQUE는 버그, 서로 다른 API의 같은 요청이 덮어써짐 |
+| PROJECT_TECH_NOTE | (project_id, skill_id) — 한 프로젝트에서 같은 기술의 설명서가 두 개 생기지 않게 |
+| PROJECT_DOCUMENT_ITEM | (project_id, doc_type) — 같은 종류 문서를 중복 체크하지 않게 |
+| TECH_ARTICLE | (roadmap_step_id) — EXPERT 단계 하나에서 글 하나 (NULL인 자유 글은 여러 개 가능) |
+| TECH_ARTICLE_LIKE | (article_id, user_id) — 한 사람이 한 글에 하트는 한 번 (취소는 행 되살리기) |
+| TECH_ARTICLE_BOOKMARK | (article_id, user_id) — 한 사람이 한 글을 한 번만 북마크 |
+| TECH_ARTICLE_VIEW_LOG | (article_id, viewer_user_id, viewed_date) — 사용자 1명이 같은 글을 하루에 한 번만 조회수에 반영 |
+| TECH_ARTICLE_REPORT | (article_id, reporter_user_id) — 한 사람이 같은 글을 여러 번 신고하지 못하게 |

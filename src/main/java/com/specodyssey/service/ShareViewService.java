@@ -110,12 +110,34 @@ public class ShareViewService {
         return user == null ? null : findResume(user);
     }
 
-    // 지원자가 지정한 이력서. 지정하지 않았거나 그 서류가 지워졌으면 null
-    private DocumentDto findResume(UserDto user) throws SQLException {
-        if (user.getResumeDocumentId() == null) {
+    /**
+     * 공유 링크로 자소서 파일을 내려받을 때 — loadResume과 같은 조건(유효한 링크 + 이 링크에 자소서 공개를 골랐음 +
+     * 올려 둔 자소서가 있음)을 모두 여기서 확인한다.
+     * @return 조건에 하나라도 안 맞으면 null
+     */
+    public DocumentDto loadCoverLetter(String token) throws SQLException {
+        if (token == null || token.isBlank()) {
             return null;
         }
-        DocumentDto document = documentDao.findById(user.getResumeDocumentId());
+        ShareLinkDto link = shareLinkDao.findByToken(token);
+        if (link == null || !link.isScopeCoverLetter()) {
+            return null;
+        }
+        UserDto user = userDao.findById(link.getUserId());
+        return user == null ? null : findProfileDocument(user, user.getCoverLetterDocumentId());
+    }
+
+    // 지원자가 지정한 이력서. 지정하지 않았거나 그 서류가 지워졌으면 null
+    private DocumentDto findResume(UserDto user) throws SQLException {
+        return findProfileDocument(user, user.getResumeDocumentId());
+    }
+
+    // 이력서·자소서 공통 — 본인이 올린 파일만 인정한다
+    private DocumentDto findProfileDocument(UserDto user, Long documentId) throws SQLException {
+        if (documentId == null) {
+            return null;
+        }
+        DocumentDto document = documentDao.findById(documentId);
         return (document == null || !document.getUserId().equals(user.getId())) ? null : document;
     }
 
@@ -135,6 +157,7 @@ public class ShareViewService {
         view.setScopeSkills(link.isScopeSkills());
         view.setScopeGrowth(link.isScopeGrowth());
         view.setScopeResume(link.isScopeResume());
+        view.setScopeCoverLetter(link.isScopeCoverLetter());
 
         if (link.isScopeBasic()) {
             view.setName(user.getName());
@@ -152,6 +175,10 @@ public class ShareViewService {
         if (link.isScopeResume()) {
             DocumentDto resume = findResume(user);
             view.setResumeFileName(resume == null ? null : resume.getOriginalName());
+        }
+        if (link.isScopeCoverLetter()) {
+            DocumentDto coverLetter = findProfileDocument(user, user.getCoverLetterDocumentId());
+            view.setCoverLetterFileName(coverLetter == null ? null : coverLetter.getOriginalName());
         }
         if (link.isScopeGrowth()) {
             List<SpecScoreHistoryDto> history = specScoreHistoryDao.findByUserId(user.getId());

@@ -48,22 +48,38 @@
                 <c:if test="${view.scopeSkills}"><span class="chip chip-teal">보유 기술 스택</span></c:if>
                 <c:if test="${view.scopeGrowth}"><span class="chip chip-teal">성장 잠재력</span></c:if>
                 <c:if test="${view.scopeResume}"><span class="chip chip-teal">이력서 파일</span></c:if>
+                <c:if test="${view.scopeCoverLetter}"><span class="chip chip-teal">자소서 파일</span></c:if>
             </p>
         </div>
 
-        <c:if test="${view.scopeResume}">
+        <%-- 이력서·자소서는 한 카드에 모아서 한눈에 보고 바로 내려받게 한다 --%>
+        <c:if test="${view.scopeResume || view.scopeCoverLetter}">
             <div class="card">
-                <h2>이력서</h2>
-                <c:choose>
-                    <c:when test="${empty view.resumeFileName}">
-                        <p class="muted" style="margin-top:10px;">지원자가 아직 이력서를 올리지 않았습니다.</p>
-                    </c:when>
-                    <c:otherwise>
-                        <p style="margin-top:10px; margin-bottom:0;">
-                            <a href="${pageContext.request.contextPath}/share/${token}/resume">📎 <c:out value="${view.resumeFileName}" /> 내려받기</a>
-                        </p>
-                    </c:otherwise>
-                </c:choose>
+                <h2>이력서 · 자소서</h2>
+                <c:if test="${view.scopeResume}">
+                    <c:choose>
+                        <c:when test="${empty view.resumeFileName}">
+                            <p class="muted" style="margin-top:10px; margin-bottom:0;">이력서 — 지원자가 아직 올리지 않았습니다.</p>
+                        </c:when>
+                        <c:otherwise>
+                            <p style="margin-top:10px; margin-bottom:0;">
+                                이력서 · <a href="${pageContext.request.contextPath}/share/${token}/resume">📎 <c:out value="${view.resumeFileName}" /> 내려받기</a>
+                            </p>
+                        </c:otherwise>
+                    </c:choose>
+                </c:if>
+                <c:if test="${view.scopeCoverLetter}">
+                    <c:choose>
+                        <c:when test="${empty view.coverLetterFileName}">
+                            <p class="muted" style="margin-top:10px; margin-bottom:0;">자소서 — 지원자가 아직 올리지 않았습니다.</p>
+                        </c:when>
+                        <c:otherwise>
+                            <p style="margin-top:10px; margin-bottom:0;">
+                                자소서 · <a href="${pageContext.request.contextPath}/share/${token}/cover-letter">📎 <c:out value="${view.coverLetterFileName}" /> 내려받기</a>
+                            </p>
+                        </c:otherwise>
+                    </c:choose>
+                </c:if>
             </div>
         </c:if>
 

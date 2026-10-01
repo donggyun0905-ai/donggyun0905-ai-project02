@@ -186,12 +186,15 @@ public class ProfileServlet extends HttpServlet {
         // FR-101·102(선택) AI 활용 기록 자기 제출.
         req.setAttribute("aiUsageEntries", aiUsageLogService.listMine(userId));
         req.setAttribute("resume", resumeService.findResume(userId));
-        // 이력서 올리기·삭제(ProfileResumeServlet)는 끝나면 이 화면으로 돌아온다 — 결과 문구를 한 번만 보여준다
+        req.setAttribute("coverLetter", resumeService.findCoverLetter(userId));
+        // 이력서·자소서 올리기·삭제(ProfileResumeServlet)는 끝나면 이 화면으로 돌아온다 — 결과 문구를 한 번만 보여준다
         HttpSession session = req.getSession(false);
-        Object resumeMessage = session.getAttribute("resumeMessage");
-        if (resumeMessage != null) {
-            session.removeAttribute("resumeMessage");
-            req.setAttribute("resumeMessage", resumeMessage);
+        for (String key : new String[] {"resumeMessage", "coverLetterMessage"}) {
+            Object message = session.getAttribute(key);
+            if (message != null) {
+                session.removeAttribute(key);
+                req.setAttribute(key, message);
+            }
         }
     }
 

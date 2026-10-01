@@ -13,6 +13,7 @@ public class ShareLinkDto {
     private boolean scopeSkills;
     private boolean scopeGrowth;
     private boolean scopeResume;
+    private boolean scopeCoverLetter;
     private String label;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -88,6 +89,14 @@ public class ShareLinkDto {
 
     public void setScopeResume(boolean scopeResume) {
         this.scopeResume = scopeResume;
+    }
+
+    public boolean isScopeCoverLetter() {
+        return scopeCoverLetter;
+    }
+
+    public void setScopeCoverLetter(boolean scopeCoverLetter) {
+        this.scopeCoverLetter = scopeCoverLetter;
     }
 
     public String getLabel() {

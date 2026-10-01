@@ -117,11 +117,21 @@
     </c:otherwise>
 </c:choose>
 
-<h2 style="margin-top:24px; margin-bottom:10px;">이력서</h2>
+<h2 style="margin-top:24px; margin-bottom:10px;">이력서 · 자소서 <span class="muted" style="font-weight:normal; font-size:0.85rem;">(선택)</span></h2>
+<%-- 팀 회의에서 정한 안내 문구(2026-10-01): 이력서·자소서를 선택으로 올려 두면 면접관이 한 화면에서 한눈에 볼 수 있다는 점을 알린다. --%>
+<div class="card" style="background:var(--card-bg, #fff); border-left:4px solid var(--teal, #2E7D6B);">
+    <p style="margin:0 0 6px;"><strong>💡 이력서와 자소서를 올려 두면 면접관이 한눈에 볼 수 있어 편해요</strong></p>
+    <p class="muted" style="margin:0; font-size:0.88rem; line-height:1.6;">
+        공유 링크를 만들 때 <strong>이력서 파일</strong>·<strong>자소서 파일</strong>을 함께 골라 두면, 면접관은 링크 하나로 내 기본 이력과 기술 스택부터 이력서·자소서까지
+        한 화면에서 확인하고 바로 내려받을 수 있어요. 파일을 따로 주고받거나 여러 군데를 찾아다니지 않아도 되니 면접관에게도 훨씬 수월하고, 내 이야기가 빠짐없이 전해집니다.
+        둘 다 <strong>선택</strong>이라 올리지 않아도 가입·분석·로드맵에는 아무 영향이 없고, 개인정보가 들어 있는 파일이라 링크를 만들 때 직접 체크한 경우에만 공개돼요.
+    </p>
+</div>
 <c:if test="${not empty resumeMessage}">
     <p class="error-message"><c:out value="${resumeMessage}" /></p>
 </c:if>
 <div class="card">
+    <h3 style="margin:0 0 8px; font-size:1rem;">이력서 <span class="muted" style="font-weight:normal; font-size:0.8rem;">· 선택</span></h3>
     <c:choose>
         <c:when test="${not empty resume}">
             <p style="margin-top:0;">
@@ -130,7 +140,7 @@
             </p>
         </c:when>
         <c:otherwise>
-            <p class="muted" style="margin-top:0;">아직 올린 이력서가 없습니다.</p>
+            <p class="muted" style="margin-top:0;">아직 올린 이력서가 없습니다. 안 올려도 괜찮아요.</p>
         </c:otherwise>
     </c:choose>
     <form action="${pageContext.request.contextPath}/profile/resume" method="post" enctype="multipart/form-data" class="row">
@@ -146,6 +156,42 @@
         <script>
             document.querySelector('.delete-resume').addEventListener('submit', function (event) {
                 if (!confirm('이력서를 삭제할까요?')) {
+                    event.preventDefault();
+                }
+            });
+        </script>
+    </c:if>
+</div>
+
+<c:if test="${not empty coverLetterMessage}">
+    <p class="error-message"><c:out value="${coverLetterMessage}" /></p>
+</c:if>
+<div class="card">
+    <h3 style="margin:0 0 8px; font-size:1rem;">자소서 <span class="muted" style="font-weight:normal; font-size:0.8rem;">· 선택</span></h3>
+    <c:choose>
+        <c:when test="${not empty coverLetter}">
+            <p style="margin-top:0;">
+                <a href="${pageContext.request.contextPath}/documents/${coverLetter.id}">📎 <c:out value="${coverLetter.originalName}" /></a>
+                <span class="muted">· ${coverLetter.createdAt.toLocalDate()}에 올림</span>
+            </p>
+        </c:when>
+        <c:otherwise>
+            <p class="muted" style="margin-top:0;">아직 올린 자소서가 없습니다. 안 올려도 괜찮아요.</p>
+        </c:otherwise>
+    </c:choose>
+    <form action="${pageContext.request.contextPath}/profile/cover-letter" method="post" enctype="multipart/form-data" class="row">
+        <input type="file" name="coverLetter" required accept=".pdf,.doc,.docx,.hwp,.hwpx" style="flex:1;">
+        <button type="submit">${empty coverLetter ? '자소서 올리기' : '새 파일로 바꾸기'}</button>
+    </form>
+    <p class="muted" style="font-size:0.8rem; margin:8px 0 0;">PDF, Word(doc·docx), 한글(hwp·hwpx) 파일을 10MB까지 올릴 수 있습니다. 새 파일을 올리면 이전 자소서는 지워집니다.</p>
+    <c:if test="${not empty coverLetter}">
+        <form action="${pageContext.request.contextPath}/profile/cover-letter" method="post" class="delete-coverLetter" style="margin-top:8px;">
+            <input type="hidden" name="action" value="delete">
+            <button type="submit" class="link-button">자소서 삭제</button>
+        </form>
+        <script>
+            document.querySelector('.delete-coverLetter').addEventListener('submit', function (event) {
+                if (!confirm('자소서를 삭제할까요?')) {
                     event.preventDefault();
                 }
             });

@@ -16,6 +16,7 @@ public class ShareViewDto {
     private boolean scopeSkills;
     private boolean scopeGrowth;
     private boolean scopeResume;
+    private boolean scopeCoverLetter;
 
     // scope_basic
     private String name;
@@ -35,6 +36,9 @@ public class ShareViewDto {
 
     // scope_resume — 이력서 파일 이름. 공개했지만 올린 이력서가 없으면 null
     private String resumeFileName;
+
+    // scope_cover_letter — 자소서 파일 이름. 공개했지만 올린 자소서가 없으면 null
+    private String coverLetterFileName;
 
     // scope_growth — 날짜 오름차순
     private List<SpecScoreHistoryDto> growth = new ArrayList<>();
@@ -114,12 +118,28 @@ public class ShareViewDto {
         this.scopeResume = scopeResume;
     }
 
+    public boolean isScopeCoverLetter() {
+        return scopeCoverLetter;
+    }
+
+    public void setScopeCoverLetter(boolean scopeCoverLetter) {
+        this.scopeCoverLetter = scopeCoverLetter;
+    }
+
     public String getResumeFileName() {
         return resumeFileName;
     }
 
     public void setResumeFileName(String resumeFileName) {
         this.resumeFileName = resumeFileName;
+    }
+
+    public String getCoverLetterFileName() {
+        return coverLetterFileName;
+    }
+
+    public void setCoverLetterFileName(String coverLetterFileName) {
+        this.coverLetterFileName = coverLetterFileName;
     }
 
     public String getName() {

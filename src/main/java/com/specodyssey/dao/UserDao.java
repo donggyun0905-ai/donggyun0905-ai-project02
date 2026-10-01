@@ -155,7 +155,24 @@ public class UserDao {
 
     // 이력서 교체처럼 서류 저장과 한 트랜잭션으로 묶을 때 쓴다
     public boolean updateResumeDocument(Connection conn, Long userId, Long documentId) throws SQLException {
-        String sql = "UPDATE USERS SET resume_document_id = ? WHERE id = ? AND is_deleted = FALSE " +
+        return updateProfileDocument(conn, "resume_document_id", userId, documentId);
+    }
+
+    // 자소서도 이력서와 같은 방식이다 — 본인이 올린, 지워지지 않은 파일만 지정할 수 있다
+    public boolean updateCoverLetterDocument(Long userId, Long documentId) throws SQLException {
+        try (Connection conn = DBUtil.getConnection()) {
+            return updateCoverLetterDocument(conn, userId, documentId);
+        }
+    }
+
+    public boolean updateCoverLetterDocument(Connection conn, Long userId, Long documentId) throws SQLException {
+        return updateProfileDocument(conn, "cover_letter_document_id", userId, documentId);
+    }
+
+    // column은 호출부가 코드에서 고정한 값만 넘긴다(사용자 입력이 아님)
+    private boolean updateProfileDocument(Connection conn, String column, Long userId, Long documentId)
+            throws SQLException {
+        String sql = "UPDATE USERS SET " + column + " = ? WHERE id = ? AND is_deleted = FALSE " +
                 "AND (? IS NULL OR EXISTS (SELECT 1 FROM DOCUMENTS d " +
                 "WHERE d.id = ? AND d.user_id = ? AND d.is_deleted = FALSE))";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -215,6 +232,7 @@ public class UserDao {
         user.setDesiredJobId(rs.getObject("desired_job_id", Long.class));
         user.setDesiredJobStatus(rs.getString("desired_job_status"));
         user.setResumeDocumentId(rs.getObject("resume_document_id", Long.class));
+        user.setCoverLetterDocumentId(rs.getObject("cover_letter_document_id", Long.class));
         user.setPrivacyConsentAt(toLocalDateTime(rs.getTimestamp("privacy_consent_at")));
         user.setProfileUpdatedAt(toLocalDateTime(rs.getTimestamp("profile_updated_at")));
         user.setLastLoginAt(toLocalDateTime(rs.getTimestamp("last_login_at")));

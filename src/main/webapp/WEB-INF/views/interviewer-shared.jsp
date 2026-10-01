@@ -58,6 +58,9 @@
                                 <c:if test="${not empty applicant.view.resumeFileName}">
                                     <a href="${pageContext.request.contextPath}/share/${applicant.token}/resume">📎 이력서 내려받기</a>
                                 </c:if>
+                                <c:if test="${not empty applicant.view.coverLetterFileName}">
+                                    <a href="${pageContext.request.contextPath}/share/${applicant.token}/cover-letter">📎 자소서 내려받기</a>
+                                </c:if>
                             </c:if>
                             <form method="post" action="${pageContext.request.contextPath}/interviewer/shared" class="inline-form remove-item">
                                 <input type="hidden" name="action" value="remove">
