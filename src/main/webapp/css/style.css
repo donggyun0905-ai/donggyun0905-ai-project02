@@ -181,6 +181,102 @@ footer.site-footer {
     display: flex; align-items: center; gap: 10px; justify-content: space-between;
 }
 
+/* ---------------- 여정 지도 (로드맵 화면설계 PDF의 굽이치는 길 그래픽) ----------------
+   실제 곡선 SVG로 각 카드 높이에 맞춰 정확히 지나가게 만들려면 JS로 위치를 재야 해서
+   (이 프로젝트는 JS 없이 JSTL만 쓰는 방침), 가운데 점선 하나를 축으로 카드를 좌우
+   번갈아 배치하는 방식으로 "굽이치는 길"의 느낌만 재현했다 — 카드 높이가 들쭉날쭉해도
+   깨지지 않는다. */
+.journey-map { position: relative; }
+.journey-legend {
+    display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.82rem;
+    color: var(--ink-soft); margin: 4px 0 18px;
+}
+.journey-legend .dot {
+    display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+    margin-right: 5px; vertical-align: middle;
+}
+.journey-legend .dot.completed { background: var(--teal); }
+.journey-legend .dot.current { background: var(--primary); }
+.journey-legend .dot.remaining { background: var(--card-bg); border: 2px solid var(--gold); }
+.journey-legend .dot.locked { background: var(--page-bg); border: 2px solid var(--locked); }
+
+.journey-tier-badge {
+    display: block; width: fit-content; margin: 22px auto 16px; padding: 6px 20px;
+    background: var(--header-bg); color: #fff; border-radius: 999px;
+    font-weight: 700; font-size: 0.85rem; text-align: center;
+    position: relative; z-index: 2;
+}
+.journey-tier-badge:first-child { margin-top: 0; }
+.journey-tier-badge.final { background: var(--ink); }
+
+/* "지나온 길" 박스 자체를 스크롤 컨테이너로 — 페이지 전체를 안 밀어도 이 박스 안에서만
+   위아래로 드래그/스크롤해서 볼 수 있게 한다(사용자 요청, 2026-09-29). .journey-track은
+   그 안에서 원래 높이 그대로 자라고, 이 바깥 래퍼가 max-height + overflow로 잘라서
+   스크롤바를 만든다 — 그래야 물결 배경(::before)이 전체 내용 높이만큼 같이 스크롤된다. */
+.journey-track-scroll {
+    max-height: 75vh; overflow-y: auto; border-radius: var(--radius);
+    scrollbar-width: thin; scrollbar-color: var(--gold) var(--page-bg);
+}
+/* 크롬·엣지·사파리용 스크롤바 — Firefox는 위 scrollbar-color 두 줄로 이미 처리됨 */
+.journey-track-scroll::-webkit-scrollbar { width: 10px; }
+.journey-track-scroll::-webkit-scrollbar-track { background: var(--page-bg); border-radius: 999px; }
+.journey-track-scroll::-webkit-scrollbar-thumb {
+    background: var(--gold); border-radius: 999px; border: 2px solid var(--page-bg);
+}
+.journey-track-scroll::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+.journey-track { position: relative; padding: 10px 0; }
+.journey-track::before {
+    /* 직선 대신 물결 SVG를 세로로 반복 타일링해서 굽이치는 느낌을 낸다 —
+       카드 배치(좌/우)와 물리적으로 딱 맞물리진 않지만(그러려면 JS로 각 카드
+       높이를 재야 함), 배경으로 깔아두는 거라 카드 높이가 들쭉날쭉해도 안 깨진다. */
+    content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 72px;
+    transform: translateX(-50%); z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 160'%3E%3Cpath d='M36 0 C8 28 8 52 36 80 C64 108 64 132 36 160' stroke='%23c9a24b' stroke-width='5' fill='none' stroke-linecap='round' stroke-dasharray='3 12'/%3E%3C/svg%3E");
+    background-repeat: repeat-y;
+    background-size: 72px 160px;
+    background-position: top center;
+}
+
+.journey-row {
+    display: grid; grid-template-columns: 1fr 64px 1fr;
+    align-items: start; gap: 0 24px; position: relative; z-index: 1; margin: 16px 0;
+}
+
+.journey-marker {
+    grid-column: 2; width: 52px; height: 52px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; margin: 0 auto;
+    background: var(--card-bg); border: 3px solid var(--locked); font-size: 1.3rem;
+    box-shadow: var(--shadow); align-self: center;
+}
+.journey-marker.completed { background: var(--teal); border-color: var(--teal); color: #fff; }
+.journey-marker.current { background: var(--primary); border-color: var(--primary); color: #fff; }
+.journey-marker.remaining { background: var(--card-bg); border-color: var(--gold); color: var(--gold); }
+.journey-marker.locked { background: var(--page-bg); border-color: var(--locked); color: var(--locked); border-style: dashed; }
+.journey-marker.flag { background: var(--ink); border-color: var(--ink); color: var(--gold); }
+
+.journey-card {
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px 20px; box-shadow: var(--shadow);
+    grid-row: 1;
+}
+.journey-card.is-locked { opacity: 0.7; }
+.journey-card .row { margin-bottom: 8px; }
+.journey-card h3 { margin: 4px 0; font-size: 1.05rem; }
+.journey-card p { margin: 0 0 10px; font-size: 0.92rem; color: var(--ink-soft); }
+
+/* 지나온(완료한) 길 — 클릭해서 펼치는 게 아니라 그냥 스크롤해서 보이되, "이미 끝난 일"이라
+   눈에 덜 띄게 색을 옅게(뿌옇게) 뺀다. */
+.journey-card.is-past { opacity: 0.55; filter: grayscale(35%); box-shadow: none; }
+.journey-marker.is-past { opacity: 0.6; filter: grayscale(35%); }
+
+@media (max-width: 720px) {
+    .journey-track::before { left: 26px; width: 52px; background-size: 52px 120px; }
+    .journey-row { grid-template-columns: 52px 1fr; gap: 0 12px; }
+    .journey-marker { grid-column: 1; width: 44px; height: 44px; }
+    .journey-card { grid-column: 2 !important; }
+}
+
 form p { margin: 10px 0; }
 label { display: block; font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 4px; }
 
