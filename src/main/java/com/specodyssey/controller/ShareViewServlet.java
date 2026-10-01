@@ -1,8 +1,10 @@
 package com.specodyssey.controller;
 
 import com.specodyssey.dto.EvaluationSessionDto;
+import com.specodyssey.dto.ShareViewDto;
+import com.specodyssey.dto.UserDto;
 import com.specodyssey.service.EvaluationCompareService;
-import com.specodyssey.service.InterviewerViewService;
+import com.specodyssey.service.ShareViewService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -10,16 +12,18 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
 import java.sql.SQLException;
 
 /**
  * 면접관 뷰(로그인 없이 링크로만 접근). 관련 요구사항: FR-81~86
- * "/share/*"는 이미 SessionFilter의 PUBLIC_PREFIXES에 있어 로그인 없이 열린다(FR-14 면접관은
- * 계정이 없음). "/share/{token}"은 지원자 이력(InterviewerViewService), "/share/compare"는
- * 비교(장바구니, EvaluationCompareService) — 면접관도 계정이 없어 쿠키의 session_token이
- * 소유 증명을 대신한다(EVALUATION_SESSION, FR-82).
+ * 화면설계 PDF "13. 면접관 뷰", "14. 면접관 비교 뷰", "6-4. 유효하지 않은 공유 링크" 기준.
+ * "/share/*"는 SessionFilter의 PUBLIC_PREFIXES에 있어 로그인 없이 열린다(FR-14 면접관은 계정이 없음).
+ * "/share/{token}"은 지원자 이력(ShareViewService), "/share/compare"는 비교(장바구니,
+ * EvaluationCompareService) — 면접관도 계정이 없어 쿠키의 session_token이 소유 증명을
+ * 대신한다(EVALUATION_SESSION, FR-82).
  */
 @WebServlet("/share/*")
 public class ShareViewServlet extends HttpServlet {
@@ -27,7 +31,7 @@ public class ShareViewServlet extends HttpServlet {
     private static final String SESSION_COOKIE_NAME = "evalSessionToken";
     private static final int SESSION_COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60; // 30일
 
-    private final InterviewerViewService interviewerViewService = new InterviewerViewService();
+    private final ShareViewService shareViewService = new ShareViewService();
     private final EvaluationCompareService evaluationCompareService = new EvaluationCompareService();
 
     @Override
@@ -40,15 +44,23 @@ public class ShareViewServlet extends HttpServlet {
         }
 
         String token = (pathInfo == null || pathInfo.length() < 2) ? "" : pathInfo.substring(1);
+        HttpSession session = req.getSession(false);
+        UserDto loginUser = session == null ? null : (UserDto) session.getAttribute("loginUser");
+        ShareViewDto view;
         try {
-            InterviewerViewService.ViewResult result = token.isBlank()
-                    ? null
-                    : interviewerViewService.loadView(token, req.getRemoteAddr());
-            req.setAttribute("valid", result != null);
-            req.setAttribute("view", result);
+            view = shareViewService.loadView(token, req.getRemoteAddr(), loginUser == null ? null : loginUser.getId());
         } catch (SQLException e) {
             throw new ServletException("공유 이력을 불러오는 중 오류가 발생했습니다.", e);
         }
+
+        // 주소에 토큰이 들어 있으므로 캐시·검색 수집·외부 사이트로의 Referer 전달을 막는다
+        resp.setHeader("Cache-Control", "no-store");
+        resp.setHeader("X-Robots-Tag", "noindex, nofollow");
+        resp.setHeader("Referrer-Policy", "no-referrer");
+
+        req.setAttribute("valid", view != null);
+        req.setAttribute("view", view);
+        req.setAttribute("token", token);
         req.getRequestDispatcher("/WEB-INF/views/interviewer-view.jsp").forward(req, resp);
     }
 

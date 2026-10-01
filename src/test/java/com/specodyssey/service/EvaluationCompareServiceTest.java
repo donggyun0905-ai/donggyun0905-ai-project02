@@ -226,9 +226,7 @@ class EvaluationCompareServiceTest {
         EvaluationSessionDto session = service.getOrCreateSession(null);
         try {
             service.addCandidate(session.getId(), token);
-            try (Connection conn = DBUtil.getConnection()) {
-                shareLinkDao.updateActive(conn, linkId, userId, false);
-            }
+            shareLinkDao.updateActive(linkId, userId, false);
 
             EvaluationCompareService.CompareView view = service.buildCompareView(
                     session.getId(), session.getSessionToken());

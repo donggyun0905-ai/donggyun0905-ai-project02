@@ -55,7 +55,10 @@ public class SessionFilter implements Filter {
         HttpServletRequest req = (HttpServletRequest) request;
         HttpServletResponse resp = (HttpServletResponse) response;
 
-        if (isPublic(req.getServletPath())) {
+        // "/share/*"처럼 와일드카드로 매핑된 서블릿은 getServletPath()가 "/share"까지만 돌려주고 나머지는
+        // getPathInfo()에 들어간다. 둘을 이어야 "/share/토큰"이 "/share/" 접두사와 맞는다.
+        String path = req.getServletPath() + (req.getPathInfo() == null ? "" : req.getPathInfo());
+        if (isPublic(path)) {
             chain.doFilter(request, response);
             return;
         }

@@ -61,21 +61,6 @@ public class ShareLinkDao {
         }
     }
 
-    // 평가 비교(EVALUATION_SESSION_ITEM)가 담아둔 share_link_id로 지원자를 다시 찾을 때 쓴다(FR-82).
-    // findByToken과 똑같이 활성·미만료 여부를 함께 확인한다 — 지원자가 나중에 공유를 멈추거나 링크가
-    // 만료되면 이미 담아둔 비교표에서도 자연히 빠져야 한다(화면설계 "비교표에서 빠집니다" 문구).
-    public ShareLinkDto findById(Long id) throws SQLException {
-        String sql = "SELECT * FROM SHARE_LINK WHERE id = ? AND is_active = TRUE " +
-                "AND (expires_at IS NULL OR expires_at > NOW()) AND is_deleted = FALSE";
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setLong(1, id);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                return rs.next() ? mapRow(rs) : null;
-            }
-        }
-    }
-
     // 면접관이 토큰으로 접근할 때 조회 (FR-85)
     // is_active·expires_at도 함께 확인한다 — 안 그러면 지원자가 링크를 비활성화(FR-86)해도 계속 열람 가능해진다.
     public ShareLinkDto findByToken(String token) throws SQLException {
@@ -84,6 +69,21 @@ public class ShareLinkDao {
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, token);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        }
+    }
+
+    // 면접관 비교(장바구니, FR-82·83)에서 담아둔 후보를 다시 불러올 때 쓴다 — findByToken과 똑같이
+    // 활성·미만료 여부를 함께 확인한다. 지원자가 나중에 공유를 멈추거나 링크가 만료되면 이미 담아둔
+    // 비교표에서도 자연히 빠져야 한다(화면설계 "비교표에서 빠집니다" 문구).
+    public ShareLinkDto findById(Long id) throws SQLException {
+        String sql = "SELECT * FROM SHARE_LINK WHERE id = ? AND is_active = TRUE " +
+                "AND (expires_at IS NULL OR expires_at > NOW()) AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, id);
             try (ResultSet rs = pstmt.executeQuery()) {
                 return rs.next() ? mapRow(rs) : null;
             }
@@ -107,15 +107,15 @@ public class ShareLinkDao {
         }
     }
 
-    // FR-86 "공유 중단"/"다시 공유하기" — 활성 여부만 토글. update()처럼 전체 필드를 다시 받을 필요
-    // 없이 이 한 플래그만 바꿀 때 쓴다. 본인 소유가 아니면 WHERE 조건에서 자연히 0행 갱신된다.
-    public void updateActive(Connection conn, Long linkId, Long userId, boolean active) throws SQLException {
+    // FR-86 공유 중단·재개. 본인 소유가 아닌 id는 0행 갱신이라 false를 돌려준다.
+    public boolean updateActive(Long linkId, Long userId, boolean active) throws SQLException {
         String sql = "UPDATE SHARE_LINK SET is_active = ? WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
-        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setBoolean(1, active);
             pstmt.setLong(2, linkId);
             pstmt.setLong(3, userId);
-            pstmt.executeUpdate();
+            return pstmt.executeUpdate() > 0;
         }
     }
 

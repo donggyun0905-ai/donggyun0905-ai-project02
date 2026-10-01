@@ -285,8 +285,12 @@
                                     <c:otherwise>
                                         <details>
                                             <summary>증빙 서류 첨부하고 완료하기</summary>
+                                            <%-- 서류 내용은 검증하지 않고 첨부 자체를 신뢰하는 대신(팀 결정),
+                                                 제출 전에 면접관 공유 화면에 그대로 노출된다는 걸 분명히 알린다
+                                                 (2026-10-01 사용자 요청). --%>
                                             <form action="${pageContext.request.contextPath}/roadmap" method="post"
-                                                  enctype="multipart/form-data" style="margin-top:10px;">
+                                                  enctype="multipart/form-data" style="margin-top:10px;"
+                                                  onsubmit="return confirm('이 자격증 문서는 면접관 공유 화면에 그대로 노출됩니다. 제출하시겠습니까?');">
                                                 <input type="hidden" name="action" value="submitCertProof">
                                                 <input type="hidden" name="stepId" value="${step.id}">
                                                 <p><label>증빙 서류 (합격 확인서·자격증 사진 등)</label><input type="file" name="file" required></p>

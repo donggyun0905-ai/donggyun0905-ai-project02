@@ -14,49 +14,52 @@
         </div>
     </c:when>
     <c:otherwise>
-        <c:set var="link" value="${view.link}" />
-        <c:set var="user" value="${view.user}" />
         <div class="spread" style="margin-bottom:16px;">
             <span class="pill">👁 읽기 전용 · 지원자가 공유한 이력</span>
-            <form action="${pageContext.request.contextPath}/share/compare" method="post" class="inline-form">
-                <input type="hidden" name="action" value="addCandidate">
-                <input type="hidden" name="linkInput" value="${link.token}">
-                <button type="submit" class="secondary">비교 목록에 담기</button>
-            </form>
+            <a class="btn secondary" href="${pageContext.request.contextPath}/share/compare">비교 목록에 담기</a>
         </div>
         <h1>지원자 이력</h1>
         <p class="muted">지원자가 직접 발급한 링크로 열린 페이지입니다. 지원자가 고른 항목만 보이고, 지원자는 언제든 공유를 멈출 수 있습니다.</p>
 
         <div class="card">
-            <h2>기본 정보</h2>
-            <div class="row" style="margin-top:10px;">
-                <span style="flex:1;"><div class="muted" style="font-size:0.8rem;">전공</div><strong>${empty user.major ? '미입력' : user.major}</strong></span>
-                <span style="flex:1;"><div class="muted" style="font-size:0.8rem;">학년</div><strong>${empty user.grade ? '미입력' : user.grade}</strong></span>
-                <span style="flex:1;"><div class="muted" style="font-size:0.8rem;">희망 직무</div><strong>${empty view.jobName ? '미설정' : view.jobName}</strong></span>
-            </div>
+            <c:if test="${view.scopeBasic}">
+                <h2>기본 정보</h2>
+                <div class="row" style="margin-top:10px;">
+                    <span style="flex:1;"><div class="muted" style="font-size:0.8rem;">전공</div><strong><c:out value="${view.major}" default="미입력" /></strong></span>
+                    <span style="flex:1;"><div class="muted" style="font-size:0.8rem;">학년</div><strong><c:out value="${view.grade}" default="미입력" /></strong></span>
+                    <span style="flex:1;"><div class="muted" style="font-size:0.8rem;">희망 직무</div><strong><c:out value="${view.desiredJobName}" default="미정" /></strong></span>
+                </div>
+            </c:if>
             <p style="margin-top:12px; margin-bottom:0;">
                 공개된 항목
-                <c:if test="${link.scopeBasic}"><span class="chip chip-teal">기본 이력</span></c:if>
-                <c:if test="${link.scopeSkills}"><span class="chip chip-teal">보유 기술 스택</span></c:if>
-                <c:if test="${link.scopeGrowth}"><span class="chip chip-teal">성장 잠재력</span></c:if>
+                <c:if test="${view.scopeBasic}"><span class="chip chip-teal">기본 이력</span></c:if>
+                <c:if test="${view.scopeSkills}"><span class="chip chip-teal">보유 기술 스택</span></c:if>
+                <c:if test="${view.scopeGrowth}"><span class="chip chip-teal">성장 잠재력</span></c:if>
             </p>
         </div>
 
-        <c:if test="${link.scopeBasic}">
+        <%-- FR-81 이력 타임라인 --%>
+        <c:if test="${view.scopeBasic}">
             <div class="card">
                 <h2>이력 타임라인</h2>
                 <c:choose>
                     <c:when test="${empty view.timeline}">
-                        <p class="muted" style="margin-top:10px;">아직 등록된 이력이 없습니다.</p>
+                        <p class="muted" style="margin-top:10px;">아직 등록된 자격증·어학·수상·프로젝트가 없습니다.</p>
                     </c:when>
                     <c:otherwise>
                         <table style="margin-top:10px;">
                             <c:forEach var="item" items="${view.timeline}">
                                 <tr>
-                                    <td class="muted" style="width:140px;">${item.dateLabel}</td>
+                                    <td class="muted" style="width:190px;"><c:out value="${item.dateText}" /></td>
                                     <td>
-                                        <strong>${item.type}</strong><br>${item.title}
-                                        <c:if test="${not empty item.detail}"><br><span class="muted" style="font-size:0.84rem;">${item.detail}</span></c:if>
+                                        <strong><c:out value="${item.typeLabel}" /></strong><br>
+                                        <c:out value="${item.title}" />
+                                        <c:if test="${not empty item.detail}">
+                                            <br><span class="muted" style="font-size:0.84rem;"><c:out value="${item.detail}" /></span>
+                                        </c:if>
+                                        <c:if test="${not empty item.documentId}">
+                                            <br><a href="${pageContext.request.contextPath}/share/documents/${token}/${item.documentId}" target="_blank" style="font-size:0.84rem;">증빙 서류 보기</a>
+                                        </c:if>
                                     </td>
                                 </tr>
                             </c:forEach>
@@ -66,17 +69,17 @@
             </div>
         </c:if>
 
-        <c:if test="${link.scopeSkills}">
+        <c:if test="${view.scopeSkills}">
             <div class="card">
                 <h2>보유 기술 스택</h2>
                 <c:choose>
                     <c:when test="${empty view.skills}">
-                        <p class="muted" style="margin-top:10px;">등록된 기술이 없습니다.</p>
+                        <p class="muted" style="margin-top:10px;">아직 등록된 기술이 없습니다.</p>
                     </c:when>
                     <c:otherwise>
                         <p style="margin-top:10px;">
                             <c:forEach var="skill" items="${view.skills}">
-                                <span class="pill">${skill.name}<c:if test="${not empty skill.proficiency}"> · ${skill.proficiency}</c:if></span>
+                                <span class="pill"><c:out value="${skill}" /></span>
                             </c:forEach>
                         </p>
                     </c:otherwise>
@@ -84,26 +87,25 @@
             </div>
         </c:if>
 
-        <c:if test="${link.scopeGrowth}">
+        <%-- FR-84 성장 잠재력 --%>
+        <c:if test="${view.scopeGrowth}">
             <div class="card">
                 <h2>성장 잠재력</h2>
                 <c:choose>
-                    <c:when test="${empty view.growthSummary}">
-                        <p class="muted" style="margin-top:10px;">아직 비교할 과거 기록이 없습니다 — 스펙 완성도 스냅샷이 하루 1회씩 쌓인 뒤 보여드릴 수 있어요.</p>
+                    <c:when test="${empty view.growth}">
+                        <p class="muted" style="margin-top:10px;">아직 스펙 완성도 기록이 쌓이지 않았습니다.</p>
                     </c:when>
                     <c:otherwise>
-                        <p style="margin-top:10px;">${view.growthSummary.fromDate}부터 ${view.growthSummary.toDate}까지 스펙 완성도가 <strong>${view.growthSummary.fromScore}에서 ${view.growthSummary.toScore}로</strong> 올랐습니다. 이 기간에 자격증 ${view.growthSummary.certDelta}개, 프로젝트 ${view.growthSummary.projectDelta}개, 기술 ${view.growthSummary.skillDelta}개가 늘었습니다.</p>
-                        <c:if test="${not empty view.growthSeries}">
-                            <div class="row" style="margin-top:10px; align-items:flex-end; gap:20px;">
-                                <c:forEach var="point" items="${view.growthSeries}">
-                                    <div style="text-align:center;">
-                                        <div>${point.score}</div>
-                                        <div style="width:24px; height:${point.score}px; max-height:60px; background:var(--teal); margin-top:4px;"></div>
-                                        <div class="muted" style="font-size:0.78rem;">${point.monthLabel}</div>
-                                    </div>
-                                </c:forEach>
-                            </div>
-                        </c:if>
+                        <p class="muted" style="margin-top:10px;">스펙 완성도(100점 만점)가 시간에 따라 변한 기록입니다.</p>
+                        <div class="row" style="margin-top:10px; align-items:flex-end; gap:20px;">
+                            <c:forEach var="point" items="${view.growth}">
+                                <div style="text-align:center;">
+                                    <div>${point.completenessScore}</div>
+                                    <div style="width:24px; height:${point.completenessScore * 0.8}px; background:var(--teal); margin:4px auto 0;"></div>
+                                    <div class="muted" style="font-size:0.78rem;">${point.snapshotDate}</div>
+                                </div>
+                            </c:forEach>
+                        </div>
                     </c:otherwise>
                 </c:choose>
             </div>

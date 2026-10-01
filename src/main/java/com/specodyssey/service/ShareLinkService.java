@@ -2,119 +2,125 @@ package com.specodyssey.service;
 
 import com.specodyssey.dao.ShareLinkDao;
 import com.specodyssey.dao.ShareLinkViewLogDao;
+import com.specodyssey.dao.ShareLinkViewLogDao.ViewStat;
 import com.specodyssey.dto.ShareLinkDto;
-import com.specodyssey.dto.ShareLinkViewLogDto;
-import com.specodyssey.util.TransactionUtil;
+import com.specodyssey.dto.ShareLinkItemDto;
+import com.specodyssey.util.DBUtil;
 
 import java.security.SecureRandom;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
- * 면접관 공유 링크 발급·관리. 관련 요구사항: FR-85 · 86, NFR-9
- * 지원자가 로그인한 상태에서 직접 발급·공개범위 조정·공유 중단하는 본인 소유 리소스.
+ * 면접관 공유 링크 발급·목록·중단·삭제. 관련 요구사항: FR-85 · 86, NFR-9
  */
 public class ShareLinkService {
 
-    // CLAUDE.md 보안 원칙: "면접관 공유 링크 토큰은 추측 불가능한 랜덤 문자열(SecureRandom), 읽기 전용".
-    // 256비트(32바이트)를 URL-safe Base64로 인코딩 — URL에 그대로 넣어도 안전한 문자만 나온다.
+    // 화면의 "만료" 선택지와 같은 값이어야 한다 (share-links.jsp)
+    private static final Set<Integer> ALLOWED_EXPIRY_DAYS = Set.of(7, 30, 90);
+    private static final int LABEL_MAX_LENGTH = 50; // SHARE_LINK.label VARCHAR(50)
+    private static final int TOKEN_BYTES = 32;      // Base64URL 43자 — SHARE_LINK.token VARCHAR(64) 안에 들어간다
+
     private static final SecureRandom RANDOM = new SecureRandom();
-    private static final int TOKEN_BYTES = 32;
 
     private final ShareLinkDao shareLinkDao = new ShareLinkDao();
-    private final ShareLinkViewLogDao shareLinkViewLogDao = new ShareLinkViewLogDao();
+    private final ShareLinkViewLogDao viewLogDao = new ShareLinkViewLogDao();
 
-    // JSTL fmt:formatDate는 java.util.Date 전용이라 java.time 타입을 못 받는다(claude.md: JSP에
-    // 계산 로직 금지 — 날짜 포맷도 계산으로 보고 여기서 문자열로 미리 만들어 넘긴다).
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-
-    /** 화면에 보여줄 링크 1건 — 열람 횟수·최근 열람 시각을 같이 계산해서 묶어준다. */
-    public static final class ShareLinkView {
-        private final ShareLinkDto link;
-        private final int viewCount;
-        private final LocalDateTime lastViewedAt;
-
-        public ShareLinkView(ShareLinkDto link, int viewCount, LocalDateTime lastViewedAt) {
-            this.link = link;
-            this.viewCount = viewCount;
-            this.lastViewedAt = lastViewedAt;
+    /**
+     * @param expiryDays 만료까지 남은 일수. null이면 만료 없음
+     * @throws IllegalArgumentException 입력이 잘못된 경우 — 메시지를 그대로 화면에 보여준다
+     */
+    public ShareLinkDto createLink(Long userId, String label, Integer expiryDays,
+                                   boolean scopeBasic, boolean scopeSkills, boolean scopeGrowth) throws SQLException {
+        String trimmedLabel = (label == null || label.isBlank()) ? null : label.trim();
+        if (trimmedLabel != null && trimmedLabel.length() > LABEL_MAX_LENGTH) {
+            throw new IllegalArgumentException("메모는 " + LABEL_MAX_LENGTH + "자 이내로 입력해주세요.");
+        }
+        if (expiryDays != null && !ALLOWED_EXPIRY_DAYS.contains(expiryDays)) {
+            throw new IllegalArgumentException("만료 기간을 다시 선택해주세요.");
+        }
+        if (!scopeBasic && !scopeSkills && !scopeGrowth) {
+            throw new IllegalArgumentException("공개 범위를 하나 이상 선택해주세요.");
         }
 
-        public ShareLinkDto getLink() {
-            return link;
-        }
-
-        public int getViewCount() {
-            return viewCount;
-        }
-
-        public String getLastViewedAtDisplay() {
-            return lastViewedAt == null ? null : lastViewedAt.format(DATE_FORMAT);
-        }
-
-        public String getExpiresAtDisplay() {
-            return link.getExpiresAt() == null ? null : link.getExpiresAt().format(DATE_FORMAT);
-        }
-
-        // JSP에서 상태 칩을 고르기 쉽게 미리 계산해서 노출 — "공유 중" / "공유 중단됨" / "만료됨".
-        public String getStatus() {
-            if (link.getExpiresAt() != null && link.getExpiresAt().isBefore(LocalDateTime.now())) {
-                return "EXPIRED";
-            }
-            return link.isActive() ? "ACTIVE" : "PAUSED";
-        }
-    }
-
-    public ShareLinkDto issue(Long userId, String label, Integer expiresInDays, boolean scopeBasic,
-            boolean scopeSkills, boolean scopeGrowth) throws SQLException {
         ShareLinkDto link = new ShareLinkDto();
         link.setUserId(userId);
         link.setToken(generateToken());
         link.setActive(true);
-        link.setExpiresAt(expiresInDays == null ? null : LocalDateTime.now().plusDays(expiresInDays));
+        link.setExpiresAt(expiryDays == null ? null : LocalDateTime.now().plusDays(expiryDays));
         link.setScopeBasic(scopeBasic);
         link.setScopeSkills(scopeSkills);
         link.setScopeGrowth(scopeGrowth);
-        link.setLabel(label);
-        Long id = shareLinkDao.insert(link);
-        link.setId(id);
+        link.setLabel(trimmedLabel);
+        link.setId(shareLinkDao.insert(link));
         return link;
     }
 
-    public List<ShareLinkView> listMine(Long userId) throws SQLException {
-        List<ShareLinkDto> links = shareLinkDao.findByUserId(userId);
-        List<ShareLinkView> views = new ArrayList<>();
-        for (ShareLinkDto link : links) {
-            List<ShareLinkViewLogDto> logs = shareLinkViewLogDao.findByShareLinkId(link.getId());
-            LocalDateTime lastViewedAt = logs.stream()
-                    .map(ShareLinkViewLogDto::getViewedAt)
-                    .max(Comparator.naturalOrder())
-                    .orElse(null);
-            views.add(new ShareLinkView(link, logs.size(), lastViewedAt));
+    /** 내 공유 링크 목록 — 최근에 만든 것부터. */
+    public List<ShareLinkItemDto> listLinks(Long userId) throws SQLException {
+        Map<Long, ViewStat> stats = viewLogDao.findViewStatsByUserId(userId);
+        LocalDateTime now = LocalDateTime.now();
+
+        List<ShareLinkItemDto> items = new ArrayList<>();
+        for (ShareLinkDto link : shareLinkDao.findByUserId(userId)) {
+            ShareLinkItemDto item = new ShareLinkItemDto();
+            item.setId(link.getId());
+            item.setToken(link.getToken());
+            item.setLabel(link.getLabel());
+            item.setStatus(statusOf(link, now));
+            item.setExpiresDate(link.getExpiresAt() == null ? null : link.getExpiresAt().toLocalDate().toString());
+            item.setScopeText(scopeText(link));
+            ViewStat stat = stats.get(link.getId());
+            if (stat != null) {
+                item.setViewCount(stat.getViewCount());
+                item.setLastViewedDate(stat.getLastViewedAt().toLocalDate().toString());
+            }
+            items.add(item);
         }
-        return views;
+        return items;
     }
 
+    // FR-86 공유 중단(active = false) · 다시 공유(active = true). 남의 링크 id면 아무 일도 일어나지 않는다.
     public void setActive(Long userId, Long linkId, boolean active) throws SQLException {
-        TransactionUtil.runInTransaction(conn -> {
-            shareLinkDao.updateActive(conn, linkId, userId, active);
-            return null;
-        });
+        shareLinkDao.updateActive(linkId, userId, active);
     }
 
-    public void delete(Long userId, Long linkId) throws SQLException {
-        TransactionUtil.runInTransaction(conn -> {
+    public void deleteLink(Long userId, Long linkId) throws SQLException {
+        try (Connection conn = DBUtil.getConnection()) {
             shareLinkDao.delete(conn, linkId, userId);
-            return null;
-        });
+        }
     }
 
-    private String generateToken() {
+    // 만료가 중단보다 먼저다 — 만료된 링크는 다시 공유해도 열리지 않으므로 "다시 공유하기"를 보여주면 안 된다.
+    static String statusOf(ShareLinkDto link, LocalDateTime now) {
+        if (link.getExpiresAt() != null && !link.getExpiresAt().isAfter(now)) {
+            return "EXPIRED";
+        }
+        return link.isActive() ? "ACTIVE" : "STOPPED";
+    }
+
+    private static String scopeText(ShareLinkDto link) {
+        List<String> scopes = new ArrayList<>();
+        if (link.isScopeBasic()) {
+            scopes.add("기본 이력");
+        }
+        if (link.isScopeSkills()) {
+            scopes.add("보유 기술 스택");
+        }
+        if (link.isScopeGrowth()) {
+            scopes.add("성장 잠재력");
+        }
+        return String.join(", ", scopes);
+    }
+
+    // NFR-9 추측 불가능한 토큰 — 256비트 난수를 URL에 그대로 넣을 수 있는 Base64URL로 만든다
+    static String generateToken() {
         byte[] bytes = new byte[TOKEN_BYTES];
         RANDOM.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);

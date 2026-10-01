@@ -62,6 +62,19 @@ public class DocumentDao {
         }
     }
 
+    // 면접관 공유 화면에서 CERT 단계 증빙 서류를 역으로 찾을 때 사용 (ShareViewService).
+    // 한 단계에 서류를 여러 번 올릴 일은 없지만, 재제출로 여러 건이 쌓였을 수 있어 최신 1건만 쓴다.
+    public DocumentDto findByRoadmapStepId(Long roadmapStepId) throws SQLException {
+        String sql = "SELECT * FROM DOCUMENTS WHERE roadmap_step_id = ? AND is_deleted = FALSE ORDER BY id DESC LIMIT 1";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, roadmapStepId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        }
+    }
+
     public List<DocumentDto> findByUserId(Long userId) throws SQLException {
         String sql = "SELECT * FROM DOCUMENTS WHERE user_id = ? AND is_deleted = FALSE ORDER BY id DESC";
         try (Connection conn = DBUtil.getConnection();

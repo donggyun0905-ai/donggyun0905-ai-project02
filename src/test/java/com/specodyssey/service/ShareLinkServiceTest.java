@@ -1,142 +1,166 @@
 package com.specodyssey.service;
 
 import com.specodyssey.dao.ShareLinkDao;
-import com.specodyssey.dao.ShareLinkViewLogDao;
 import com.specodyssey.dao.TestFixtures;
 import com.specodyssey.dao.UserDao;
 import com.specodyssey.dto.ShareLinkDto;
-import com.specodyssey.dto.ShareLinkViewLogDto;
+import com.specodyssey.dto.ShareLinkItemDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.util.DBUtil;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
-import java.sql.PreparedStatement;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * ShareLinkService 통합테스트. 관련 요구사항: FR-85 · 86
+ * ShareLinkService 통합테스트. 실제 DB에 링크를 만들고 끝나면 지운다.
  */
 class ShareLinkServiceTest {
 
-    private final UserDao userDao = new UserDao();
-    private final ShareLinkDao shareLinkDao = new ShareLinkDao();
-    private final ShareLinkViewLogDao shareLinkViewLogDao = new ShareLinkViewLogDao();
-    private final ShareLinkService shareLinkService = new ShareLinkService();
+    private static final UserDao userDao = new UserDao();
+    private final ShareLinkService service = new ShareLinkService();
+    private final ShareLinkDao dao = new ShareLinkDao();
+    private static Long userId;
 
-    private Long userId;
-
-    @BeforeEach
-    void setUp() throws Exception {
+    @BeforeAll
+    static void setUp() throws Exception {
         UserDto user = new UserDto();
         user.setUserType("APPLICANT");
-        user.setLoginId("sharelink_svc_test_" + System.nanoTime());
+        user.setLoginId("test_sharesvc_user_" + System.nanoTime());
         user.setPasswordHash("dummy_hash");
         user.setDesiredJobStatus("UNSET");
         user.setPrivacyConsentAt(LocalDateTime.now());
         userId = userDao.insert(user);
     }
 
-    @AfterEach
-    void tearDown() throws Exception {
-        // delete()가 논리 삭제라 findByUserId(is_deleted=FALSE)로는 지운 링크를 다시 못 찾는다 —
-        // 테스트가 만든 행은 활성·비활성·삭제 여부와 무관하게 전부 치워야 USERS를 지울 수 있다.
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement deleteLogs = conn.prepareStatement(
-                     "DELETE FROM SHARE_LINK_VIEW_LOG WHERE share_link_id IN " +
-                             "(SELECT id FROM SHARE_LINK WHERE user_id = ?)");
-             PreparedStatement deleteLinks = conn.prepareStatement("DELETE FROM SHARE_LINK WHERE user_id = ?")) {
-            deleteLogs.setLong(1, userId);
-            deleteLogs.executeUpdate();
-            deleteLinks.setLong(1, userId);
-            deleteLinks.executeUpdate();
+    @AfterAll
+    static void tearDown() throws Exception {
+        try (Connection conn = DBUtil.getConnection()) {
+            TestFixtures.hardDeleteByColumn(conn, "SHARE_LINK", "user_id", userId);
             TestFixtures.hardDelete(conn, "USERS", userId);
         }
     }
 
     @Test
-    void issue_하면_추측_불가능한_토큰과_함께_활성_상태로_생성된다() throws Exception {
-        ShareLinkDto link = shareLinkService.issue(userId, "A사 지원", 30, true, true, false);
+    void 링크를_만들면_토큰으로_조회되고_입력한_범위와_만료가_저장된다() throws Exception {
+        ShareLinkDto created = service.createLink(userId, "  A사 백엔드 지원  ", 30, true, true, false);
 
-        assertNotNull(link.getId());
-        assertNotNull(link.getToken());
-        assertTrue(link.getToken().length() >= 32, "SecureRandom 32바이트를 Base64로 인코딩하면 짧을 수 없다");
-        assertTrue(link.isActive());
-        assertNotNull(link.getExpiresAt());
-        assertTrue(link.isScopeBasic());
-        assertTrue(link.isScopeSkills());
-        assertFalse(link.isScopeGrowth());
+        ShareLinkDto found = dao.findByToken(created.getToken());
+        assertNotNull(found);
+        assertEquals(created.getId(), found.getId());
+        assertEquals("A사 백엔드 지원", found.getLabel());
+        assertTrue(found.isActive());
+        assertTrue(found.isScopeBasic());
+        assertTrue(found.isScopeSkills());
+        assertFalse(found.isScopeGrowth());
+        assertTrue(found.getExpiresAt().isAfter(LocalDateTime.now().plusDays(29)));
+        assertTrue(found.getExpiresAt().isBefore(LocalDateTime.now().plusDays(31)));
     }
 
     @Test
-    void issue_두_번_호출하면_토큰이_서로_다르다() throws Exception {
-        ShareLinkDto a = shareLinkService.issue(userId, "A", null, true, false, false);
-        ShareLinkDto b = shareLinkService.issue(userId, "B", null, true, false, false);
+    void 만료_없음과_빈_메모는_null로_저장된다() throws Exception {
+        ShareLinkDto created = service.createLink(userId, "   ", null, true, false, false);
 
-        assertNotEquals(a.getToken(), b.getToken());
+        ShareLinkDto found = dao.findByToken(created.getToken());
+        assertNull(found.getExpiresAt());
+        assertNull(found.getLabel());
     }
 
     @Test
-    void expiresInDays가_null이면_만료_없음() throws Exception {
-        ShareLinkDto link = shareLinkService.issue(userId, "무제한", null, true, false, false);
+    void 토큰은_URL에_안전한_43자이고_매번_다르다() {
+        String first = ShareLinkService.generateToken();
+        String second = ShareLinkService.generateToken();
 
-        assertNull(link.getExpiresAt());
+        assertEquals(43, first.length());
+        assertTrue(first.matches("[A-Za-z0-9_-]+"));
+        assertNotEquals(first, second);
     }
 
     @Test
-    void listMine은_열람_횟수와_최근_열람_시각을_계산해서_돌려준다() throws Exception {
-        ShareLinkDto link = shareLinkService.issue(userId, "A사", 30, true, false, false);
-        try (Connection conn = DBUtil.getConnection()) {
-            ShareLinkViewLogDto log1 = new ShareLinkViewLogDto();
-            log1.setShareLinkId(link.getId());
-            log1.setViewedAt(LocalDateTime.now().minusDays(1));
-            log1.setViewerIp("127.0.0.1");
-            shareLinkViewLogDao.insert(conn, log1);
+    void 목록은_상태와_공개_범위와_열람_횟수를_보여주고_중단_재개_삭제가_반영된다() throws Exception {
+        ShareLinkDto created = service.createLink(userId, "목록 확인용", 30, true, true, false);
+        new ShareViewService().loadView(created.getToken(), "127.0.0.1", null);
+        new ShareViewService().loadView(created.getToken(), "127.0.0.1", null);
+        try {
+            ShareLinkItemDto item = findItem(created.getId());
+            assertEquals("ACTIVE", item.getStatus());
+            assertEquals("기본 이력, 보유 기술 스택", item.getScopeText());
+            assertEquals(2, item.getViewCount());
+            assertEquals(LocalDate.now().toString(), item.getLastViewedDate());
+            assertEquals(LocalDate.now().plusDays(30).toString(), item.getExpiresDate());
 
-            ShareLinkViewLogDto log2 = new ShareLinkViewLogDto();
-            log2.setShareLinkId(link.getId());
-            log2.setViewedAt(LocalDateTime.now());
-            log2.setViewerIp("127.0.0.2");
-            shareLinkViewLogDao.insert(conn, log2);
+            service.setActive(userId, created.getId(), false);
+            assertEquals("STOPPED", findItem(created.getId()).getStatus());
+            assertNull(dao.findByToken(created.getToken()));
+
+            service.setActive(userId, created.getId(), true);
+            assertEquals("ACTIVE", findItem(created.getId()).getStatus());
+            assertNotNull(dao.findByToken(created.getToken()));
+
+            service.deleteLink(userId, created.getId());
+            assertNull(findItem(created.getId()));
+            assertNull(dao.findByToken(created.getToken()));
+        } finally {
+            try (Connection conn = DBUtil.getConnection()) {
+                TestFixtures.hardDeleteByColumn(conn, "SHARE_LINK_VIEW_LOG", "share_link_id", created.getId());
+            }
         }
-
-        List<ShareLinkService.ShareLinkView> views = shareLinkService.listMine(userId);
-
-        assertEquals(1, views.size());
-        assertEquals(2, views.get(0).getViewCount());
-        assertNotNull(views.get(0).getLastViewedAtDisplay());
-        assertEquals("ACTIVE", views.get(0).getStatus());
     }
 
     @Test
-    void setActive_false로_바꾸면_면접관이_토큰으로_더_이상_조회할_수_없다() throws Exception {
-        ShareLinkDto link = shareLinkService.issue(userId, "A사", 30, true, false, false);
+    void 다른_사용자의_링크는_중단하거나_삭제할_수_없다() throws Exception {
+        ShareLinkDto created = service.createLink(userId, "남의 링크", 30, true, false, false);
+        long otherUserId = userId + 1_000_000L;
 
-        shareLinkService.setActive(userId, link.getId(), false);
+        service.setActive(otherUserId, created.getId(), false);
+        service.deleteLink(otherUserId, created.getId());
 
-        assertNull(shareLinkDao.findByToken(link.getToken()));
+        assertEquals("ACTIVE", findItem(created.getId()).getStatus());
     }
 
     @Test
-    void 다른_사용자_id로_setActive를_호출해도_아무_영향이_없다() throws Exception {
-        ShareLinkDto link = shareLinkService.issue(userId, "A사", 30, true, false, false);
+    void 만료가_지난_링크는_활성이어도_만료됨으로_본다() {
+        ShareLinkDto link = new ShareLinkDto();
+        link.setActive(true);
+        LocalDateTime now = LocalDateTime.now();
 
-        shareLinkService.setActive(userId + 999_999L, link.getId(), false);
+        link.setExpiresAt(now.minusSeconds(1));
+        assertEquals("EXPIRED", ShareLinkService.statusOf(link, now));
+        link.setExpiresAt(now.plusDays(1));
+        assertEquals("ACTIVE", ShareLinkService.statusOf(link, now));
+        link.setExpiresAt(null);
+        assertEquals("ACTIVE", ShareLinkService.statusOf(link, now));
+        link.setActive(false);
+        assertEquals("STOPPED", ShareLinkService.statusOf(link, now));
+    }
 
-        assertNotNull(shareLinkDao.findByToken(link.getToken()), "본인 소유가 아니면 조용히 무시돼야 한다");
+    private ShareLinkItemDto findItem(Long linkId) throws Exception {
+        for (ShareLinkItemDto item : service.listLinks(userId)) {
+            if (item.getId().equals(linkId)) {
+                return item;
+            }
+        }
+        return null;
     }
 
     @Test
-    void delete_하면_목록에서_사라진다() throws Exception {
-        ShareLinkDto link = shareLinkService.issue(userId, "A사", 30, true, false, false);
-
-        shareLinkService.delete(userId, link.getId());
-
-        assertTrue(shareLinkDao.findByUserId(userId).isEmpty());
+    void 잘못된_입력은_저장하지_않고_거부한다() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.createLink(userId, "가".repeat(51), 30, true, false, false));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.createLink(userId, "메모", 365, true, false, false));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.createLink(userId, "메모", 30, false, false, false));
     }
 }
