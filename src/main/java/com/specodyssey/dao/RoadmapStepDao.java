@@ -95,6 +95,20 @@ public class RoadmapStepDao {
     // 없으면 다른 사용자의 로드맵 단계도 완료 처리할 수 있고, 점수(+100)가 걸려있어 조작 경로가 된다.
     // 소유자가 아니면(다른 사용자 id) 0을 반환한다 — 호출부(RoadmapService)가 이 값으로
     // 실제로 갱신됐을 때만 점수를 적립하도록 판단한다.
+    // PROJECT 단계는 updateProof를 거치지 않아(완료 표시만 하고 프로젝트를 새로 만든다) 단계와 프로젝트의 연결이 없었다.
+    // 완료를 취소했다가 다시 완료할 때 같은 프로젝트를 재사용하려고 evidence_project_id만 따로 채운다.
+    public int setEvidenceProject(Connection conn, Long stepId, Long userId, Long evidenceProjectId) throws SQLException {
+        String sql = "UPDATE ROADMAP_STEP rs JOIN ROADMAP r ON rs.roadmap_id = r.id " +
+                "SET rs.evidence_project_id = ? " +
+                "WHERE rs.id = ? AND r.user_id = ? AND rs.is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            setNullableLong(pstmt, 1, evidenceProjectId);
+            pstmt.setLong(2, stepId);
+            pstmt.setLong(3, userId);
+            return pstmt.executeUpdate();
+        }
+    }
+
     public int updateCompleted(Connection conn, Long stepId, Long userId, boolean completed, LocalDateTime completedAt)
             throws SQLException {
         String sql = "UPDATE ROADMAP_STEP rs JOIN ROADMAP r ON rs.roadmap_id = r.id " +
@@ -164,6 +178,25 @@ public class RoadmapStepDao {
             pstmt.setLong(2, skillId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 return rs.next() ? rs.getInt(1) : 0;
+            }
+        }
+    }
+
+    // 기술 복습 주기 계산용 — 이 사용자가 끝낸 SKILL·REVIEW 단계 전부(로드맵이 재생성돼도 이어지도록 로드맵을 가리지 않는다).
+    public List<RoadmapStepDto> findCompletedSkillRowsByUser(Long userId) throws SQLException {
+        String sql = "SELECT rs.* FROM ROADMAP_STEP rs JOIN ROADMAP r ON rs.roadmap_id = r.id " +
+                "WHERE r.user_id = ? AND r.is_deleted = FALSE AND rs.is_deleted = FALSE " +
+                "AND rs.is_completed = TRUE AND rs.related_skill_id IS NOT NULL " +
+                "AND rs.step_type IN ('SKILL', 'REVIEW')";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                List<RoadmapStepDto> rows = new ArrayList<>();
+                while (rs.next()) {
+                    rows.add(mapRow(rs));
+                }
+                return rows;
             }
         }
     }

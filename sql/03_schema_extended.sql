@@ -305,7 +305,7 @@ CREATE TABLE ROADMAP_STEP (
     id                  BIGINT        NOT NULL AUTO_INCREMENT,
     roadmap_id          BIGINT        NOT NULL,
     step_order          INT           NOT NULL,
-    step_type           VARCHAR(20)   NOT NULL, -- CERT / PROJECT / SKILL
+    step_type           VARCHAR(20)   NOT NULL, -- CERT / PROJECT / SKILL / REVIEW
     tier                VARCHAR(20)   NOT NULL, -- ENTRY / CORE / ADVANCED / EXPERT
     certification_id    BIGINT        NULL,
     related_skill_id    BIGINT        NULL,

@@ -5,6 +5,8 @@ import com.specodyssey.dao.GapAnalysisDao;
 import com.specodyssey.dao.GapAnalysisItemDao;
 import com.specodyssey.dao.JobDao;
 import com.specodyssey.dao.JobRequiredSkillDao;
+import com.specodyssey.dao.ProjectDocumentItemDao;
+import com.specodyssey.dao.ProjectTechNoteDao;
 import com.specodyssey.dao.RoadmapDao;
 import com.specodyssey.dao.RoadmapStepDao;
 import com.specodyssey.dao.SkillDao;
@@ -153,6 +155,11 @@ class RoadmapServiceTest {
             // DOCUMENTS.project_id -> USER_PROJECTS, DOCUMENTS.roadmap_step_id -> ROADMAP_STEP가 둘 다
             // RESTRICT라 문서를 가장 먼저 지워야 한다(2026-09-30 SKILL 학습 검증 PDF 증빙 추가로
             // roadmap_step_id FK가 생기면서, ROADMAP_STEP보다 먼저 지우는 순서가 더 중요해졌다).
+            // 프로젝트 문서 체크리스트·기술 설명서는 DOCUMENTS/SKILL/USER_PROJECTS를 가리키므로 그보다 먼저.
+            for (UserProjectDto project : userProjectDao.findByUserId(userId)) {
+                TestFixtures.hardDeleteByColumn(conn, "PROJECT_DOCUMENT_ITEM", "project_id", project.getId());
+                TestFixtures.hardDeleteByColumn(conn, "PROJECT_TECH_NOTE", "project_id", project.getId());
+            }
             TestFixtures.hardDeleteByColumn(conn, "DOCUMENTS", "user_id", userId);
             for (RoadmapDto roadmap : roadmapDao.findByUserId(userId)) {
                 for (RoadmapStepDto step : roadmapStepDao.findByRoadmapId(roadmap.getId())) {
@@ -347,11 +354,9 @@ class RoadmapServiceTest {
                 .filter(s -> "PROJECT".equals(s.getStepType()))
                 .findFirst().orElseThrow();
 
-        assertTrue(roadmapService.completeProjectStep(userId, projectStep.getId(), sampleProject(),
-                List.of(sampleDocument())));
+        assertTrue(roadmapService.completeProjectStep(userId, projectStep.getId(), sampleSubmission()));
         // 재제출 — 호출부(서블릿)가 이 반환값으로 "방금 저장한 파일을 지워야 하는지" 판단한다.
-        assertFalse(roadmapService.completeProjectStep(userId, projectStep.getId(), sampleProject(),
-                List.of(sampleDocument())));
+        assertFalse(roadmapService.completeProjectStep(userId, projectStep.getId(), sampleSubmission()));
     }
 
     @Test
@@ -361,8 +366,7 @@ class RoadmapServiceTest {
                 .filter(s -> "PROJECT".equals(s.getStepType()))
                 .findFirst().orElseThrow();
 
-        assertFalse(roadmapService.completeProjectStep(userId + 999_999L, projectStep.getId(), sampleProject(),
-                List.of(sampleDocument())));
+        assertFalse(roadmapService.completeProjectStep(userId + 999_999L, projectStep.getId(), sampleSubmission()));
         assertNull(scoreService.getSummary(userId));
     }
 
@@ -463,15 +467,19 @@ class RoadmapServiceTest {
     }
 
     @Test
-    void PROJECT_단계는_파일_없이는_완료할_수_없다() throws Exception {
+    void PROJECT_단계는_README와_실행화면_없이는_완료할_수_없다() throws Exception {
         Long roadmapId = roadmapService.generate(userId);
         RoadmapStepDto projectStep = roadmapService.getSteps(roadmapId).stream()
                 .filter(s -> "PROJECT".equals(s.getStepType()))
                 .findFirst().orElseThrow();
 
-        UserProjectDto project = sampleProject();
+        // README·실행 화면 없이 프로젝트 정보만 낸 경우
+        ProjectSubmission noDocs = new ProjectSubmission(sampleProject());
         assertThrows(IllegalArgumentException.class,
-                () -> roadmapService.completeProjectStep(userId, projectStep.getId(), project, List.of()));
+                () -> roadmapService.completeProjectStep(userId, projectStep.getId(), noDocs));
+        assertFalse(roadmapService.getSteps(roadmapId).stream()
+                .filter(st -> st.getId().equals(projectStep.getId())).findFirst().orElseThrow().isCompleted());
+        assertTrue(userProjectDao.findByUserId(userId).isEmpty(), "검증에 실패하면 프로젝트도 만들면 안 된다");
     }
 
     @Test
@@ -481,8 +489,7 @@ class RoadmapServiceTest {
                 .filter(s -> "PROJECT".equals(s.getStepType()))
                 .findFirst().orElseThrow();
 
-        UserProjectDto project = sampleProject();
-        roadmapService.completeProjectStep(userId, projectStep.getId(), project, List.of(sampleDocument()));
+        roadmapService.completeProjectStep(userId, projectStep.getId(), sampleSubmission());
 
         RoadmapStepDto updated = roadmapService.getSteps(roadmapId).stream()
                 .filter(s -> s.getId().equals(projectStep.getId()))
@@ -495,8 +502,9 @@ class RoadmapServiceTest {
         assertEquals("테스트 프로젝트", projects.get(0).getTitle());
 
         List<DocumentDto> documents = documentDao.findByUserId(userId);
-        assertEquals(1, documents.size());
+        assertEquals(2, documents.size(), "README와 실행 화면 두 개");
         assertEquals(projects.get(0).getId(), documents.get(0).getProjectId());
+        assertEquals(projects.get(0).getId(), updated.getEvidenceProjectId(), "단계와 프로젝트가 연결돼야 한다");
     }
 
     @Test
@@ -506,11 +514,223 @@ class RoadmapServiceTest {
                 .filter(s -> "PROJECT".equals(s.getStepType()))
                 .findFirst().orElseThrow();
 
-        roadmapService.completeProjectStep(userId, projectStep.getId(), sampleProject(), List.of(sampleDocument()));
-        roadmapService.completeProjectStep(userId, projectStep.getId(), sampleProject(), List.of(sampleDocument()));
+        roadmapService.completeProjectStep(userId, projectStep.getId(), sampleSubmission());
+        roadmapService.completeProjectStep(userId, projectStep.getId(), sampleSubmission());
 
         assertEquals(1, userProjectDao.findByUserId(userId).size());
         assertEquals(100, scoreService.getSummary(userId).getTotalScore());
+    }
+
+    // 완료 취소는 표시만 푼다 — 프로젝트·서류는 남고, 다시 완료해도 프로젝트가 새로 생기지 않는다(개발일지 4-4).
+    @Test
+    void PROJECT_단계를_완료_취소하면_표시만_풀리고_프로젝트와_서류는_남는다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto projectStep = roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> "PROJECT".equals(s.getStepType())).findFirst().orElseThrow();
+        roadmapService.completeProjectStep(userId, projectStep.getId(), sampleSubmission());
+
+        roadmapService.completeStep(userId, projectStep.getId(), false);
+
+        RoadmapStepDto cancelled = roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> s.getId().equals(projectStep.getId())).findFirst().orElseThrow();
+        assertFalse(cancelled.isCompleted());
+        assertEquals(1, userProjectDao.findByUserId(userId).size());
+        assertEquals(2, documentDao.findByUserId(userId).size());
+        assertEquals(100, scoreService.getSummary(userId).getTotalScore(), "받은 점수는 그대로");
+    }
+
+    @Test
+    void 완료_취소_뒤_다시_완료하면_같은_프로젝트를_갱신하고_이미_낸_필수_서류는_다시_안_올려도_된다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto projectStep = roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> "PROJECT".equals(s.getStepType())).findFirst().orElseThrow();
+        roadmapService.completeProjectStep(userId, projectStep.getId(), sampleSubmission());
+        Long projectId = userProjectDao.findByUserId(userId).get(0).getId();
+        roadmapService.completeStep(userId, projectStep.getId(), false);
+
+        // 이번엔 파일 없이, 회고만 고쳐서 다시 완료
+        UserProjectDto edited = sampleProject();
+        edited.setTitle("고친 제목");
+        edited.setRepoUrl("https://github.com/example/repo");
+        edited.setRetrospective("다시 해보니 좋았다");
+        assertTrue(roadmapService.completeProjectStep(userId, projectStep.getId(), new ProjectSubmission(edited)));
+
+        List<UserProjectDto> projects = userProjectDao.findByUserId(userId);
+        assertEquals(1, projects.size(), "프로젝트가 중복으로 생기면 안 된다");
+        assertEquals(projectId, projects.get(0).getId());
+        assertEquals("고친 제목", projects.get(0).getTitle());
+        assertEquals("https://github.com/example/repo", projects.get(0).getRepoUrl());
+        assertEquals("다시 해보니 좋았다", projects.get(0).getRetrospective());
+        assertEquals(2, documentDao.findByUserId(userId).size());
+    }
+
+    @Test
+    void 서류_보관함에서_README를_지우면_다시_완료할_때_README를_다시_내야_한다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto projectStep = roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> "PROJECT".equals(s.getStepType())).findFirst().orElseThrow();
+        roadmapService.completeProjectStep(userId, projectStep.getId(), sampleSubmission());
+        roadmapService.completeStep(userId, projectStep.getId(), false);
+
+        Long readmeId = new ProjectDocumentItemDao().findByProjectId(userProjectDao.findByUserId(userId).get(0).getId())
+                .stream().filter(i -> "README".equals(i.getDocType())).findFirst().orElseThrow().getDocumentId();
+        assertTrue(new DocumentService().delete(userId, readmeId));
+
+        assertThrows(IllegalArgumentException.class, () -> roadmapService.completeProjectStep(
+                userId, projectStep.getId(), new ProjectSubmission(sampleProject())));
+        // README를 다시 내면 완료된다
+        ProjectSubmission again = new ProjectSubmission(sampleProject());
+        again.getDocs().put("README", ProjectSubmission.DocSlot.submitted(sampleDocument()));
+        assertTrue(roadmapService.completeProjectStep(userId, projectStep.getId(), again));
+        assertEquals(1, userProjectDao.findByUserId(userId).size());
+    }
+
+    @Test
+    void 필수_문서를_해당_없음으로_두거나_주소_형식이_틀리면_완료할_수_없다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto projectStep = roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> "PROJECT".equals(s.getStepType())).findFirst().orElseThrow();
+
+        ProjectSubmission na = sampleSubmission();
+        na.getDocs().put("README", ProjectSubmission.DocSlot.notApplicable());
+        assertThrows(IllegalArgumentException.class,
+                () -> roadmapService.completeProjectStep(userId, projectStep.getId(), na));
+
+        ProjectSubmission badUrl = sampleSubmission();
+        badUrl.getProject().setRepoUrl("javascript:alert(1)");
+        assertThrows(IllegalArgumentException.class,
+                () -> roadmapService.completeProjectStep(userId, projectStep.getId(), badUrl));
+
+        assertTrue(userProjectDao.findByUserId(userId).isEmpty());
+    }
+
+    @Test
+    void 선택_문서는_해당_없음으로_저장되고_등록된_기술만_활용_설명서가_저장된다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto projectStep = roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> "PROJECT".equals(s.getStepType())).findFirst().orElseThrow();
+        String knownSkill = new SkillDao().findById(requiredSkillId).getSkillName();
+
+        ProjectSubmission submission = sampleSubmission();
+        submission.getDocs().put("API_SPEC", ProjectSubmission.DocSlot.notApplicable());
+        submission.getTechNotes().add(new ProjectSubmission.TechNote(knownSkill, "핵심 로직에 사용", true));
+        submission.getTechNotes().add(new ProjectSubmission.TechNote("없는기술xyz", "설명", false));
+        roadmapService.completeProjectStep(userId, projectStep.getId(), submission);
+
+        Long projectId = userProjectDao.findByUserId(userId).get(0).getId();
+        var items = new ProjectDocumentItemDao().findByProjectId(projectId);
+        assertEquals("NOT_APPLICABLE", items.stream().filter(i -> "API_SPEC".equals(i.getDocType()))
+                .findFirst().orElseThrow().getStatus());
+        var notes = new ProjectTechNoteDao().findByProjectId(projectId);
+        assertEquals(1, notes.size());
+        assertEquals("핵심 로직에 사용", notes.get(0).getDescription());
+        assertEquals(List.of("없는기술xyz"), submission.getSkippedTechNotes());
+    }
+
+    // ---- 기술 복습(끝없는 로드맵) — 단계별 차등 주기, 기존 여정 뒤에 이어 붙이기, 점수 감쇠
+
+    @Test
+    void 복습_주기는_단계가_높을수록_길고_점수는_복습할수록_줄어든다() {
+        assertEquals(30, RoadmapService.reviewIntervalDays("ENTRY"));
+        assertEquals(60, RoadmapService.reviewIntervalDays("CORE"));
+        assertEquals(90, RoadmapService.reviewIntervalDays("ADVANCED"));
+        assertEquals(120, RoadmapService.reviewIntervalDays("EXPERT"));
+        assertEquals(40, RoadmapService.reviewPoints(0));
+        assertEquals(30, RoadmapService.reviewPoints(1));
+        assertEquals(10, RoadmapService.reviewPoints(3));
+        assertEquals(5, RoadmapService.reviewPoints(4));
+        assertEquals(5, RoadmapService.reviewPoints(50), "최저 점수 아래로는 내려가지 않는다");
+    }
+
+    @Test
+    void 입문을_끝낸_지_30일이_지나야_복습이_생기고_여정_맨_뒤에_이어_붙는다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto entry = firstEntrySkillStep(roadmapId);
+        roadmapService.completeStep(userId, entry.getId(), true);
+
+        setCompletedAt(entry.getId(), LocalDateTime.now().minusDays(29));
+        assertEquals(0, roadmapService.appendDueReviews(userId, LocalDateTime.now()), "29일째는 아직");
+
+        setCompletedAt(entry.getId(), LocalDateTime.now().minusDays(31));
+        assertEquals(1, roadmapService.appendDueReviews(userId, LocalDateTime.now()));
+
+        List<RoadmapStepDto> steps = roadmapService.getSteps(roadmapId);
+        RoadmapStepDto review = steps.get(steps.size() - 1);
+        assertEquals("REVIEW", review.getStepType());
+        assertEquals(entry.getRelatedSkillId(), review.getRelatedSkillId());
+        assertFalse(review.isCompleted());
+        assertEquals(steps.stream().mapToInt(RoadmapStepDto::getStepOrder).max().getAsInt(), review.getStepOrder());
+
+        assertEquals(0, roadmapService.appendDueReviews(userId, LocalDateTime.now()), "열린 복습이 있으면 또 만들지 않는다");
+        // 복습 단계는 계단식 잠금 계산(티어별 진행도)에 끼어들지 않는다
+        assertEquals(4, roadmapService.computeProgress(steps).getTiers().size());
+    }
+
+    @Test
+    void 핵심까지_끝낸_기술은_60일이_지나야_복습이_생긴다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto entry = firstEntrySkillStep(roadmapId);
+        RoadmapStepDto core = roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> "SKILL".equals(s.getStepType()) && "CORE".equals(s.getTier())
+                        && entry.getRelatedSkillId().equals(s.getRelatedSkillId()))
+                .findFirst().orElseThrow();
+        roadmapService.completeStep(userId, entry.getId(), true);
+        roadmapService.completeStep(userId, core.getId(), true);
+
+        setCompletedAt(entry.getId(), LocalDateTime.now().minusDays(100));
+        setCompletedAt(core.getId(), LocalDateTime.now().minusDays(45));
+        assertEquals(0, roadmapService.appendDueReviews(userId, LocalDateTime.now()), "입문 기준(30일)이 아니라 핵심 기준(60일)");
+
+        setCompletedAt(core.getId(), LocalDateTime.now().minusDays(61));
+        assertEquals(1, roadmapService.appendDueReviews(userId, LocalDateTime.now()));
+    }
+
+    @Test
+    void 복습은_기록을_내야_끝나고_점수가_복습할수록_줄어든다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto entry = firstEntrySkillStep(roadmapId);
+        roadmapService.completeStep(userId, entry.getId(), true);
+        int afterEntry = scoreService.getSummary(userId).getTotalScore();
+        setCompletedAt(entry.getId(), LocalDateTime.now().minusDays(31));
+        roadmapService.appendDueReviews(userId, LocalDateTime.now());
+        RoadmapStepDto review = lastStep(roadmapId);
+
+        assertThrows(IllegalArgumentException.class, () -> roadmapService.completeStep(userId, review.getId(), true),
+                "체크만으로는 복습을 끝낼 수 없다");
+        assertThrows(IllegalArgumentException.class, () -> roadmapService.completeReview(userId, review.getId(), "짧음"));
+        assertEquals(0, roadmapService.completeReview(userId + 999_999L, review.getId(), "가".repeat(30)),
+                "남의 복습 단계는 끝낼 수 없다");
+
+        assertEquals(40, roadmapService.completeReview(userId, review.getId(), "복습 기록을 충분히 길게 적었습니다. 핵심 개념 정리"));
+        assertEquals(afterEntry + 40, scoreService.getSummary(userId).getTotalScore());
+        assertEquals(0, roadmapService.completeReview(userId, review.getId(), "복습 기록을 충분히 길게 적었습니다. 핵심 개념 정리"),
+                "이미 끝낸 복습에 또 점수를 주지 않는다");
+
+        // 한 주기 뒤 두 번째 복습 — 점수가 30으로 줄어든다
+        setCompletedAt(review.getId(), LocalDateTime.now().minusDays(31));
+        assertEquals(1, roadmapService.appendDueReviews(userId, LocalDateTime.now()));
+        RoadmapStepDto second = lastStep(roadmapId);
+        assertEquals(30, roadmapService.completeReview(userId, second.getId(), "두 번째 복습 기록도 충분히 길게 적습니다 하하"));
+    }
+
+    private RoadmapStepDto firstEntrySkillStep(Long roadmapId) throws Exception {
+        return roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> "SKILL".equals(s.getStepType()) && "ENTRY".equals(s.getTier()))
+                .findFirst().orElseThrow();
+    }
+
+    private RoadmapStepDto lastStep(Long roadmapId) throws Exception {
+        List<RoadmapStepDto> steps = roadmapService.getSteps(roadmapId);
+        return steps.get(steps.size() - 1);
+    }
+
+    private void setCompletedAt(Long stepId, LocalDateTime at) throws Exception {
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement("UPDATE ROADMAP_STEP SET completed_at = ? WHERE id = ?")) {
+            pstmt.setTimestamp(1, java.sql.Timestamp.valueOf(at));
+            pstmt.setLong(2, stepId);
+            pstmt.executeUpdate();
+        }
     }
 
     // SKILL 단계 학습 검증(2026-09-30 팀 결정, 규칙 기반) — ENTRY 공부노트 제출.
@@ -583,8 +803,7 @@ class RoadmapServiceTest {
             coreStepId = roadmapStepDao.insert(conn, coreStep);
         }
 
-        boolean applied = roadmapService.submitSkillProjectStep(userId, coreStepId, sampleProject(),
-                List.of(sampleDocument()), null);
+        boolean applied = roadmapService.submitSkillProjectStep(userId, coreStepId, sampleSubmission(), null);
 
         assertTrue(applied);
         RoadmapStepDto updated = roadmapService.getSteps(roadmapId).stream()
@@ -604,8 +823,7 @@ class RoadmapServiceTest {
                 .findFirst().orElseThrow();
 
         assertThrows(IllegalArgumentException.class,
-                () -> roadmapService.submitSkillProjectStep(userId, entrySkillStep.getId(), sampleProject(),
-                        List.of(sampleDocument()), null));
+                () -> roadmapService.submitSkillProjectStep(userId, entrySkillStep.getId(), sampleSubmission(), null));
     }
 
     // "로드맵이 한 번 만들면 고정되는 문제" 해결(2026-09-30 팀 결정) — JOB.requirement_version 비교.
@@ -647,8 +865,7 @@ class RoadmapServiceTest {
         }
 
         assertThrows(IllegalArgumentException.class,
-                () -> roadmapService.submitSkillProjectStep(userId, advancedStepId, sampleProject(),
-                        List.of(sampleDocument()), null));
+                () -> roadmapService.submitSkillProjectStep(userId, advancedStepId, sampleSubmission(), null));
     }
 
     @Test
@@ -670,8 +887,7 @@ class RoadmapServiceTest {
             advancedStepId = roadmapStepDao.insert(conn, advancedStep);
         }
 
-        boolean applied = roadmapService.submitSkillProjectStep(userId, advancedStepId, sampleProject(),
-                List.of(sampleDocument()), coreProjectId);
+        boolean applied = roadmapService.submitSkillProjectStep(userId, advancedStepId, sampleSubmission(), coreProjectId);
 
         assertTrue(applied);
         RoadmapStepDto updated = roadmapService.getSteps(roadmapId).stream()
@@ -740,6 +956,13 @@ class RoadmapServiceTest {
         project.setDescription("로드맵 PROJECT 단계 완료 테스트용");
         project.setTechStack("Java, MySQL");
         return project;
+    }
+
+    private ProjectSubmission sampleSubmission() {
+        ProjectSubmission submission = new ProjectSubmission(sampleProject());
+        submission.getDocs().put("README", ProjectSubmission.DocSlot.submitted(sampleDocument()));
+        submission.getDocs().put("SCREENSHOT", ProjectSubmission.DocSlot.submitted(sampleDocument()));
+        return submission;
     }
 
     private DocumentDto sampleDocument() {

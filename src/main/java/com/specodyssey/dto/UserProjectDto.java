@@ -13,6 +13,9 @@ public class UserProjectDto {
     private LocalDate startDate;
     private LocalDate endDate;
     private Long upgradedFromProjectId;
+    private String repoUrl;        // 코드 저장소 링크 (선택)
+    private String deployUrl;      // 배포 주소 (선택)
+    private String retrospective;  // 완료 회고 (선택)
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private boolean deleted;
@@ -103,5 +106,29 @@ public class UserProjectDto {
 
     public void setDeleted(boolean deleted) {
         this.deleted = deleted;
+    }
+
+    public String getRepoUrl() {
+        return repoUrl;
+    }
+
+    public void setRepoUrl(String repoUrl) {
+        this.repoUrl = repoUrl;
+    }
+
+    public String getDeployUrl() {
+        return deployUrl;
+    }
+
+    public void setDeployUrl(String deployUrl) {
+        this.deployUrl = deployUrl;
+    }
+
+    public String getRetrospective() {
+        return retrospective;
+    }
+
+    public void setRetrospective(String retrospective) {
+        this.retrospective = retrospective;
     }
 }

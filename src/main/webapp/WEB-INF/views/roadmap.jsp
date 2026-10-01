@@ -8,14 +8,21 @@
     /* 로드맵 화면 전용 레이아웃(2026-10-01, 오늘할일 7·8번) — 가운데 여정 기록을 크게 중앙에 두고
        왼쪽에 일일 미션·최근 서류, 오른쪽에 트렌드 기술·연습장을 작은 박스로 둔다.
        공통 CSS는 A 담당 파일이라 이 화면에서만 쓰는 규칙은 여기에 둔다. */
-    main.wide { max-width: 1680px; }
-    .roadmap-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr) 250px; gap: 16px;
-        align-items: start; margin-top: 16px; }
-    .rm-left, .rm-right { display: flex; flex-direction: column; gap: 16px; }
+    /* 왼쪽(일일 미션·최근 서류)·오른쪽(트렌드·연습장) 박스는 화면 좌우 끝에 붙여 고정한다(2026-10-01).
+       맨 위 헤더도 고정이라 스크롤해도 둘 다 항상 보이고, 박스가 길면 박스 안에서만 스크롤된다.
+       가운데 여정 기록은 두 박스 폭만큼 안쪽 여백을 두고 남은 폭을 다 쓴다. */
+    main.wide { max-width: none; padding-left: 262px; padding-right: 282px; }
+    .roadmap-layout { display: block; margin-top: 16px; }
+    .rm-left, .rm-right { display: flex; flex-direction: column; gap: 16px; position: fixed;
+        top: var(--header-h); bottom: 0; overflow-y: auto; padding: 16px 12px; background: var(--page-bg); z-index: 10; }
+    .rm-left { left: 0; width: 246px; border-right: 1px solid var(--border); }
+    .rm-right { right: 0; width: 266px; border-left: 1px solid var(--border); }
     .rm-left .card, .rm-right .card { margin-bottom: 0; padding: 16px 18px; }
     @media (max-width: 1100px) {
-        .roadmap-layout { grid-template-columns: minmax(0, 1fr); }
+        main.wide { padding-left: 24px; padding-right: 24px; }
+        .rm-left, .rm-right { position: static; width: auto; overflow: visible; padding: 0; border: none; margin-top: 16px; }
         .rm-center { order: -1; }
+        .roadmap-layout { display: flex; flex-direction: column; }
     }
     /* 여정 카드·마커를 키운다 */
     .journey-card { padding: 22px 26px; }
@@ -51,6 +58,9 @@
     <c:otherwise>
         <h1>🗺️ 내 로드맵</h1>
 
+        <c:if test="${not empty roadmapNotice}">
+            <p style="background:var(--teal-bg); color:var(--teal); border-radius:6px; padding:10px 14px;"><c:out value="${roadmapNotice}" /></p>
+        </c:if>
         <c:if test="${not empty errorMessage}">
             <p class="error-message">${errorMessage}</p>
         </c:if>
@@ -142,7 +152,7 @@
                 <c:set var="rowIndex" value="0" scope="page" />
                 <c:forEach var="step" items="${steps}">
                     <%-- 완료한 건 티어 상관없이 전부, 미완료는 지금 열린 티어 + 바로 다음 잠긴 티어까지 --%>
-                    <c:if test="${step.completed
+                    <c:if test="${step.completed || step.stepType == 'REVIEW'
                                   || (not progress.journeyComplete && step.tier == currentTier.tier)
                                   || (not empty nextLockedTier && step.tier == nextLockedTier.tier)}">
                         <c:set var="rowIndex" value="${rowIndex + 1}" scope="page" />
@@ -151,6 +161,12 @@
                                 <c:set var="markerClass" value="completed is-past" />
                                 <c:set var="markerIcon" value="✓" />
                                 <c:set var="cardClass" value="is-past" />
+                            </c:when>
+                            <%-- 복습은 시간이 지나 생기는 단계라 잠그지 않고 바로 할 수 있게 둔다(끝없는 로드맵) --%>
+                            <c:when test="${step.stepType == 'REVIEW'}">
+                                <c:set var="markerClass" value="remaining" />
+                                <c:set var="markerIcon" value="🔁" />
+                                <c:set var="cardClass" value="" />
                             </c:when>
                             <c:when test="${not empty nextLockedTier && step.tier == nextLockedTier.tier}">
                                 <c:set var="markerClass" value="locked" />
@@ -178,6 +194,7 @@
                                         <c:choose>
                                             <c:when test="${step.stepType == 'CERT'}">자격증</c:when>
                                             <c:when test="${step.stepType == 'PROJECT'}">프로젝트</c:when>
+                                            <c:when test="${step.stepType == 'REVIEW'}">복습</c:when>
                                             <c:otherwise>기술</c:otherwise>
                                         </c:choose>
                                     </span>
@@ -201,15 +218,32 @@
                                 </c:if>
                                 <c:if test="${markerClass != 'locked'}">
                                 <c:choose>
+                                    <c:when test="${step.completed && step.stepType == 'REVIEW'}">
+                                        <%-- 복습은 완료 취소가 없다 — 점수를 받은 기록이라 되돌리지 않는다 --%>
+                                    </c:when>
                                     <c:when test="${step.completed}">
-                                        <c:if test="${step.stepType != 'PROJECT'}">
-                                            <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">
-                                                <input type="hidden" name="action" value="complete">
+                                        <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form cancel-step"
+                                              data-project="${step.stepType == 'PROJECT'}">
+                                            <input type="hidden" name="action" value="complete">
+                                            <input type="hidden" name="stepId" value="${step.id}">
+                                            <input type="hidden" name="completed" value="false">
+                                            <button type="submit" class="link-button">완료 취소</button>
+                                        </form>
+                                    </c:when>
+                                    <c:when test="${step.stepType == 'REVIEW'}">
+                                        <button type="button" class="open-step-dialog" data-dialog="stepDialog-${step.id}">복습 기록하고 완료하기</button>
+                                        <dialog id="stepDialog-${step.id}" class="step-dialog">
+                                        <div class="step-dialog-head"><h3>복습 기록하고 완료하기</h3><button type="button" class="dialog-close link-button" aria-label="닫기">✕</button></div>
+                                            <p class="muted" style="line-height:1.6;"><c:out value="${step.reason}" /></p>
+                                            <form action="${pageContext.request.contextPath}/roadmap" method="post" style="margin-top:10px;">
+                                                <input type="hidden" name="action" value="completeReview">
                                                 <input type="hidden" name="stepId" value="${step.id}">
-                                                <input type="hidden" name="completed" value="false">
-                                                <button type="submit" class="link-button">완료 취소</button>
+                                                <p><label>복습 기록 (20자 이상) — 기억나는 핵심 개념, 헷갈렸던 점, 다시 찾아본 내용</label>
+                                                    <textarea name="reviewNote" minlength="20" maxlength="1000" required></textarea></p>
+                                                <p class="muted" style="font-size:0.8rem;">같은 기술을 복습할수록 받는 점수가 줄어요 (40 → 30 → 20 → 10 → 5점).</p>
+                                                <button type="submit">복습 완료</button>
                                             </form>
-                                        </c:if>
+                                        </dialog>
                                     </c:when>
                                     <c:when test="${step.stepType == 'PROJECT'}">
                                         <button type="button" class="open-step-dialog" data-dialog="stepDialog-${step.id}">프로젝트 등록하고 완료하기</button>
@@ -220,14 +254,8 @@
                                                   enctype="multipart/form-data" style="margin-top:10px;">
                                                 <input type="hidden" name="action" value="completeProject">
                                                 <input type="hidden" name="stepId" value="${step.id}">
-                                                <p><label>프로젝트명</label><input type="text" name="title" required></p>
-                                                <p><label>설명 (무엇을 했는지)</label><textarea name="description" required></textarea></p>
-                                                <p><label>사용 기술</label><input type="text" name="techStack" placeholder="예: Java, Spring, MySQL"></p>
-                                                <p class="row">
-                                                    <span style="flex:1;"><label>시작일</label><input type="date" name="startDate"></span>
-                                                    <span style="flex:1;"><label>종료일</label><input type="date" name="endDate"></span>
-                                                </p>
-                                                <p><label>증빙 파일(여러 개 가능, 필수)</label><input type="file" name="files" multiple required></p>
+                                                <c:set var="draft" value="${projectDrafts[step.id]}" scope="request" />
+                                                <jsp:include page="/WEB-INF/views/common/project-submit-fields.jsp" />
                                                 <button type="submit">등록하고 완료하기</button>
                                             </form>
                                         </dialog>
@@ -315,14 +343,8 @@
                                                                 </select>
                                                             </p>
                                                         </c:if>
-                                                        <p><label>프로젝트명</label><input type="text" name="title" required></p>
-                                                        <p><label>설명 (무엇을 했는지)</label><textarea name="description" required></textarea></p>
-                                                        <p><label>사용 기술</label><input type="text" name="techStack" placeholder="예: Java, Spring, MySQL"></p>
-                                                        <p class="row">
-                                                            <span style="flex:1;"><label>시작일</label><input type="date" name="startDate"></span>
-                                                            <span style="flex:1;"><label>종료일</label><input type="date" name="endDate"></span>
-                                                        </p>
-                                                        <p><label>증빙 파일(여러 개 가능, 필수)</label><input type="file" name="files" multiple required></p>
+                                                        <c:set var="draft" value="${projectDrafts[step.id]}" scope="request" />
+                                                        <jsp:include page="/WEB-INF/views/common/project-submit-fields.jsp" />
                                                         <button type="submit">등록하고 완료하기</button>
                                                     </form>
                                                 </dialog>
@@ -472,6 +494,17 @@
 
 <%-- 단계 작업 창 열기/닫기 — 카드(박스) 아무 데나 누르면 그 단계의 창이 열린다. 카드 안의 버튼·폼·링크를
      누른 경우는 그 동작을 그대로 두고, 창이 닫힐 때 backdrop(창 바깥) 클릭도 닫기로 처리한다. --%>
+<script>
+    // 프로젝트 단계의 완료 취소는 표시만 푼다 — 프로젝트와 서류는 남고, 파일 삭제는 서류 보관함에서 한다.
+    document.querySelectorAll('.cancel-step').forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            if (form.getAttribute('data-project') === 'true'
+                    && !confirm('완료 표시만 해제됩니다.\n등록한 프로젝트와 서류는 그대로 남고, 파일을 지우려면 서류 보관함에서 삭제하세요.\n(이미 받은 점수는 유지됩니다.)')) {
+                event.preventDefault();
+            }
+        });
+    });
+</script>
 <script>
 (function () {
     document.querySelectorAll('.journey-card').forEach(function (card) {

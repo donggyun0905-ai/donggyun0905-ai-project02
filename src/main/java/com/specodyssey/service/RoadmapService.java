@@ -84,6 +84,7 @@ public class RoadmapService {
     private final UserSkillDao userSkillDao = new UserSkillDao();
     private final UserProjectDao userProjectDao = new UserProjectDao();
     private final DocumentDao documentDao = new DocumentDao();
+    private final ProjectSubmissionService projectSubmissionService = new ProjectSubmissionService();
     private final RoadmapDao roadmapDao = new RoadmapDao();
     private final RoadmapStepDao roadmapStepDao = new RoadmapStepDao();
     private final ScoreService scoreService = new ScoreService();
@@ -332,6 +333,11 @@ public class RoadmapService {
     // 자동 완료)이 내부적으로 이 메서드를 그대로 쓰고 있어서, 여기서 CERT를 막으면 그 기능이 깨진다.
     public void completeStep(Long userId, Long stepId, boolean completed) throws SQLException {
         TransactionUtil.runInTransaction(conn -> {
+            RoadmapStepDto target = roadmapStepDao.findByIdForUser(conn, stepId, userId);
+            if (target != null && STEP_TYPE_REVIEW.equals(target.getStepType())) {
+                // 복습은 복습 기록을 내야만 끝난다(completeReview) — 체크만으로 점수를 받는 길을 막는다.
+                throw new IllegalArgumentException("복습 단계는 복습 기록을 제출해야 완료할 수 있습니다.");
+            }
             int updatedRows = roadmapStepDao.updateCompleted(conn, stepId, userId, completed,
                     completed ? LocalDateTime.now() : null);
             // updatedRows == 0이면 소유자가 아니라서 애초에 반영이 안 된 것 — 점수도 스펙도 주면 안 된다.
@@ -345,40 +351,36 @@ public class RoadmapService {
         });
     }
 
-    // PROJECT 단계 완료 — 제목/설명/기술스택 + 증빙 파일 1개 이상을 함께 받아야 완료할 수 있다(팀 합의).
-    // SKILL/CERT와 달리 자동으로 채울 수 있는 값이 없어 completeStep과는 별도 진입점으로 뒀다.
-    // 파일은 호출부(RoadmapServlet)가 FileStorageUtil로 디스크에 이미 저장한 뒤 DocumentDto로 넘겨준다
+    // PROJECT 단계 완료 — 프로젝트 정보 + 문서 체크리스트(README·실행 화면 필수) + 기술 활용 설명서를 받는다
+    // (개발일지 4-4). SKILL/CERT와 달리 자동으로 채울 수 있는 값이 없어 completeStep과는 별도 진입점으로 뒀다.
+    // 파일은 호출부(RoadmapServlet)가 FileStorageUtil로 디스크에 이미 저장한 뒤 넘겨준다
     // — 디스크 쓰기는 DB 트랜잭션 대상이 아니라서 여기 안에서 하지 않는다.
+    // 완료를 취소해도 프로젝트·서류는 그대로 남고(파일 삭제는 서류 보관함에서), 다시 완료하면
+    // 단계에 연결된 기존 프로젝트(evidence_project_id)를 갱신한다 — 프로젝트가 중복으로 생기지 않는다.
     // 반환값 false(이미 완료됐거나 소유자가 아님)면 아무 것도 반영 안 됐다는 뜻이라, 호출부가 그때
     // 디스크에 이미 써놓은 파일을 지워야 한다 — 안 그러면 DB에 참조 없는 고아 파일이 남는다.
-    public boolean completeProjectStep(Long userId, Long stepId, UserProjectDto projectInput,
-            List<DocumentDto> uploadedFiles) throws SQLException {
-        if (uploadedFiles == null || uploadedFiles.isEmpty()) {
-            throw new IllegalArgumentException("증빙 파일을 최소 1개 첨부해야 합니다.");
-        }
+    public boolean completeProjectStep(Long userId, Long stepId, ProjectSubmission submission) throws SQLException {
         return TransactionUtil.runInTransaction(conn -> {
-            RoadmapStepDto step = roadmapStepDao.findById(conn, stepId);
-            if (step == null || !"PROJECT".equals(step.getStepType())) {
+            RoadmapStepDto step = roadmapStepDao.findByIdForUser(conn, stepId, userId);
+            if (step == null) {
+                return false;
+            }
+            if (!"PROJECT".equals(step.getStepType())) {
                 throw new IllegalArgumentException("PROJECT 단계가 아닙니다.");
             }
             if (step.isCompleted()) {
                 // 이미 완료된 단계를 다시 제출한 것 — 프로젝트가 중복 생성되지 않게 조용히 무시한다.
                 return false;
             }
+            projectSubmissionService.validate(submission, step.getEvidenceProjectId());
 
             int updatedRows = roadmapStepDao.updateCompleted(conn, stepId, userId, true, LocalDateTime.now());
             if (updatedRows == 0) {
-                // 소유자가 아니면(다른 사용자 id) 프로젝트도 파일도 만들면 안 된다.
                 return false;
             }
-
-            projectInput.setUserId(userId);
-            Long projectId = userProjectDao.insert(conn, projectInput);
-            for (DocumentDto file : uploadedFiles) {
-                file.setUserId(userId);
-                file.setProjectId(projectId);
-                documentDao.insert(conn, file);
-            }
+            Long projectId = projectSubmissionService.save(conn, userId, stepId, step.getEvidenceProjectId(),
+                    null, submission);
+            roadmapStepDao.setEvidenceProject(conn, stepId, userId, projectId);
 
             scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId,
                     ROADMAP_STEP_COMPLETE_POINTS);
@@ -438,11 +440,8 @@ public class RoadmapService {
     // 증빙이다. upgradeFromProjectId가 있으면 본인 소유가 맞는지 먼저 확인한다.
     // CORE/ADVANCED 구분(2026-09-30 팀 확정): CORE는 신규/업그레이드 둘 다 허용하지만, ADVANCED는
     // "심화" 단계 취지상 반드시 기존 프로젝트를 업그레이드해야 한다 — 신규 프로젝트로는 완료할 수 없다.
-    public boolean submitSkillProjectStep(Long userId, Long stepId, UserProjectDto projectInput,
-            List<DocumentDto> uploadedFiles, Long upgradeFromProjectId) throws SQLException {
-        if (uploadedFiles == null || uploadedFiles.isEmpty()) {
-            throw new IllegalArgumentException("증빙 파일을 최소 1개 첨부해야 합니다.");
-        }
+    public boolean submitSkillProjectStep(Long userId, Long stepId, ProjectSubmission submission,
+            Long upgradeFromProjectId) throws SQLException {
         return TransactionUtil.runInTransaction(conn -> {
             RoadmapStepDto step = roadmapStepDao.findByIdForUser(conn, stepId, userId);
             if (step == null) {
@@ -459,20 +458,15 @@ public class RoadmapService {
                 return false;
             }
 
-            projectInput.setUserId(userId);
-            if (upgradeFromProjectId != null) {
-                UserProjectDto source = userProjectDao.findById(conn, upgradeFromProjectId, userId);
-                if (source == null) {
-                    throw new IllegalArgumentException("업그레이드할 프로젝트를 찾을 수 없습니다.");
-                }
-                projectInput.setUpgradedFromProjectId(upgradeFromProjectId);
+            if (upgradeFromProjectId != null
+                    && userProjectDao.findById(conn, upgradeFromProjectId, userId) == null) {
+                throw new IllegalArgumentException("업그레이드할 프로젝트를 찾을 수 없습니다.");
             }
-            Long projectId = userProjectDao.insert(conn, projectInput);
-            for (DocumentDto file : uploadedFiles) {
-                file.setUserId(userId);
-                file.setProjectId(projectId);
-                documentDao.insert(conn, file);
-            }
+            // 완료를 취소했다가 다시 제출하는 경우 — 단계에 연결된 프로젝트를 갱신한다(새로 만들지 않는다)
+            Long existingProjectId = step.getEvidenceProjectId();
+            projectSubmissionService.validate(submission, existingProjectId);
+            Long projectId = projectSubmissionService.save(conn, userId, stepId, existingProjectId,
+                    upgradeFromProjectId, submission);
 
             roadmapStepDao.updateProof(conn, stepId, userId, PROOF_PROJECT_LINK, null, projectId,
                     SkillProofGrader.PASSED, "프로젝트 등록/업그레이드로 자동 확인", true, LocalDateTime.now());
@@ -480,6 +474,150 @@ public class RoadmapService {
                     ROADMAP_STEP_COMPLETE_POINTS);
             syncProfileOnComplete(conn, userId, roadmapStepDao.findById(conn, stepId));
             return true;
+        });
+    }
+
+    // ---------------------------------------------------------------- 기술 복습 (끝없는 로드맵, 2026-10-01)
+    // 한 번 익힌 기술도 시간이 지나면 잊으니, 끝낸 기술마다 주기가 지나면 "복습" 단계를 기존 여정 뒤에 이어 붙인다.
+    // 주기는 단계별 차등 — 입문 30일, 핵심 60일, 심화 90일, 전문가 120일(깊이 익힌 기술일수록 오래 간다).
+    // 기준 시각은 그 기술의 가장 최근 완료(학습 단계 또는 복습)이고, 주기는 지금까지 도달한 가장 높은 단계로 정한다.
+    // 점수는 감쇠 — 같은 기술을 복습할수록 줄어든다(40→30→20→10→5, 최저 5). 같은 걸 반복해서 점수만 올리는 걸 막는다.
+    static final String STEP_TYPE_REVIEW = "REVIEW";
+    static final String TIER_REVIEW = "REVIEW";
+    static final int REVIEW_POINTS_BASE = 40;
+    static final int REVIEW_POINTS_DECAY = 10;
+    static final int REVIEW_POINTS_MIN = 5;
+    static final int MAX_OPEN_REVIEWS = 3;
+    static final int REVIEW_NOTE_MIN_LENGTH = 20;
+    static final int REVIEW_NOTE_MAX_LENGTH = 1000;
+    private static final String PROOF_REVIEW_NOTE = "REVIEW_NOTE";
+
+    static int reviewIntervalDays(String highestTier) {
+        switch (highestTier == null ? "" : highestTier) {
+            case TIER_CORE:
+                return 60;
+            case TIER_ADVANCED:
+                return 90;
+            case TIER_EXPERT:
+                return 120;
+            default:
+                return 30;
+        }
+    }
+
+    // priorReviews: 같은 기술로 이미 끝낸 복습 횟수
+    static int reviewPoints(int priorReviews) {
+        return Math.max(REVIEW_POINTS_MIN, REVIEW_POINTS_BASE - REVIEW_POINTS_DECAY * Math.max(0, priorReviews));
+    }
+
+    /**
+     * 주기가 지난 기술의 복습 단계를 대표 로드맵 맨 뒤에 만든다. 이미 열려 있는(안 끝낸) 복습이 있는 기술은 건너뛰고,
+     * 한꺼번에 쏟아지지 않게 열린 복습은 MAX_OPEN_REVIEWS개까지만 둔다(주기가 오래 지난 기술부터).
+     * 로드맵 화면을 열 때마다 불러도 같은 결과(멱등)다 — 별도 스케줄러 없이 DB 조회만 하고 LLM 비용은 없다.
+     * @return 새로 만든 복습 단계 수
+     */
+    public int appendDueReviews(Long userId, LocalDateTime now) throws SQLException {
+        RoadmapDto primary = roadmapDao.findPrimaryByUserId(userId);
+        if (primary == null) {
+            return 0;
+        }
+        List<RoadmapStepDto> steps = roadmapStepDao.findByRoadmapId(primary.getId());
+        java.util.Set<Long> openReviewSkills = new java.util.HashSet<>();
+        int maxOrder = 0;
+        for (RoadmapStepDto step : steps) {
+            maxOrder = Math.max(maxOrder, step.getStepOrder() == null ? 0 : step.getStepOrder());
+            if (STEP_TYPE_REVIEW.equals(step.getStepType()) && !step.isCompleted() && step.getRelatedSkillId() != null) {
+                openReviewSkills.add(step.getRelatedSkillId());
+            }
+        }
+        int room = MAX_OPEN_REVIEWS - openReviewSkills.size();
+        if (room <= 0) {
+            return 0;
+        }
+
+        // 기술별: 도달한 가장 높은 단계 + 가장 최근 완료 시각
+        Map<Long, String> highestTier = new HashMap<>();
+        Map<Long, LocalDateTime> lastDone = new HashMap<>();
+        for (RoadmapStepDto row : roadmapStepDao.findCompletedSkillRowsByUser(userId)) {
+            Long skillId = row.getRelatedSkillId();
+            if (STEP_TYPE_REVIEW.equals(row.getStepType()) == false) {
+                String current = highestTier.get(skillId);
+                if (current == null || SKILL_TIER_ORDER.indexOf(row.getTier()) > SKILL_TIER_ORDER.indexOf(current)) {
+                    highestTier.put(skillId, row.getTier());
+                }
+            }
+            if (row.getCompletedAt() != null) {
+                lastDone.merge(skillId, row.getCompletedAt(), (a, b) -> a.isAfter(b) ? a : b);
+            }
+        }
+
+        Map<Long, LocalDateTime> dueAt = new HashMap<>();
+        for (Map.Entry<Long, String> entry : highestTier.entrySet()) {
+            LocalDateTime done = lastDone.get(entry.getKey());
+            if (done == null || openReviewSkills.contains(entry.getKey())) {
+                continue;
+            }
+            LocalDateTime due = done.plusDays(reviewIntervalDays(entry.getValue()));
+            if (!now.isBefore(due)) {
+                dueAt.put(entry.getKey(), due);
+            }
+        }
+        List<Long> dueSkills = dueAt.entrySet().stream()
+                .sorted(Map.Entry.comparingByValue())
+                .limit(room)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+        if (dueSkills.isEmpty()) {
+            return 0;
+        }
+
+        final int startOrder = maxOrder + 1;
+        return TransactionUtil.runInTransaction(conn -> {
+            int order = startOrder;
+            for (Long skillId : dueSkills) {
+                SkillDto skill = skillDao.findById(skillId);
+                String name = skill == null ? "기술" : skill.getSkillName();
+                long days = java.time.Duration.between(lastDone.get(skillId), now).toDays();
+                String reason = "🔁 " + name + " 복습 — 마지막으로 익힌 지 " + days
+                        + "일이 지났어요. 핵심 개념을 다시 떠올려 짧게 정리해 보세요.";
+                order = insertStep(conn, primary.getId(), order, STEP_TYPE_REVIEW, TIER_REVIEW, null, skillId, reason);
+            }
+            return dueSkills.size();
+        });
+    }
+
+    /**
+     * 복습 단계를 끝낸다 — 복습 기록(REVIEW_NOTE_MIN_LENGTH자 이상)을 내야 하고, 점수는 reviewPoints로 감쇠한다.
+     * @return 받은 점수. 이미 끝났거나 소유자가 아니면 0
+     */
+    public int completeReview(Long userId, Long stepId, String note) throws SQLException {
+        String trimmed = note == null ? "" : note.trim();
+        if (trimmed.length() < REVIEW_NOTE_MIN_LENGTH) {
+            throw new IllegalArgumentException("복습 기록을 " + REVIEW_NOTE_MIN_LENGTH + "자 이상 적어주세요.");
+        }
+        if (trimmed.length() > REVIEW_NOTE_MAX_LENGTH) {
+            throw new IllegalArgumentException("복습 기록은 " + REVIEW_NOTE_MAX_LENGTH + "자 이내로 적어주세요.");
+        }
+        return TransactionUtil.runInTransaction(conn -> {
+            RoadmapStepDto step = roadmapStepDao.findByIdForUser(conn, stepId, userId);
+            if (step == null) {
+                return 0;
+            }
+            if (!STEP_TYPE_REVIEW.equals(step.getStepType())) {
+                throw new IllegalArgumentException("복습 단계가 아닙니다.");
+            }
+            if (step.isCompleted()) {
+                return 0;
+            }
+            int prior = (int) roadmapStepDao.findCompletedSkillRowsByUser(userId).stream()
+                    .filter(r -> STEP_TYPE_REVIEW.equals(r.getStepType())
+                            && java.util.Objects.equals(r.getRelatedSkillId(), step.getRelatedSkillId()))
+                    .count();
+            int points = reviewPoints(prior);
+            roadmapStepDao.updateProof(conn, stepId, userId, PROOF_REVIEW_NOTE, trimmed, null,
+                    SkillProofGrader.PASSED, "복습 기록 제출", true, LocalDateTime.now());
+            scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId, points);
+            return points;
         });
     }
 
