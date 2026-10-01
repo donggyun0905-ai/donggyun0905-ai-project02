@@ -70,6 +70,23 @@ public class SkillDao {
         }
     }
 
+    // 매칭용 메모리 캐시(SkillCatalog)가 다시 읽을지 판단하는 값 — SKILL·SKILL_ALIAS의 행 수·최대 id·최근 수정 시각.
+    // 추가·삭제·임베딩 갱신(updated_at 자동 갱신) 중 하나라도 일어나면 값이 달라진다. 전체를 읽는 것보다 훨씬 가볍다.
+    public String findMatchingDataStamp() throws SQLException {
+        String sql = "SELECT (SELECT COUNT(*) FROM SKILL), (SELECT MAX(id) FROM SKILL), (SELECT MAX(updated_at) FROM SKILL), "
+                + "(SELECT COUNT(*) FROM SKILL_ALIAS), (SELECT MAX(id) FROM SKILL_ALIAS), (SELECT MAX(updated_at) FROM SKILL_ALIAS)";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+            rs.next();
+            StringBuilder stamp = new StringBuilder();
+            for (int i = 1; i <= 6; i++) {
+                stamp.append(rs.getString(i)).append('|');
+            }
+            return stamp.toString();
+        }
+    }
+
     private SkillDto mapRow(ResultSet rs) throws SQLException {
         SkillDto skill = new SkillDto();
         skill.setId(rs.getLong("id"));
