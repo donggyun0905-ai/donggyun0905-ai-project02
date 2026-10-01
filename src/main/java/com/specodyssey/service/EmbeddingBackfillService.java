@@ -46,6 +46,8 @@ public class EmbeddingBackfillService {
                 updated++;
             }
         }
+        // 매칭용 메모리 캐시가 새 벡터를 바로 쓰게 한다 (변경 감지로도 잡히지만 명시적으로)
+        SkillCatalog.refresh();
         return updated;
     }
 }

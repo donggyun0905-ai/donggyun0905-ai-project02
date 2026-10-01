@@ -1,12 +1,8 @@
 package com.specodyssey.service;
 
-import com.google.gson.Gson;
-import com.specodyssey.dao.SkillDao;
-import com.specodyssey.dto.SkillDto;
 import com.specodyssey.util.LocalEmbedder;
 
 import java.sql.SQLException;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -35,7 +31,6 @@ import java.util.logging.Logger;
 public class EmbeddingMatcher implements SkillMatcher {
 
     private static final Logger LOG = Logger.getLogger(EmbeddingMatcher.class.getName());
-    private static final Gson GSON = new Gson();
     private static final double SIMILARITY_THRESHOLD = 0.75;
 
     // 모델 로딩이 수 초 걸려서 프로세스당 한 번만 만들고 끝까지 재사용한다(웹앱 수명 = JVM 수명).
@@ -44,7 +39,6 @@ public class EmbeddingMatcher implements SkillMatcher {
     private static volatile boolean embedderUnavailable;
 
     private final SkillMatcher delegate;
-    private final SkillDao skillDao;
 
     public EmbeddingMatcher() {
         this(new FuzzyNameMatcher());
@@ -52,7 +46,6 @@ public class EmbeddingMatcher implements SkillMatcher {
 
     public EmbeddingMatcher(SkillMatcher delegate) {
         this.delegate = delegate;
-        this.skillDao = new SkillDao();
     }
 
     @Override
@@ -78,18 +71,14 @@ public class EmbeddingMatcher implements SkillMatcher {
             return MatchResult.none();
         }
 
-        List<SkillDto> skills = skillDao.findAll();
+        // 벡터는 매번 DB에서 읽어 파싱하지 않고 SkillCatalog에 미리 풀어 둔 것을 쓴다 (2026-10-01, 매칭 속도 개선)
         Long bestSkillId = null;
         double bestScore = 0.0;
-        for (SkillDto skill : skills) {
-            if (skill.getEmbeddingVector() == null) {
-                continue;
-            }
-            float[] candidateVector = GSON.fromJson(skill.getEmbeddingVector(), float[].class);
-            double score = LocalEmbedder.cosine(queryVector, candidateVector);
+        for (SkillCatalog.SkillVector candidate : SkillCatalog.current().vectors()) {
+            double score = LocalEmbedder.cosine(queryVector, candidate.vector());
             if (score > bestScore) {
                 bestScore = score;
-                bestSkillId = skill.getId();
+                bestSkillId = candidate.skillId();
             }
         }
 

@@ -49,8 +49,10 @@ public class FuzzyNameMatcher implements SkillMatcher {
         }
 
         String normalizedQuery = normalize(trimmed);
-        List<SkillDto> skills = skillDao.findAll();
-        List<SkillAliasDto> aliases = skillAliasDao.findAll();
+        // 전체 후보는 매번 DB에서 읽지 않고 메모리 캐시를 쓴다 (2026-10-01, 매칭 속도 개선)
+        SkillCatalog.Snapshot catalog = SkillCatalog.current();
+        List<SkillDto> skills = catalog.skills();
+        List<SkillAliasDto> aliases = catalog.aliases();
 
         Long bestSkillId = null;
         int bestDistance = Integer.MAX_VALUE;
