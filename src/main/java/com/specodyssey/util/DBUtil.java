@@ -49,8 +49,109 @@ public final class DBUtil {
     private DBUtil() {
     }
 
+    // ---------------------------------------------------------------- 간단한 커넥션 풀
+    // 호출마다 DriverManager로 새 연결(TCP + 인증)을 맺던 걸 재사용한다. 공유 DB가 원격이면 연결 한 번이
+    // 수십~수백 ms라서, 한 화면이 DAO를 여러 번 부르는 것만으로 느려졌다. 외부 라이브러리 없이 JDK만 쓴다.
+    // 호출부는 그대로 try-with-resources로 close()하면 되고, close()는 연결을 닫지 않고 풀에 돌려준다.
+    // 돌려줄 때 트랜잭션이 열려 있으면 롤백하고 autoCommit을 되돌려 다음 사용자에게 상태가 새지 않게 한다.
+    // 풀이 비면 새로 맺고(상한 없음 — 기존 동작과 같다), 풀에는 최대 MAX_IDLE개만 남긴다.
+    private static final int MAX_IDLE = 10;
+    private static final long VALIDATE_AFTER_IDLE_MILLIS = 5_000;
+    private static final long MAX_IDLE_MILLIS = 4 * 60_000; // 서버 wait_timeout보다 짧게
+
+    private static final class IdleConnection {
+        final Connection connection;
+        final long returnedAtMillis;
+
+        IdleConnection(Connection connection, long returnedAtMillis) {
+            this.connection = connection;
+            this.returnedAtMillis = returnedAtMillis;
+        }
+    }
+
+    private static final java.util.ArrayDeque<IdleConnection> IDLE = new java.util.ArrayDeque<>();
+
     public static Connection getConnection() throws SQLException {
-        return DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+        long now = System.currentTimeMillis();
+        while (true) {
+            IdleConnection idle;
+            synchronized (IDLE) {
+                idle = IDLE.pollFirst();
+            }
+            if (idle == null) {
+                break;
+            }
+            long idleFor = now - idle.returnedAtMillis;
+            if (idleFor <= MAX_IDLE_MILLIS && (idleFor < VALIDATE_AFTER_IDLE_MILLIS || isAlive(idle.connection))) {
+                return wrap(idle.connection);
+            }
+            closeQuietly(idle.connection);
+        }
+        return wrap(DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD));
+    }
+
+    private static boolean isAlive(Connection conn) {
+        try {
+            return !conn.isClosed() && conn.isValid(2);
+        } catch (SQLException e) {
+            return false;
+        }
+    }
+
+    private static void closeQuietly(Connection conn) {
+        try {
+            conn.close();
+        } catch (SQLException ignored) {
+            // 이미 끊긴 연결 — 버리면 그만이다.
+        }
+    }
+
+    private static Connection wrap(Connection raw) {
+        java.util.concurrent.atomic.AtomicBoolean closed = new java.util.concurrent.atomic.AtomicBoolean(false);
+        return (Connection) java.lang.reflect.Proxy.newProxyInstance(
+                DBUtil.class.getClassLoader(), new Class<?>[] {Connection.class},
+                (proxy, method, args) -> {
+                    String name = method.getName();
+                    if ("close".equals(name)) {
+                        if (closed.compareAndSet(false, true)) {
+                            release(raw);
+                        }
+                        return null;
+                    }
+                    if ("isClosed".equals(name)) {
+                        return closed.get() || raw.isClosed();
+                    }
+                    if (closed.get()) {
+                        throw new SQLException("이미 반납한 커넥션입니다.");
+                    }
+                    try {
+                        return method.invoke(raw, args);
+                    } catch (java.lang.reflect.InvocationTargetException e) {
+                        throw e.getCause();
+                    }
+                });
+    }
+
+    private static void release(Connection raw) {
+        try {
+            if (raw.isClosed()) {
+                return;
+            }
+            if (!raw.getAutoCommit()) {
+                raw.rollback();
+                raw.setAutoCommit(true);
+            }
+        } catch (SQLException e) {
+            closeQuietly(raw);
+            return;
+        }
+        synchronized (IDLE) {
+            if (IDLE.size() < MAX_IDLE) {
+                IDLE.addFirst(new IdleConnection(raw, System.currentTimeMillis()));
+                return;
+            }
+        }
+        closeQuietly(raw);
     }
 
     // src/main/resources/.env를 클래스패스에서 읽는다 — 배포 위치(WAR/exploded 등)와 무관하게 항상 같은 방식으로 찾는다.
