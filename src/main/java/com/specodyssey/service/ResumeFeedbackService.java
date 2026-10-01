@@ -111,7 +111,7 @@ public class ResumeFeedbackService {
     private final JobRequiredSkillDao requiredSkillDao = new JobRequiredSkillDao();
 
     public ResumeFeedbackService() {
-        this(new GroqLlmClient("RESUME_FEEDBACK_MODEL", DEFAULT_MODEL));
+        this(GroqLlmClient.fromConfig("RESUME_FEEDBACK_MODEL", DEFAULT_MODEL));
     }
 
     public ResumeFeedbackService(LlmClient llm) {
