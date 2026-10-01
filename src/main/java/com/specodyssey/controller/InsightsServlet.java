@@ -1,6 +1,8 @@
 package com.specodyssey.controller;
 
+import com.specodyssey.dao.UserDao;
 import com.specodyssey.dto.UserDto;
+import com.specodyssey.service.JobBenchmarkSpecService;
 import com.specodyssey.service.SpecScoreService;
 
 import jakarta.servlet.ServletException;
@@ -17,14 +19,16 @@ import java.sql.SQLException;
 /**
  * 데이터 인사이트 화면. 관련 요구사항: FR-45~48
  * 화면설계 PDF "10. 데이터 인사이트" 기준 — 대부분 화면만(팀 지시, 고정 예시 데이터).
- * "또래 비교"(FR-45)만 2026-09-30에 SpecScoreService로 실제 연결한다 — SPEC_SCORE_HISTORY가
- * 이 항목의 데이터 소스이기 때문이다. 나머지(취업시장 트렌드 상세·합격자 참고 루트·약점 히트맵)는
- * FR-46·48 등 아직 담당자가 없는 별개 작업이라 손대지 않는다.
+ * "또래 비교"(FR-45)는 2026-09-30에 SpecScoreService로, "합격자 참고 루트"(FR-46)는
+ * 2026-10-01에 JobBenchmarkSpecService로 연결했다(3번 체크리스트 감사에서 미구현으로 발견).
+ * 나머지(취업시장 트렌드 상세·약점 히트맵)는 FR-48 등 아직 담당자가 없는 별개 작업이라 손대지 않는다.
  */
 @WebServlet("/insights")
 public class InsightsServlet extends HttpServlet {
 
     private final SpecScoreService specScoreService = new SpecScoreService();
+    private final JobBenchmarkSpecService jobBenchmarkSpecService = new JobBenchmarkSpecService();
+    private final UserDao userDao = new UserDao();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -41,6 +45,11 @@ public class InsightsServlet extends HttpServlet {
                         ? "평균보다 " + diff.abs() + "점 낮습니다."
                         : "평균과 같습니다.";
                 req.setAttribute("peerDiffMessage", message);
+            }
+
+            UserDto user = userDao.findById(userId);
+            if (user.getDesiredJobId() != null) {
+                req.setAttribute("benchmark", jobBenchmarkSpecService.getOrGenerate(user.getDesiredJobId()));
             }
         } catch (SQLException e) {
             throw new ServletException("데이터 인사이트를 불러오는 중 오류가 발생했습니다.", e);

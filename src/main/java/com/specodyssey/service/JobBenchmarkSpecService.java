@@ -1,0 +1,239 @@
+package com.specodyssey.service;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.specodyssey.dao.JobBenchmarkSpecDao;
+import com.specodyssey.dao.JobDao;
+import com.specodyssey.dao.JobRequiredSkillDao;
+import com.specodyssey.dao.SkillDao;
+import com.specodyssey.dto.JobBenchmarkSpecDto;
+import com.specodyssey.dto.JobDto;
+import com.specodyssey.dto.JobRequiredSkillDto;
+import com.specodyssey.dto.SkillDto;
+import com.specodyssey.util.AppConfig;
+import com.specodyssey.util.ExternalApiClient;
+import com.specodyssey.util.ExternalApiClient.ExternalApiException;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
+
+/**
+ * 합격자 스펙 역산(JOB_BENCHMARK_SPEC) — LLM이 "이 직무는 보통 이 정도 단계를 밟는다"를
+ * 티어별로 정리해준다. 관련 요구사항: FR-46 데이터 인사이트
+ *
+ * 3번 체크리스트 감사에서 "DAO만 있고 호출 0건"으로 나온 테이블 — 실제 합격자 데이터가 없어서
+ * 명세서 TD-2 "대안 B"(LLM이 일반적 요구 역량을 생성하되 '예시적 추정'으로 명시)를 그대로
+ * 적용한다. ProjectIdeaService·TrendLlmService와 같은 Groq 호출 패턴(재시도, JSON 강제 응답,
+ * 파싱 실패 시 예외)을 재사용한다.
+ *
+ * 한 번 생성하면 JOB_BENCHMARK_SPEC에 쌓아두고 재사용한다(On-demand + 캐싱, TD-2 설계 원칙과
+ * 동일) — 매번 LLM을 부르면 직무 하나당 매 조회마다 비용이 나간다.
+ */
+public class JobBenchmarkSpecService {
+
+    private static final Logger LOG = Logger.getLogger(JobBenchmarkSpecService.class.getName());
+    private static final Gson GSON = new Gson();
+
+    private static final String ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
+    private static final String DEFAULT_MODEL = "openai/gpt-oss-120b";
+    private static final Duration TIMEOUT = Duration.ofSeconds(60);
+    private static final int MAX_RETRIES = 4;
+    private static final long RETRY_WAIT_MS = 20_000;
+    private static final int MAX_CONTENT_LENGTH = 120;
+
+    private static final List<String> TIER_ORDER = List.of("ENTRY", "CORE", "ADVANCED", "EXPERT");
+    private static final int MAX_REQUIRED_SKILLS_IN_PROMPT = 8;
+
+    private final JobBenchmarkSpecDao jobBenchmarkSpecDao = new JobBenchmarkSpecDao();
+    private final JobDao jobDao = new JobDao();
+    private final JobRequiredSkillDao jobRequiredSkillDao = new JobRequiredSkillDao();
+    private final SkillDao skillDao = new SkillDao();
+
+    public record BenchmarkItem(String specType, String content) {
+    }
+
+    public record TierBenchmark(String tier, List<BenchmarkItem> items) {
+    }
+
+    /**
+     * 저장된 게 있으면 그대로 돌려주고, 없으면 LLM으로 새로 생성해 저장한 뒤 돌려준다.
+     * LLM 실패(API 키 없음·타임아웃·응답 형식 오류)는 예외를 삼키고 빈 리스트를 돌려준다 — 데이터
+     * 인사이트 화면 하나가 깨진다고 전체 페이지가 에러나면 안 된다(FR-111 취지).
+     */
+    public List<TierBenchmark> getOrGenerate(Long jobId) throws SQLException {
+        List<JobBenchmarkSpecDto> existing = jobBenchmarkSpecDao.findByJobId(jobId);
+        if (existing.isEmpty()) {
+            try {
+                generate(jobId);
+                existing = jobBenchmarkSpecDao.findByJobId(jobId);
+            } catch (Exception e) {
+                LOG.log(Level.WARNING, "합격자 스펙 역산 생성 실패 (jobId=" + jobId + ")", e);
+                return List.of();
+            }
+        }
+        return groupByTier(existing);
+    }
+
+    private List<TierBenchmark> groupByTier(List<JobBenchmarkSpecDto> specs) {
+        Map<String, List<BenchmarkItem>> byTier = new LinkedHashMap<>();
+        for (String tier : TIER_ORDER) {
+            byTier.put(tier, new ArrayList<>());
+        }
+        for (JobBenchmarkSpecDto spec : specs) {
+            byTier.computeIfAbsent(spec.getTier(), t -> new ArrayList<>())
+                    .add(new BenchmarkItem(spec.getSpecType(), spec.getContent()));
+        }
+        List<TierBenchmark> result = new ArrayList<>();
+        for (String tier : TIER_ORDER) {
+            if (!byTier.get(tier).isEmpty()) {
+                result.add(new TierBenchmark(tier, byTier.get(tier)));
+            }
+        }
+        return result;
+    }
+
+    private void generate(Long jobId) throws SQLException, ExternalApiException {
+        JobDto job = jobDao.findById(jobId);
+        if (job == null) {
+            return;
+        }
+        List<String> topSkillNames = topRequiredSkillNames(jobId);
+
+        String apiKey = AppConfig.get("GROQ_API_KEY");
+        if (apiKey == null) {
+            throw new ExternalApiException("GROQ_API_KEY가 설정되지 않았습니다", null);
+        }
+        String model = AppConfig.get("GROQ_MODEL");
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("model", model == null ? DEFAULT_MODEL : model);
+        body.put("temperature", 0.4);
+        body.put("reasoning_effort", "low");
+        body.put("max_completion_tokens", 1200);
+        body.put("response_format", Map.of("type", "json_object"));
+        body.put("messages", List.of(
+                Map.of("role", "system", "content", systemPrompt()),
+                Map.of("role", "user", "content", userPrompt(job.getJobName(), topSkillNames))));
+
+        String response = post(body, apiKey);
+        List<JobBenchmarkSpecDto> parsed = parse(response, jobId);
+
+        LocalDateTime now = LocalDateTime.now();
+        com.specodyssey.util.TransactionUtil.runInTransaction(conn -> {
+            for (JobBenchmarkSpecDto spec : parsed) {
+                spec.setGeneratedAt(now);
+                spec.setEstimated(true);
+                jobBenchmarkSpecDao.insert(conn, spec);
+            }
+            return null;
+        });
+    }
+
+    private List<String> topRequiredSkillNames(Long jobId) throws SQLException {
+        List<JobRequiredSkillDto> required = jobRequiredSkillDao.findByJobId(jobId);
+        required.sort(Comparator.comparing((JobRequiredSkillDto r) -> "REQUIRED".equals(r.getImportance()) ? 0 : 1));
+        List<String> names = new ArrayList<>();
+        for (JobRequiredSkillDto req : required) {
+            if (names.size() >= MAX_REQUIRED_SKILLS_IN_PROMPT) {
+                break;
+            }
+            SkillDto skill = skillDao.findById(req.getSkillId());
+            if (skill != null) {
+                names.add(skill.getSkillName());
+            }
+        }
+        return names;
+    }
+
+    private String post(Map<String, Object> body, String apiKey) throws ExternalApiException {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return ExternalApiClient.postJson(ENDPOINT, body, Map.of("Authorization", "Bearer " + apiKey), TIMEOUT);
+            } catch (ExternalApiException e) {
+                int status = e.getStatusCode();
+                if ((status != 429 && status != 400) || attempt >= MAX_RETRIES) {
+                    throw e;
+                }
+                if (status == 429) {
+                    try {
+                        Thread.sleep(RETRY_WAIT_MS * attempt);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw e;
+                    }
+                }
+            }
+        }
+    }
+
+    private String systemPrompt() {
+        return """
+                너는 채용 시장 분석가다. 주어진 목표 직무와 핵심 요구 기술을 보고, 그 직무에 합격하는
+                사람들이 보통 밟는 성장 단계를 "입문(ENTRY) → 핵심(CORE) → 심화(ADVANCED) →
+                전문가(EXPERT)" 4단계로 정리해라.
+                각 단계마다 1~3개 항목을 만들어라. 각 항목은:
+                - tier: ENTRY/CORE/ADVANCED/EXPERT 중 하나
+                - specType: CERT(자격증)/PROJECT(프로젝트 경험)/SKILL(기술)/LANGUAGE(사용 언어) 중 하나
+                - content: 한국어로 간결하게 (%d자 이내, 예: "Java와 Spring으로 만든 프로젝트 1개")
+                실제 합격자 데이터가 아니라 일반적인 추정이라는 걸 알고, 과장하지 말고 현실적으로 작성해라.
+                반드시 다음 JSON 객체 하나만 출력한다: {"items":[{"tier":"","specType":"","content":""}]}
+                4단계가 전부 최소 1개씩은 있어야 한다.
+                """.formatted(MAX_CONTENT_LENGTH);
+    }
+
+    private String userPrompt(String jobName, List<String> topSkillNames) {
+        String skillsText = topSkillNames.isEmpty() ? "(정보 없음)" : String.join(", ", topSkillNames);
+        return "목표 직무: " + jobName + "\n핵심 요구 기술: " + skillsText;
+    }
+
+    private List<JobBenchmarkSpecDto> parse(String response, Long jobId) throws ExternalApiException {
+        try {
+            String content = JsonParser.parseString(response).getAsJsonObject()
+                    .getAsJsonArray("choices").get(0).getAsJsonObject()
+                    .getAsJsonObject("message").get("content").getAsString();
+            JsonObject obj = JsonParser.parseString(content).getAsJsonObject();
+            JsonArray items = obj.getAsJsonArray("items");
+            if (items == null || items.isEmpty()) {
+                throw new IllegalStateException("LLM이 빈 목록을 반환했습니다");
+            }
+            List<JobBenchmarkSpecDto> specs = new ArrayList<>();
+            for (JsonElement el : items) {
+                JsonObject item = el.getAsJsonObject();
+                String tier = item.get("tier").getAsString().trim().toUpperCase();
+                String specType = item.get("specType").getAsString().trim().toUpperCase();
+                String itemContent = item.get("content").getAsString().trim();
+                if (!TIER_ORDER.contains(tier) || itemContent.isEmpty()) {
+                    continue; // 형식을 못 지킨 항목 하나 때문에 전체를 실패시키지 않는다 — 그냥 건너뜀
+                }
+                if (itemContent.length() > MAX_CONTENT_LENGTH) {
+                    itemContent = itemContent.substring(0, MAX_CONTENT_LENGTH);
+                }
+                JobBenchmarkSpecDto spec = new JobBenchmarkSpecDto();
+                spec.setJobId(jobId);
+                spec.setTier(tier);
+                spec.setSpecType(specType);
+                spec.setContent(itemContent);
+                specs.add(spec);
+            }
+            if (specs.isEmpty()) {
+                throw new IllegalStateException("유효한 항목이 하나도 없습니다");
+            }
+            return specs;
+        } catch (RuntimeException e) {
+            throw new ExternalApiException("LLM 응답 JSON 파싱 실패", e);
+        }
+    }
+}

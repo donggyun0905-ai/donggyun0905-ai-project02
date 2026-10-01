@@ -6,6 +6,7 @@ import com.specodyssey.dao.JobDao;
 import com.specodyssey.dao.UserDao;
 import com.specodyssey.dto.JobDto;
 import com.specodyssey.dto.UserDto;
+import com.specodyssey.service.AiUsageLogService;
 import com.specodyssey.service.ProfileService;
 
 import jakarta.servlet.ServletException;
@@ -31,6 +32,7 @@ public class ProfileServlet extends HttpServlet {
     private final JobAliasDao jobAliasDao = new JobAliasDao();
     private final DocumentDao documentDao = new DocumentDao();
     private final ProfileService profileService = new ProfileService();
+    private final AiUsageLogService aiUsageLogService = new AiUsageLogService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -161,6 +163,8 @@ public class ProfileServlet extends HttpServlet {
         req.setAttribute("skills", profileService.getSkills(userId));
         // FR-62 프로젝트에 연결된 첨부 파일 조회·다운로드 — PROJECT 로드맵 단계 완료 시 자동 등록된다.
         req.setAttribute("documents", documentDao.findByUserId(userId));
+        // FR-101·102(선택) AI 활용 기록 자기 제출.
+        req.setAttribute("aiUsageEntries", aiUsageLogService.listMine(userId));
     }
 
     private Long currentUserId(HttpServletRequest req) {
