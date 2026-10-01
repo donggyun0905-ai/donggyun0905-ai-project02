@@ -20,6 +20,14 @@
         </jsp-property-group>
     </jsp-config>
 
+    <!-- 세션 쿠키: 자바스크립트에서 못 읽게(HttpOnly), 30분 무활동 시 만료 -->
+    <session-config>
+        <session-timeout>30</session-timeout>
+        <cookie-config>
+            <http-only>true</http-only>
+        </cookie-config>
+    </session-config>
+
     <!-- 공통 에러 처리 (FR-111 취지 — 화면마다 제각각 처리하지 않게) -->
     <error-page>
         <error-code>404</error-code>
