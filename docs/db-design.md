@@ -103,22 +103,28 @@ erDiagram
 | 컬럼 | 타입 | 키 | 설명 |
 | --- | --- | --- | --- |
 | `id` | BIGINT | PK | 회원 식별자 |
-| `user_type` | VARCHAR(15) |  | APPLICANT(지원자) / INTERVIEWER(면접관) — 현재는 전부 APPLICANT |
+| `user_type` | VARCHAR(15) |  | APPLICANT(지원자) / INTERVIEWER(면접관) — 가입할 때 고른다 |
 | `login_id` | VARCHAR(50) | UK | 로그인 아이디 |
 | `password_hash` | VARCHAR(255) |  | 해시+솔트 저장 (NFR-2) |
+| `name` | VARCHAR(50) |  | 이름 — 가입 시 필수. 공유 링크의 "기본 이력" 범위로 면접관에게 보인다 |
+| `age` | INT |  | 나이 — 지원자 가입 시 필수 |
+| `career_status` | VARCHAR(15) |  | STUDENT(학생) / JOB_SEEKER(취준생) / EMPLOYED(직장인) — 지원자 가입 시 필수 |
 | `email` | VARCHAR(100) |  | 마감 알림 발송용 (선택 입력). 일반 인덱스, UNIQUE 아님 |
 | `major` | VARCHAR(50) |  | 전공 |
-| `grade` | VARCHAR(20) |  | 학년 |
+| `grade` | VARCHAR(20) |  | 학년 — 구분이 학생일 때만 입력받는다 |
 | `interest_field` | VARCHAR(50) |  | 관심 분야 |
 | `desired_job_id` | BIGINT | FK | 희망 직무 → JOB (없으면 NULL) |
 | `desired_job_status` | VARCHAR(10) |  | SET / UNSET(아직 모르겠음) |
+| `resume_document_id` | BIGINT | FK | 이력서 파일 → DOCUMENTS (지정하지 않았으면 NULL) |
 | `privacy_consent_at` | DATETIME |  | 민감정보 수집 동의 시점 (NFR-4) |
 | `profile_updated_at` | DATETIME |  | 스펙·프로젝트·스킬 중 하나라도 바뀐 시각 — 재분석 판단 기준 |
 | `last_login_at` | DATETIME |  | 마지막 접속 |
 
 설계 판단:
 
-- user_type은 지금 전부 '지원자'다. 면접관 계정을 나중에 붙일 때 테이블을 갈아엎지 않으려고 미리 뚫어둔 확장 필드(TD-4).
+- user_type은 면접관 계정을 나중에 붙일 때 테이블을 갈아엎지 않으려고 미리 뚫어둔 확장 필드였다(TD-4). 면접관 계정을 도입하면서 실제로 쓰기 시작했다 — 면접관은 공유받은 이력·지원자 비교·내 프로필만 쓸 수 있다.
+- (변경) name·age·career_status를 추가했다. 면접관이 여러 지원자를 비교할 때 "지원자 1, 2"로는 누가 누구인지 알 수 없어서 이름이 필요했고, 같이 나이와 구분(학생/취준생/직장인)을 가입 필수 항목으로 받기로 했다. 컬럼 추가 전에 가입한 회원은 값이 없어 NULL을 허용하고, 내 프로필에서 저장할 때 채우게 한다. 면접관 계정은 이름만 받는다. 이미 만든 DB에는 `sql/08_alter_users_profile.sql`을 실행한다.
+- (변경) resume_document_id를 추가했다. 이력서는 파일로 저장하기로 했고, 파일 자체는 이미 있는 서류 보관함(DOCUMENTS)에 올린다. 이 컬럼은 그중 어느 파일이 "내 이력서"인지만 가리킨다 — 파일 경로·크기·체크섬을 USERS에 또 두면 DOCUMENTS와 같은 정보를 두 곳에서 관리하게 된다. USERS가 DOCUMENTS보다 먼저 만들어지므로 FK는 03_schema_extended.sql 끝에서 ALTER로 건다. 이미 만든 DB에는 `sql/09_alter_users_resume.sql`을 실행한다.
 - email은 명세서 가입 항목에 없었지만 FR-73 이메일 알림을 살릴 여지를 두려고 추가하기로 했다. 선택 입력.
 - profile_updated_at은 FR-37 재분석 트리거용이다. USERS.updated_at만으로는 안 된다. 사용자가 자격증을 추가해도 바뀌는 건 USER_SPECS이지 USERS가 아니라서, 자식 테이블 세 개의 MAX(updated_at)을 매번 구해야 한다. 자식이 바뀔 때 이 컬럼을 같이 찍어두면 GAP_ANALYSIS.analyzed_at과 한 번 비교하면 끝난다.
 - 희망 직무가 없으면 desired_job_id가 NULL이고 desired_job_status가 UNSET이 된다. 이 값으로 "직무 발굴" 화면으로 보낼지 "격차 분석"으로 보낼지 갈린다.
@@ -825,12 +831,14 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | `scope_basic` | BOOLEAN |  | 전공·자격증·프로젝트 타임라인 공개 (기본 true) |
 | `scope_skills` | BOOLEAN |  | 보유 기술 스택 공개 — 적합도 스코어링에 필요 |
 | `scope_growth` | BOOLEAN |  | 성장 잠재력 지표 공개 |
+| `scope_resume` | BOOLEAN |  | 이력서 파일(USERS.resume_document_id) 공개 (기본 false) |
 | `label` | VARCHAR(50) |  | 지원자용 메모 (예: "A회사 지원") — 링크 여러 개 구분 |
 
 설계 판단:
 
 - scope_* 세 컬럼이 공개 범위를 통제한다. 토큰만 있으면 그 user_id의 모든 테이블을 읽을 수 있는 구조였는데, 부족 역량 히트맵·등급·코테 오답률·개인 서류가 전부 딸려 있어 지원자에게 불리하다. 애플리케이션 코드로만 막으면 화면 하나 추가하다 실수로 뚫린다.
 - NFR-4(민감 데이터는 본인 동의·본인 선택 공유만)를 스키마 차원에서 지키는 장치이기도 하다. FR-102의 AI 활용 기록은 아예 공유 대상에서 제외한다.
+- (변경) scope_resume을 추가했다. 면접관이 공유 링크로 지원자의 이력서 파일을 내려받게 하되, 이력서에는 연락처·주소 같은 개인정보가 들어 있어 scope_basic에 묶지 않고 링크마다 따로 고르게 했다. 기본값이 false라 컬럼 추가 전에 만든 링크는 모두 비공개로 남는다. 이력서가 아닌 서류(프로젝트 첨부 등)는 여전히 어떤 링크로도 공유되지 않는다. 이미 만든 DB에는 `sql/10_alter_share_link_scope_resume.sql`을 실행한다.
 - 탈퇴(USERS.is_deleted = true) 시 이 사용자의 모든 SHARE_LINK을 is_active = false로 내려야 한다. 논리 삭제라 행은 남는데 토큰이 살아 있으면 면접관이 계속 열람할 수 있다.
 - 토큰은 추측 불가능한 랜덤 문자열이어야 한다(NFR-9). 읽기 전용이고 만료·비활성화가 가능하다.
 - is_active를 지원자가 언제든 false로 바꿀 수 있어야 한다(FR-86). 공유를 중단할 권한은 지원자에게 있다.
@@ -858,12 +866,13 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 
 관련 요구사항: FR-82
 
-면접관이 여러 지원자를 담아두는 장바구니. 계정 없이도 비교 뷰를 만들 수 있게 해주는 그릇.
+면접관이 여러 지원자를 담아두는 장바구니. 면접관 계정(USERS.user_type = INTERVIEWER)마다 하나씩 있다.
 
 | 컬럼 | 타입 | 키 | 설명 |
 | --- | --- | --- | --- |
 | `id` | BIGINT | PK | 식별자 |
-| `session_token` | VARCHAR(64) | UK | 면접관 브라우저 세션 식별자 |
+| `user_id` | BIGINT | FK · UK | → USERS (면접관 계정). NULL이면 계정 없는 익명 세션 |
+| `session_token` | VARCHAR(64) | UK | 세션 식별자 — 수정·삭제 시 소유 확인에 쓴다 |
 | `company_name` | VARCHAR(100) |  | 회사명 |
 | `created_at` | DATETIME |  | 생성 시각 |
 | `expires_at` | DATETIME |  | 세션 만료 — 없으면 익명 세션이 영구히 쌓인다 |
@@ -873,6 +882,8 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 - 초안의 가장 큰 구멍이 여기였다. FR-82는 "여러 지원자를 나란히 비교"인데 면접관 계정이 없으니(FR-14), 면접관이 받은 여러 토큰을 묶어둘 곳이 필요하다.
 - 면접관이 공유 링크를 하나씩 입력해 장바구니처럼 담는 방식으로 확정했다. session_token은 브라우저 세션 식별자다.
 - 지원자 한 명만 볼 때는 이 테이블 없이 링크만으로 충분하다. 비교 기능이 필요해서 생긴 구조다.
+- (변경) 면접관 계정을 도입하면서 `user_id`를 추가했다. 브라우저 세션 토큰만으로는 다른 기기에서 로그인했을 때 담아 둔 목록을 찾을 수 없다. UNIQUE(user_id)로 계정당 목록 하나를 보장하고, NULL은 여러 개 허용되어 익명 세션 방식도 그대로 남는다. 이미 만든 DB에는 `sql/07_alter_evaluation_session_user.sql`을 실행한다.
+- 공유 링크 열람(이력 한 건 보기)은 여전히 로그인 없이 가능하다(FR-85). 목록에 담기와 비교만 면접관 로그인이 필요하다.
 
 #### EVALUATION_SESSION_ITEM (평가 대상) — 신설
 

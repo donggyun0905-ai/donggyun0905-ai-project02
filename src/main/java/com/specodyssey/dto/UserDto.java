@@ -8,12 +8,16 @@ public class UserDto {
     private String userType;
     private String loginId;
     private String passwordHash;
+    private String name;
+    private Integer age;
+    private String careerStatus; // STUDENT(학생) / JOB_SEEKER(취준생) / EMPLOYED(직장인)
     private String email;
     private String major;
     private String grade;
     private String interestField;
     private Long desiredJobId;
     private String desiredJobStatus;
+    private Long resumeDocumentId; // 이력서 파일 → DOCUMENTS. 지정하지 않았으면 null
     private LocalDateTime privacyConsentAt;
     private LocalDateTime profileUpdatedAt;
     private LocalDateTime lastLoginAt;
@@ -35,6 +39,38 @@ public class UserDto {
 
     public void setUserType(String userType) {
         this.userType = userType;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public Integer getAge() {
+        return age;
+    }
+
+    public void setAge(Integer age) {
+        this.age = age;
+    }
+
+    public String getCareerStatus() {
+        return careerStatus;
+    }
+
+    public void setCareerStatus(String careerStatus) {
+        this.careerStatus = careerStatus;
+    }
+
+    public Long getResumeDocumentId() {
+        return resumeDocumentId;
+    }
+
+    public void setResumeDocumentId(Long resumeDocumentId) {
+        this.resumeDocumentId = resumeDocumentId;
     }
 
     public String getLoginId() {

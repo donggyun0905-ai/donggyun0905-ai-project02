@@ -12,6 +12,7 @@ public class ShareLinkDto {
     private boolean scopeBasic;
     private boolean scopeSkills;
     private boolean scopeGrowth;
+    private boolean scopeResume;
     private String label;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -79,6 +80,14 @@ public class ShareLinkDto {
 
     public void setScopeGrowth(boolean scopeGrowth) {
         this.scopeGrowth = scopeGrowth;
+    }
+
+    public boolean isScopeResume() {
+        return scopeResume;
+    }
+
+    public void setScopeResume(boolean scopeResume) {
+        this.scopeResume = scopeResume;
     }
 
     public String getLabel() {

@@ -38,6 +38,16 @@ public class ShareLinkService {
      */
     public ShareLinkDto createLink(Long userId, String label, Integer expiryDays,
                                    boolean scopeBasic, boolean scopeSkills, boolean scopeGrowth) throws SQLException {
+        return createLink(userId, label, expiryDays, scopeBasic, scopeSkills, scopeGrowth, false);
+    }
+
+    /**
+     * @param scopeResume 이력서 파일 공개 — 연락처 같은 개인정보가 들어 있어 따로 고른 링크에서만 내려받을 수 있다
+     * @throws IllegalArgumentException 입력이 잘못된 경우 — 메시지를 그대로 화면에 보여준다
+     */
+    public ShareLinkDto createLink(Long userId, String label, Integer expiryDays, boolean scopeBasic,
+                                   boolean scopeSkills, boolean scopeGrowth, boolean scopeResume)
+            throws SQLException {
         String trimmedLabel = (label == null || label.isBlank()) ? null : label.trim();
         if (trimmedLabel != null && trimmedLabel.length() > LABEL_MAX_LENGTH) {
             throw new IllegalArgumentException("메모는 " + LABEL_MAX_LENGTH + "자 이내로 입력해주세요.");
@@ -45,7 +55,7 @@ public class ShareLinkService {
         if (expiryDays != null && !ALLOWED_EXPIRY_DAYS.contains(expiryDays)) {
             throw new IllegalArgumentException("만료 기간을 다시 선택해주세요.");
         }
-        if (!scopeBasic && !scopeSkills && !scopeGrowth) {
+        if (!scopeBasic && !scopeSkills && !scopeGrowth && !scopeResume) {
             throw new IllegalArgumentException("공개 범위를 하나 이상 선택해주세요.");
         }
 
@@ -57,6 +67,7 @@ public class ShareLinkService {
         link.setScopeBasic(scopeBasic);
         link.setScopeSkills(scopeSkills);
         link.setScopeGrowth(scopeGrowth);
+        link.setScopeResume(scopeResume);
         link.setLabel(trimmedLabel);
         link.setId(shareLinkDao.insert(link));
         return link;
@@ -115,6 +126,9 @@ public class ShareLinkService {
         }
         if (link.isScopeGrowth()) {
             scopes.add("성장 잠재력");
+        }
+        if (link.isScopeResume()) {
+            scopes.add("이력서 파일");
         }
         return String.join(", ", scopes);
     }

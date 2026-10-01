@@ -39,8 +39,38 @@ public class UserService {
     }
 
     // FR-11~14 회원가입
+    // 이름·나이·구분(학생/취준생/직장인)은 필수, 학년은 학생일 때만 받는다 — PersonalInfo가 검증한다.
     public Long register(String loginId, String rawPassword, String email,
-                          String major, String grade, String interestField)
+                          PersonalInfo personalInfo, String major, String interestField)
+            throws SQLException, DuplicateLoginIdException, InvalidInputException {
+        UserDto user = newUser("APPLICANT", loginId, rawPassword, email);
+        user.setName(personalInfo.getName());
+        user.setAge(personalInfo.getAge());
+        user.setCareerStatus(personalInfo.getCareerStatus());
+        user.setGrade(personalInfo.getGrade());
+        user.setMajor(major);
+        user.setInterestField(interestField);
+        return insert(user);
+    }
+
+    // 면접관 가입 — 이름만 받고 나이·전공·학년 같은 지원자 항목은 받지 않는다. 회사명은 면접관의 비교 목록에 저장한다.
+    public Long registerInterviewer(String loginId, String rawPassword, String email,
+                                    PersonalInfo personalInfo, String companyName)
+            throws SQLException, DuplicateLoginIdException, InvalidInputException {
+        String company;
+        try {
+            company = InterviewerService.normalizeCompanyName(companyName);
+        } catch (IllegalArgumentException e) {
+            throw new InvalidInputException(e.getMessage());
+        }
+        UserDto user = newUser("INTERVIEWER", loginId, rawPassword, email);
+        user.setName(personalInfo.getName());
+        Long userId = insert(user);
+        new InterviewerService().getOrCreateSession(userId, company);
+        return userId;
+    }
+
+    private UserDto newUser(String userType, String loginId, String rawPassword, String email)
             throws SQLException, DuplicateLoginIdException, InvalidInputException {
         String trimmedLoginId = loginId == null ? "" : loginId.trim();
         if (trimmedLoginId.isEmpty() || trimmedLoginId.length() > LOGIN_ID_MAX_LENGTH) {
@@ -57,16 +87,16 @@ public class UserService {
         }
 
         UserDto user = new UserDto();
-        user.setUserType("APPLICANT");
+        user.setUserType(userType);
         user.setLoginId(trimmedLoginId);
         user.setPasswordHash(PasswordUtil.hash(rawPassword));
         user.setEmail(email);
-        user.setMajor(major);
-        user.setGrade(grade);
-        user.setInterestField(interestField);
         user.setDesiredJobStatus("UNSET");
         user.setPrivacyConsentAt(LocalDateTime.now());
+        return user;
+    }
 
+    private Long insert(UserDto user) throws SQLException, DuplicateLoginIdException {
         try {
             return userDao.insert(user);
         } catch (SQLIntegrityConstraintViolationException e) {

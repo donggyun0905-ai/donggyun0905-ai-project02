@@ -69,15 +69,19 @@ CREATE TABLE CERTIFICATION (
 -- =========================================================
 CREATE TABLE USERS (
     id                    BIGINT       NOT NULL AUTO_INCREMENT,
-    user_type             VARCHAR(15)  NOT NULL DEFAULT 'APPLICANT', -- APPLICANT(지원자) / INTERVIEWER(면접관, 미사용) — TD-4
+    user_type             VARCHAR(15)  NOT NULL DEFAULT 'APPLICANT', -- APPLICANT(지원자) / INTERVIEWER(면접관) — TD-4
     login_id              VARCHAR(50)  NOT NULL,
     password_hash         VARCHAR(255) NOT NULL,
+    name                  VARCHAR(50)  NULL, -- 가입 시 필수 입력. 컬럼 추가 전 가입자는 NULL
+    age                   INT          NULL,
+    career_status         VARCHAR(15)  NULL, -- STUDENT(학생) / JOB_SEEKER(취준생) / EMPLOYED(직장인)
     email                 VARCHAR(100) NULL,
     major                 VARCHAR(50)  NULL,
     grade                 VARCHAR(20)  NULL,
     interest_field        VARCHAR(50)  NULL,
     desired_job_id        BIGINT       NULL,
     desired_job_status    VARCHAR(10)  NOT NULL DEFAULT 'UNSET',
+    resume_document_id    BIGINT       NULL, -- 이력서 파일 → DOCUMENTS. FK는 DOCUMENTS가 생긴 뒤 03_schema_extended.sql에서 건다
     privacy_consent_at    DATETIME     NULL,
     profile_updated_at    DATETIME     NULL,
     last_login_at         DATETIME     NULL,
@@ -88,6 +92,7 @@ CREATE TABLE USERS (
     UNIQUE KEY uk_users_login_id (login_id),
     KEY idx_users_email (email),
     KEY idx_users_desired_job_id (desired_job_id),
+    KEY idx_users_resume_document_id (resume_document_id),
     CONSTRAINT fk_users_desired_job
         FOREIGN KEY (desired_job_id) REFERENCES JOB (id)
         ON DELETE RESTRICT ON UPDATE CASCADE

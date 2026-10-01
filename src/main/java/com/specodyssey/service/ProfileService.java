@@ -172,6 +172,27 @@ public class ProfileService {
         userDao.updateProfile(user);
     }
 
+    // 기본정보와 함께 이름·나이·구분·학년도 저장한다. 학년은 구분이 학생일 때만 남는다.
+    public void updateBasicInfo(Long userId, PersonalInfo personalInfo, String email, String major,
+                                 String interestField, Long desiredJobId, String desiredJobStatus)
+            throws SQLException {
+        UserDto user = userDao.findById(userId);
+        if (user == null) {
+            return;
+        }
+        user.setName(personalInfo.getName());
+        user.setAge(personalInfo.getAge());
+        user.setCareerStatus(personalInfo.getCareerStatus());
+        user.setGrade(personalInfo.getGrade());
+        user.setEmail(email);
+        user.setMajor(major);
+        user.setInterestField(interestField);
+        user.setDesiredJobId(desiredJobId);
+        user.setDesiredJobStatus(desiredJobStatus);
+        user.setProfileUpdatedAt(LocalDateTime.now());
+        userDao.updateProfile(user);
+    }
+
     public Long addSpec(Long userId, UserSpecDto spec) throws SQLException {
         spec.setUserId(userId);
         return runInTransaction(userId, conn -> userSpecDao.insert(conn, spec));

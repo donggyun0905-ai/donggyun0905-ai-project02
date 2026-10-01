@@ -1,10 +1,12 @@
 package com.specodyssey.controller;
 
 import com.specodyssey.dto.EvaluationSessionDto;
+import com.specodyssey.dto.DocumentDto;
 import com.specodyssey.dto.ShareViewDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.service.EvaluationCompareService;
 import com.specodyssey.service.ShareViewService;
+import com.specodyssey.util.FileStorageUtil;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -15,21 +17,27 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.sql.SQLException;
 
 /**
  * 면접관 뷰(로그인 없이 링크로만 접근). 관련 요구사항: FR-81~86
  * 화면설계 PDF "13. 면접관 뷰", "14. 면접관 비교 뷰", "6-4. 유효하지 않은 공유 링크" 기준.
  * "/share/*"는 SessionFilter의 PUBLIC_PREFIXES에 있어 로그인 없이 열린다(FR-14 면접관은 계정이 없음).
- * "/share/{token}"은 지원자 이력(ShareViewService), "/share/compare"는 비교(장바구니,
- * EvaluationCompareService) — 면접관도 계정이 없어 쿠키의 session_token이 소유 증명을
- * 대신한다(EVALUATION_SESSION, FR-82).
+ * "/share/{token}"은 지원자 이력(ShareViewService). 접근 제어는 ShareViewService가 토큰·활성·만료·공개 범위로 대신한다.
+ * 비교(FR-82·83)는 두 갈래다 — 로그인한 면접관 계정은 InterviewerServlet "/interviewer/compare"로 보내고,
+ * 계정 없이 들어온 접속은 "/share/compare"(EvaluationCompareService)에서 쿠키의 session_token을
+ * 소유 증명으로 쓴다(EVALUATION_SESSION.user_id가 NULL인 익명 세션).
  */
 @WebServlet("/share/*")
 public class ShareViewServlet extends HttpServlet {
 
     private static final String SESSION_COOKIE_NAME = "evalSessionToken";
     private static final int SESSION_COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60; // 30일
+    private static final String RESUME_SUFFIX = "/resume";
 
     private final ShareViewService shareViewService = new ShareViewService();
     private final EvaluationCompareService evaluationCompareService = new EvaluationCompareService();
@@ -38,8 +46,21 @@ public class ShareViewServlet extends HttpServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         String pathInfo = req.getPathInfo();
 
+        // 비교: 로그인한 면접관 계정은 계정 화면으로, 계정 없는 접속은 쿠키 세션 비교(익명)로 처리한다.
         if ("/compare".equals(pathInfo)) {
+            UserDto compareUser = (UserDto) (req.getSession(false) == null
+                    ? null : req.getSession(false).getAttribute("loginUser"));
+            if (compareUser != null && RoleFilter.INTERVIEWER.equals(compareUser.getUserType())) {
+                resp.sendRedirect(req.getContextPath() + "/interviewer/compare");
+                return;
+            }
             handleCompareGet(req, resp);
+            return;
+        }
+
+        // "/share/{토큰}/resume" — 이력서 파일 내려받기
+        if (pathInfo != null && pathInfo.endsWith(RESUME_SUFFIX)) {
+            downloadResume(resp, pathInfo.substring(1, pathInfo.length() - RESUME_SUFFIX.length()));
             return;
         }
 
@@ -60,7 +81,9 @@ public class ShareViewServlet extends HttpServlet {
 
         req.setAttribute("valid", view != null);
         req.setAttribute("view", view);
+        // 비교 목록에 담기는 면접관 계정만 할 수 있다 — 열람 자체는 로그인 없이도 된다(FR-85)
         req.setAttribute("token", token);
+        req.setAttribute("interviewer", loginUser != null && RoleFilter.INTERVIEWER.equals(loginUser.getUserType()));
         req.getRequestDispatcher("/WEB-INF/views/interviewer-view.jsp").forward(req, resp);
     }
 
@@ -114,7 +137,7 @@ public class ShareViewServlet extends HttpServlet {
         } catch (SQLException e) {
             throw new ServletException("비교 목록을 불러오는 중 오류가 발생했습니다.", e);
         }
-        req.getRequestDispatcher("/WEB-INF/views/interviewer-compare.jsp").forward(req, resp);
+        req.getRequestDispatcher("/WEB-INF/views/share-compare.jsp").forward(req, resp);
     }
 
     // 쿠키의 세션 토큰을 재사용하거나, 없거나 만료됐으면 새로 만들어 쿠키를 다시 심는다.
@@ -142,5 +165,28 @@ public class ShareViewServlet extends HttpServlet {
             }
         }
         return null;
+    }
+
+    // 지원자가 이 링크에 이력서 공개를 고른 경우에만 내려준다 — 조건 확인은 ShareViewService.loadResume이 한다.
+    // 받을 수 없는 경우는 이유를 구분하지 않고 404로 답한다(링크가 유효한지 떠볼 단서를 주지 않는다).
+    private void downloadResume(HttpServletResponse resp, String token) throws ServletException, IOException {
+        DocumentDto resume;
+        try {
+            resume = shareViewService.loadResume(token);
+        } catch (SQLException e) {
+            throw new ServletException("이력서를 불러오는 중 오류가 발생했습니다.", e);
+        }
+        // 업로드 폴더는 서버 PC마다 따로라, DB에는 있는데 이 서버에는 파일이 없을 수 있다
+        if (resume == null || !Files.isRegularFile(Paths.get(resume.getFilePath()))) {
+            resp.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+
+        resp.setHeader("Cache-Control", "no-store");
+        resp.setHeader("X-Robots-Tag", "noindex, nofollow");
+        resp.setContentType(resume.getMimeType() != null ? resume.getMimeType() : "application/octet-stream");
+        resp.setHeader("Content-Disposition", "attachment; filename*=UTF-8''"
+                + URLEncoder.encode(resume.getOriginalName(), StandardCharsets.UTF_8));
+        FileStorageUtil.writeTo(resume.getFilePath(), resp.getOutputStream());
     }
 }
