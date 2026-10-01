@@ -6,7 +6,10 @@ import com.specodyssey.dao.JobDao;
 import com.specodyssey.dao.UserDao;
 import com.specodyssey.dto.JobDto;
 import com.specodyssey.dto.UserDto;
+import com.specodyssey.service.AiUsageLogService;
+import com.specodyssey.service.PersonalInfo;
 import com.specodyssey.service.ProfileService;
+import com.specodyssey.service.ResumeService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -31,6 +34,8 @@ public class ProfileServlet extends HttpServlet {
     private final JobAliasDao jobAliasDao = new JobAliasDao();
     private final DocumentDao documentDao = new DocumentDao();
     private final ProfileService profileService = new ProfileService();
+    private final AiUsageLogService aiUsageLogService = new AiUsageLogService();
+    private final ResumeService resumeService = new ResumeService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -62,11 +67,21 @@ public class ProfileServlet extends HttpServlet {
             throws ServletException, IOException {
         String email = req.getParameter("email");
         String major = req.getParameter("major");
-        String grade = req.getParameter("grade");
         String interestField = req.getParameter("interestField");
         String desiredJobQuery = req.getParameter("desiredJobQuery");
 
         try {
+            PersonalInfo personalInfo;
+            try {
+                personalInfo = parsePersonalInfo(req);
+            } catch (IllegalArgumentException e) {
+                loadProfileAttributes(req, userId);
+                req.setAttribute("desiredJobQuery", desiredJobQuery);
+                req.setAttribute("errorMessage", e.getMessage());
+                req.getRequestDispatcher("/WEB-INF/views/profile.jsp").forward(req, resp);
+                return;
+            }
+
             // 검색창을 비워두면 "아직 모르겠음", 뭐라도 입력하면 "선택함"으로 본다 — 예전엔 이걸
             // 별도 라디오 버튼으로 따로 받았는데, 검색창에 입력만 하고 라디오를 안 누르면 조용히
             // 저장이 안 되는 문제가 있었다(사용자 확인, 2026-09-29). 입력 자체가 곧 의사표시라
@@ -92,7 +107,7 @@ public class ProfileServlet extends HttpServlet {
                     // 기본정보 입력값도 확인 폼의 hidden 필드로 그대로 들고 간다.
                     req.setAttribute("pendingEmail", email);
                     req.setAttribute("pendingMajor", major);
-                    req.setAttribute("pendingGrade", grade);
+                    req.setAttribute("pendingPersonalInfo", personalInfo);
                     req.setAttribute("pendingInterestField", interestField);
                     req.getRequestDispatcher("/WEB-INF/views/profile.jsp").forward(req, resp);
                     return;
@@ -101,7 +116,8 @@ public class ProfileServlet extends HttpServlet {
                 desiredJobStatus = "SET";
             }
 
-            profileService.updateBasicInfo(userId, email, major, grade, interestField, desiredJobId, desiredJobStatus);
+            profileService.updateBasicInfo(userId, personalInfo, email, major, interestField,
+                    desiredJobId, desiredJobStatus);
             refreshSessionUser(req, userId);
         } catch (SQLException e) {
             throw new ServletException("프로필 저장 중 오류가 발생했습니다.", e);
@@ -116,7 +132,6 @@ public class ProfileServlet extends HttpServlet {
             throws ServletException, IOException {
         String email = req.getParameter("email");
         String major = req.getParameter("major");
-        String grade = req.getParameter("grade");
         String interestField = req.getParameter("interestField");
         String confirmedJobIdParam = req.getParameter("confirmedJobId");
 
@@ -127,9 +142,11 @@ public class ProfileServlet extends HttpServlet {
                 resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "잘못된 요청입니다.");
                 return;
             }
-            profileService.updateBasicInfo(userId, email, major, grade, interestField, job.getId(), "SET");
+            // 확인 폼의 hidden 필드로 넘어온 값이라 변조됐을 수 있다 — 다시 검증한다
+            profileService.updateBasicInfo(userId, parsePersonalInfo(req), email, major, interestField,
+                    job.getId(), "SET");
             refreshSessionUser(req, userId);
-        } catch (NumberFormatException e) {
+        } catch (IllegalArgumentException e) { // NumberFormatException 포함
             resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "잘못된 요청입니다.");
             return;
         } catch (SQLException e) {
@@ -137,6 +154,11 @@ public class ProfileServlet extends HttpServlet {
         }
 
         resp.sendRedirect(req.getContextPath() + "/profile");
+    }
+
+    private PersonalInfo parsePersonalInfo(HttpServletRequest req) {
+        return PersonalInfo.of(req.getParameter("name"), req.getParameter("age"),
+                req.getParameter("careerStatus"), req.getParameter("grade"));
     }
 
     // 세션에 들고 있는 사본도 최신화 (비밀번호 해시는 세션에 두지 않는다)
@@ -161,6 +183,19 @@ public class ProfileServlet extends HttpServlet {
         req.setAttribute("skills", profileService.getSkills(userId));
         // FR-62 프로젝트에 연결된 첨부 파일 조회·다운로드 — PROJECT 로드맵 단계 완료 시 자동 등록된다.
         req.setAttribute("documents", documentDao.findByUserId(userId));
+        // FR-101·102(선택) AI 활용 기록 자기 제출.
+        req.setAttribute("aiUsageEntries", aiUsageLogService.listMine(userId));
+        req.setAttribute("resume", resumeService.findResume(userId));
+        req.setAttribute("coverLetter", resumeService.findCoverLetter(userId));
+        // 이력서·자소서 올리기·삭제(ProfileResumeServlet)는 끝나면 이 화면으로 돌아온다 — 결과 문구를 한 번만 보여준다
+        HttpSession session = req.getSession(false);
+        for (String key : new String[] {"resumeMessage", "coverLetterMessage"}) {
+            Object message = session.getAttribute(key);
+            if (message != null) {
+                session.removeAttribute(key);
+                req.setAttribute(key, message);
+            }
+        }
     }
 
     private Long currentUserId(HttpServletRequest req) {

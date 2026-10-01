@@ -99,7 +99,7 @@ class ScoreServiceTest {
 
         LevelTierDto tier = scoreService.getTier(summary.getCurrentTierId());
         assertEquals("취준생", tier.getTierName());
-        assertEquals("견습 항해사", tier.getTitleName());
+        assertEquals("방랑자", tier.getTitleName());
     }
 
     @Test

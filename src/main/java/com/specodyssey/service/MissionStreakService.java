@@ -45,6 +45,13 @@ public class MissionStreakService {
             return streak + 1;
         }
 
+        // Tomcat 11(EL 6)의 RecordELResolver는 record를 만나면 getX()가 아니라 구성요소 이름 그대로의
+        // 접근자 메서드(x())만 찾는다 — JSP의 ${missionStreak.nextStreak}가 NoSuchMethodException으로 터지던 원인.
+        // Tomcat 10 계열(BeanELResolver)은 위 getNextStreak()를 쓰므로 둘 다 둔다.
+        public int nextStreak() {
+            return getNextStreak();
+        }
+
         public List<DayView> getDays() {
             return days;
         }

@@ -87,6 +87,26 @@ public class ResumeFeedbackService {
      * 화면이 이 위치로 본문을 잘라 "원문 → 제안"을 겹쳐 보여주고, 적용하면 그 구간을 suggestion으로 바꾼다.
      */
     public record Suggestion(int start, int end, String original, String suggestion, String reason) {
+        // JSP의 EL이 읽을 수 있게 getter를 같이 둔다 — Tomcat 10.1(BeanELResolver)은 getX()만, Tomcat 11(RecordELResolver)은 x()만 찾는다.
+        public int getStart() {
+            return start;
+        }
+
+        public int getEnd() {
+            return end;
+        }
+
+        public String getOriginal() {
+            return original;
+        }
+
+        public String getSuggestion() {
+            return suggestion;
+        }
+
+        public String getReason() {
+            return reason;
+        }
     }
 
     /** 추천 키워드. estimated = 직무 요구 기술이 추정치(is_estimated)라 "예시적 추정" 표시가 필요한지 */
@@ -97,12 +117,22 @@ public class ResumeFeedbackService {
 
     /** text = 첨삭받은 본문(줄바꿈을 \n으로 맞춘 것). Suggestion의 위치는 이 문자열 기준이다. */
     public record Feedback(String text, String summary, List<Suggestion> items, List<Keyword> keywords) {
+        // JSP의 EL이 읽을 수 있게 getter를 같이 둔다 — Tomcat 10.1(BeanELResolver)은 getX()만, Tomcat 11(RecordELResolver)은 x()만 찾는다.
+        public String getText() {
+            return text;
+        }
+
         public String getSummary() { return summary; }
         public List<Suggestion> getItems() { return items; }
         public List<Keyword> getKeywords() { return keywords; }
 
         public boolean isAnyEstimated() {
             return keywords.stream().anyMatch(Keyword::estimated);
+        }
+
+        // Tomcat 11(EL 6)의 RecordELResolver는 x() 형태 접근자만 찾는다 — MissionStreakService.StreakView 주석 참고.
+        public boolean anyEstimated() {
+            return isAnyEstimated();
         }
     }
 
@@ -111,7 +141,7 @@ public class ResumeFeedbackService {
     private final JobRequiredSkillDao requiredSkillDao = new JobRequiredSkillDao();
 
     public ResumeFeedbackService() {
-        this(new GroqLlmClient("RESUME_FEEDBACK_MODEL", DEFAULT_MODEL));
+        this(GroqLlmClient.fromConfig("RESUME_FEEDBACK_MODEL", DEFAULT_MODEL));
     }
 
     public ResumeFeedbackService(LlmClient llm) {

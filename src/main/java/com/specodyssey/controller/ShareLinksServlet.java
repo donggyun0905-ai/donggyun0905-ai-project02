@@ -72,7 +72,9 @@ public class ShareLinksServlet extends HttpServlet {
                             expiryDays == 0 ? null : expiryDays, // 0 = 만료 없음
                             req.getParameter("scopeBasic") != null,
                             req.getParameter("scopeSkills") != null,
-                            req.getParameter("scopeGrowth") != null);
+                            req.getParameter("scopeGrowth") != null,
+                            req.getParameter("scopeResume") != null,
+                            req.getParameter("scopeCoverLetter") != null);
                 } catch (IllegalArgumentException e) {
                     req.setAttribute("errorMessage", e.getMessage());
                     showPage(req, resp, userId);

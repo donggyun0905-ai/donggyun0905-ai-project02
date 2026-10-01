@@ -126,6 +126,8 @@ class DdayServiceTest {
                 () -> service.addItem(userId, "제목", TODAY.minusDays(1), "CUSTOM", TODAY));
         assertThrows(IllegalArgumentException.class,
                 () -> service.addItem(userId, "제목", TODAY.plusDays(1), "UNKNOWN", TODAY));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.addItem(userId, "제목", TODAY.plusDays(1), null, TODAY));
 
         assertTrue(service.listItems(userId, TODAY).isEmpty());
     }

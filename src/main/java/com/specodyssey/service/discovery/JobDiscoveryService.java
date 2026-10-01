@@ -15,7 +15,7 @@ import com.specodyssey.dto.SurveyQuestionDto;
 import com.specodyssey.dto.UserProjectDto;
 import com.specodyssey.dto.UserSkillDto;
 import com.specodyssey.dto.UserSurveyAnswerDto;
-import com.specodyssey.service.ExactMatcher;
+import com.specodyssey.service.EmbeddingMatcher;
 import com.specodyssey.service.SkillMatcher;
 import com.specodyssey.service.discovery.JobDiscoveryScorer.JobCandidate;
 import com.specodyssey.service.discovery.JobDiscoveryScorer.OwnedSkill;
@@ -59,7 +59,9 @@ public class JobDiscoveryService {
     private final JobDiscoveryScorer scorer = new JobDiscoveryScorer();
 
     public JobDiscoveryService() {
-        this(new ExactMatcher()); // E의 EmbeddingMatcher가 나오면 여기만 바꾼다
+        // EmbeddingMatcher: TD-1 임베딩까지 붙은 최종 매처(2026-09-30). 정확 일치·SKILL_ALIAS·
+        // 편집거리로 못 잡으면 로컬 임베딩 유사도까지 시도한다.
+        this(new EmbeddingMatcher());
     }
 
     public JobDiscoveryService(SkillMatcher skillMatcher) {

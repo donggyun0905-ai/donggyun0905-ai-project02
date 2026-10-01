@@ -59,6 +59,14 @@ public class CodeCompileService {
 
     /** 확인 결과. passed=false면 message에 컴파일러가 알려 준 오류가 들어 있다. */
     public record CompileCheck(boolean passed, String message) {
+        // JSP의 EL이 읽을 수 있게 getter를 같이 둔다 — Tomcat 10.1(BeanELResolver)은 getX()만, Tomcat 11(RecordELResolver)은 x()만 찾는다.
+        public boolean isPassed() {
+            return passed;
+        }
+
+        public String getMessage() {
+            return message;
+        }
     }
 
     // Judge0 status id

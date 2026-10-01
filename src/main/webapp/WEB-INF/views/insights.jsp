@@ -25,26 +25,50 @@
         </div>
 
         <div class="card">
-            <div class="spread"><h2>또래 비교</h2><span class="pill">샘플 데이터 기준</span></div>
-            <p class="muted" style="margin-top:4px;">컴퓨터공학과·4학년 평균과 스펙 완성도 비교</p>
-            <div style="margin-top:12px; font-size:0.88rem;">
-                <div class="spread" style="margin-bottom:6px;"><span>나</span><span>62</span></div>
-                <div class="progress-track" style="margin:0 0 12px;"><div class="progress-fill" style="width:62%;"></div></div>
-                <div class="spread" style="margin-bottom:6px;"><span>같은 전공·학년 평균</span><span>55</span></div>
-                <div class="progress-track" style="margin:0;"><div class="progress-fill" style="width:55%; background:var(--locked);"></div></div>
-            </div>
-            <p class="muted" style="margin-top:10px; margin-bottom:0;">평균보다 7점 높습니다. 자격증은 평균 수준이고, 프로젝트 수는 평균보다 적습니다.</p>
+            <div class="spread"><h2>또래 비교</h2><span class="pill">실제 데이터</span></div>
+            <c:choose>
+                <c:when test="${not empty peerComparison and peerComparison.peerAverage != null}">
+                    <p class="muted" style="margin-top:4px;">같은 전공·학년 <c:out value="${peerComparison.peerCount}" />명 평균과 스펙 완성도 비교</p>
+                    <div style="margin-top:12px; font-size:0.88rem;">
+                        <div class="spread" style="margin-bottom:6px;"><span>나</span><span><c:out value="${peerComparison.myScore}" /></span></div>
+                        <div class="progress-track" style="margin:0 0 12px;"><div class="progress-fill" style="width:${peerComparison.myScore}%;"></div></div>
+                        <div class="spread" style="margin-bottom:6px;"><span>같은 전공·학년 평균</span><span><c:out value="${peerComparison.peerAverage}" /></span></div>
+                        <div class="progress-track" style="margin:0;"><div class="progress-fill" style="width:${peerComparison.peerAverage}%; background:var(--locked);"></div></div>
+                    </div>
+                    <p class="muted" style="margin-top:10px; margin-bottom:0;"><c:out value="${peerDiffMessage}" /></p>
+                </c:when>
+                <c:otherwise>
+                    <p class="muted" style="margin-top:4px;">아직 같은 전공·학년의 비교 데이터가 없습니다. 사용자가 더 모이면 표시됩니다.</p>
+                </c:otherwise>
+            </c:choose>
         </div>
 
         <div class="card">
             <div class="spread"><h2>합격자 참고 루트</h2><span class="pill">예시적 추정</span></div>
             <p class="muted" style="margin-top:4px;">실제 합격자 데이터가 아니라, AI가 단계별로 정리한 참고 기준입니다.</p>
-            <table style="margin-top:10px;">
-                <tr><td style="width:140px;"><strong>입문</strong><br><span class="muted" style="font-size:0.78rem;">ENTRY · 달성</span></td><td>정보처리기사 · Java와 Spring으로 만든 프로젝트 1개</td></tr>
-                <tr><td><strong>핵심</strong><br><span class="muted" style="font-size:0.78rem;">CORE · 진행 중</span></td><td>JPA로 만든 서비스 배포 · SQLD · Git으로 협업한 경험</td></tr>
-                <tr><td><strong>심화</strong><br><span class="muted" style="font-size:0.78rem;">ADVANCED</span></td><td>캐시(Redis)로 응답 속도 개선 · 클라우드(AWS) 배포 · 테스트 코드 작성</td></tr>
-                <tr><td><strong>전문가</strong><br><span class="muted" style="font-size:0.78rem;">EXPERT</span></td><td>실사용자가 있는 서비스 운영 · Kubernetes 운영 · 오픈소스 기여</td></tr>
-            </table>
+            <c:choose>
+                <c:when test="${empty benchmark}">
+                    <p class="muted" style="margin-top:10px;">
+                        <c:choose>
+                            <c:when test="${empty sessionScope.loginUser}">희망 직무를 설정하면 참고 루트를 보여드립니다.</c:when>
+                            <c:otherwise>아직 생성된 참고 루트가 없습니다. 희망 직무를 프로필에서 설정했는지 확인해주세요.</c:otherwise>
+                        </c:choose>
+                    </p>
+                </c:when>
+                <c:otherwise>
+                    <table style="margin-top:10px;">
+                        <c:forEach var="tierGroup" items="${benchmark}">
+                            <c:set var="tierLabel" value="${tierGroup.tier == 'ENTRY' ? '입문' : tierGroup.tier == 'CORE' ? '핵심' : tierGroup.tier == 'ADVANCED' ? '심화' : '전문가'}" />
+                            <tr>
+                                <td style="width:140px;"><strong>${tierLabel}</strong><br><span class="muted" style="font-size:0.78rem;">${tierGroup.tier}</span></td>
+                                <td>
+                                    <c:forEach var="item" items="${tierGroup.items}" varStatus="st">${item.content}${st.last ? '' : ' · '}</c:forEach>
+                                </td>
+                            </tr>
+                        </c:forEach>
+                    </table>
+                </c:otherwise>
+            </c:choose>
         </div>
 
         <div class="card">

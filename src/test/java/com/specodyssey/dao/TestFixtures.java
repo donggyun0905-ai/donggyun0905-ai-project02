@@ -28,6 +28,19 @@ public final class TestFixtures {
         }
     }
 
+    public static long insertSkillAlias(Connection conn, long skillId, String aliasName) throws SQLException {
+        String sql = "INSERT INTO SKILL_ALIAS (skill_id, alias_name) VALUES (?, ?)";
+        try (PreparedStatement p = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            p.setLong(1, skillId);
+            p.setString(2, aliasName);
+            p.executeUpdate();
+            try (ResultSet rs = p.getGeneratedKeys()) {
+                rs.next();
+                return rs.getLong(1);
+            }
+        }
+    }
+
     /** FK가 걸린 자식 행부터 지워야 하므로 호출 순서(자식→부모)는 호출부 책임. */
     public static void hardDelete(Connection conn, String table, long id) throws SQLException {
         try (PreparedStatement p = conn.prepareStatement("DELETE FROM " + table + " WHERE id = ?")) {

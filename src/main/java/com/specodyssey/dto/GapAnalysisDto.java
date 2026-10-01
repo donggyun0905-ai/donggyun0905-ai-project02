@@ -9,6 +9,7 @@ public class GapAnalysisDto {
     private Long userId;
     private Long jobId;
     private BigDecimal matchRate;
+    private Integer jobRequirementVersion;
     private LocalDateTime analyzedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -44,6 +45,14 @@ public class GapAnalysisDto {
 
     public void setMatchRate(BigDecimal matchRate) {
         this.matchRate = matchRate;
+    }
+
+    public Integer getJobRequirementVersion() {
+        return jobRequirementVersion;
+    }
+
+    public void setJobRequirementVersion(Integer jobRequirementVersion) {
+        this.jobRequirementVersion = jobRequirementVersion;
     }
 
     public LocalDateTime getAnalyzedAt() {

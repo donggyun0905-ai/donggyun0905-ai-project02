@@ -12,6 +12,11 @@ public class RoadmapStepDto {
     private Long certificationId;
     private Long relatedSkillId;
     private String reason;
+    private String proofType;
+    private String proofContent;
+    private Long evidenceProjectId;
+    private String reviewStatus;
+    private String reviewNote;
     private boolean completed;
     private LocalDateTime completedAt;
     private LocalDateTime createdAt;
@@ -80,6 +85,46 @@ public class RoadmapStepDto {
 
     public void setReason(String reason) {
         this.reason = reason;
+    }
+
+    public String getProofType() {
+        return proofType;
+    }
+
+    public void setProofType(String proofType) {
+        this.proofType = proofType;
+    }
+
+    public String getProofContent() {
+        return proofContent;
+    }
+
+    public void setProofContent(String proofContent) {
+        this.proofContent = proofContent;
+    }
+
+    public Long getEvidenceProjectId() {
+        return evidenceProjectId;
+    }
+
+    public void setEvidenceProjectId(Long evidenceProjectId) {
+        this.evidenceProjectId = evidenceProjectId;
+    }
+
+    public String getReviewStatus() {
+        return reviewStatus;
+    }
+
+    public void setReviewStatus(String reviewStatus) {
+        this.reviewStatus = reviewStatus;
+    }
+
+    public String getReviewNote() {
+        return reviewNote;
+    }
+
+    public void setReviewNote(String reviewNote) {
+        this.reviewNote = reviewNote;
     }
 
     public boolean isCompleted() {

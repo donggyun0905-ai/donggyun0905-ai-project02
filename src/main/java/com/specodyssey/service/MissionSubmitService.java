@@ -37,6 +37,15 @@ public class MissionSubmitService {
 
     /** 제출 결과. SAVED가 아니면 message를 화면에 보여 준다. */
     public record SubmitResult(Status status, String message) {
+        // JSP의 EL이 읽을 수 있게 getter를 같이 둔다 — Tomcat 10.1(BeanELResolver)은 getX()만, Tomcat 11(RecordELResolver)은 x()만 찾는다.
+        public Status getStatus() {
+            return status;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
         public boolean isSaved() {
             return status == Status.SAVED;
         }
@@ -127,6 +136,14 @@ public class MissionSubmitService {
 
     /** 사용자의 현재 등급 이름과, 지금 문제를 풀면 받는 점수. 등급 마스터가 비어 있으면 name은 null. */
     public record CurrentTier(String name, int points) {
+        // JSP의 EL이 읽을 수 있게 getter를 같이 둔다 — Tomcat 10.1(BeanELResolver)은 getX()만, Tomcat 11(RecordELResolver)은 x()만 찾는다.
+        public String getName() {
+            return name;
+        }
+
+        public int getPoints() {
+            return points;
+        }
     }
 
     // TD-5 현재 등급 — 점수 기록이 없으면 0점(가장 낮은 등급)으로 본다. 미션 화면 표시와 점수 적립이 같은 기준을 쓴다.

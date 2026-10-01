@@ -69,6 +69,20 @@ public class JobPostingDao {
         }
     }
 
+    // JOB_SKILL_TREND 월별 집계용 — tech_stack이 있는 공고 전체를 훑어서 직무·월별로 묶어야 한다.
+    public List<JobPostingDto> findAll() throws SQLException {
+        String sql = "SELECT * FROM JOB_POSTING WHERE is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+            List<JobPostingDto> postings = new ArrayList<>();
+            while (rs.next()) {
+                postings.add(mapRow(rs));
+            }
+            return postings;
+        }
+    }
+
     // FR-113: On-demand 조회 결과 공고가 있는지 판단하고, 있으면 보여줄 목록
     public List<JobPostingDto> findByJobId(Long jobId) throws SQLException {
         String sql = "SELECT * FROM JOB_POSTING WHERE job_id = ? AND is_deleted = FALSE ORDER BY collected_at DESC";

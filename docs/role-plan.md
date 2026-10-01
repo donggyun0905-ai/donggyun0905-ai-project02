@@ -117,16 +117,30 @@ FR-34·38·39
 ```java
 package com.specodyssey.service;
 
-/** 사용자가 입력한 기술 원문을 표준 스킬(SKILL)에 연결한다. */
-public interface SkillMatcher {
-    /** 못 찾으면 null. score는 0~1 (정확 일치는 1.0) */
-    MatchResult match(String rawInput) throws SQLException;
+import java.sql.SQLException;
 
-    record MatchResult(Long skillId, double score) {}
+/**
+ * 사용자가 입력한 기술명(raw)을 SKILL 마스터의 한 항목으로 매칭한다.
+ * 구현체: ExactMatcher(이름 일치) — 임베딩 기반 EmbeddingMatcher가 나오면 교체한다.
+ */
+public interface SkillMatcher {
+
+    /** 매칭 결과. 매칭 실패 시 skillId는 null, score는 0. */
+    record MatchResult(Long skillId, double score) {
+        public static MatchResult none() {
+            return new MatchResult(null, 0.0);
+        }
+    }
+
+    MatchResult match(String raw) throws SQLException;
 }
 ```
 
-`ExactMatcher`는 `SkillDao.findByName`으로 대소문자·공백을 무시하고 찾아서 score 1.0을 줍니다. 첫날에 충분히 만들 수 있는 분량입니다.
+`ExactMatcher`는 앞뒤 공백을 지우고 `SkillDao.findByName`으로 찾습니다(대소문자는 SKILL 콜레이션 `utf8mb4_unicode_ci`가 무시). 찾으면 score 1.0, 못 찾거나 입력이 비어 있으면 `MatchResult.none()`을 돌려줍니다. score는 0~1이며 정확 일치는 1.0입니다.
+
+**호출부는 `null`을 받지 않습니다.** 매칭 실패는 `result.skillId() == null`로 판단하세요.
+
+> 9/29 변경: 처음 계약은 "못 찾으면 `null`"이었으나, 호출부가 null 체크 없이 쓸 수 있도록 `MatchResult.none()` 반환으로 바꿨습니다(main `83b30ec`에서 코드 반영, 이 문서는 그에 맞춰 수정).
 
 ### LLM 호출 (E 제공, B·C·D 사용)
 

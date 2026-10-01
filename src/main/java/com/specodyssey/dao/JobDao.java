@@ -55,6 +55,17 @@ public class JobDao {
         }
     }
 
+    // JOB_REQUIRED_SKILL 재수집으로 실제 요구 기술 목록이 바뀌었을 때 호출한다(2026-09-30 팀 결정).
+    // 내용이 같으면 재수집해도 이 메서드를 호출하지 않아야 한다 — 그래야 트렌드가 실제로 바뀐
+    // 직무를 목표로 삼은 사용자에게만 로드맵 화면에 "요구 기술이 바뀌었어요" 배너가 뜬다.
+    public void bumpRequirementVersion(Connection conn, Long jobId) throws SQLException {
+        String sql = "UPDATE JOB SET requirement_version = requirement_version + 1 WHERE id = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, jobId);
+            pstmt.executeUpdate();
+        }
+    }
+
     private JobDto mapRow(ResultSet rs) throws SQLException {
         JobDto job = new JobDto();
         job.setId(rs.getLong("id"));
@@ -62,6 +73,7 @@ public class JobDao {
         job.setJobCategory(rs.getString("job_category"));
         job.setPopular(rs.getBoolean("is_popular"));
         job.setLastCollectedAt(toLocalDateTime(rs.getTimestamp("last_collected_at")));
+        job.setRequirementVersion(rs.getInt("requirement_version"));
         job.setCreatedAt(toLocalDateTime(rs.getTimestamp("created_at")));
         job.setUpdatedAt(toLocalDateTime(rs.getTimestamp("updated_at")));
         job.setDeleted(rs.getBoolean("is_deleted"));

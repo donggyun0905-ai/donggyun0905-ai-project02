@@ -1,5 +1,6 @@
 package com.specodyssey.controller;
 
+import com.specodyssey.service.PersonalInfo;
 import com.specodyssey.service.UserService;
 
 import jakarta.servlet.ServletException;
@@ -32,14 +33,21 @@ public class RegisterServlet extends HttpServlet {
         String loginId = req.getParameter("loginId");
         String password = req.getParameter("password");
         String email = req.getParameter("email");
-        String major = req.getParameter("major");
-        String grade = req.getParameter("grade");
-        String interestField = req.getParameter("interestField");
+        String name = req.getParameter("name");
 
         try {
-            userService.register(loginId, password, email, major, grade, interestField);
+            if (RoleFilter.INTERVIEWER.equals(req.getParameter("userType"))) {
+                userService.registerInterviewer(loginId, password, email,
+                        PersonalInfo.nameOnly(name), req.getParameter("companyName"));
+            } else {
+                PersonalInfo personalInfo = PersonalInfo.of(name, req.getParameter("age"),
+                        req.getParameter("careerStatus"), req.getParameter("grade"));
+                userService.register(loginId, password, email, personalInfo,
+                        req.getParameter("major"), req.getParameter("interestField"));
+            }
             resp.sendRedirect(req.getContextPath() + "/login");
-        } catch (UserService.DuplicateLoginIdException | UserService.InvalidInputException e) {
+        } catch (UserService.DuplicateLoginIdException | UserService.InvalidInputException
+                 | IllegalArgumentException e) {
             req.setAttribute("errorMessage", e.getMessage());
             req.getRequestDispatcher("/WEB-INF/views/signup.jsp").forward(req, resp);
         } catch (SQLException e) {
