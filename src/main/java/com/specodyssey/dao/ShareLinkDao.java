@@ -92,6 +92,18 @@ public class ShareLinkDao {
         }
     }
 
+    // FR-86 "공유 중단"/"다시 공유하기" — 활성 여부만 토글. update()처럼 전체 필드를 다시 받을 필요
+    // 없이 이 한 플래그만 바꿀 때 쓴다. 본인 소유가 아니면 WHERE 조건에서 자연히 0행 갱신된다.
+    public void updateActive(Connection conn, Long linkId, Long userId, boolean active) throws SQLException {
+        String sql = "UPDATE SHARE_LINK SET is_active = ? WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setBoolean(1, active);
+            pstmt.setLong(2, linkId);
+            pstmt.setLong(3, userId);
+            pstmt.executeUpdate();
+        }
+    }
+
     // FR-86 공유 중단 — 논리 삭제
     public void delete(Connection conn, Long linkId, Long userId) throws SQLException {
         String sql = "UPDATE SHARE_LINK SET is_deleted = TRUE WHERE id = ? AND user_id = ?";
