@@ -10,7 +10,7 @@
     <title>${empty pageTitle ? '스펙 오디세이' : pageTitle}</title>
     <link rel="stylesheet" href="${ctx}/css/style.css">
 </head>
-<body>
+<body class="${sideWidgets ? 'has-side' : ''}">
 <input type="checkbox" id="nav-toggle">
 <header>
     <c:if test="${not empty sessionScope.loginUser}">

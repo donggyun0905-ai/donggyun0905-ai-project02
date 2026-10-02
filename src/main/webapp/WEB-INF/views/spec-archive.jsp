@@ -79,10 +79,6 @@
 </c:choose>
 
 </div>
-<%-- 오늘의 트렌드 기술 (FR-54·55) — 데이터는 TrendWidgetFilter가 목표 직무 기준으로 실어 준다 --%>
-<div class="side">
-    <jsp:include page="/WEB-INF/views/common/trend-widget.jsp" />
-</div>
 </div>
 
 <jsp:include page="/WEB-INF/views/common/footer.jsp" />

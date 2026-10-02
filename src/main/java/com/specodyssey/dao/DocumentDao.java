@@ -80,6 +80,23 @@ public class DocumentDao {
         }
     }
 
+    // 최근 서류 몇 개만 — 화면 위젯처럼 전체가 필요 없는 곳에서 서류가 많은 사용자도 가볍게 읽도록 DB에서 개수를 자른다
+    public List<DocumentDto> findRecentByUserId(Long userId, int limit) throws SQLException {
+        String sql = "SELECT " + COLUMNS + " FROM DOCUMENTS WHERE user_id = ? AND is_deleted = FALSE ORDER BY id DESC LIMIT ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            pstmt.setInt(2, Math.max(1, limit));
+            try (ResultSet rs = pstmt.executeQuery()) {
+                List<DocumentDto> documents = new ArrayList<>();
+                while (rs.next()) {
+                    documents.add(mapRow(rs));
+                }
+                return documents;
+            }
+        }
+    }
+
     public List<DocumentDto> findByUserId(Long userId) throws SQLException {
         String sql = "SELECT " + COLUMNS + " FROM DOCUMENTS WHERE user_id = ? AND is_deleted = FALSE ORDER BY id DESC";
         try (Connection conn = DBUtil.getConnection();

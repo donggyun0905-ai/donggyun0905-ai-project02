@@ -2,7 +2,7 @@
 <ul class="item-list">
     <c:forEach var="skill" items="${skills}">
         <li class="spread">
-            <span>${skill.rawInput}<c:if test="${not empty skill.proficiency}"> (${skill.proficiency})</c:if></span>
+            <span><c:out value='${skill.rawInput}' /><c:if test="${not empty skill.proficiency}"> (${skill.proficiency})</c:if></span>
             <span class="row" style="gap:8px;">
                 <details class="inline-form">
                     <summary>수정</summary>
@@ -10,7 +10,7 @@
                         <input type="hidden" name="_csrf" value="${csrfToken}">
                         <input type="hidden" name="action" value="update">
                         <input type="hidden" name="userSkillId" value="${skill.id}">
-                        <p><input type="text" name="rawInput" value="${skill.rawInput}" placeholder="기술명 (예: Python, React)" required></p>
+                        <p><input type="text" name="rawInput" value="<c:out value='${skill.rawInput}' />" placeholder="기술명 (예: Python, React)" required></p>
                         <p>
                             <select name="proficiency">
                                 <option value="" ${empty skill.proficiency ? 'selected' : ''}>숙련도 선택 안함</option>

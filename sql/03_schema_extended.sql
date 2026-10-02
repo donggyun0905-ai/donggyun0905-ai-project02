@@ -916,7 +916,8 @@ CREATE TABLE TECH_ARTICLE_COMMENT (
 -- TECH_ARTICLE_ATTACHMENT (글 첨부) — 신설 (스펙 아카이브, sql/19_alter_tech_article_spec_archive.sql)
 -- 글 하나에 여러 개(개수 제한 없음, 용량만 — 사진 1장 10MB). 본문의 [[att:N]](N = sort_order)이 놓일 자리다.
 -- attachment_type에 따라 쓰는 컬럼이 다르다.
---   IMAGE_UPLOAD : 서버에 저장한 이미지(최대 10MB) → original_name · stored_name · file_path · file_size · mime_type
+--   IMAGE_UPLOAD : 올린 이미지(글당 합계 10MB) → original_name · file_size · mime_type · file_data(사진 내용, sql/20)
+--                  stored_name · file_path는 디스크 저장 시절 행에만 있다 (새 행은 비어 있음)
 --   IMAGE_URL    : 외부 이미지 링크(https) → url
 --   YOUTUBE      : 유튜브 영상 → url(원본) · embed_key(영상 ID)
 -- 복합 UNIQUE: (article_id, sort_order) — 한 글 안에서 표시 순서가 겹치지 않게.
@@ -933,6 +934,7 @@ CREATE TABLE TECH_ARTICLE_ATTACHMENT (
     file_path        VARCHAR(500)   NULL,
     file_size        BIGINT         NULL,
     mime_type        VARCHAR(100)   NULL,
+    file_data        MEDIUMBLOB     NULL, -- IMAGE_UPLOAD 사진 내용 — 어느 서버에서든 보이게 DB에 저장
     created_at       DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     is_deleted       BOOLEAN        NOT NULL DEFAULT FALSE,

@@ -215,4 +215,35 @@ class DocumentServletsTest {
             assertEquals(400, resp.errorStatus, String.valueOf(pathInfo));
         }
     }
+
+    @Test
+    void 디스크에_파일이_없는_서류를_받으면_500이_아니라_404다() throws Exception {
+        // 파일이 옮겨졌거나 지워졌거나, [TEST] 통과 버튼으로 만든(파일 없는) 서류를 가정한다
+        DocumentDto doc = saveDocument(owner, "사라질것.txt", "text/plain");
+        FileStorageUtil.deleteQuietly(doc.getFilePath());
+
+        for (Long id : new Long[] {doc.getId()}) {
+            FakeWeb.Request req = FakeWeb.request().loggedIn(owner);
+            req.servletPath = "/documents";
+            req.pathInfo = "/" + id;
+            FakeWeb.Response resp = FakeWeb.response();
+            download.doGet(req.http(), resp.http());
+            assertEquals(404, resp.errorStatus);
+            assertEquals(0, resp.body.size());
+        }
+        // 경로가 비어 있는 서류(파일 없이 만든 것)도 마찬가지
+        DocumentDto empty = saveDocument(owner, "빈경로.txt", "text/plain");
+        try (java.sql.Connection conn = com.specodyssey.util.DBUtil.getConnection();
+             java.sql.PreparedStatement p = conn.prepareStatement("UPDATE DOCUMENTS SET file_path = '' WHERE id = ?")) {
+            p.setLong(1, empty.getId());
+            p.executeUpdate();
+        }
+        FakeWeb.Request req = FakeWeb.request().loggedIn(owner);
+        req.servletPath = "/documents";
+        req.pathInfo = "/" + empty.getId();
+        FakeWeb.Response resp = FakeWeb.response();
+        download.doGet(req.http(), resp.http());
+        assertEquals(404, resp.errorStatus);
+    }
 }
+

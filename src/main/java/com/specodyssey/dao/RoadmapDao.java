@@ -105,6 +105,21 @@ public class RoadmapDao {
     }
 
     // 이 로드맵이 겨냥한 직무 — 단계 점수를 직무 사다리 기준으로 정하려고 쓴다(GAP_ANALYSIS.job_id)
+    // 바뀐 부분만 반영(RoadmapRefresher)할 때 — 같은 로드맵을 그대로 두고 기준 분석과 버전만 최신으로 바꾼다.
+    // gap_analysis_id는 UNIQUE라 호출부가 "그 분석으로 만든 다른 로드맵이 없다"를 먼저 확인한다.
+    public int updateGapAnalysisAndVersion(Connection conn, Long roadmapId, Long userId, Long gapAnalysisId, int version)
+            throws SQLException {
+        String sql = "UPDATE ROADMAP SET gap_analysis_id = ?, version = ? " +
+                "WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, gapAnalysisId);
+            pstmt.setInt(2, version);
+            pstmt.setLong(3, roadmapId);
+            pstmt.setLong(4, userId);
+            return pstmt.executeUpdate();
+        }
+    }
+
     public Long findJobIdByRoadmapId(Connection conn, Long roadmapId) throws SQLException {
         String sql = "SELECT g.job_id FROM ROADMAP r JOIN GAP_ANALYSIS g ON g.id = r.gap_analysis_id WHERE r.id = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {

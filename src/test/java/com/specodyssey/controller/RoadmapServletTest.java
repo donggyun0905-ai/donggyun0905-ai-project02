@@ -35,6 +35,17 @@ class RoadmapServletTest {
         user.setId(new UserDao().insert(user));
     }
 
+    // [TEST] 통과 버튼은 기본이 켜짐이다 — "증빙 없이는 완료 못 한다"는 규칙을 확인하는 테스트는 끈 상태로 고정한다
+    @org.junit.jupiter.api.BeforeEach
+    void shortcutOff() {
+        RoadmapServlet.testShortcutOverride = false;
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void shortcutReset() {
+        RoadmapServlet.testShortcutOverride = null;
+    }
+
     @AfterAll
     static void tearDown() throws Exception {
         try (Connection conn = DBUtil.getConnection()) {
@@ -97,5 +108,17 @@ class RoadmapServletTest {
         servlet.doPost(foreign.http(), resp.http());
         assertEquals("/roadmap", resp.redirect);
         assertNull(foreign.session.attributes.get("roadmapNotice"));
+    }
+
+    @org.junit.jupiter.api.Test
+    void 테스트_통과_버튼은_기본이_켜짐이고_false로_끄면_꺼진다() {
+        RoadmapServlet.testShortcutOverride = null;
+        // .env에 아무 값이 없는 테스트 환경에서는 켜짐
+        assertEquals(!"false".equalsIgnoreCase(com.specodyssey.util.AppConfig.get("ENABLE_TEST_SHORTCUT")),
+                RoadmapServlet.testShortcutEnabled());
+        RoadmapServlet.testShortcutOverride = false;
+        assertEquals(false, RoadmapServlet.testShortcutEnabled());
+        RoadmapServlet.testShortcutOverride = true;
+        assertEquals(true, RoadmapServlet.testShortcutEnabled());
     }
 }

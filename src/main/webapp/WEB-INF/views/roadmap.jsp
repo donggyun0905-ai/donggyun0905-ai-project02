@@ -27,7 +27,7 @@
             <p style="background:var(--teal-bg); color:var(--teal); border-radius:6px; padding:10px 14px;"><c:out value="${roadmapNotice}" /></p>
         </c:if>
         <c:if test="${not empty errorMessage}">
-            <p class="error-message">${errorMessage}</p>
+            <p class="error-message"><c:out value='${errorMessage}' /></p>
         </c:if>
 
         <%-- "로드맵이 한 번 만들면 고정되는 문제" 해결(2026-09-30 팀 결정) — 목표 직무의 요구 기술이
@@ -44,10 +44,6 @@
             </div>
         </c:if>
 
-        <div class="roadmap-layout">
-        <aside class="rm-left">
-            <jsp:include page="/WEB-INF/views/common/roadmap-left-widgets.jsp" />
-        </aside>
         <div class="rm-center">
         <c:choose>
             <c:when test="${empty roadmap}">
@@ -114,9 +110,8 @@
                  없다 — 잠긴 단계는 완료할 수 없다. --%>
             <c:set var="nextLockedTier" value="${progress.nextLockedTier}" />
             <div class="journey-track-scroll" id="journeyScroll">
-            <div class="journey-track" style="margin-top:16px;">
+            <div class="journey-track" style="margin-top:16px;" data-user-id="${sessionScope.loginUser.id}">
                 <c:set var="foundCurrent" value="false" scope="page" />
-                <c:set var="rowIndex" value="0" scope="page" />
                 <c:if test="${hiddenCompletedCount > 0}">
                     <p class="muted" style="text-align:center; margin:0 0 10px;"><a href="${pageContext.request.contextPath}/roadmap?history=all">이전 완료 기록 ${hiddenCompletedCount}개 더 보기</a></p>
                 </c:if>
@@ -128,7 +123,6 @@
                     <c:if test="${step.completed || step.upkeep
                                   || (not progress.journeyComplete && step.tier == currentTier.tier)
                                   || (not empty nextLockedTier && step.tier == nextLockedTier.tier)}">
-                        <c:set var="rowIndex" value="${rowIndex + 1}" scope="page" />
                         <c:choose>
                             <c:when test="${step.completed}">
                                 <c:set var="markerClass" value="completed is-past" />
@@ -159,9 +153,14 @@
                             </c:otherwise>
                         </c:choose>
 
-                        <div class="journey-row ${rowIndex % 2 == 1 ? 'card-left' : 'card-right'}" data-step-id="${step.id}">
+                        <%-- 좌우는 화면에 보이는 순번이 아니라 단계 고유 번호(id)로 정한다 — 한 번 정해진 자리는 바뀌지 않는다.
+                             보이는 순번으로 정하면 끝낸 단계가 접히거나 새 단계가 사이에 끼어들 때마다 뒤 단계의 좌우가 전부
+                             뒤집혀 길 모양이 바뀐다. 한 번에 만든 단계는 id가 이어져 있어 좌우가 번갈아 나오고, 나중에 붙은
+                             단계(복습·새 기술)는 앞 단계와 같은 쪽에 놓일 수 있다. --%>
+                        <c:set var="cardLeft" value="${step.id % 2 == 1}" scope="page" />
+                        <div class="journey-row ${cardLeft ? 'card-left' : 'card-right'}" data-step-id="${step.id}">
                             <div class="journey-marker ${markerClass}">${markerIcon}</div>
-                            <div class="journey-card ${cardClass}" style="grid-column: ${rowIndex % 2 == 1 ? 1 : 3};">
+                            <div class="journey-card ${cardClass}" style="grid-column: ${cardLeft ? 1 : 3};">
                                 <div class="row" style="margin-bottom:6px;">
                                     <span class="chip chip-teal">
                                         <c:choose>
@@ -182,11 +181,11 @@
                                     <c:when test="${ideaSplit}">
                                         <c:set var="ideaTitle" value="${fn:substringBefore(step.reason, ' — ')}" scope="page" />
                                         <c:set var="ideaDesc" value="${fn:substringAfter(step.reason, ' — ')}" scope="page" />
-                                        <p>${ideaTitle}</p>
+                                        <p><c:out value='${ideaTitle}' /></p>
                                     </c:when>
                                     <c:otherwise>
                                         <c:set var="ideaDesc" value="" scope="page" />
-                                        <p>${step.reason}</p>
+                                        <p><c:out value='${step.reason}' /></p>
                                     </c:otherwise>
                                 </c:choose>
                                 <c:if test="${markerClass == 'locked'}">
@@ -250,15 +249,10 @@
         <form action="${pageContext.request.contextPath}/roadmap" method="post" style="margin-top:20px;">
             <input type="hidden" name="_csrf" value="${csrfToken}">
             <input type="hidden" name="action" value="generate">
-            <button type="submit" class="secondary">다시 생성 (재분석 반영)</button>
+            <button type="submit" class="secondary">바뀐 부분만 다시 만들기 (재분석 반영)</button>
         </form>
             </c:otherwise>
         </c:choose>
-        </div>
-        <aside class="rm-right">
-            <jsp:include page="/WEB-INF/views/common/trend-widget.jsp" />
-            <jsp:include page="/WEB-INF/views/common/roadmap-note-widget.jsp" />
-        </aside>
         </div>
     </c:otherwise>
 </c:choose>

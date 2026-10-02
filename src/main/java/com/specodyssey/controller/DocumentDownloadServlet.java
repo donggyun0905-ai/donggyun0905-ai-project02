@@ -49,11 +49,28 @@ public class DocumentDownloadServlet extends HttpServlet {
             return;
         }
 
+        // 디스크에 파일이 없으면(옮기거나 지워졌거나, 테스트 통과 버튼으로 만든 파일 없는 서류) 500 대신 "없음"으로 답한다
+        if (!fileExists(document.getFilePath())) {
+            resp.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+
         // 저장된 MIME(브라우저가 보낸 값)은 믿지 않고 확장자로 다시 정한다
         resp.setContentType(FileStorageUtil.mimeTypeFor(document.getOriginalName()));
         resp.setHeader("Content-Disposition", "attachment; filename*=UTF-8''"
                 + URLEncoder.encode(document.getOriginalName(), StandardCharsets.UTF_8));
         FileStorageUtil.writeTo(document.getFilePath(), resp.getOutputStream());
+    }
+
+    private static boolean fileExists(String filePath) {
+        if (filePath == null || filePath.isBlank()) {
+            return false;
+        }
+        try {
+            return java.nio.file.Files.isRegularFile(java.nio.file.Paths.get(filePath));
+        } catch (java.nio.file.InvalidPathException e) {
+            return false;
+        }
     }
 
     private Long parseDocumentId(String pathInfo) {

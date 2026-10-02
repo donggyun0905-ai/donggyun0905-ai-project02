@@ -120,4 +120,28 @@ class ScoreServiceTest {
         });
         assertEquals(10, scoreService.getSummary(userId).getTotalScore());
     }
+
+    @Test
+    void 같은_사용자의_적립이_동시에_돌아도_점수가_사라지지_않는다() throws Exception {
+        scoreService.award(userId, "ROADMAP", 8000L, 1); // 요약 행을 먼저 만들어 둔다
+        int threads = 8;
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(threads);
+        java.util.concurrent.CountDownLatch go = new java.util.concurrent.CountDownLatch(1);
+        List<java.util.concurrent.Future<?>> futures = new java.util.ArrayList<>();
+        for (int i = 0; i < threads; i++) {
+            final long ref = 8100L + i;
+            futures.add(pool.submit(() -> {
+                go.await();
+                scoreService.award(userId, "ROADMAP", ref, 10);
+                return null;
+            }));
+        }
+        go.countDown();
+        for (java.util.concurrent.Future<?> f : futures) {
+            f.get(30, java.util.concurrent.TimeUnit.SECONDS);
+        }
+        pool.shutdown();
+        assertEquals(1 + threads * 10, scoreService.getSummary(userId).getTotalScore(), "동시 적립 8건이 모두 반영돼야 한다");
+    }
 }
+

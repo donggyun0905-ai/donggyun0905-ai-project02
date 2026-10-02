@@ -65,7 +65,7 @@ public class ScoreService {
         log.setEarnedAt(LocalDateTime.now());
         scoreLogDao.insert(conn, log);
 
-        UserScoreSummaryDto summary = userScoreSummaryDao.findByUserId(conn, userId);
+        UserScoreSummaryDto summary = userScoreSummaryDao.findByUserId(conn, userId, true);
         if (summary == null) {
             // 가입 시 만들어지지 않으므로 첫 적립 시점에 없으면 여기서 생성한다.
             summary = new UserScoreSummaryDto();

@@ -1,15 +1,12 @@
 package com.specodyssey.controller;
 
-import com.specodyssey.dao.DocumentDao;
 import com.specodyssey.dao.UserDao;
 import com.specodyssey.dao.UserProjectDao;
 import com.specodyssey.dto.DocumentDto;
 import com.specodyssey.dto.RoadmapDto;
 import com.specodyssey.dto.RoadmapStepDto;
 import com.specodyssey.dto.UserDto;
-import com.specodyssey.service.DailyMissionService;
 import com.specodyssey.service.GapAnalysisService;
-import com.specodyssey.service.NoteService;
 import com.specodyssey.service.ProjectSubmission;
 import com.specodyssey.service.ProjectSubmissionService;
 import com.specodyssey.service.RoadmapService;
@@ -55,19 +52,21 @@ public class RoadmapServlet extends HttpServlet {
     private final GapAnalysisService gapAnalysisService = new GapAnalysisService();
     private final UserDao userDao = new UserDao();
     private final UserProjectDao userProjectDao = new UserProjectDao();
-    private final DailyMissionService dailyMissionService = new DailyMissionService();
-    private final DocumentDao documentDao = new DocumentDao();
-    private final NoteService noteService = new NoteService();
     private final TierCelebration tierCelebration = new TierCelebration();
-    private static final int RECENT_DOCUMENT_COUNT = 5;
     private final ProjectSubmissionService projectSubmissionService = new ProjectSubmissionService();
 
     /**
-     * 개발·시연용 "[TEST] 파일 없이 통과" 버튼과 서버 경로를 켤지 — .env의 ENABLE_TEST_SHORTCUT=true 일 때만.
-     * 기본은 꺼짐이라 운영에서는 버튼도 안 보이고, 요청을 직접 보내도 거절된다.
+     * 개발·시연용 "[TEST] 파일 없이 통과" 버튼과 서버 경로. 기본은 켜짐이고, 운영 배포에서는 .env에
+     * ENABLE_TEST_SHORTCUT=false 를 넣어 끈다(끄면 버튼도 안 보이고 요청을 직접 보내도 거절된다).
+     * 테스트에서는 testShortcutOverride로 값을 고정한다.
      */
+    static Boolean testShortcutOverride;
+
     static boolean testShortcutEnabled() {
-        return "true".equalsIgnoreCase(com.specodyssey.util.AppConfig.get("ENABLE_TEST_SHORTCUT"));
+        if (testShortcutOverride != null) {
+            return testShortcutOverride;
+        }
+        return !"false".equalsIgnoreCase(com.specodyssey.util.AppConfig.get("ENABLE_TEST_SHORTCUT"));
     }
 
     @Override
@@ -130,7 +129,6 @@ public class RoadmapServlet extends HttpServlet {
         } catch (SQLException e) {
             throw new ServletException("로드맵을 불러오는 중 오류가 발생했습니다.", e);
         }
-        loadSideWidgets(req, userId);
         req.getRequestDispatcher("/WEB-INF/views/roadmap.jsp").forward(req, resp);
     }
 
@@ -152,32 +150,6 @@ public class RoadmapServlet extends HttpServlet {
         return drafts;
     }
 
-    // 로드맵 좌우 위젯(왼쪽: 일일 미션·최근 서류, 오른쪽: 연습장 노트) 데이터. 부가 영역이라 하나가
-    // 실패해도 로드맵 본문까지 막지 않고 그 위젯만 빈 상태로 둔다.
-    private void loadSideWidgets(HttpServletRequest req, Long userId) {
-        try {
-            DailyMissionService.TodayMissions today = dailyMissionService.getOrAssignToday(userId);
-            int total = today.getMissions().size();
-            req.setAttribute("dailyMissions", today.getMissions());
-            req.setAttribute("dailyMissionDone", today.getDoneCount());
-            req.setAttribute("dailyMissionPercent", total == 0 ? 0 : (int) (today.getDoneCount() * 100 / total));
-        } catch (SQLException e) {
-            getServletContext().log("로드맵 일일 미션 위젯 조회 실패", e);
-        }
-        try {
-            List<DocumentDto> documents = documentDao.findByUserId(userId);
-            req.setAttribute("recentDocuments",
-                    documents.subList(0, Math.min(RECENT_DOCUMENT_COUNT, documents.size())));
-        } catch (SQLException e) {
-            getServletContext().log("로드맵 최근 서류 위젯 조회 실패", e);
-        }
-        try {
-            req.setAttribute("noteText", noteService.load(userId));
-        } catch (SQLException e) {
-            getServletContext().log("로드맵 노트 조회 실패", e);
-        }
-    }
-
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         Long userId = currentUserId(req);
@@ -194,7 +166,7 @@ public class RoadmapServlet extends HttpServlet {
             scoreTierBefore = mayCompleteStep ? tierCelebration.currentScoreTierId(userId) : null;
             if ("generate".equals(action)) {
                 ReviewCheckGate.reset(req.getSession(false));
-                roadmapService.generate(userId);
+                noticeRefresh(req, roadmapService.refresh(userId));
             } else if ("complete".equals(action)) {
                 Long stepId = Long.valueOf(req.getParameter("stepId"));
                 boolean completed = "true".equals(req.getParameter("completed"));
@@ -245,7 +217,7 @@ public class RoadmapServlet extends HttpServlet {
                 if (user.getDesiredJobId() != null) {
                     ReviewCheckGate.reset(req.getSession(false));
                     gapAnalysisService.analyze(userId, user.getDesiredJobId());
-                    roadmapService.generate(userId);
+                    noticeRefresh(req, roadmapService.refresh(userId));
                 }
             } else {
                 resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "잘못된 요청입니다.");
@@ -276,6 +248,18 @@ public class RoadmapServlet extends HttpServlet {
             }
         }
         resp.sendRedirect(req.getContextPath() + "/roadmap");
+    }
+
+    // 바뀐 부분만 반영한 결과를 다음 화면에 한 번 알려준다. 통째로 새로 만든 경우(처음 만들기 등)는 따로 알리지 않는다.
+    private void noticeRefresh(HttpServletRequest req, com.specodyssey.service.RoadmapRefresher.Result result) {
+        if (result.rebuilt()) {
+            return;
+        }
+        String notice = result.isChanged()
+                ? "바뀐 부분만 반영했어요 — 새 단계 " + result.addedSteps() + "개 추가, 필요 없어진 단계 "
+                        + result.removedSteps() + "개 제외. 나머지 단계와 완료 기록은 그대로입니다."
+                : "바뀐 내용이 없어 로드맵을 그대로 두었어요.";
+        req.getSession().setAttribute("roadmapNotice", notice);
     }
 
     // 파일 저장(디스크 I/O)은 DB 트랜잭션 밖에서 먼저 끝내고, 실패하면 이미 쓴 파일을 되돌린 뒤

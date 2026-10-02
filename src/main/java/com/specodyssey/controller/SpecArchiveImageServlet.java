@@ -16,7 +16,8 @@ import java.sql.SQLException;
 
 /**
  * 스펙 아카이브 업로드 이미지 보여주기 — /spec-archive/image/{첨부 id}.
- * 업로드 파일은 webapp 밖에 저장되므로 이 서블릿으로만 내보낸다. 로그인한 사용자만(SessionFilter),
+ * 사진 내용은 DB(file_data)에 있다 — 팀원 누구의 서버에서든 같은 DB면 보인다.
+ * file_data가 비어 있는 예전 행(디스크 저장 시절)만 file_path에서 읽는다. 이 서블릿으로만 내보낸다. 로그인한 사용자만(SessionFilter),
  * 공개된 글의 업로드 이미지만 내보낸다 — 지운 글의 이미지는 주소를 알아도 받을 수 없다.
  * 응답 형식은 저장값을 다시 확인한 이미지 형식으로만 정하고 nosniff를 붙여, 브라우저가 다른 형식으로 해석하지 못하게 한다.
  */
@@ -46,6 +47,17 @@ public class SpecArchiveImageServlet extends HttpServlet {
         resp.setHeader("X-Content-Type-Options", "nosniff");
         resp.setHeader("Content-Disposition", "inline");
         resp.setHeader("Cache-Control", "private, max-age=86400");
+        byte[] data = image.getFileData();
+        if (data != null) {
+            resp.setContentLength(data.length);
+            resp.getOutputStream().write(data);
+            return;
+        }
+        if (image.getFilePath() == null || image.getFilePath().isBlank()) {
+            resp.reset();
+            resp.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
         if (image.getFileSize() != null) {
             resp.setContentLengthLong(image.getFileSize());
         }
