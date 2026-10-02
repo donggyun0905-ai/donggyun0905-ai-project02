@@ -2,10 +2,16 @@ package com.specodyssey.web;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.WriteListener;
+import jakarta.servlet.http.Part;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -72,6 +78,7 @@ public final class FakeWeb {
         public final Map<String, Object> attributes = new HashMap<>();
         public Session session;
         public final List<String> forwards = new ArrayList<>();
+        public final Map<String, List<Part>> parts = new HashMap<>();
         public int changeSessionIdCalls;
         private final HttpServletRequest proxy;
 
@@ -111,6 +118,13 @@ public final class FakeWeb {
                                     session = new Session();
                                 }
                                 return session == null ? null : session.http();
+                            case "getPart":
+                                List<Part> byName = parts.get(args[0]);
+                                return byName == null || byName.isEmpty() ? null : byName.get(0);
+                            case "getParts":
+                                List<Part> all = new ArrayList<>();
+                                parts.values().forEach(all::addAll);
+                                return all;
                             case "changeSessionId":
                                 changeSessionIdCalls++;
                                 return "fake-session-2";
@@ -150,6 +164,11 @@ public final class FakeWeb {
             return this;
         }
 
+        public Request file(String fieldName, String fileName, byte[] bytes) {
+            parts.computeIfAbsent(fieldName, k -> new ArrayList<>()).add(part(fieldName, fileName, bytes));
+            return this;
+        }
+
         public Request loggedIn(Object user) {
             if (session == null) {
                 session = new Session();
@@ -165,6 +184,8 @@ public final class FakeWeb {
         public int errorStatus;
         public String errorMessage;
         public int status = 200;
+        public String contentType;
+        public final ByteArrayOutputStream body = new ByteArrayOutputStream();
         private final HttpServletResponse proxy;
 
         Response() {
@@ -189,6 +210,27 @@ public final class FakeWeb {
                                 return null;
                             case "getStatus":
                                 return status;
+                            case "setContentType":
+                                contentType = (String) args[0];
+                                return null;
+                            case "getContentType":
+                                return contentType;
+                            case "getOutputStream":
+                                return new ServletOutputStream() {
+                                    @Override
+                                    public void write(int b) {
+                                        body.write(b);
+                                    }
+
+                                    @Override
+                                    public boolean isReady() {
+                                        return true;
+                                    }
+
+                                    @Override
+                                    public void setWriteListener(WriteListener listener) {
+                                    }
+                                };
                             default:
                                 return NOT_HANDLED;
                         }
@@ -211,6 +253,27 @@ public final class FakeWeb {
         public boolean called() {
             return calls.get() > 0;
         }
+    }
+
+    /** 업로드 파일 파트(Part) 가짜 */
+    public static Part part(String fieldName, String fileName, byte[] bytes) {
+        return (Part) Proxy.newProxyInstance(FakeWeb.class.getClassLoader(), new Class<?>[] {Part.class},
+                handler("part", (name, args) -> {
+                    switch (name) {
+                        case "getName":
+                            return fieldName;
+                        case "getSubmittedFileName":
+                            return fileName;
+                        case "getSize":
+                            return (long) bytes.length;
+                        case "getContentType":
+                            return "application/octet-stream";
+                        case "getInputStream":
+                            return new ByteArrayInputStream(bytes);
+                        default:
+                            return NOT_HANDLED;
+                    }
+                }));
     }
 
     public static Request request() {
