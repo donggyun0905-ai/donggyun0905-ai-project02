@@ -20,6 +20,7 @@ public class TechArticleAttachmentDto {
     private String filePath;
     private Long fileSize;
     private String mimeType;
+    private byte[] fileData; // IMAGE_UPLOAD 사진 내용 — 저장할 때와 이미지 내보낼 때만 채운다 (목록 조회는 읽지 않음)
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private boolean deleted;
@@ -110,6 +111,14 @@ public class TechArticleAttachmentDto {
 
     public void setMimeType(String mimeType) {
         this.mimeType = mimeType;
+    }
+
+    public byte[] getFileData() {
+        return fileData;
+    }
+
+    public void setFileData(byte[] fileData) {
+        this.fileData = fileData;
     }
 
     public LocalDateTime getCreatedAt() {

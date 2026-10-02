@@ -47,8 +47,13 @@ public class TechArticleDao {
 
     // 작성자 이름(없으면 아이디)과 현재 티어 칭호(개척자 등).
     // 티어는 총점 구간으로 찾는다 — 헤더 배지(ScoreService.getTierForScore)와 같은 기준. current_tier_id는 비어 있을 수 있다.
+    private static final String A_COLUMNS =
+            "a.id, a.user_id, a.skill_id, a.roadmap_step_id, a.source_type, a.title, a.content, a.status, a.published_at, " +
+            "a.hidden_reason, a.hidden_at, a.view_count, a.like_count, a.comment_count, a.bookmark_count, " +
+            "a.created_at, a.updated_at, a.is_deleted";
+
     private static final String SELECT_WITH_AUTHOR =
-            "SELECT a.*, COALESCE(NULLIF(u.name, ''), u.login_id) AS author_name, t.title_name AS author_title " +
+            "SELECT " + A_COLUMNS + ", COALESCE(NULLIF(u.name, ''), u.login_id) AS author_name, t.title_name AS author_title " +
             "FROM TECH_ARTICLE a " +
             "JOIN USERS u ON u.id = a.user_id " +
             "LEFT JOIN USER_SCORE_SUMMARY s ON s.user_id = a.user_id AND s.is_deleted = FALSE " +
