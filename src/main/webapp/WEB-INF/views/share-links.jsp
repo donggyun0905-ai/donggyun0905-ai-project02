@@ -124,6 +124,8 @@
                             </li>
                         </c:forEach>
                     </ul>
+                    <c:set var="pagerPath" value="${pageContext.request.contextPath}/share-links" />
+<%@ include file="/WEB-INF/views/common/pager.jspf" %>
                 </c:otherwise>
             </c:choose>
         </div>

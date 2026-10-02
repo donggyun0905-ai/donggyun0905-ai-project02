@@ -117,6 +117,12 @@
             <div class="journey-track" style="margin-top:16px;">
                 <c:set var="foundCurrent" value="false" scope="page" />
                 <c:set var="rowIndex" value="0" scope="page" />
+                <c:if test="${hiddenCompletedCount > 0}">
+                    <p class="muted" style="text-align:center; margin:0 0 10px;"><a href="${pageContext.request.contextPath}/roadmap?history=all">이전 완료 기록 ${hiddenCompletedCount}개 더 보기</a></p>
+                </c:if>
+                <c:if test="${historyAll && historyCollapsible}">
+                    <p class="muted" style="text-align:center; margin:0 0 10px;"><a href="${pageContext.request.contextPath}/roadmap">최근 기록만 보기</a></p>
+                </c:if>
                 <c:forEach var="step" items="${steps}">
                     <%-- 완료한 건 티어 상관없이 전부, 미완료는 지금 열린 티어 + 바로 다음 잠긴 티어까지 --%>
                     <c:if test="${step.completed || step.stepType == 'REVIEW'

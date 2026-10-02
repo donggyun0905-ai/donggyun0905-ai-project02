@@ -13,6 +13,7 @@ import com.specodyssey.service.NoteService;
 import com.specodyssey.service.ProjectSubmission;
 import com.specodyssey.service.ProjectSubmissionService;
 import com.specodyssey.service.RoadmapService;
+import com.specodyssey.service.RoadmapHistory;
 import com.specodyssey.service.RoadmapProgress;
 import com.specodyssey.util.FileStorageUtil;
 import com.specodyssey.util.PdfTextUtil;
@@ -89,7 +90,13 @@ public class RoadmapServlet extends HttpServlet {
             List<RoadmapStepDto> steps = roadmap == null
                     ? Collections.emptyList()
                     : roadmapService.getSteps(roadmap.getId());
-            req.setAttribute("steps", steps);
+            // 진행도는 전체 단계로 계산하고, 화면에는 끝낸 단계를 최근 것만 보여준다(복습이 계속 붙어 길어지므로).
+            boolean showAllHistory = "all".equals(req.getParameter("history"));
+            RoadmapHistory history = RoadmapHistory.of(steps, RoadmapHistory.DEFAULT_KEEP_COMPLETED, showAllHistory);
+            req.setAttribute("steps", history.getVisible());
+            req.setAttribute("hiddenCompletedCount", history.getHiddenCompleted());
+            req.setAttribute("historyAll", showAllHistory);
+            req.setAttribute("historyCollapsible", history.isCollapsible(RoadmapHistory.DEFAULT_KEEP_COMPLETED));
             req.setAttribute("progress", roadmapService.computeProgress(steps));
             // 티어 돌파 환영 모달 — 완료 처리 직후 한 번만 뜨도록 세션에 잠깐 실어둔 신호를 꺼내 쓰고 지운다
             // (새로고침하면 이미 지워져 있어서 다시 안 뜬다).

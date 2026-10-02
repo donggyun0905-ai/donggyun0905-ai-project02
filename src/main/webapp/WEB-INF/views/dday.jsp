@@ -88,6 +88,8 @@
                             </li>
                         </c:forEach>
                     </ul>
+                    <c:set var="pagerPath" value="${pageContext.request.contextPath}/dday" />
+<%@ include file="/WEB-INF/views/common/pager.jspf" %>
                 </c:otherwise>
             </c:choose>
         </div>

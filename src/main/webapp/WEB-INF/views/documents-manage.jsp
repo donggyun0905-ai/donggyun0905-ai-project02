@@ -37,7 +37,7 @@
         </div>
 
         <div class="card">
-            <h2>내 서류 ${documents.size()}개</h2>
+            <h2>내 서류 ${pager.total}개</h2>
             <c:choose>
                 <c:when test="${empty documents}">
                     <p class="muted" style="margin-top:10px;">아직 올린 서류가 없습니다. 위에서 파일을 올리거나, 로드맵에서 프로젝트·증빙을 제출하면 여기에 모입니다.</p>
@@ -86,6 +86,8 @@
                         서류를 지우면 파일이 완전히 삭제됩니다. 이력서·자소서 지정과 프로젝트 문서 체크리스트에서도 함께 빠지지만,
                         로드맵 단계의 완료 표시와 받은 점수는 그대로 남습니다.
                     </p>
+                    <c:set var="pagerPath" value="${pageContext.request.contextPath}/documents" />
+<%@ include file="/WEB-INF/views/common/pager.jspf" %>
                 </c:otherwise>
             </c:choose>
         </div>
