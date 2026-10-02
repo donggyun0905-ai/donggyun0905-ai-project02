@@ -36,6 +36,11 @@ public class PasswordServlet extends HttpServlet {
         boolean interviewer = req.getServletPath().startsWith("/interviewer/");
         String back = req.getContextPath() + (interviewer ? "/interviewer/profile" : "/profile");
 
+        if ("issueRecoveryCode".equals(req.getParameter("action"))) {
+            issueRecoveryCode(req, resp, session, loginUser, back);
+            return;
+        }
+
         String current = req.getParameter("currentPassword");
         String next = req.getParameter("newPassword");
         String confirm = req.getParameter("newPasswordConfirm");
@@ -67,6 +72,30 @@ public class PasswordServlet extends HttpServlet {
         THROTTLE.recordSuccess(throttleKey);
         req.changeSessionId(); // 비밀번호를 바꾼 시점에 세션 ID도 새로 받는다
         session.setAttribute(MESSAGE_KEY, "비밀번호를 바꿨습니다. 다음 로그인부터 새 비밀번호를 사용하세요.");
+        resp.sendRedirect(back);
+    }
+
+    // 복구 코드 (재)발급 — 현재 비밀번호를 다시 확인하고, 새 코드는 프로필 화면에서 한 번만 보여 준다. 이전 코드는 못 쓰게 된다.
+    private void issueRecoveryCode(HttpServletRequest req, HttpServletResponse resp, HttpSession session,
+            UserDto loginUser, String back) throws ServletException, IOException {
+        String throttleKey = "pw:" + loginUser.getId();
+        long now = System.currentTimeMillis();
+        long locked = THROTTLE.secondsLocked(throttleKey, now);
+        if (locked > 0) {
+            fail(session, resp, back, "비밀번호를 여러 번 틀려 잠시 막혔습니다. " + ((locked + 59) / 60) + "분 뒤에 다시 시도해주세요.");
+            return;
+        }
+        try {
+            String code = userService.reissueRecoveryCode(loginUser.getId(), req.getParameter("currentPassword"));
+            THROTTLE.recordSuccess(throttleKey);
+            RecoveryCodeNotice.put(session, code, RecoveryCodeNotice.Context.PROFILE);
+        } catch (UserService.InvalidCredentialException e) {
+            THROTTLE.recordFailure(throttleKey, now);
+            fail(session, resp, back, e.getMessage());
+            return;
+        } catch (SQLException e) {
+            throw new ServletException("복구 코드 발급 중 오류가 발생했습니다.", e);
+        }
         resp.sendRedirect(back);
     }
 

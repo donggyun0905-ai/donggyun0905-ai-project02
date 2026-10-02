@@ -43,7 +43,7 @@ class AccessFiltersTest {
     @Test
     void 공개_경로는_로그인_없이_열린다() throws Exception {
         String[][] cases = {{"/login", null}, {"/register", null}, {"/css/style.css", null}, {"/image/logo.png", null},
-                {"/share", "/some-token"}};
+                {"/share", "/some-token"}, {"/password-reset", null}, {"/recovery-code", null}};
         for (String[] c : cases) {
             FakeWeb.Request req = FakeWeb.request();
             req.servletPath = c[0];

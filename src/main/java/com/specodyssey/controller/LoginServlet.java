@@ -58,6 +58,7 @@ public class LoginServlet extends HttpServlet {
             UserDto user = userService.login(loginId, password);
             THROTTLE.recordSuccess(throttleKey);
             user.setPasswordHash(null); // 세션에는 해시조차 남기지 않는다
+            user.setRecoveryCodeHash(null);
             HttpSession session = req.getSession();
             req.changeSessionId(); // 세션 고정(session fixation) 공격 방지 — 인증 성공 시 세션 ID 교체
             session.setAttribute("loginUser", user);

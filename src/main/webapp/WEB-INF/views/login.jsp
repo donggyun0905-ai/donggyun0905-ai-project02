@@ -20,6 +20,7 @@
     </div>
 
     <p><a href="${pageContext.request.contextPath}/register">아직 계정이 없으신가요? 회원가입</a></p>
+    <p><a href="${pageContext.request.contextPath}/password-reset">비밀번호를 잊으셨나요?</a></p>
 </div>
 
 <jsp:include page="/WEB-INF/views/common/footer.jsp" />

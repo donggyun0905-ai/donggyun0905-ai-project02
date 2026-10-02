@@ -84,6 +84,7 @@ CREATE TABLE USERS (
     resume_document_id    BIGINT       NULL, -- 이력서 파일 → DOCUMENTS. FK는 DOCUMENTS가 생긴 뒤 03_schema_extended.sql에서 건다
     cover_letter_document_id BIGINT    NULL, -- 자소서 파일 → DOCUMENTS (선택). 이력서와 같은 방식, FK는 03_schema_extended.sql에서 건다
     privacy_consent_at    DATETIME     NULL,
+    recovery_code_hash    VARCHAR(255) NULL, -- 비밀번호 찾기용 복구 코드의 해시(원문은 저장 안 함). NULL이면 코드가 없는 계정
     profile_updated_at    DATETIME     NULL,
     last_login_at         DATETIME     NULL,
     created_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,

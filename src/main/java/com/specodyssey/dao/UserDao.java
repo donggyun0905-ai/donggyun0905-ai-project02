@@ -23,7 +23,7 @@ public class UserDao {
     private static final String COLUMNS =
             "id, user_type, login_id, password_hash, name, age, career_status, email, " +
             "major, grade, interest_field, desired_job_id, desired_job_status, " +
-            "resume_document_id, cover_letter_document_id, privacy_consent_at, " +
+            "resume_document_id, cover_letter_document_id, privacy_consent_at, recovery_code_hash, " +
             "profile_updated_at, last_login_at, created_at, updated_at, is_deleted";
 
     // FR-11~13 회원가입
@@ -204,6 +204,30 @@ public class UserDao {
         }
     }
 
+    // 복구 코드(해시)를 새로 정한다 — 발급·재발급. 이전 코드는 이 순간부터 쓸 수 없다.
+    public boolean updateRecoveryCodeHash(Long userId, String recoveryCodeHash) throws SQLException {
+        String sql = "UPDATE USERS SET recovery_code_hash = ? WHERE id = ? AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, recoveryCodeHash);
+            pstmt.setLong(2, userId);
+            return pstmt.executeUpdate() > 0;
+        }
+    }
+
+    // 복구 코드로 비밀번호를 찾을 때 — 새 비밀번호와 새 복구 코드를 한 번에 바꾼다(쓴 코드는 바로 못 쓰게).
+    public boolean resetPasswordAndRecoveryCode(Long userId, String passwordHash, String recoveryCodeHash)
+            throws SQLException {
+        String sql = "UPDATE USERS SET password_hash = ?, recovery_code_hash = ? WHERE id = ? AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, passwordHash);
+            pstmt.setString(2, recoveryCodeHash);
+            pstmt.setLong(3, userId);
+            return pstmt.executeUpdate() > 0;
+        }
+    }
+
     public void updateLastLogin(Long id) throws SQLException {
         String sql = "UPDATE USERS SET last_login_at = CURRENT_TIMESTAMP WHERE id = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
@@ -252,6 +276,7 @@ public class UserDao {
         user.setResumeDocumentId(rs.getObject("resume_document_id", Long.class));
         user.setCoverLetterDocumentId(rs.getObject("cover_letter_document_id", Long.class));
         user.setPrivacyConsentAt(toLocalDateTime(rs.getTimestamp("privacy_consent_at")));
+        user.setRecoveryCodeHash(rs.getString("recovery_code_hash"));
         user.setProfileUpdatedAt(toLocalDateTime(rs.getTimestamp("profile_updated_at")));
         user.setLastLoginAt(toLocalDateTime(rs.getTimestamp("last_login_at")));
         user.setCreatedAt(toLocalDateTime(rs.getTimestamp("created_at")));

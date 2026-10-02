@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -105,14 +106,25 @@ class LoginServletTest {
     }
 
     @Test
-    void 로그아웃하면_세션이_무효가_된다() throws Exception {
-        UserDao unused = new UserDao();
+    void 로그아웃은_POST로만_세션을_무효로_만든다() throws Exception {
+        FakeWeb.Request req = FakeWeb.request().post("/logout").loggedIn(new UserDto());
+        FakeWeb.Response resp = FakeWeb.response();
+
+        new LogoutServlet().doPost(req.http(), resp.http());
+
+        assertTrue(req.session.invalidated);
+        assertEquals("/login", resp.redirect);
+    }
+
+    @Test
+    void 로그아웃_주소를_GET으로_열어도_로그아웃되지_않는다() throws Exception {
         FakeWeb.Request req = FakeWeb.request().loggedIn(new UserDto());
         FakeWeb.Response resp = FakeWeb.response();
 
         new LogoutServlet().doGet(req.http(), resp.http());
 
-        assertTrue(req.session.invalidated);
-        assertNotNull(resp.redirect);
+        assertFalse(req.session.invalidated, "다른 사이트의 링크·이미지로 로그아웃시킬 수 없어야 한다");
+        assertNotNull(req.session.attributes.get("loginUser"));
+        assertEquals("/login", resp.redirect);
     }
 }

@@ -166,6 +166,7 @@ public class ProfileServlet extends HttpServlet {
     private void refreshSessionUser(HttpServletRequest req, Long userId) throws SQLException {
         UserDto refreshed = userDao.findById(userId);
         refreshed.setPasswordHash(null);
+        refreshed.setRecoveryCodeHash(null);
         req.getSession().setAttribute("loginUser", refreshed);
     }
 

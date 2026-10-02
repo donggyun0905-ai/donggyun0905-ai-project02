@@ -3,6 +3,7 @@ package com.specodyssey.service;
 import com.specodyssey.dao.UserDao;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.util.PasswordUtil;
+import com.specodyssey.util.RecoveryCode;
 
 import java.sql.SQLException;
 import java.sql.SQLIntegrityConstraintViolationException;
@@ -146,5 +147,52 @@ public class UserService {
             throw new InvalidInputException("새 비밀번호는 현재 비밀번호와 달라야 합니다.");
         }
         userDao.updatePasswordHash(userId, PasswordUtil.hash(newPassword));
+    }
+
+    // 복구 코드가 맞지 않을 때도 해시 계산 시간이 같도록, 없는 계정·코드 없는 계정에 대신 비교하는 값
+    private static final String DUMMY_HASH = PasswordUtil.hash("recovery-code-dummy");
+
+    /**
+     * 복구 코드를 새로 발급한다(가입 직후, 또는 로그인한 사용자가 프로필에서 재발급). 이전 코드는 바로 못 쓰게 된다.
+     * @return 화면에 한 번만 보여 줄 복구 코드 원문 — 서버에는 해시만 남는다
+     */
+    public String issueRecoveryCode(Long userId) throws SQLException {
+        String code = RecoveryCode.generate();
+        if (!userDao.updateRecoveryCodeHash(userId, PasswordUtil.hash(RecoveryCode.forHash(code)))) {
+            throw new IllegalStateException("복구 코드를 저장할 계정을 찾을 수 없습니다: " + userId);
+        }
+        return code;
+    }
+
+    /** 프로필에서 재발급 — 현재 비밀번호를 다시 확인한 뒤에만 새 코드를 만든다. */
+    public String reissueRecoveryCode(Long userId, String currentPassword)
+            throws SQLException, InvalidCredentialException {
+        UserDto user = userDao.findById(userId);
+        if (user == null || currentPassword == null || !PasswordUtil.verify(currentPassword, user.getPasswordHash())) {
+            throw new InvalidCredentialException("현재 비밀번호가 올바르지 않습니다.");
+        }
+        return issueRecoveryCode(userId);
+    }
+
+    /**
+     * 비밀번호 찾기 — 아이디 + 복구 코드가 맞으면 새 비밀번호로 바꾸고, 쓴 복구 코드는 없애고 새 코드를 만들어 돌려준다.
+     * 아이디가 없거나 복구 코드가 없는 계정이거나 코드가 틀린 경우를 구분하지 않고 같은 메시지로 거절한다(계정 존재 여부 노출 방지).
+     * @return 새 복구 코드 원문(화면에 한 번만)
+     */
+    public String resetPasswordWithRecoveryCode(String loginId, String recoveryCode, String newPassword)
+            throws SQLException, InvalidCredentialException, InvalidInputException {
+        requirePasswordRule(newPassword);
+        UserDto user = loginId == null ? null : userDao.findByLoginId(loginId.trim());
+        String stored = user == null ? null : user.getRecoveryCodeHash();
+        boolean formatOk = RecoveryCode.looksValid(recoveryCode);
+        // 어떤 경우든 같은 횟수의 PBKDF2를 돌려 응답 시간으로 계정 상태를 짐작하지 못하게 한다
+        boolean matches = PasswordUtil.verify(RecoveryCode.forHash(recoveryCode), stored == null ? DUMMY_HASH : stored);
+        if (user == null || stored == null || !formatOk || !matches) {
+            throw new InvalidCredentialException("아이디 또는 복구 코드가 올바르지 않습니다.");
+        }
+        String newCode = RecoveryCode.generate();
+        userDao.resetPasswordAndRecoveryCode(user.getId(), PasswordUtil.hash(newPassword),
+                PasswordUtil.hash(RecoveryCode.forHash(newCode)));
+        return newCode;
     }
 }

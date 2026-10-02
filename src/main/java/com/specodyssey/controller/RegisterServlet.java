@@ -44,16 +44,20 @@ public class RegisterServlet extends HttpServlet {
             if (!interviewer && !"Y".equals(req.getParameter("visibilityNotice"))) {
                 throw new IllegalArgumentException("면접관에게 보이는 자료 안내를 확인하고 체크해 주세요.");
             }
+            Long newUserId;
             if (RoleFilter.INTERVIEWER.equals(req.getParameter("userType"))) {
-                userService.registerInterviewer(loginId, password, email,
+                newUserId = userService.registerInterviewer(loginId, password, email,
                         PersonalInfo.nameOnly(name), req.getParameter("companyName"));
             } else {
                 PersonalInfo personalInfo = PersonalInfo.of(name, req.getParameter("age"),
                         req.getParameter("careerStatus"), req.getParameter("grade"));
-                userService.register(loginId, password, email, personalInfo,
+                newUserId = userService.register(loginId, password, email, personalInfo,
                         req.getParameter("major"), req.getParameter("interestField"));
             }
-            resp.sendRedirect(req.getContextPath() + "/login");
+            // 비밀번호를 잊었을 때 쓸 복구 코드 — 원문은 서버에 남지 않으니 지금 한 번만 보여 준다
+            RecoveryCodeNotice.put(req.getSession(), userService.issueRecoveryCode(newUserId),
+                    RecoveryCodeNotice.Context.REGISTER);
+            resp.sendRedirect(req.getContextPath() + "/recovery-code");
         } catch (UserService.DuplicateLoginIdException | UserService.InvalidInputException
                  | IllegalArgumentException e) {
             req.setAttribute("errorMessage", e.getMessage());

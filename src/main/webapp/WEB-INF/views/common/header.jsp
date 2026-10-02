@@ -43,7 +43,10 @@
 
         <div class="nav-group-title">계정</div>
         <a href="${ctx}/interviewer/profile">👤 내 프로필</a>
-        <a href="${ctx}/logout">↩ 로그아웃</a>
+        <form action="${ctx}/logout" method="post" class="logout-form">
+            <input type="hidden" name="_csrf" value="${csrfToken}">
+            <button type="submit">↩ 로그아웃</button>
+        </form>
         </c:when>
         <c:otherwise>
         <div class="nav-group-title">여정</div>
@@ -62,7 +65,10 @@
         <div class="nav-group-title">공유 · 계정</div>
         <a href="${ctx}/share-links" class="${path == '/share-links' ? 'active' : ''}">🔗 공유 링크</a>
         <a href="${ctx}/profile" class="${path == '/profile' ? 'active' : ''}">👤 내 프로필</a>
-        <a href="${ctx}/logout">↩ 로그아웃</a>
+        <form action="${ctx}/logout" method="post" class="logout-form">
+            <input type="hidden" name="_csrf" value="${csrfToken}">
+            <button type="submit">↩ 로그아웃</button>
+        </form>
         </c:otherwise>
         </c:choose>
     </div>

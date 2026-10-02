@@ -76,9 +76,13 @@ class RegisterServletTest {
 
         servlet.doPost(req.http(), resp.http());
 
-        assertEquals("/login", resp.redirect);
+        assertEquals("/recovery-code", resp.redirect, "가입 직후 복구 코드를 한 번 보여 준다");
+        String code = (String) req.session.attributes.get("recoveryCodeOnce");
+        assertTrue(com.specodyssey.util.RecoveryCode.looksValid(code));
         UserDto saved = userDao.findByLoginId(loginId);
         assertNotNull(saved);
+        assertNotNull(saved.getRecoveryCodeHash(), "원문이 아니라 해시만 저장된다");
+        assertTrue(com.specodyssey.util.PasswordUtil.verify(com.specodyssey.util.RecoveryCode.forHash(code), saved.getRecoveryCodeHash()));
         assertNotNull(saved.getPrivacyConsentAt());
         assertEquals("APPLICANT", saved.getUserType());
     }
@@ -94,7 +98,7 @@ class RegisterServletTest {
 
         servlet.doPost(req.http(), resp.http());
 
-        assertEquals("/login", resp.redirect);
+        assertEquals("/recovery-code", resp.redirect);
         assertEquals("INTERVIEWER", userDao.findByLoginId(loginId).getUserType());
     }
 
