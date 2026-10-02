@@ -185,6 +185,16 @@ class FuzzyNameMatcherTest {
             "Javscript, JavaScript",
             "Dockr, Docker",
             "Jenkin, Jenkins",
+            // 기술 하나를 띄어 쓴 입력 — 단어로 쪼개지 않고 하나의 이름으로 본다
+            "Java Script, JavaScript",
+            "Next JS, Next.js",
+            "Vue JS, Vue.js",
+            "Node JS, Node.js",
+            "Spring boot 3, Spring Boot",
+            "Node.js 18, Node.js",
+            // 이름의 앞부분만 쓴 입력 (그 앞부분으로 시작하는 스킬이 하나뿐일 때)
+            "Tailwind, Tailwind CSS",
+            "GitHub Action, GitHub Actions",
     })
     void 표기가_달라도_맞는_스킬로_연결된다(String input, String expectedCanonicalName) throws Exception {
         SkillDto expected = skillDao.findByName(expectedCanonicalName);
@@ -201,6 +211,12 @@ class FuzzyNameMatcherTest {
             "React.js, Next.js",
             "Java Spring, JavaScript",
             "자바 백엔드, JavaScript",
+            "Java Script, Java",
+            "Next JS, JavaScript",
+            "Node JS, JavaScript",
+            "Spring boot 3, Spring",
+            "REST, Rust",
+            "SCSS, CSS3",
     })
     void 다른_기술로_잘못_연결되지_않는다(String input, String wrongCanonicalName) throws Exception {
         SkillDto wrong = skillDao.findByName(wrongCanonicalName);
@@ -225,5 +241,23 @@ class FuzzyNameMatcherTest {
     void 짧은_입력은_오타를_허용하지_않는다() throws Exception {
         assertNull(matcher.match("ES6").skillId());
         assertNull(matcher.match("JSP").skillId());
+    }
+
+    @Test
+    void 쉼표로_나눈_목록은_조각마다_한_이름으로_본다() throws Exception {
+        Long nodeJs = skillDao.findByName("Node.js").getId();
+        Long springBoot = skillDao.findByName("Spring Boot").getId();
+
+        var all = matcher.matchAll("Node JS, Spring boot 3");
+
+        assertEquals(2, all.size(), () -> "결과: " + all);
+        assertEquals(nodeJs, all.get(0).skillId());
+        assertEquals(springBoot, all.get(1).skillId());
+    }
+
+    @Test
+    void 앞부분으로_시작하는_스킬이_여럿이면_고르지_않는다() throws Exception {
+        // "Apache"로 시작하는 스킬이 여러 개(Kafka·Spark·Airflow …)라 하나로 정할 수 없다
+        assertNull(matcher.match("Apache").skillId());
     }
 }
