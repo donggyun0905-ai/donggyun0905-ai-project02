@@ -104,6 +104,31 @@ public class RoadmapDao {
         }
     }
 
+    // 이 로드맵이 겨냥한 직무 — 단계 점수를 직무 사다리 기준으로 정하려고 쓴다(GAP_ANALYSIS.job_id)
+    public Long findJobIdByRoadmapId(Connection conn, Long roadmapId) throws SQLException {
+        String sql = "SELECT g.job_id FROM ROADMAP r JOIN GAP_ANALYSIS g ON g.id = r.gap_analysis_id WHERE r.id = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, roadmapId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? rs.getLong("job_id") : null;
+            }
+        }
+    }
+
+    // 이 사용자가 이 직무로 처음 로드맵을 만든 시각 — 이후 직무에 새로 추가된 기술(신기술)을 가르는 기준
+    public LocalDateTime findFirstCreatedAtByUserAndJob(Connection conn, Long userId, Long jobId) throws SQLException {
+        String sql = "SELECT MIN(r.created_at) AS first_at FROM ROADMAP r " +
+                "JOIN GAP_ANALYSIS g ON g.id = r.gap_analysis_id " +
+                "WHERE r.user_id = ? AND g.job_id = ? AND r.is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            pstmt.setLong(2, jobId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? toLocalDateTime(rs.getTimestamp("first_at")) : null;
+            }
+        }
+    }
+
     private RoadmapDto mapRow(ResultSet rs) throws SQLException {
         RoadmapDto roadmap = new RoadmapDto();
         roadmap.setId(rs.getLong("id"));

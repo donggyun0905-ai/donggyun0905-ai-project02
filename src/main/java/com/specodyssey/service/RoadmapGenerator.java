@@ -56,8 +56,6 @@ public class RoadmapGenerator {
 
     private static final int SCORE_PREFERRED = 1;
 
-    private static final int ROUND_SKILL_COUNT = 5;
-
     // 가장 최근 격차 분석을 기준으로 새 로드맵을 생성한다. 기존 대표 로드맵이 있으면 비활성화한다 (FR-37).
     public Long generate(Long userId) throws SQLException, NoGapAnalysisException {
         List<GapAnalysisDto> analyses = gapAnalysisDao.findByUserId(userId);
@@ -139,20 +137,20 @@ public class RoadmapGenerator {
         });
     }
 
-    // 부족 기술 상위 ROUND_SKILL_COUNT개를 담고, 모자라면 직무 요구 기술 중 아직 라운드에 없는 것으로
+    // 부족 기술 상위 ROUND_SKILL_COUNT(규칙)개를 담고, 모자라면 직무 요구 기술 중 아직 라운드에 없는 것으로
     // 보충한다. 보충 후보 선택은 LLM(SkillDeepenService)에 맡기고, 실패하거나 모자라면 중요도 순으로 채운다.
     private List<Long> selectRoundSkills(JobDto job, List<GapAnalysisItemDto> rankedMissing,
             Map<Long, String> importanceBySkillId) throws SQLException {
         List<Long> selected = new ArrayList<>();
         for (GapAnalysisItemDto item : rankedMissing) {
-            if (selected.size() >= ROUND_SKILL_COUNT) {
+            if (selected.size() >= ScoringRules.get(ScoringRules.ROUND_SKILL_COUNT)) {
                 break;
             }
             if (!selected.contains(item.getSkillId())) {
                 selected.add(item.getSkillId());
             }
         }
-        int needed = ROUND_SKILL_COUNT - selected.size();
+        int needed = ScoringRules.get(ScoringRules.ROUND_SKILL_COUNT) - selected.size();
         if (needed <= 0) {
             return selected;
         }

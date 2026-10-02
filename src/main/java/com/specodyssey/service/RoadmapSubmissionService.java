@@ -24,6 +24,7 @@ public class RoadmapSubmissionService {
     private final ProjectSubmissionService projectSubmissionService = new ProjectSubmissionService();
     private final RoadmapStepDao roadmapStepDao = new RoadmapStepDao();
     private final ScoreService scoreService = new ScoreService();
+    private final StepPointCalculator stepPoints = new StepPointCalculator();
     private final RoadmapCompletionService completion = new RoadmapCompletionService();
 
     // PROJECT 단계 완료 — 프로젝트 정보 + 문서 체크리스트(README·실행 화면 필수) + 기술 활용 설명서를 받는다
@@ -58,7 +59,7 @@ public class RoadmapSubmissionService {
             roadmapStepDao.setEvidenceProject(conn, stepId, userId, projectId);
 
             scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId,
-                    ROADMAP_STEP_COMPLETE_POINTS);
+                    stepPoints.pointsFor(conn, userId, step));
             return true;
         });
     }
@@ -102,7 +103,7 @@ public class RoadmapSubmissionService {
 
             if (passed) {
                 scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId,
-                        ROADMAP_STEP_COMPLETE_POINTS);
+                        stepPoints.pointsFor(conn, userId, step));
                 completion.syncProfileOnComplete(conn, userId, roadmapStepDao.findById(conn, stepId));
             }
             return result;
@@ -146,7 +147,7 @@ public class RoadmapSubmissionService {
             roadmapStepDao.updateProof(conn, stepId, userId, PROOF_PROJECT_LINK, null, projectId,
                     SkillProofGrader.PASSED, "프로젝트 등록/업그레이드로 자동 확인", true, LocalDateTime.now());
             scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId,
-                    ROADMAP_STEP_COMPLETE_POINTS);
+                    stepPoints.pointsFor(conn, userId, step));
             completion.syncProfileOnComplete(conn, userId, roadmapStepDao.findById(conn, stepId));
             return true;
         });
@@ -178,7 +179,7 @@ public class RoadmapSubmissionService {
             roadmapStepDao.updateProof(conn, stepId, userId, PROOF_CERT_DOCUMENT, null, null,
                     SkillProofGrader.PASSED, "자격증 증빙 서류 제출로 확인", true, LocalDateTime.now());
             scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId,
-                    ROADMAP_STEP_COMPLETE_POINTS);
+                    stepPoints.pointsFor(conn, userId, step));
             completion.syncProfileOnComplete(conn, userId, roadmapStepDao.findById(conn, stepId));
             return true;
         });

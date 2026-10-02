@@ -199,6 +199,12 @@ class RoadmapServiceTest {
         }
     }
 
+    // 기술 단계 점수의 기대값 — 직무 사다리 총점을 가중치로 나눈 값(StepPointCalculator). 이 테스트의 기술들은
+    // 모두 첫 로드맵보다 먼저 만들어져 있어서 기준 시각 없이 계산해도 같다.
+    private int skillPoints(Long skillId, String tier) throws Exception {
+        return StepPointCalculator.skillStepPoints(jobRequiredSkillDao.findByJobId(jobId), null, skillId, tier);
+    }
+
     @Test
     void 격차분석_없으면_예외를_던진다() {
         assertThrows(RoadmapService.NoGapAnalysisException.class,
@@ -346,7 +352,7 @@ class RoadmapServiceTest {
                 .filter(s -> s.getId().equals(skillStep.getId()))
                 .findFirst().orElseThrow();
         assertTrue(updated.isCompleted());
-        assertEquals(100, scoreService.getSummary(userId).getTotalScore());
+        assertEquals(skillPoints(skillStep.getRelatedSkillId(), skillStep.getTier()), scoreService.getSummary(userId).getTotalScore());
 
         List<UserSkillDto> skills = userSkillDao.findByUserId(userId);
         assertEquals(1, skills.size(), "새 행이 또 생기지 않고 기존 수동 입력 행에 합쳐져야 한다");
@@ -1039,7 +1045,7 @@ class RoadmapServiceTest {
                 .findFirst().orElseThrow();
         assertTrue(updated.isCompleted());
         assertEquals("NOTE", updated.getProofType());
-        assertEquals(100, scoreService.getSummary(userId).getTotalScore());
+        assertEquals(skillPoints(entrySkillStep.getRelatedSkillId(), "ENTRY"), scoreService.getSummary(userId).getTotalScore());
     }
 
     @Test
@@ -1081,7 +1087,7 @@ class RoadmapServiceTest {
         assertTrue(updated.isCompleted());
         assertEquals("PROJECT_LINK", updated.getProofType());
         assertNotNull(updated.getEvidenceProjectId());
-        assertEquals(100, scoreService.getSummary(userId).getTotalScore());
+        assertEquals(skillPoints(requiredSkillId, "CORE"), scoreService.getSummary(userId).getTotalScore());
     }
 
     @Test
@@ -1320,7 +1326,7 @@ class RoadmapServiceTest {
                 .filter(s -> "SKILL".equals(s.getStepType()) && preferredSkillId.equals(s.getRelatedSkillId()))
                 .findFirst().orElseThrow();
         roadmapService.completeStep(userId, preferredSkillStep.getId(), true);
-        assertEquals(100, scoreService.getSummary(userId).getTotalScore());
+        assertEquals(skillPoints(preferredSkillStep.getRelatedSkillId(), preferredSkillStep.getTier()), scoreService.getSummary(userId).getTotalScore());
 
         Long secondGapAnalysisId;
         try (Connection conn = DBUtil.getConnection()) {
@@ -1348,7 +1354,7 @@ class RoadmapServiceTest {
             assertTrue(carriedStep.isCompleted());
             assertNotNull(carriedStep.getCompletedAt());
             // 승계는 새로 완료한 게 아니므로 점수가 200으로 늘어나면 안 된다.
-            assertEquals(100, scoreService.getSummary(userId).getTotalScore());
+            assertEquals(skillPoints(preferredSkillStep.getRelatedSkillId(), preferredSkillStep.getTier()), scoreService.getSummary(userId).getTotalScore());
         } finally {
             try (Connection conn = DBUtil.getConnection()) {
                 for (RoadmapDto roadmap : roadmapDao.findByUserId(userId)) {

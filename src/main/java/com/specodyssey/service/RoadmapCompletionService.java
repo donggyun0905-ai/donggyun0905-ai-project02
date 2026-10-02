@@ -40,6 +40,7 @@ public class RoadmapCompletionService {
     private final RoadmapDao roadmapDao = new RoadmapDao();
     private final RoadmapStepDao roadmapStepDao = new RoadmapStepDao();
     private final ScoreService scoreService = new ScoreService();
+    private final StepPointCalculator stepPoints = new StepPointCalculator();
 
     // 사용자가 로드맵의 "완료하기"를 거치지 않고 프로필에서 직접 자격증을 추가했을 때 호출한다
     // (ProfileSpecServlet에서 스펙 추가가 CERT 타입일 때 호출). 대표 로드맵에 같은 자격증을 요구하는
@@ -116,7 +117,7 @@ public class RoadmapCompletionService {
             // updatedRows == 0이면 소유자가 아니라서 애초에 반영이 안 된 것 — 점수도 스펙도 주면 안 된다.
             if (completed && updatedRows > 0) {
                 scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId,
-                        ROADMAP_STEP_COMPLETE_POINTS);
+                        stepPoints.pointsFor(conn, userId, target));
                 RoadmapStepDto step = roadmapStepDao.findById(conn, stepId);
                 syncProfileOnComplete(conn, userId, step);
             }

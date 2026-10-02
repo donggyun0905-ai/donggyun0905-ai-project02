@@ -97,9 +97,14 @@ public class JobRequiredSkillDao {
 
     // FR-31 격차 분석의 기준 — 직무별 요구 기술 전체 조회
     public List<JobRequiredSkillDto> findByJobId(Long jobId) throws SQLException {
+        try (Connection conn = DBUtil.getConnection()) {
+            return findByJobId(conn, jobId);
+        }
+    }
+
+    public List<JobRequiredSkillDto> findByJobId(Connection conn, Long jobId) throws SQLException {
         String sql = "SELECT " + COLUMNS + " FROM JOB_REQUIRED_SKILL WHERE job_id = ? AND is_deleted = FALSE";
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, jobId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 List<JobRequiredSkillDto> items = new ArrayList<>();

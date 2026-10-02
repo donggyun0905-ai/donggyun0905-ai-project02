@@ -37,12 +37,6 @@ public class RoadmapReviewService {
 
     static final String TIER_REVIEW = "REVIEW";
 
-    static final int REVIEW_POINTS_BASE = 40;
-
-    static final int REVIEW_POINTS_DECAY = 10;
-
-    static final int REVIEW_POINTS_MIN = 5;
-
     static final int MAX_OPEN_REVIEWS = 3;
 
     static final int REVIEW_NOTE_MIN_LENGTH = 20;
@@ -52,21 +46,22 @@ public class RoadmapReviewService {
     private static final String PROOF_REVIEW_NOTE = "REVIEW_NOTE";
 
     static int reviewIntervalDays(String highestTier) {
-        switch (highestTier == null ? "" : highestTier) {
+        String tier = highestTier == null ? "" : highestTier;
+        switch (tier) {
             case TIER_CORE:
-                return 60;
             case TIER_ADVANCED:
-                return 90;
             case TIER_EXPERT:
-                return 120;
+                return ScoringRules.get(ScoringRules.REVIEW_DAYS_PREFIX + tier);
             default:
-                return 30;
+                return ScoringRules.get(ScoringRules.REVIEW_DAYS_PREFIX + TIER_ENTRY);
         }
     }
 
     // priorReviews: 같은 기술로 이미 끝낸 복습 횟수
     static int reviewPoints(int priorReviews) {
-        return Math.max(REVIEW_POINTS_MIN, REVIEW_POINTS_BASE - REVIEW_POINTS_DECAY * Math.max(0, priorReviews));
+        return Math.max(ScoringRules.get(ScoringRules.REVIEW_POINTS_MIN),
+                ScoringRules.get(ScoringRules.REVIEW_POINTS_BASE)
+                        - ScoringRules.get(ScoringRules.REVIEW_POINTS_DECAY) * Math.max(0, priorReviews));
     }
 
     /**

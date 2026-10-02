@@ -47,17 +47,9 @@ import static com.specodyssey.service.RoadmapConstants.*;
  */
 public class RoadmapUpkeepService {
 
-    static final int PROJECT_UPDATE_DAYS = 90;
-    static final int ARTICLE_UPDATE_DAYS = 150; // 기술 복습(전문가 120일)과 같은 날 겹쳐 생기지 않게 어긋나게 둔다
-    static final int TREND_STUDY_DAYS = 30;
     static final int MAX_OPEN_PROJECT_UPDATES = 2;
     static final int MAX_OPEN_ARTICLE_UPDATES = 2;
     static final int MAX_OPEN_TREND_STUDIES = 1;
-    static final int PROJECT_UPDATE_POINTS_BASE = 60;
-    static final int ARTICLE_UPDATE_POINTS_BASE = 60;
-    static final int TREND_STUDY_POINTS = 40;
-    static final int POINTS_DECAY = 10;
-    static final int POINTS_MIN = 5;
     static final int NOTE_MIN_LENGTH = 20;
     static final int NOTE_MAX_LENGTH = 1000;
     static final String TREND_REASON_PREFIX = "📈 트렌딩 학습 — ";
@@ -78,17 +70,18 @@ public class RoadmapUpkeepService {
 
     /** 같은 대상을 prior번 이미 했을 때의 점수 — base에서 10점씩 줄고 최저 5점 */
     static int decayedPoints(int base, int prior) {
-        return Math.max(POINTS_MIN, base - POINTS_DECAY * Math.max(0, prior));
+        return Math.max(ScoringRules.get(ScoringRules.UPKEEP_POINTS_MIN),
+                base - ScoringRules.get(ScoringRules.UPKEEP_POINTS_DECAY) * Math.max(0, prior));
     }
 
     static int pointsFor(String stepType, int prior) {
         switch (stepType) {
             case STEP_TYPE_PROJECT_UPDATE:
-                return decayedPoints(PROJECT_UPDATE_POINTS_BASE, prior);
+                return decayedPoints(ScoringRules.get(ScoringRules.PROJECT_UPDATE_POINTS_BASE), prior);
             case STEP_TYPE_ARTICLE_UPDATE:
-                return decayedPoints(ARTICLE_UPDATE_POINTS_BASE, prior);
+                return decayedPoints(ScoringRules.get(ScoringRules.ARTICLE_UPDATE_POINTS_BASE), prior);
             case STEP_TYPE_TREND_STUDY:
-                return TREND_STUDY_POINTS;
+                return ScoringRules.get(ScoringRules.TREND_STUDY_POINTS);
             default:
                 throw new IllegalArgumentException("점수를 정할 수 없는 단계 종류입니다: " + stepType);
         }
@@ -183,7 +176,7 @@ public class RoadmapUpkeepService {
             if (recorded != null && (last == null || recorded.isAfter(last))) {
                 last = recorded;
             }
-            if (last != null && !now.isBefore(last.plusDays(PROJECT_UPDATE_DAYS))) {
+            if (last != null && !now.isBefore(last.plusDays(ScoringRules.get(ScoringRules.PROJECT_UPDATE_DAYS)))) {
                 due.add(new Object[] {project, last});
             }
         }
@@ -221,7 +214,7 @@ public class RoadmapUpkeepService {
             }
         }
         List<Map.Entry<Long, LocalDateTime>> due = lastDone.entrySet().stream()
-                .filter(e -> !open.contains(e.getKey()) && !now.isBefore(e.getValue().plusDays(ARTICLE_UPDATE_DAYS)))
+                .filter(e -> !open.contains(e.getKey()) && !now.isBefore(e.getValue().plusDays(ScoringRules.get(ScoringRules.ARTICLE_UPDATE_DAYS))))
                 .sorted(Map.Entry.comparingByValue())
                 .collect(Collectors.toList());
         for (Map.Entry<Long, LocalDateTime> e : due) {
@@ -257,7 +250,7 @@ public class RoadmapUpkeepService {
                 }
             }
         }
-        if (reference == null || now.isBefore(reference.plusDays(TREND_STUDY_DAYS))) {
+        if (reference == null || now.isBefore(reference.plusDays(ScoringRules.get(ScoringRules.TREND_STUDY_DAYS)))) {
             return;
         }
         UserDto user = userDao.findById(userId);

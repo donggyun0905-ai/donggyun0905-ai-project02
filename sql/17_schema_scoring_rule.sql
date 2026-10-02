@@ -1,25 +1,21 @@
--- 스펙 오디세이 (Spec Odyssey) — 2주차 이후 초기 데이터
--- 대상: LEVEL_TIER(게이미피케이션 등급 5단계)
--- 기준 문서: requirements.md TD-5(b) 추천안 그대로 채택 (팀 확정, 2026-09-23)
--- problem_level_min/max는 TD-5(c) "우리 등급이 오를수록 더 높은 문제 레벨 추천"용 매핑값 — 1~5 스케일 추천안
--- title_name은 "항해사" 테마에서 "오디세이(여정)" 테마로 팀이 다시 정해서 교체함(2026-09-30) —
--- 공유 DB에는 이미 새 이름으로 들어가 있었는데 이 시드 파일만 갱신이 안 돼 있던 걸 뒤늦게 맞춤.
+-- 스펙 오디세이 (Spec Odyssey) — 점수·복습 주기 규칙 테이블: SCORING_RULE
+-- 대상: 이미 DB를 만든 환경에 한 번 실행한다. (sql/03에도 같은 정의가 있어 새 DB는 03만 실행해도 된다.)
+-- 기준 문서: docs/db-design.md "SCORING_RULE"
+-- 로드맵 단계 점수·복습/유지 주기·감쇠 값을 코드 상수 대신 데이터로 둔다. 코드에는 같은 기본값이 있어
+-- 행이 없거나 이 테이블이 아직 없어도 동작은 그대로다(값만 기본값). 일일 미션 배점은 여기서 다루지 않는다(코드 상수).
 
-SET NAMES utf8mb4;
+CREATE TABLE IF NOT EXISTS SCORING_RULE (
+    id          BIGINT        NOT NULL AUTO_INCREMENT,
+    rule_key    VARCHAR(50)   NOT NULL,
+    rule_value  INT           NOT NULL,
+    description VARCHAR(200)  NULL,
+    created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted  BOOLEAN       NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_scoring_rule_key (rule_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =========================================================
--- LEVEL_TIER — 게이미피케이션 등급 (5단계)
--- =========================================================
-INSERT INTO LEVEL_TIER (min_score, max_score, tier_name, title_name, problem_level_min, problem_level_max) VALUES
-    (0,    499,  '비기너',    '첫걸음',    0, 1),
-    (500,  1499, '취준생',    '방랑자',    1, 2),
-    (1500, 2999, '실전러',    '항해자',    2, 3),
-    (3000, 4999, '취뽀 임박', '개척자',    3, 4),
-    (5000, NULL, '취뽀',      '오디세이아', 4, 5);
-
--- ---------------------------------------------------------------------------
--- SCORING_RULE — 점수·복습 주기 기본값 (코드의 기본값과 같다)
--- ---------------------------------------------------------------------------
 INSERT IGNORE INTO SCORING_RULE (rule_key, rule_value, description) VALUES
     ('LADDER_BUDGET',               2500, '직무 하나의 기술 사다리(입문→전문가)를 끝까지 했을 때 받는 총점. 기술이 몇 개든 같다'),
     ('WEIGHT_TIER_ENTRY',              1, '단계 가중치 — 입문'),

@@ -1004,3 +1004,18 @@ CREATE TABLE TECH_ARTICLE_REPORT (
         FOREIGN KEY (reporter_user_id) REFERENCES USERS (id)
         ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------------
+-- SCORING_RULE (점수·복습 주기 규칙) — 신설. 기본값 행은 sql/04_seed_extended.sql
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS SCORING_RULE (
+    id          BIGINT        NOT NULL AUTO_INCREMENT,
+    rule_key    VARCHAR(50)   NOT NULL,
+    rule_value  INT           NOT NULL,
+    description VARCHAR(200)  NULL,
+    created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted  BOOLEAN       NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_scoring_rule_key (rule_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
