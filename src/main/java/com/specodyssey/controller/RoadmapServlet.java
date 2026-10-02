@@ -189,6 +189,11 @@ public class RoadmapServlet extends HttpServlet {
             } else if ("complete".equals(action)) {
                 Long stepId = Long.valueOf(req.getParameter("stepId"));
                 boolean completed = "true".equals(req.getParameter("completed"));
+                if (completed) {
+                    // 완료는 단계마다 정해진 증빙(프로젝트·노트·서류·기록)을 내야만 된다. 체크만으로 완료하는 길은 없다 —
+                    // 이 액션은 "완료 취소"에만 쓴다. (프로필에서 직접 추가한 스킬·자격증의 자동 완료는 서비스가 따로 처리한다)
+                    throw new IllegalArgumentException("이 단계는 증빙을 제출해야 완료할 수 있습니다.");
+                }
                 roadmapService.completeStep(userId, stepId, completed);
             } else if ("completeProject".equals(action)) {
                 if (!handleCompleteProject(req, resp, userId)) {
@@ -366,24 +371,6 @@ public class RoadmapServlet extends HttpServlet {
     private boolean handleSubmitCertProof(HttpServletRequest req, HttpServletResponse resp, Long userId)
             throws ServletException, IOException, SQLException {
         Long stepId = Long.valueOf(req.getParameter("stepId"));
-
-        // [TEST] 파일 없이 통과 — roadmap.jsp의 테스트 전용 버튼 하나만 이 파라미터를 보낸다.
-        // 실제 운영 배포 전에는 이 분기와 그 버튼을 함께 지울 것(2026-09-30, 사용자 요청).
-        if ("1".equals(req.getParameter("testShortcut"))) {
-            DocumentDto testDocument = new DocumentDto();
-            testDocument.setOriginalName("test-cert-shortcut.txt");
-            testDocument.setStoredName("test-cert-shortcut-" + System.nanoTime() + ".txt");
-            testDocument.setFilePath("");
-            testDocument.setFileSize(0L);
-            testDocument.setMimeType("text/plain");
-            testDocument.setChecksum("test-shortcut");
-            try {
-                roadmapService.submitCertProof(userId, stepId, testDocument);
-            } catch (IllegalArgumentException e) {
-                return failWith(req, resp, e.getMessage());
-            }
-            return true;
-        }
 
         Part filePart;
         try {
