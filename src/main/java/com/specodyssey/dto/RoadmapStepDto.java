@@ -103,6 +103,12 @@ public class RoadmapStepDto {
         this.proofContent = proofContent;
     }
 
+    /** 시간이 지나 이어 붙는 단계(복습·프로젝트 업데이트·글 업데이트·트렌딩 학습)인지 — 화면이 사다리 단계와 구분해 그린다 */
+    public boolean isUpkeep() {
+        return "REVIEW".equals(stepType) || "PROJECT_UPDATE".equals(stepType)
+                || "ARTICLE_UPDATE".equals(stepType) || "TREND_STUDY".equals(stepType);
+    }
+
     public Long getEvidenceProjectId() {
         return evidenceProjectId;
     }

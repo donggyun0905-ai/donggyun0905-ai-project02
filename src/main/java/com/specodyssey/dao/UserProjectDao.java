@@ -110,6 +110,17 @@ public class UserProjectDao {
         }
     }
 
+    // 프로젝트 "업데이트" 단계를 끝내면 마지막으로 손본 시각(updated_at)을 지금으로 — 다음 업데이트 주기가 여기서부터 다시 센다.
+    public int touch(Connection conn, Long projectId, Long userId) throws SQLException {
+        String sql = "UPDATE USER_PROJECTS SET updated_at = CURRENT_TIMESTAMP " +
+                "WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, projectId);
+            pstmt.setLong(2, userId);
+            return pstmt.executeUpdate();
+        }
+    }
+
     public void delete(Connection conn, Long projectId, Long userId) throws SQLException {
         String sql = "UPDATE USER_PROJECTS SET is_deleted = TRUE WHERE id = ? AND user_id = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {

@@ -107,9 +107,9 @@ public class RoadmapCompletionService {
     public void completeStep(Long userId, Long stepId, boolean completed) throws SQLException {
         TransactionUtil.runInTransaction(conn -> {
             RoadmapStepDto target = roadmapStepDao.findByIdForUser(conn, stepId, userId);
-            if (target != null && STEP_TYPE_REVIEW.equals(target.getStepType())) {
+            if (target != null && UPKEEP_STEP_TYPES.contains(target.getStepType())) {
                 // 복습은 복습 기록을 내야만 끝난다(completeReview) — 체크만으로 점수를 받는 길을 막는다.
-                throw new IllegalArgumentException("복습 단계는 복습 기록을 제출해야 완료할 수 있습니다.");
+                throw new IllegalArgumentException("복습·업데이트·트렌딩 학습 단계는 기록을 제출해야 완료할 수 있습니다.");
             }
             int updatedRows = roadmapStepDao.updateCompleted(conn, stepId, userId, completed,
                     completed ? LocalDateTime.now() : null);

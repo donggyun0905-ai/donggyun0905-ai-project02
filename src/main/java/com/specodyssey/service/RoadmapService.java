@@ -47,6 +47,7 @@ public class RoadmapService {
     private final RoadmapCompletionService completion = new RoadmapCompletionService();
     private final RoadmapSubmissionService submissions = new RoadmapSubmissionService();
     private final RoadmapReviewService reviews = new RoadmapReviewService();
+    private final RoadmapUpkeepService upkeep = new RoadmapUpkeepService();
     private final RoadmapProgressCalculator progressCalculator = new RoadmapProgressCalculator();
 
     public RoadmapService() {
@@ -142,6 +143,22 @@ public class RoadmapService {
     // 복습 → RoadmapReviewService
     public int completeReview(Long userId, Long stepId, String note) throws SQLException {
         return reviews.completeReview(userId, stepId, note);
+    }
+
+    // 프로젝트 업데이트·기술 글 업데이트·트렌딩 학습 → RoadmapUpkeepService
+    public int appendDueUpkeep(Long userId, LocalDateTime now) throws SQLException {
+        return upkeep.appendDueUpkeep(userId, now);
+    }
+
+    // 프로젝트 업데이트·트렌딩 학습 → RoadmapUpkeepService
+    public int completeUpkeep(Long userId, Long stepId, String note) throws SQLException {
+        return upkeep.completeUpkeep(userId, stepId, note);
+    }
+
+    // 기술 글 업데이트 → RoadmapUpkeepService
+    public SkillProofGrader.GradeResult submitArticleUpdate(Long userId, Long stepId, String extractedText,
+            DocumentDto proofFile) throws SQLException {
+        return upkeep.submitArticleUpdate(userId, stepId, extractedText, proofFile);
     }
 
     // 로드맵 생성 → RoadmapGenerator

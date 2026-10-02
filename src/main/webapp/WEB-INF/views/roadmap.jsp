@@ -125,7 +125,7 @@
                 </c:if>
                 <c:forEach var="step" items="${steps}">
                     <%-- 완료한 건 티어 상관없이 전부, 미완료는 지금 열린 티어 + 바로 다음 잠긴 티어까지 --%>
-                    <c:if test="${step.completed || step.stepType == 'REVIEW'
+                    <c:if test="${step.completed || step.upkeep
                                   || (not progress.journeyComplete && step.tier == currentTier.tier)
                                   || (not empty nextLockedTier && step.tier == nextLockedTier.tier)}">
                         <c:set var="rowIndex" value="${rowIndex + 1}" scope="page" />
@@ -135,10 +135,10 @@
                                 <c:set var="markerIcon" value="✓" />
                                 <c:set var="cardClass" value="is-past" />
                             </c:when>
-                            <%-- 복습은 시간이 지나 생기는 단계라 잠그지 않고 바로 할 수 있게 둔다(끝없는 로드맵) --%>
-                            <c:when test="${step.stepType == 'REVIEW'}">
+                            <%-- 복습·업데이트·트렌딩 학습은 시간이 지나 생기는 단계라 잠그지 않고 바로 할 수 있게 둔다(끝없는 로드맵) --%>
+                            <c:when test="${step.upkeep}">
                                 <c:set var="markerClass" value="remaining" />
-                                <c:set var="markerIcon" value="🔁" />
+                                <c:set var="markerIcon" value="${step.stepType == 'REVIEW' ? '🔁' : step.stepType == 'PROJECT_UPDATE' ? '🛠' : step.stepType == 'ARTICLE_UPDATE' ? '📝' : '📈'}" />
                                 <c:set var="cardClass" value="" />
                             </c:when>
                             <c:when test="${not empty nextLockedTier && step.tier == nextLockedTier.tier}">
@@ -168,6 +168,9 @@
                                             <c:when test="${step.stepType == 'CERT'}">자격증</c:when>
                                             <c:when test="${step.stepType == 'PROJECT'}">프로젝트</c:when>
                                             <c:when test="${step.stepType == 'REVIEW'}">복습</c:when>
+                                            <c:when test="${step.stepType == 'PROJECT_UPDATE'}">프로젝트 업데이트</c:when>
+                                            <c:when test="${step.stepType == 'ARTICLE_UPDATE'}">기술 글 업데이트</c:when>
+                                            <c:when test="${step.stepType == 'TREND_STUDY'}">트렌딩 학습</c:when>
                                             <c:otherwise>기술</c:otherwise>
                                         </c:choose>
                                     </span>
@@ -191,8 +194,8 @@
                                 </c:if>
                                 <c:if test="${markerClass != 'locked'}">
                                 <c:choose>
-                                    <c:when test="${step.completed && step.stepType == 'REVIEW'}">
-                                        <%-- 복습은 완료 취소가 없다 — 점수를 받은 기록이라 되돌리지 않는다 --%>
+                                    <c:when test="${step.completed && step.upkeep}">
+                                        <%-- 복습·업데이트·트렌딩 학습은 완료 취소가 없다 — 점수를 받은 기록이라 되돌리지 않는다 --%>
                                     </c:when>
                                     <c:when test="${step.completed}">
                                         <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form cancel-step"
@@ -206,6 +209,12 @@
                                     </c:when>
                                     <c:when test="${step.stepType == 'REVIEW'}">
 <%@ include file="/WEB-INF/views/roadmap/_step-action-review.jspf" %>
+                                    </c:when>
+                                    <c:when test="${step.stepType == 'PROJECT_UPDATE' || step.stepType == 'TREND_STUDY'}">
+<%@ include file="/WEB-INF/views/roadmap/_step-action-upkeep-note.jspf" %>
+                                    </c:when>
+                                    <c:when test="${step.stepType == 'ARTICLE_UPDATE'}">
+<%@ include file="/WEB-INF/views/roadmap/_step-action-article-update.jspf" %>
                                     </c:when>
                                     <c:when test="${step.stepType == 'PROJECT'}">
 <%@ include file="/WEB-INF/views/roadmap/_step-action-project.jspf" %>

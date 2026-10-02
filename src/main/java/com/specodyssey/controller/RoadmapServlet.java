@@ -79,7 +79,9 @@ public class RoadmapServlet extends HttpServlet {
             // 검사는 세션당 하루 한 번만 한다(ReviewCheckGate) — 매번 DB를 훑지 않도록.
             if (ReviewCheckGate.shouldCheck(req.getSession(false), java.time.LocalDate.now())) {
                 try {
-                    roadmapService.appendDueReviews(userId, java.time.LocalDateTime.now());
+                    java.time.LocalDateTime now = java.time.LocalDateTime.now();
+                    roadmapService.appendDueReviews(userId, now);
+                    roadmapService.appendDueUpkeep(userId, now);
                 } catch (SQLException e) {
                     ReviewCheckGate.reset(req.getSession(false)); // 실패했으면 다음에 다시 시도한다
                     getServletContext().log("복습 단계 생성 실패", e);
@@ -128,7 +130,9 @@ public class RoadmapServlet extends HttpServlet {
             List<RoadmapStepDto> steps) throws SQLException {
         java.util.Map<Long, ProjectSubmissionService.ProjectDraft> drafts = new java.util.HashMap<>();
         for (RoadmapStepDto step : steps) {
-            if (step.getEvidenceProjectId() != null && !step.isCompleted()) {
+            // 프로젝트·기술 프로젝트 제출 폼의 초안 — 프로젝트 업데이트 단계도 프로젝트를 가리키지만 그 폼은 쓰지 않는다
+            boolean projectForm = "PROJECT".equals(step.getStepType()) || "SKILL".equals(step.getStepType());
+            if (projectForm && step.getEvidenceProjectId() != null && !step.isCompleted()) {
                 ProjectSubmissionService.ProjectDraft draft =
                         projectSubmissionService.loadDraft(userId, step.getEvidenceProjectId());
                 if (draft != null) {
@@ -173,7 +177,8 @@ public class RoadmapServlet extends HttpServlet {
         // 바뀌므로 "방금 티어를 끝냈다"로 오인하면 안 된다.
         boolean mayCompleteStep = "complete".equals(action) || "completeProject".equals(action)
                 || "submitSkillNote".equals(action) || "submitSkillProject".equals(action)
-                || "submitCertProof".equals(action) || "completeReview".equals(action);
+                || "submitCertProof".equals(action) || "completeReview".equals(action)
+                || "completeUpkeep".equals(action) || "submitArticleUpdate".equals(action);
         Long scoreTierBefore = null;
 
         try {
@@ -190,7 +195,7 @@ public class RoadmapServlet extends HttpServlet {
                     return;
                 }
             } else if ("submitSkillNote".equals(action)) {
-                if (!handleSubmitSkillNote(req, resp, userId)) {
+                if (!handleSubmitSkillNote(req, resp, userId, false)) {
                     return;
                 }
             } else if ("submitSkillProject".equals(action)) {
@@ -202,6 +207,17 @@ public class RoadmapServlet extends HttpServlet {
                         req.getParameter("reviewNote"));
                 if (points > 0) {
                     req.getSession().setAttribute("roadmapNotice", "복습 완료! +" + points + "점을 받았어요.");
+                }
+            } else if ("completeUpkeep".equals(action)) {
+                // 프로젝트 업데이트·트렌딩 학습 — 기록을 내면 끝난다
+                int points = roadmapService.completeUpkeep(userId, Long.valueOf(req.getParameter("stepId")),
+                        req.getParameter("note"));
+                if (points > 0) {
+                    req.getSession().setAttribute("roadmapNotice", "기록을 남겼어요! +" + points + "점을 받았어요.");
+                }
+            } else if ("submitArticleUpdate".equals(action)) {
+                if (!handleSubmitSkillNote(req, resp, userId, true)) {
+                    return;
                 }
             } else if ("submitCertProof".equals(action)) {
                 if (!handleSubmitCertProof(req, resp, userId)) {
@@ -285,8 +301,8 @@ public class RoadmapServlet extends HttpServlet {
     // 저장해두므로, 여기서는 그냥 리다이렉트만 해도 다음 GET에서 roadmap.jsp가 최신 판정 결과를
     // 그대로 보여준다. PDFBox가 텍스트와 파일 저장에 각각 스트림을 소비하므로 한 번만 읽어 바이트
     // 배열로 들고 있다가 두 번 재사용한다.
-    private boolean handleSubmitSkillNote(HttpServletRequest req, HttpServletResponse resp, Long userId)
-            throws ServletException, IOException, SQLException {
+    private boolean handleSubmitSkillNote(HttpServletRequest req, HttpServletResponse resp, Long userId,
+            boolean articleUpdate) throws ServletException, IOException, SQLException {
         Long stepId = Long.valueOf(req.getParameter("stepId"));
 
         Part filePart;
@@ -328,7 +344,12 @@ public class RoadmapServlet extends HttpServlet {
         document.setChecksum(saved.getChecksum());
 
         try {
-            roadmapService.submitSkillNote(userId, stepId, extractedText, document);
+            // 기술 글 업데이트도 같은 PDF 제출 흐름이고, 판정 서비스만 다르다
+            if (articleUpdate) {
+                roadmapService.submitArticleUpdate(userId, stepId, extractedText, document);
+            } else {
+                roadmapService.submitSkillNote(userId, stepId, extractedText, document);
+            }
         } catch (IllegalArgumentException e) {
             FileStorageUtil.deleteQuietly(document.getFilePath());
             return failWith(req, resp, e.getMessage());

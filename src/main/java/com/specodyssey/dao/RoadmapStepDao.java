@@ -38,7 +38,7 @@ public class RoadmapStepDao {
     public Long insert(Connection conn, RoadmapStepDto step) throws SQLException {
         String sql = "INSERT INTO ROADMAP_STEP " +
                 "(roadmap_id, step_order, step_type, tier, certification_id, related_skill_id, reason, " +
-                " is_completed, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                " is_completed, completed_at, evidence_project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setLong(1, step.getRoadmapId());
             pstmt.setInt(2, step.getStepOrder());
@@ -49,6 +49,7 @@ public class RoadmapStepDao {
             pstmt.setString(7, step.getReason());
             pstmt.setBoolean(8, step.isCompleted());
             pstmt.setTimestamp(9, toTimestamp(step.getCompletedAt()));
+            setNullableLong(pstmt, 10, step.getEvidenceProjectId());
             pstmt.executeUpdate();
             try (ResultSet keys = pstmt.getGeneratedKeys()) {
                 return keys.next() ? keys.getLong(1) : null;
@@ -199,6 +200,34 @@ public class RoadmapStepDao {
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                List<RoadmapStepDto> rows = new ArrayList<>();
+                while (rs.next()) {
+                    rows.add(mapRow(rs));
+                }
+                return rows;
+            }
+        }
+    }
+
+    // 프로젝트 업데이트·기술 글 업데이트·트렌딩 학습처럼 "시간이 지나면 이어 붙는" 단계를 찾을 때 쓴다 — 이 사용자의
+    // 모든 로드맵(재생성 이전 버전 포함)에서 주어진 종류의 단계를 끝낸 것과 아직 안 끝낸 것 모두 가져온다.
+    public List<RoadmapStepDto> findByUserAndTypes(Long userId, java.util.Collection<String> stepTypes)
+            throws SQLException {
+        if (stepTypes.isEmpty()) {
+            return new ArrayList<>();
+        }
+        String placeholders = String.join(", ", java.util.Collections.nCopies(stepTypes.size(), "?"));
+        String sql = "SELECT " + RS_COLUMNS + " FROM ROADMAP_STEP rs JOIN ROADMAP r ON rs.roadmap_id = r.id " +
+                "WHERE r.user_id = ? AND r.is_deleted = FALSE AND rs.is_deleted = FALSE " +
+                "AND rs.step_type IN (" + placeholders + ") ORDER BY rs.id";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            int i = 2;
+            for (String type : stepTypes) {
+                pstmt.setString(i++, type);
+            }
             try (ResultSet rs = pstmt.executeQuery()) {
                 List<RoadmapStepDto> rows = new ArrayList<>();
                 while (rs.next()) {

@@ -8,6 +8,13 @@ import java.util.List;
  */
 final class RoadmapConstants {
 
+    // 시간이 지나 이어 붙는 "유지·성장" 단계 종류 — 사다리(입문→전문가) 밖에서 tier는 모두 REVIEW다
+    static final String STEP_TYPE_PROJECT_UPDATE = "PROJECT_UPDATE";
+    static final String STEP_TYPE_ARTICLE_UPDATE = "ARTICLE_UPDATE";
+    static final String STEP_TYPE_TREND_STUDY = "TREND_STUDY";
+    static final java.util.Set<String> UPKEEP_STEP_TYPES = java.util.Set.of(
+            "REVIEW", STEP_TYPE_PROJECT_UPDATE, STEP_TYPE_ARTICLE_UPDATE, STEP_TYPE_TREND_STUDY);
+
     private RoadmapConstants() {
     }
 

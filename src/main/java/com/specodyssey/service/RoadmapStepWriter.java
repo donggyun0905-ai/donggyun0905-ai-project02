@@ -25,6 +25,14 @@ final class RoadmapStepWriter {
     int insertStep(Connection conn, Long roadmapId, int order, String stepType, String tier,
                             Long certificationId, Long relatedSkillId, String reason, boolean alreadyDone)
             throws SQLException {
+        return insertStep(conn, roadmapId, order, stepType, tier, certificationId, relatedSkillId, reason, alreadyDone, null);
+    }
+
+    // 프로젝트에 매달린 단계(프로젝트 업데이트)는 evidence_project_id로 어느 프로젝트인지 가리킨다
+    int insertStep(Connection conn, Long roadmapId, int order, String stepType, String tier,
+                            Long certificationId, Long relatedSkillId, String reason, boolean alreadyDone,
+                            Long evidenceProjectId)
+            throws SQLException {
         RoadmapStepDto step = new RoadmapStepDto();
         step.setRoadmapId(roadmapId);
         step.setStepOrder(order);
@@ -35,6 +43,7 @@ final class RoadmapStepWriter {
         step.setReason(reason);
         step.setCompleted(alreadyDone);
         step.setCompletedAt(alreadyDone ? LocalDateTime.now() : null);
+        step.setEvidenceProjectId(evidenceProjectId);
         roadmapStepDao.insert(conn, step);
         return order + 1;
     }
