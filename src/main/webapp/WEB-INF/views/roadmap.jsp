@@ -89,7 +89,7 @@
         <c:set var="currentTier" value="${progress.currentTier}" />
         <c:set var="currentTierLabel"
                value="${currentTier.tier == 'ENTRY' ? '입문' : currentTier.tier == 'CORE' ? '핵심' : currentTier.tier == 'ADVANCED' ? '심화' : '전문가'}" />
-        <div class="card journey-map">
+        <div class="journey-map">
             <h2 style="margin-bottom:2px;">
                 <c:choose>
                     <c:when test="${progress.journeyComplete}">🧭 여정 기록</c:when>
@@ -99,7 +99,7 @@
             <c:if test="${not progress.journeyComplete}">
                 <div class="progress-track"><div class="progress-fill" style="width:${currentTier.percent}%;"></div></div>
             </c:if>
-            <p class="muted" style="margin:2px 0 0;">박스 안에서 위아래로 스크롤하면 지나온 길과 지금 할 일을 이어서 볼 수 있어요.</p>
+            <p class="muted" style="margin:2px 0 0;">아래로 내려가며 지나온 길(흰 길)과 지금 할 일을 이어서 볼 수 있어요.</p>
             <div class="journey-legend">
                 <span><span class="dot completed"></span>완료</span>
                 <span><span class="dot current"></span>지금 할 일</span>
@@ -159,7 +159,7 @@
                             </c:otherwise>
                         </c:choose>
 
-                        <div class="journey-row" data-step-id="${step.id}">
+                        <div class="journey-row ${rowIndex % 2 == 1 ? 'card-left' : 'card-right'}" data-step-id="${step.id}">
                             <div class="journey-marker ${markerClass}">${markerIcon}</div>
                             <div class="journey-card ${cardClass}" style="grid-column: ${rowIndex % 2 == 1 ? 1 : 3};">
                                 <div class="row" style="margin-bottom:6px;">
@@ -266,5 +266,7 @@
 <%@ include file="/WEB-INF/views/roadmap/_celebration.jspf" %>
 
 <%@ include file="/WEB-INF/views/roadmap/_scripts.jspf" %>
+
+<%@ include file="/WEB-INF/views/roadmap/_path.jspf" %>
 
 <jsp:include page="/WEB-INF/views/common/footer.jsp" />

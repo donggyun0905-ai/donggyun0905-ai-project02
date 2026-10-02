@@ -9,20 +9,17 @@
 <script>
 (function () {
     var STORAGE_KEY = 'roadmapLastStepId';
-    var container = document.getElementById('journeyScroll');
-    if (container) {
-        var lastStepId = sessionStorage.getItem(STORAGE_KEY);
-        if (lastStepId !== null) {
-            var target = container.querySelector('[data-step-id="' + lastStepId + '"]');
-            if (target) {
-                var containerRect = container.getBoundingClientRect();
-                var targetRect = target.getBoundingClientRect();
-                // target을 컨테이너 중앙 부근에 오도록 — scrollIntoView는 바깥 페이지까지
-                // 같이 스크롤시킬 수 있어서, 이 컨테이너 안에서만 scrollTop을 직접 계산한다.
-                container.scrollTop += (targetRect.top - containerRect.top) - (containerRect.height / 2);
-            }
-            sessionStorage.removeItem(STORAGE_KEY);
+    // 여정 길은 페이지 전체가 스크롤된다 — 방금 작업한 단계의 카드를 화면 가운데로 가져온다.
+    var restoredToStep = false;
+    var lastStepId = sessionStorage.getItem(STORAGE_KEY);
+    if (lastStepId !== null) {
+        var target = document.querySelector('.journey-row[data-step-id="' + lastStepId + '"]');
+        if (target) {
+            var rect = target.getBoundingClientRect();
+            window.scrollBy(0, rect.top + rect.height / 2 - window.innerHeight / 2);
+            restoredToStep = true;
         }
+        sessionStorage.removeItem(STORAGE_KEY);
     }
     // 폼 제출 → 리다이렉트로 페이지가 새로 로드되면 브라우저 창 스크롤도 맨 위로 돌아간다.
     // 위의 컨테이너 내부 스크롤과 별개로, 창 스크롤 위치도 저장했다가 복원한다.
@@ -30,7 +27,9 @@
     var savedY = sessionStorage.getItem(WINDOW_KEY);
     if (savedY !== null) {
         sessionStorage.removeItem(WINDOW_KEY);
-        window.scrollTo(0, parseInt(savedY, 10) || 0);
+        if (!restoredToStep) {
+            window.scrollTo(0, parseInt(savedY, 10) || 0);
+        }
     }
     document.addEventListener('submit', function (e) {
         sessionStorage.setItem(WINDOW_KEY, String(window.scrollY));

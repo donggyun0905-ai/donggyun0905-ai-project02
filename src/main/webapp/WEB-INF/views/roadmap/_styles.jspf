@@ -23,8 +23,28 @@
     .journey-card p { font-size: 1rem; }
     .journey-row { grid-template-columns: 1fr 76px 1fr; gap: 0 16px; margin: 22px 0; }
     .journey-marker { width: 64px; height: 64px; font-size: 1.6rem; }
-    .journey-track-scroll { max-height: 80vh; }
+    /* 여정 길은 상자 없이 배경에 크게 깔고 페이지 전체가 스크롤된다(2026-10-02). 길 그림은 _path.jspf가
+       각 단계 마커를 지나도록 그린다 — 마커를 카드 반대쪽으로 번갈아 밀어 길이 좌우로 크게 굽이친다. */
+    .journey-track-scroll { max-height: none; overflow: visible; }
+    .journey-track::before { display: none; }
+    .journey-row { grid-template-columns: 1fr 240px 1fr; }
+    .journey-row.card-left .journey-marker { translate: 78px 0; }
+    .journey-row.card-right .journey-marker { translate: -78px 0; }
+    .journey-path { position: absolute; left: 0; top: 0; width: 100%; height: 100%; z-index: 0;
+        pointer-events: none; overflow: visible; }
+    .journey-path .path-base { fill: none; stroke: #9b7b3c; stroke-opacity: 0.55; stroke-width: 6;
+        stroke-linecap: round; stroke-dasharray: 2 16; }
+    .journey-path .path-done { fill: none; stroke: #fff; stroke-width: 7; stroke-linecap: round;
+        stroke-dasharray: 2 16; filter: drop-shadow(0 0 5px rgba(255,255,255,0.95)); }
+    .journey-path .path-glow { fill: #fff; filter: drop-shadow(0 0 10px #fff) drop-shadow(0 0 22px rgba(255,255,255,0.9)); }
+    .journey-path .path-glow.arrived { animation: journeyPulse 2.2s ease-in-out infinite; }
+    @keyframes journeyPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+    @media (prefers-reduced-motion: reduce) { .journey-path .path-glow.arrived { animation: none; } }
     .journey-card.has-dialog { cursor: pointer; }
+    @media (max-width: 720px) {
+        .journey-row { grid-template-columns: 52px 1fr; }
+        .journey-row.card-left .journey-marker, .journey-row.card-right .journey-marker { translate: none; }
+    }
     /* 단계 작업 창 — 카드 안에서 토글로 펼치던 폼을 별도 창으로 띄운다 */
     .open-step-dialog { margin-top: 4px; }
     .step-dialog { border: none; border-radius: var(--radius); padding: 24px 28px; width: min(560px, 92vw);

@@ -9,7 +9,7 @@ import java.util.Map;
  * 점수·복습 주기 규칙을 SCORING_RULE 테이블에서 읽는다. 코드에 같은 기본값이 있어서 행이 없거나 테이블이
  * 아직 없거나 DB를 못 읽어도 기본값으로 그대로 동작한다. 읽은 값은 CACHE_MILLIS 동안 메모리에 둬서
  * 단계를 완료할 때마다 DB를 다시 읽지 않는다(값을 바꾸면 그 시간 안에 반영된다).
- * 일일 미션 배점은 여기서 다루지 않는다(코드 상수).
+ * 일일 문제 풀이 점수(DAILY_POINTS_1..5)도 여기서 읽는다.
  */
 final class ScoringRules {
 
@@ -32,6 +32,7 @@ final class ScoringRules {
     static final String TREND_STUDY_POINTS = "TREND_STUDY_POINTS";
     static final String UPKEEP_POINTS_DECAY = "UPKEEP_POINTS_DECAY";
     static final String UPKEEP_POINTS_MIN = "UPKEEP_POINTS_MIN";
+    static final String DAILY_POINTS_PREFIX = "DAILY_POINTS_"; // 1..5 = 등급 순서별 문제 풀이 점수
 
     private static final long CACHE_MILLIS = 60_000L;
 
@@ -61,7 +62,12 @@ final class ScoringRules {
             Map.entry(ARTICLE_UPDATE_POINTS_BASE, 60),
             Map.entry(TREND_STUDY_POINTS, 40),
             Map.entry(UPKEEP_POINTS_DECAY, 10),
-            Map.entry(UPKEEP_POINTS_MIN, 5));
+            Map.entry(UPKEEP_POINTS_MIN, 5),
+            Map.entry("DAILY_POINTS_1", 15),
+            Map.entry("DAILY_POINTS_2", 15),
+            Map.entry("DAILY_POINTS_3", 20),
+            Map.entry("DAILY_POINTS_4", 25),
+            Map.entry("DAILY_POINTS_5", 30));
 
     private static final ScoringRuleDao DAO = new ScoringRuleDao();
 

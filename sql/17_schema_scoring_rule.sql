@@ -2,7 +2,7 @@
 -- 대상: 이미 DB를 만든 환경에 한 번 실행한다. (sql/03에도 같은 정의가 있어 새 DB는 03만 실행해도 된다.)
 -- 기준 문서: docs/db-design.md "SCORING_RULE"
 -- 로드맵 단계 점수·복습/유지 주기·감쇠 값을 코드 상수 대신 데이터로 둔다. 코드에는 같은 기본값이 있어
--- 행이 없거나 이 테이블이 아직 없어도 동작은 그대로다(값만 기본값). 일일 미션 배점은 여기서 다루지 않는다(코드 상수).
+-- 행이 없거나 이 테이블이 아직 없어도 동작은 그대로다(값만 기본값). 일일 문제 풀이 점수도 여기서 읽는다.
 
 CREATE TABLE IF NOT EXISTS SCORING_RULE (
     id          BIGINT        NOT NULL AUTO_INCREMENT,
@@ -41,4 +41,9 @@ INSERT IGNORE INTO SCORING_RULE (rule_key, rule_value, description) VALUES
     ('ARTICLE_UPDATE_POINTS_BASE',    60, '기술 글 업데이트 첫 점수'),
     ('TREND_STUDY_POINTS',            40, '트렌딩 학습 점수(고정)'),
     ('UPKEEP_POINTS_DECAY',           10, '유지 단계 감쇠 폭'),
-    ('UPKEEP_POINTS_MIN',              5, '유지 단계 최저 점수');
+    ('UPKEEP_POINTS_MIN',              5, '유지 단계 최저 점수'),
+    ('DAILY_POINTS_1',                15, '일일 문제 풀이 점수 — 등급 1번째(비기너)'),
+    ('DAILY_POINTS_2',                15, '일일 문제 풀이 점수 — 등급 2번째(취준생)'),
+    ('DAILY_POINTS_3',                20, '일일 문제 풀이 점수 — 등급 3번째(실전러)'),
+    ('DAILY_POINTS_4',                25, '일일 문제 풀이 점수 — 등급 4번째(취뽀 임박)'),
+    ('DAILY_POINTS_5',                30, '일일 문제 풀이 점수 — 등급 5번째(취뽀)');

@@ -122,4 +122,19 @@ class StepPointCalculatorTest {
         }
         assertEquals(30, RoadmapReviewService.reviewIntervalDays("ENTRY"));
     }
+
+    @Test
+    void 일일_문제_점수도_규칙_테이블_값을_따른다() throws Exception {
+        ScoringRuleDao dao = new ScoringRuleDao();
+        try {
+            dao.upsert("DAILY_POINTS_1", 7);
+            ScoringRules.refresh();
+            assertEquals(7, MissionSubmitService.pointsForTierOrder(0));
+            assertEquals(15, MissionSubmitService.pointsForTierOrder(1));
+        } finally {
+            dao.upsert("DAILY_POINTS_1", 15);
+            ScoringRules.refresh();
+        }
+        assertEquals(15, MissionSubmitService.pointsForTierOrder(0));
+    }
 }

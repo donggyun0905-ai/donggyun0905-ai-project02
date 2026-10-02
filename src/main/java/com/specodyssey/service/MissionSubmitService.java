@@ -52,7 +52,7 @@ public class MissionSubmitService {
     }
 
     private static final String SIGNAL_TYPE_PROBLEM = "PROBLEM";
-    private static final int[] POINTS_BY_TIER_ORDER = {15, 15, 20, 25, 30};
+    private static final int TIER_ORDER_COUNT = 5; // DAILY_POINTS_1..5 (SCORING_RULE)
 
     private final MissionDao missionDao = new MissionDao();
     private final CodeCompileService compileService = new CodeCompileService();
@@ -166,10 +166,10 @@ public class MissionSubmitService {
 
     /**
      * 등급 순서(LEVEL_TIER min_score 오름차순, 0부터)별 문제 풀이 점수.
-     * 비기너 15 · 취준생 15 · 실전러 20 · 취뽀 임박 25 · 취뽀 30 — ScoreService 로고처럼 순서로 대응한다.
+     * 기본값: 비기너 15 · 취준생 15 · 실전러 20 · 취뽀 임박 25 · 취뽀 30(SCORING_RULE DAILY_POINTS_1..5) — ScoreService 로고처럼 순서로 대응한다.
      */
     static int pointsForTierOrder(int order) {
-        int i = Math.max(0, Math.min(order, POINTS_BY_TIER_ORDER.length - 1));
-        return POINTS_BY_TIER_ORDER[i];
+        int i = Math.max(0, Math.min(order, TIER_ORDER_COUNT - 1));
+        return ScoringRules.get(ScoringRules.DAILY_POINTS_PREFIX + (i + 1));
     }
 }
