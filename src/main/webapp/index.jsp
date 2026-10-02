@@ -1,4 +1,3 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<%-- PDF 화면설계에는 별도 랜딩(소개) 화면이 없다 — 첫 화면이 바로 로그인이다. --%>
-<c:redirect url="${pageContext.request.contextPath}/login" />
+<%-- 첫 화면은 메인 소개(랜딩) 화면이다. JSP는 WEB-INF/views에 두는 규칙이라 여기서는 넘겨주기만 한다. --%>
+<jsp:forward page="/WEB-INF/views/landing.jsp" />
