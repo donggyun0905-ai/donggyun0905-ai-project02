@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CsrfJspCoverageTest {
 
     private static final Path WEBAPP = Paths.get("src/main/webapp");
-    private static final Pattern FORM_OPEN = Pattern.compile("<form\\b[^>]*>", Pattern.CASE_INSENSITIVE);
     private static final String TOKEN_INPUT = "name=\"_csrf\" value=\"${csrfToken}\"";
 
     private static List<Path> jsps() throws IOException {
@@ -33,26 +32,57 @@ class CsrfJspCoverageTest {
         }
     }
 
+    /**
+     * 폼 여는 태그의 끝(>)을 따옴표를 따져서 찾는다 — action="<c:url value='/x' />"처럼 속성 값 안에 >가 들어 있어도
+     * 거기서 끊지 않는다. (예전에 토큰 입력을 속성 값 안에 끼워 넣어 제출 버튼이 안 먹고 화면에 코드가 보이던 사고가 있었다.)
+     */
+    static int findTagEnd(String text, int from) {
+        char quote = 0;
+        for (int i = from; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (quote != 0) {
+                if (c == quote) {
+                    quote = 0;
+                }
+            } else if (c == '"' || c == '\'') {
+                quote = c;
+            } else if (c == '>') {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     @Test
-    void 모든_POST_폼은_여는_태그_바로_뒤에_CSRF_토큰을_담는다() throws IOException {
-        List<String> missing = new ArrayList<>();
+    void 모든_POST_폼은_여는_태그_바로_뒤에_CSRF_토큰을_담고_태그_안은_깨끗하다() throws IOException {
+        List<String> problems = new ArrayList<>();
         int forms = 0;
         for (Path jsp : jsps()) {
             String text = Files.readString(jsp);
-            Matcher m = FORM_OPEN.matcher(text);
+            Matcher m = Pattern.compile("<form\\b", Pattern.CASE_INSENSITIVE).matcher(text);
             while (m.find()) {
                 forms++;
-                String tag = m.group();
-                assertTrue(tag.toLowerCase().contains("method=\"post\""),
-                        jsp + " — GET 폼이 생겼다면 이 검사를 GET 예외로 바꿔야 한다: " + tag);
-                String after = text.substring(m.end(), Math.min(text.length(), m.end() + 120));
-                if (!after.contains(TOKEN_INPUT)) {
-                    missing.add(jsp.getFileName() + " : " + tag.replaceAll("\\s+", " "));
+                int end = findTagEnd(text, m.end());
+                String tag = end < 0 ? text.substring(m.start()) : text.substring(m.start(), end + 1);
+                String oneLine = tag.replaceAll("\\s+", " ");
+                if (end < 0) {
+                    problems.add(jsp.getFileName() + " : 닫히지 않은 폼 태그 " + oneLine);
+                    continue;
+                }
+                if (tag.contains("_csrf") || tag.contains("<input")) {
+                    problems.add(jsp.getFileName() + " : 토큰/입력이 폼 태그 속성 안에 끼어 있다 " + oneLine);
+                }
+                if (!tag.toLowerCase().contains("method=\"post\"")) {
+                    problems.add(jsp.getFileName() + " : GET 폼이 생겼다면 이 검사를 GET 예외로 바꿔야 한다 " + oneLine);
+                }
+                String after = text.substring(end + 1, Math.min(text.length(), end + 1 + 120)).stripLeading();
+                if (!after.startsWith("<input type=\"hidden\" " + TOKEN_INPUT)) {
+                    problems.add(jsp.getFileName() + " : 여는 태그 바로 뒤에 토큰 입력이 없다 " + oneLine);
                 }
             }
         }
         assertTrue(forms >= 50, "폼을 못 찾았다(경로 확인): " + forms);
-        assertEquals(List.of(), missing, "CSRF 토큰이 없는 폼");
+        assertEquals(List.of(), problems, "폼 문제");
     }
 
     @Test

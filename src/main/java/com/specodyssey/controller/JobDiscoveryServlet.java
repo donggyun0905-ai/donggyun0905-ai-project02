@@ -31,6 +31,12 @@ public class JobDiscoveryServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         Long userId = loginUserId(req);
+        // 설문 전에 다른 화면에 가려다 넘어온 경우의 안내 — 한 번만 보여 준다
+        Object notice = req.getSession(false).getAttribute(OnboardingFilter.NOTICE_KEY);
+        if (notice != null) {
+            req.setAttribute("onboardingNotice", notice);
+            req.getSession(false).removeAttribute(OnboardingFilter.NOTICE_KEY);
+        }
         try {
             req.setAttribute("questions", discoveryService.getQuestions());
             req.setAttribute("myAnswers", discoveryService.getMyAnswers(userId));

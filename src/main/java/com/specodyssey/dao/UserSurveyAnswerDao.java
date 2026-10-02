@@ -63,6 +63,19 @@ public class UserSurveyAnswerDao {
         }
     }
 
+    // 직무 발굴 설문(JOB_DISCOVERY)에 한 문항이라도 답했는지 — 처음 설문을 했는지 가르는 기준
+    public boolean hasJobDiscoveryAnswer(Long userId) throws SQLException {
+        String sql = "SELECT 1 FROM USER_SURVEY_ANSWER a JOIN SURVEY_QUESTION q ON q.id = a.question_id " +
+                "WHERE a.user_id = ? AND a.is_deleted = FALSE AND q.survey_type = 'JOB_DISCOVERY' LIMIT 1";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
     /**
      * 직무 발굴 설문 재응답(FR-38). 같은 (user_id, question_id)가 있으면 값만 덮어쓰고, 논리 삭제된 행도 되살린다.
      * JOB_DISCOVERY 문항 전용 — 자가진단(SELF_CHECK)은 초기 1회만 인정하는 정책이라 이 메서드를 쓰면 안 된다.

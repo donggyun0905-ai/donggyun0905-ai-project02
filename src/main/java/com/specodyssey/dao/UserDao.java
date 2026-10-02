@@ -247,9 +247,11 @@ public class UserDao {
         }
     }
 
-    // FR-13 회원 탈퇴 — 논리 삭제
+    // FR-13 회원 탈퇴 — 논리 삭제. login_id가 UNIQUE라서 탈퇴한 아이디가 그대로 남으면 같은 아이디로 다시 가입할 수 없다
+    // ("이미 사용 중"). 그래서 앞에 del_<id>_를 붙여 비워 준다(id가 앞에 있어 잘려도 겹치지 않는다). 탈퇴 계정은 로그인할 수 없다.
     public void softDelete(Long id) throws SQLException {
-        String sql = "UPDATE USERS SET is_deleted = TRUE WHERE id = ?";
+        String sql = "UPDATE USERS SET is_deleted = TRUE, login_id = LEFT(CONCAT('del_', id, '_', login_id), 50) " +
+                "WHERE id = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 

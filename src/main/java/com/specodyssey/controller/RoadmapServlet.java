@@ -62,9 +62,18 @@ public class RoadmapServlet extends HttpServlet {
     private static final int RECENT_DOCUMENT_COUNT = 5;
     private final ProjectSubmissionService projectSubmissionService = new ProjectSubmissionService();
 
+    /**
+     * 개발·시연용 "[TEST] 파일 없이 통과" 버튼과 서버 경로를 켤지 — .env의 ENABLE_TEST_SHORTCUT=true 일 때만.
+     * 기본은 꺼짐이라 운영에서는 버튼도 안 보이고, 요청을 직접 보내도 거절된다.
+     */
+    static boolean testShortcutEnabled() {
+        return "true".equalsIgnoreCase(com.specodyssey.util.AppConfig.get("ENABLE_TEST_SHORTCUT"));
+    }
+
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         Long userId = currentUserId(req);
+        req.setAttribute("testShortcut", testShortcutEnabled());
         try {
             // 로드맵은 목표 직무가 있어야 의미가 있다 — 희망 직무가 아직 없으면 로드맵 내용 대신
             // 직무 찾기/프로필로 안내하는 작은 카드만 보여준다(사용자 요청, 2026-09-29).
@@ -189,9 +198,10 @@ public class RoadmapServlet extends HttpServlet {
             } else if ("complete".equals(action)) {
                 Long stepId = Long.valueOf(req.getParameter("stepId"));
                 boolean completed = "true".equals(req.getParameter("completed"));
-                if (completed) {
+                if (completed && !testShortcutEnabled()) {
                     // 완료는 단계마다 정해진 증빙(프로젝트·노트·서류·기록)을 내야만 된다. 체크만으로 완료하는 길은 없다 —
                     // 이 액션은 "완료 취소"에만 쓴다. (프로필에서 직접 추가한 스킬·자격증의 자동 완료는 서비스가 따로 처리한다)
+                    // 예외: .env에 ENABLE_TEST_SHORTCUT=true 를 켠 개발·시연 환경의 [TEST] 버튼.
                     throw new IllegalArgumentException("이 단계는 증빙을 제출해야 완료할 수 있습니다.");
                 }
                 roadmapService.completeStep(userId, stepId, completed);
@@ -371,6 +381,24 @@ public class RoadmapServlet extends HttpServlet {
     private boolean handleSubmitCertProof(HttpServletRequest req, HttpServletResponse resp, Long userId)
             throws ServletException, IOException, SQLException {
         Long stepId = Long.valueOf(req.getParameter("stepId"));
+
+        // [TEST] 파일 없이 통과 — roadmap.jsp의 테스트 전용 버튼 하나만 이 파라미터를 보낸다.
+        // 실제 운영 배포 전에는 이 분기와 그 버튼을 함께 지울 것(2026-09-30, 사용자 요청).
+        if (testShortcutEnabled() && "1".equals(req.getParameter("testShortcut"))) {
+            DocumentDto testDocument = new DocumentDto();
+            testDocument.setOriginalName("test-cert-shortcut.txt");
+            testDocument.setStoredName("test-cert-shortcut-" + System.nanoTime() + ".txt");
+            testDocument.setFilePath("");
+            testDocument.setFileSize(0L);
+            testDocument.setMimeType("text/plain");
+            testDocument.setChecksum("test-shortcut");
+            try {
+                roadmapService.submitCertProof(userId, stepId, testDocument);
+            } catch (IllegalArgumentException e) {
+                return failWith(req, resp, e.getMessage());
+            }
+            return true;
+        }
 
         Part filePart;
         try {

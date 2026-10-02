@@ -12,3 +12,14 @@
                                                 <button type="submit">등록하고 완료하기</button>
                                             </form>
                                         </dialog>
+                                        <c:if test="${testShortcut}">
+<%-- [TEST] 파일 없이 통과 — 테스트할 때마다 파일을 매번 첨부하기 번거로워서 다시 추가함
+                                             (2026-09-30, 사용자 요청). 실제 운영 배포 전에는 반드시 지울 것. --%>
+                                        <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">
+                                            <input type="hidden" name="_csrf" value="${csrfToken}">
+                                            <input type="hidden" name="action" value="complete">
+                                            <input type="hidden" name="stepId" value="${step.id}">
+                                            <input type="hidden" name="completed" value="true">
+                                            <button type="submit" class="link-button">[TEST] 파일 없이 통과</button>
+                                        </form>
+</c:if>

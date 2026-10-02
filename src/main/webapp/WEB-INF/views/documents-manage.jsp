@@ -72,8 +72,8 @@
                                 <td>
                                     <a href="${pageContext.request.contextPath}/documents/${d.id}">내려받기</a> ·
                                     <form action="${pageContext.request.contextPath}/documents" method="post" class="inline-form delete-doc"
-                                          data-name="<c:out value='${d.originalName}' />
-                                        <input type="hidden" name="_csrf" value="${csrfToken}">" data-purpose="<c:out value='${d.purpose}' />">
+                                          data-name="<c:out value='${d.originalName}' />" data-purpose="<c:out value='${d.purpose}' />">
+                                        <input type="hidden" name="_csrf" value="${csrfToken}">
                                         <input type="hidden" name="action" value="delete">
                                         <input type="hidden" name="documentId" value="${d.id}">
                                         <button type="submit" class="link-button" style="color:var(--danger);">삭제</button>
