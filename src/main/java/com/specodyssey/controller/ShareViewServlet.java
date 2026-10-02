@@ -100,7 +100,7 @@ public class ShareViewServlet extends HttpServlet {
 
         resp.setHeader("Cache-Control", "no-store");
         resp.setHeader("X-Robots-Tag", "noindex, nofollow");
-        resp.setContentType(file.getMimeType() != null ? file.getMimeType() : "application/octet-stream");
+        resp.setContentType(FileStorageUtil.mimeTypeFor(file.getOriginalName()));
         resp.setHeader("Content-Disposition", "attachment; filename*=UTF-8''"
                 + URLEncoder.encode(file.getOriginalName(), StandardCharsets.UTF_8));
         FileStorageUtil.writeTo(file.getFilePath(), resp.getOutputStream());

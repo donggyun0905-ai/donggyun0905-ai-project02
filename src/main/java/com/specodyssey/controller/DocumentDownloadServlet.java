@@ -49,7 +49,8 @@ public class DocumentDownloadServlet extends HttpServlet {
             return;
         }
 
-        resp.setContentType(document.getMimeType() != null ? document.getMimeType() : "application/octet-stream");
+        // 저장된 MIME(브라우저가 보낸 값)은 믿지 않고 확장자로 다시 정한다
+        resp.setContentType(FileStorageUtil.mimeTypeFor(document.getOriginalName()));
         resp.setHeader("Content-Disposition", "attachment; filename*=UTF-8''"
                 + URLEncoder.encode(document.getOriginalName(), StandardCharsets.UTF_8));
         FileStorageUtil.writeTo(document.getFilePath(), resp.getOutputStream());

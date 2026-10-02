@@ -317,7 +317,7 @@ public class RoadmapServlet extends HttpServlet {
         document.setStoredName(saved.getStoredName());
         document.setFilePath(saved.getFilePath());
         document.setFileSize(saved.getFileSize());
-        document.setMimeType(filePart.getContentType());
+        document.setMimeType(FileStorageUtil.mimeTypeFor(filename));
         document.setChecksum(saved.getChecksum());
 
         try {
@@ -334,7 +334,7 @@ public class RoadmapServlet extends HttpServlet {
 
     // CERT 단계 제출 — 자격증 취득을 증명하는 서류(합격 확인서 캡처·자격증 사진 등) 1개를 받아
     // 완료 처리한다(2026-09-30 팀 결정). 텍스트 추출·규칙 판정 없이 첨부 자체를 증빙으로 신뢰하므로
-    // 파일 형식 제한은 FileStorageUtil의 공통 확장자 차단만 적용한다(이미지·PDF 등 다 허용).
+    // 파일 형식 제한은 FileStorageUtil의 공통 허용 목록만 적용한다(이미지·PDF 등).
     private boolean handleSubmitCertProof(HttpServletRequest req, HttpServletResponse resp, Long userId)
             throws ServletException, IOException, SQLException {
         Long stepId = Long.valueOf(req.getParameter("stepId"));
@@ -367,7 +367,7 @@ public class RoadmapServlet extends HttpServlet {
             return failWith(req, resp, "자격증 증빙 서류를 첨부해야 합니다.");
         }
         String filename = filePart.getSubmittedFileName();
-        if (FileStorageUtil.isExtensionBlocked(filename)) {
+        if (!FileStorageUtil.isAllowedFile(filename)) {
             return failWith(req, resp, "업로드할 수 없는 파일 형식입니다: " + filename);
         }
 
@@ -380,7 +380,7 @@ public class RoadmapServlet extends HttpServlet {
         document.setStoredName(saved.getStoredName());
         document.setFilePath(saved.getFilePath());
         document.setFileSize(saved.getFileSize());
-        document.setMimeType(filePart.getContentType());
+        document.setMimeType(FileStorageUtil.mimeTypeFor(filename));
         document.setChecksum(saved.getChecksum());
 
         try {
@@ -490,7 +490,7 @@ public class RoadmapServlet extends HttpServlet {
     }
 
     private DocumentDto savePart(Part part) throws IOException {
-        if (FileStorageUtil.isExtensionBlocked(part.getSubmittedFileName())) {
+        if (!FileStorageUtil.isAllowedFile(part.getSubmittedFileName())) {
             throw new IllegalArgumentException("업로드할 수 없는 파일 형식입니다: " + part.getSubmittedFileName());
         }
         FileStorageUtil.SavedFile saved;
@@ -502,7 +502,7 @@ public class RoadmapServlet extends HttpServlet {
         document.setStoredName(saved.getStoredName());
         document.setFilePath(saved.getFilePath());
         document.setFileSize(saved.getFileSize());
-        document.setMimeType(part.getContentType());
+        document.setMimeType(FileStorageUtil.mimeTypeFor(part.getSubmittedFileName()));
         document.setChecksum(saved.getChecksum());
         return document;
     }
