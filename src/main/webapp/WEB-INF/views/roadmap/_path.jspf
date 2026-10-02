@@ -1,7 +1,10 @@
 <%-- 여정 길 그림(2026-10-02) — 각 단계 마커의 중심을 부드러운 S자 곡선으로 이어 배경에 크게 깐다.
      점선 길은 전체, 흰 길은 "지금 위치"까지. 흰 빛이 시작점에서 지금 위치까지 길을 따라 움직이고,
      지나간 자리의 흰 길은 사라지지 않고 남는다. 지금 위치 = 지금 할 일(⚓)·완료 마커 중 가장 뒤쪽.
-     카드·마커 위치가 바뀌는 창 크기 변경에서는 길만 다시 그리고 빛은 도착한 자리에 둔다. --%>
+     카드·마커 위치가 바뀌는 창 크기 변경에서는 길만 다시 그리고 빛은 도착한 자리에 둔다.
+     단계를 완료하면 페이지가 새로고침되는데, 그때마다 빛이 맨 처음부터 다시 달리면 안 된다 — 마지막으로 도착한 단계(step id)를
+     브라우저에 기억해 두고, 새로고침 뒤에는 그 자리에서 새 위치까지만(보통 한 칸) 움직인다. 처음 방문(기억 없음)에만 처음부터 달린다.
+     기억해 둔 단계가 지금 화면에 없거나(다른 로드맵·접힌 기록) 위치가 그대로이거나 뒤로 갔으면(완료 취소) 움직이지 않고 제자리에 둔다. --%>
 <script>
 (function () {
     var track = document.querySelector('.journey-track');
@@ -12,6 +15,14 @@
     svg.setAttribute('aria-hidden', 'true');
     track.insertBefore(svg, track.firstChild);
     var played = false;
+    var STORE_KEY = 'journeyLightStep:' + (track.getAttribute('data-user-id') || '');
+
+    function readStored() {
+        try { return window.localStorage.getItem(STORE_KEY); } catch (e) { return null; }
+    }
+    function writeStored(stepId) {
+        try { if (stepId) { window.localStorage.setItem(STORE_KEY, stepId); } } catch (e) { /* 저장을 못 해도 화면은 정상 */ }
+    }
 
     function el(name, cls) {
         var node = document.createElementNS(NS, name);
@@ -62,6 +73,15 @@
         glow.setAttribute('r', '11');
 
         var len = done.getTotalLength();
+        // all[0..k]까지의 길(출발 보조점 포함)의 길이 — 빛이 출발할 자리를 재는 데 쓴다
+        function lengthTo(k) {
+            var tmp = document.createElementNS(NS, 'path');
+            tmp.setAttribute('d', curve(all.slice(0, k + 1)));
+            svg.appendChild(tmp);
+            var l = tmp.getTotalLength();
+            svg.removeChild(tmp);
+            return l;
+        }
         function place(at) {
             var pt = done.getPointAtLength(at);
             glow.setAttribute('cx', pt.x);
@@ -82,21 +102,41 @@
             var y = done.getPointAtLength(at).y;
             rect.setAttribute('height', Math.max(0, y + 12));
         }
+        // 빛이 출발할 자리 — 기억해 둔 단계가 지금보다 앞이면 거기서, 기억이 없으면(처음) 맨 처음에서, 그 밖에는 움직이지 않는다
+        var rows = track.querySelectorAll('.journey-row');
+        var posStepId = rows[p.upTo] ? rows[p.upTo].getAttribute('data-step-id') : null;
+        var stored = readStored();
+        var fromLen = len; // 기본: 움직이지 않음
+        if (stored === null) {
+            fromLen = 0;
+        } else {
+            for (var r = 0; r < rows.length; r++) {
+                if (rows[r].getAttribute('data-step-id') === stored) {
+                    if (r < p.upTo) { fromLen = lengthTo(r + 1); }
+                    break;
+                }
+            }
+        }
+        if (!played) { writeStored(posStepId); }
+
         var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        if (played || reduce || len <= 0) {
+        if (played || reduce || len <= 0 || fromLen >= len - 0.5) {
             reveal(len); place(len); glow.classList.add('arrived');
+            played = true;
             return;
         }
         played = true;
-        reveal(0); place(0);
-        var duration = Math.min(5000, 1800 + len * 2);
+        reveal(fromLen); place(fromLen);
+        var distance = len - fromLen;
+        var duration = Math.min(5000, 1200 + distance * 2);
         var start = null;
         function frame(t) {
             if (start === null) { start = t; }
             var k = Math.min(1, (t - start) / duration);
             var eased = 1 - Math.pow(1 - k, 3);
-            place(len * eased);
-            reveal(len * eased);
+            var at = fromLen + distance * eased;
+            place(at);
+            reveal(at);
             if (k < 1) { requestAnimationFrame(frame); } else { glow.classList.add('arrived'); }
         }
         requestAnimationFrame(frame);

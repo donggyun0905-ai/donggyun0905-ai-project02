@@ -110,7 +110,7 @@
                  없다 — 잠긴 단계는 완료할 수 없다. --%>
             <c:set var="nextLockedTier" value="${progress.nextLockedTier}" />
             <div class="journey-track-scroll" id="journeyScroll">
-            <div class="journey-track" style="margin-top:16px;">
+            <div class="journey-track" style="margin-top:16px;" data-user-id="${sessionScope.loginUser.id}">
                 <c:set var="foundCurrent" value="false" scope="page" />
                 <c:set var="rowIndex" value="0" scope="page" />
                 <c:if test="${hiddenCompletedCount > 0}">
