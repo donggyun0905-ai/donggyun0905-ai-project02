@@ -1,6 +1,7 @@
 package com.specodyssey.service.discovery;
 
 import com.specodyssey.service.discovery.JobDiscoveryScorer.Recommendation;
+import com.specodyssey.util.AiNotices;
 import com.specodyssey.util.ExternalApiClient.ExternalApiException;
 import com.specodyssey.util.LlmClient;
 import com.specodyssey.util.StubLlmClient;
@@ -47,6 +48,36 @@ class RecommendationDescriberTest {
         new RecommendationDescriber(StubLlmClient.failing(503)).describe(recs);
 
         assertEquals("기본1", recs.get(0).reason);
+    }
+
+    // FR-111 — 기본 문장으로 대체했으면 다음 화면에 안내가 뜨도록 남긴다
+    @Test
+    void LLM이_실패하면_기본_설명으로_대체했다는_안내를_남긴다() {
+        AiNotices.clear();
+
+        new RecommendationDescriber(StubLlmClient.failing(503)).describe(List.of(rec(1, "백엔드 개발자", "기본1")));
+
+        assertEquals(List.of(RecommendationDescriber.UNAVAILABLE_NOTICE + " 잠시 후 다시 시도해 주세요."), AiNotices.drain());
+    }
+
+    @Test
+    void 다시_시도해도_안_되는_실패는_재시도_문구를_붙이지_않는다() {
+        AiNotices.clear();
+
+        new RecommendationDescriber(StubLlmClient.failing(401)).describe(List.of(rec(1, "백엔드 개발자", "기본1")));
+
+        assertEquals(List.of(RecommendationDescriber.UNAVAILABLE_NOTICE), AiNotices.drain());
+    }
+
+    @Test
+    void 성공하면_안내를_남기지_않는다() {
+        AiNotices.clear();
+        LlmClient llm = new StubLlmClient().register(RecommendationDescriber.Response.class,
+                "{\"items\":[{\"rank\":1,\"reason\":\"Java를 이미 다뤄 봤어요.\"}]}");
+
+        new RecommendationDescriber(llm).describe(List.of(rec(1, "백엔드 개발자", "기본1")));
+
+        assertTrue(AiNotices.drain().isEmpty());
     }
 
     @Test

@@ -94,6 +94,21 @@ public class CachingLlmClient implements LlmClient {
         }
     }
 
+    /**
+     * 어떤 LlmClient든 상태와 함께 받는다. CachingLlmClient면 캐시·직전 결과 대체까지 그대로 쓰고,
+     * 캐시가 없는 클라이언트(테스트용 Stub 등)는 성공=FRESH, 실패=UNAVAILABLE로 감싼다.
+     */
+    public static <T> LlmResult<T> completeWithStatus(LlmClient llm, String prompt, Class<T> type) {
+        if (llm instanceof CachingLlmClient caching) {
+            return caching.completeJsonWithStatus(prompt, type);
+        }
+        try {
+            return LlmResult.fresh(llm.completeJson(prompt, type), LocalDateTime.now());
+        } catch (ExternalApiException e) {
+            return LlmResult.unavailable(e);
+        }
+    }
+
     // 프롬프트가 길어 그대로 키로 못 쓴다(VARCHAR(255)) — "타입명:SHA-256" 형태로 줄인다
     static String requestKey(String prompt, Class<?> type) {
         String typeName = type.getSimpleName();

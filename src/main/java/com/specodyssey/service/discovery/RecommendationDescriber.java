@@ -1,8 +1,9 @@
 package com.specodyssey.service.discovery;
 
 import com.specodyssey.service.CachingLlmClient;
+import com.specodyssey.service.LlmResult;
 import com.specodyssey.service.discovery.JobDiscoveryScorer.Recommendation;
-import com.specodyssey.util.ExternalApiClient.ExternalApiException;
+import com.specodyssey.util.AiNotices;
 import com.specodyssey.util.GroqLlmClient;
 import com.specodyssey.util.LlmClient;
 
@@ -23,6 +24,7 @@ import java.util.logging.Logger;
 public class RecommendationDescriber {
 
     static final int MAX_REASON_LENGTH = 300;
+    static final String UNAVAILABLE_NOTICE = "AI 응답을 받지 못해 추천 이유를 기본 설명으로 보여드립니다.";
     private static final Logger LOG = Logger.getLogger(RecommendationDescriber.class.getName());
 
     private final LlmClient llm;
@@ -40,13 +42,23 @@ public class RecommendationDescriber {
         if (recommendations == null || recommendations.isEmpty()) {
             return;
         }
-        Response response;
+        LlmResult<Response> result;
         try {
-            response = llm.completeJson(prompt(recommendations), Response.class);
-        } catch (ExternalApiException | RuntimeException e) {
+            result = CachingLlmClient.completeWithStatus(llm, prompt(recommendations), Response.class);
+        } catch (RuntimeException e) {
             LOG.log(Level.WARNING, "추천 이유 LLM 생성 실패 — 기본 문장을 유지합니다", e);
+            AiNotices.add(UNAVAILABLE_NOTICE);
             return;
         }
+        // FR-111 — 대체했으면 다음 화면에 안내한다
+        if (result.isFallback()) {
+            AiNotices.add("AI 응답을 받지 못해 " + result.getCachedAtText() + "에 만든 직전 추천 이유를 보여드립니다.");
+        } else if (result.isUnavailable()) {
+            LOG.log(Level.WARNING, "추천 이유 LLM 생성 실패 — 기본 문장을 유지합니다");
+            AiNotices.add(result.isRetryable() ? UNAVAILABLE_NOTICE + " 잠시 후 다시 시도해 주세요." : UNAVAILABLE_NOTICE);
+            return;
+        }
+        Response response = result.getValue();
         if (response == null || response.items == null) {
             return;
         }

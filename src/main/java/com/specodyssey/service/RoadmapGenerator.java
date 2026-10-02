@@ -17,6 +17,7 @@ import com.specodyssey.dto.JobRequiredSkillDto;
 import com.specodyssey.dto.RoadmapDto;
 import com.specodyssey.dto.SkillDto;
 import com.specodyssey.service.RoadmapService.NoGapAnalysisException;
+import com.specodyssey.util.AiNotices;
 import com.specodyssey.util.TransactionUtil;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -53,8 +54,10 @@ public class RoadmapGenerator {
     }
 
     private static final int SCORE_REQUIRED = 2;
-
     private static final int SCORE_PREFERRED = 1;
+    // 프로젝트 추천 LLM이 실패해 고정 문구로 대체했을 때 다음 화면에 띄우는 안내 (FR-111)
+    static final String PROJECT_FALLBACK_NOTICE =
+            "AI 프로젝트 추천을 받지 못해 기본 안내로 대신했습니다. 로드맵을 다시 만들면 새로 추천받을 수 있어요.";
 
     // 가장 최근 격차 분석을 기준으로 새 로드맵을 생성한다. 기존 대표 로드맵이 있으면 비활성화한다 (FR-37).
     public Long generate(Long userId) throws SQLException, NoGapAnalysisException {
@@ -285,6 +288,8 @@ public class RoadmapGenerator {
                     job == null || job.getJobName() == null ? "이 직무" : job.getJobName(), names);
             return "💡 " + idea.title() + " — " + idea.description();
         } catch (Exception e) {
+            // FR-111 — 조용히 넘기지 않고 다음 화면에 안내한다 (2026-10-02)
+            AiNotices.add(PROJECT_FALLBACK_NOTICE);
             String topSkills = String.join(", ", names);
             return "부족한 기술을 실제로 다뤄볼 프로젝트를 진행해보세요. 우선순위가 높은 기술: " + topSkills;
         }
