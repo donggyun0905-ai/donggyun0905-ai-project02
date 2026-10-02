@@ -82,3 +82,10 @@
 </c:if>
 
 <main class="${mainWide ? 'wide' : ''}">
+<%-- FR-111 AI 응답을 받지 못해 대체했을 때의 안내 — AiNoticeFilter가 세션에 담고, 한 번 보여준 뒤 지운다 (2026-10-02, E) --%>
+<c:if test="${not empty sessionScope.aiNotice}">
+    <div class="banner ai-notice" role="status">
+        <span><c:forEach var="aiMsg" items="${sessionScope.aiNotice}" varStatus="s"><c:if test="${!s.first}"><br></c:if><c:out value="${aiMsg}" /></c:forEach></span>
+    </div>
+    <c:remove var="aiNotice" scope="session" />
+</c:if>

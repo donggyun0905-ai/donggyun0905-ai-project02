@@ -67,6 +67,10 @@ public final class DBUtil {
     private static final long IDLE_TIMEOUT_MS = 5 * 60_000;
     private static final long MAX_LIFETIME_MS = 25 * 60_000; // 서버 wait_timeout(기본 8시간)·중간 장비보다 짧게
     private static final long KEEPALIVE_MS = 2 * 60_000;
+    // 드라이버 대기 시간 — 없으면 공유 DB가 응답을 멈췄을 때 요청이 끝없이 기다리고 연결도 풀에 돌아오지 않는다 (2026-10-02)
+    // DB_URL에 같은 이름의 값이 이미 있으면 그 값을 쓴다.
+    private static final int CONNECT_TIMEOUT_MS = 5_000;  // DB 서버 접속 시도
+    private static final int SOCKET_TIMEOUT_MS = 60_000;  // 쿼리 하나의 응답 대기 — 스케줄러 집계 쿼리도 넉넉히 들어오게
 
     private static volatile HikariDataSource dataSource;
     // 내려가는 중이면 새 풀을 다시 만들지 않는다 — 종료 직전 스케줄러 스레드가 마지막으로 DB를 부르면 닫은 풀이 되살아나 누수가 된다
@@ -101,7 +105,30 @@ public final class DBUtil {
         config.setMaxLifetime(MAX_LIFETIME_MS);
         config.setKeepaliveTime(KEEPALIVE_MS);
         config.setAutoCommit(true);
+        driverTimeouts(DB_URL).forEach((key, value) -> config.addDataSourceProperty((String) key, value));
         return new HikariDataSource(config);
+    }
+
+    // DB_URL에 없는 대기 시간만 기본값으로 채운다
+    static Properties driverTimeouts(String url) {
+        String query = url == null || url.indexOf('?') < 0 ? "" : url.substring(url.indexOf('?') + 1).toLowerCase();
+        Properties props = new Properties();
+        if (!hasParam(query, "connecttimeout")) {
+            props.setProperty("connectTimeout", String.valueOf(CONNECT_TIMEOUT_MS));
+        }
+        if (!hasParam(query, "sockettimeout")) {
+            props.setProperty("socketTimeout", String.valueOf(SOCKET_TIMEOUT_MS));
+        }
+        return props;
+    }
+
+    private static boolean hasParam(String query, String name) {
+        for (String pair : query.split("&")) {
+            if (pair.startsWith(name + "=")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static int poolSize() {

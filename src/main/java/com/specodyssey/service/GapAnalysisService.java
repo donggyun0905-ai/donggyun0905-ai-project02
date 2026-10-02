@@ -64,8 +64,8 @@ public class GapAnalysisService {
             if (skill.getSkillId() != null) {
                 ownedSkillIds.add(skill.getSkillId());
             } else if (skill.getRawInput() != null) {
-                SkillMatcher.MatchResult result = skillMatcher.match(skill.getRawInput());
-                if (result.skillId() != null) {
+                // "Java Spring"처럼 원문 하나에 기술이 여러 개 있으면 모두 보유로 본다 (2026-10-02)
+                for (SkillMatcher.MatchResult result : skillMatcher.matchAll(skill.getRawInput())) {
                     ownedSkillIds.add(result.skillId());
                     matchedScoreBySkillId.merge(result.skillId(), result.score(), Math::max);
                 }

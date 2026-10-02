@@ -15,7 +15,9 @@ import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -104,5 +106,62 @@ class CachingLlmClientTest {
         assertTrue(k.startsWith("Reason:"));
         assertTrue(k.length() <= 255);
         assertTrue(!k.equals(CachingLlmClient.requestKey(longPrompt + "!", Reason.class)));
+    }
+
+    // ================= FR-111 결과 형식 (completeJsonWithStatus) =================
+
+    @Test
+    void 새로_받으면_FRESH_다음엔_CACHED() {
+        LlmClient ok = new StubLlmClient().register(Reason.class, "{\"reason\":\"새 결과\"}");
+        CachingLlmClient llm = new CachingLlmClient(ok, Duration.ofHours(1));
+
+        LlmResult<Reason> first = llm.completeJsonWithStatus(prompt, Reason.class);
+        assertEquals(LlmResult.Status.FRESH, first.getStatus());
+        assertEquals("새 결과", first.getValue().reason);
+        assertTrue(first.isAvailable());
+        assertNull(first.getMessage());
+
+        LlmResult<Reason> second = llm.completeJsonWithStatus(prompt, Reason.class);
+        assertEquals(LlmResult.Status.CACHED, second.getStatus());
+        assertNotNull(second.getCachedAt());
+    }
+
+    @Test
+    void 실패하면_FALLBACK이고_언제_결과인지와_안내_문구가_있다() {
+        LlmClient ok = new StubLlmClient().register(Reason.class, "{\"reason\":\"직전 결과\"}");
+        new CachingLlmClient(ok).completeJsonWithStatus(prompt, Reason.class);
+
+        LlmResult<Reason> r = new CachingLlmClient(StubLlmClient.failing(503), Duration.ZERO)
+                .completeJsonWithStatus(prompt, Reason.class);
+
+        assertEquals(LlmResult.Status.FALLBACK, r.getStatus());
+        assertTrue(r.isFallback());
+        assertEquals("직전 결과", r.getValue().reason);
+        assertFalse(r.getCachedAtText().isEmpty());
+        assertTrue(r.getMessage().contains(r.getCachedAtText()), r.getMessage());
+    }
+
+    @Test
+    void 대체할_결과도_없으면_UNAVAILABLE이고_일시적_실패만_재시도_가능() {
+        LlmResult<Reason> temporary = new CachingLlmClient(StubLlmClient.failing(429))
+                .completeJsonWithStatus(prompt, Reason.class);
+        assertTrue(temporary.isUnavailable());
+        assertNull(temporary.getValue());
+        assertFalse(temporary.isAvailable());
+        assertTrue(temporary.isRetryable());
+        assertTrue(temporary.getMessage().contains("다시 시도"));
+
+        LlmResult<Reason> noKey = new CachingLlmClient(StubLlmClient.failing(401))
+                .completeJsonWithStatus(prompt, Reason.class);
+        assertTrue(noKey.isUnavailable());
+        assertFalse(noKey.isRetryable());
+    }
+
+    @Test
+    void completeJson은_대체할_결과가_없으면_원래_상태코드로_예외를_던진다() {
+        ExternalApiException e = assertThrows(ExternalApiException.class,
+                () -> new CachingLlmClient(StubLlmClient.failing(503)).completeJson(prompt, Reason.class));
+
+        assertEquals(503, e.getStatusCode());
     }
 }
