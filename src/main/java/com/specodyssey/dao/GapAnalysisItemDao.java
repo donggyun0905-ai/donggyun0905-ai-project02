@@ -21,6 +21,11 @@ import java.util.List;
  */
 public class GapAnalysisItemDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, gap_analysis_id, skill_id, status, similarity_score, created_at, " +
+            "updated_at, is_deleted";
+
     public Long insert(GapAnalysisItemDto item) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, item);
@@ -53,7 +58,7 @@ public class GapAnalysisItemDao {
     }
 
     public List<GapAnalysisItemDto> findByGapAnalysisId(Long gapAnalysisId) throws SQLException {
-        String sql = "SELECT * FROM GAP_ANALYSIS_ITEM WHERE gap_analysis_id = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM GAP_ANALYSIS_ITEM WHERE gap_analysis_id = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, gapAnalysisId);

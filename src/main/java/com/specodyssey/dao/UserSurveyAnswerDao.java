@@ -22,6 +22,11 @@ import java.util.List;
  */
 public class UserSurveyAnswerDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, user_id, question_id, answer_value, answered_at, created_at, updated_at, " +
+            "is_deleted";
+
     public Long insert(UserSurveyAnswerDto answer) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, answer);
@@ -44,7 +49,7 @@ public class UserSurveyAnswerDao {
     }
 
     public List<UserSurveyAnswerDto> findByUserId(Long userId) throws SQLException {
-        String sql = "SELECT * FROM USER_SURVEY_ANSWER WHERE user_id = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM USER_SURVEY_ANSWER WHERE user_id = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);

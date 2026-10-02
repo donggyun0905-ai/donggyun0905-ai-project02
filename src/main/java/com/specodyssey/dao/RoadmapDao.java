@@ -21,6 +21,11 @@ import java.util.List;
  */
 public class RoadmapDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, user_id, gap_analysis_id, version, is_active, is_primary, target_level, " +
+            "created_at, updated_at, is_deleted";
+
     public Long insert(RoadmapDto roadmap) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, roadmap);
@@ -45,7 +50,7 @@ public class RoadmapDao {
     }
 
     public List<RoadmapDto> findByUserId(Long userId) throws SQLException {
-        String sql = "SELECT * FROM ROADMAP WHERE user_id = ? AND is_deleted = FALSE ORDER BY version DESC";
+        String sql = "SELECT " + COLUMNS + " FROM ROADMAP WHERE user_id = ? AND is_deleted = FALSE ORDER BY version DESC";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);
@@ -62,7 +67,7 @@ public class RoadmapDao {
     // gap_analysis_id는 UNIQUE(1:1)라, 같은 분석으로 로드맵을 또 만들려는 요청(중복 클릭 등)을
     // 막으려면 먼저 이걸로 이미 있는지 확인해야 한다 — FR-32 생성 흐름에서 사용.
     public RoadmapDto findByGapAnalysisId(Long gapAnalysisId) throws SQLException {
-        String sql = "SELECT * FROM ROADMAP WHERE gap_analysis_id = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM ROADMAP WHERE gap_analysis_id = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, gapAnalysisId);
@@ -74,7 +79,7 @@ public class RoadmapDao {
 
     // 대시보드·일일 미션이 바라보는 메인 여정
     public RoadmapDto findPrimaryByUserId(Long userId) throws SQLException {
-        String sql = "SELECT * FROM ROADMAP WHERE user_id = ? AND is_primary = TRUE AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM ROADMAP WHERE user_id = ? AND is_primary = TRUE AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);

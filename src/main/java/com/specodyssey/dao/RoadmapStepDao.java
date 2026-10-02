@@ -21,6 +21,14 @@ import java.util.List;
  */
 public class RoadmapStepDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, roadmap_id, step_order, step_type, tier, certification_id, " +
+            "related_skill_id, reason, proof_type, proof_content, evidence_project_id, " +
+            "review_status, review_note, is_completed, completed_at, created_at, " +
+            "updated_at, is_deleted";
+    private static final String RS_COLUMNS = "rs." + COLUMNS.replace(", ", ", rs.");
+
     public Long insert(RoadmapStepDto step) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, step);
@@ -76,7 +84,7 @@ public class RoadmapStepDao {
 
     // FR-32 순서 있는 로드맵 — step_order 순
     public List<RoadmapStepDto> findByRoadmapId(Long roadmapId) throws SQLException {
-        String sql = "SELECT * FROM ROADMAP_STEP WHERE roadmap_id = ? AND is_deleted = FALSE ORDER BY step_order";
+        String sql = "SELECT " + COLUMNS + " FROM ROADMAP_STEP WHERE roadmap_id = ? AND is_deleted = FALSE ORDER BY step_order";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, roadmapId);
@@ -126,7 +134,7 @@ public class RoadmapStepDao {
     // 완료 처리 직후 step_type·related_skill_id·certification_id를 확인해 스펙/스킬 자동 반영 여부를
     // 판단하는 데 쓴다 (RoadmapService.completeStep).
     public RoadmapStepDto findById(Connection conn, Long stepId) throws SQLException {
-        String sql = "SELECT * FROM ROADMAP_STEP WHERE id = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM ROADMAP_STEP WHERE id = ? AND is_deleted = FALSE";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, stepId);
             try (ResultSet rs = pstmt.executeQuery()) {
@@ -139,7 +147,7 @@ public class RoadmapStepDao {
     // 한 번에 확인하기 위한 조회. findById와 달리 ROADMAP과 조인해 user_id를 검증한다 — 증빙 데이터를
     // 만들기 전에 먼저 걸러야 다른 사용자 소유 단계로는 아무 것도 만들어지지 않는다.
     public RoadmapStepDto findByIdForUser(Connection conn, Long stepId, Long userId) throws SQLException {
-        String sql = "SELECT rs.* FROM ROADMAP_STEP rs JOIN ROADMAP r ON rs.roadmap_id = r.id " +
+        String sql = "SELECT " + RS_COLUMNS + " FROM ROADMAP_STEP rs JOIN ROADMAP r ON rs.roadmap_id = r.id " +
                 "WHERE rs.id = ? AND r.user_id = ? AND rs.is_deleted = FALSE";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, stepId);
@@ -184,7 +192,7 @@ public class RoadmapStepDao {
 
     // 기술 복습 주기 계산용 — 이 사용자가 끝낸 SKILL·REVIEW 단계 전부(로드맵이 재생성돼도 이어지도록 로드맵을 가리지 않는다).
     public List<RoadmapStepDto> findCompletedSkillRowsByUser(Long userId) throws SQLException {
-        String sql = "SELECT rs.* FROM ROADMAP_STEP rs JOIN ROADMAP r ON rs.roadmap_id = r.id " +
+        String sql = "SELECT " + RS_COLUMNS + " FROM ROADMAP_STEP rs JOIN ROADMAP r ON rs.roadmap_id = r.id " +
                 "WHERE r.user_id = ? AND r.is_deleted = FALSE AND rs.is_deleted = FALSE " +
                 "AND rs.is_completed = TRUE AND rs.related_skill_id IS NOT NULL " +
                 "AND rs.step_type IN ('SKILL', 'REVIEW')";

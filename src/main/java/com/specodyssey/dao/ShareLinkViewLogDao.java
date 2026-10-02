@@ -22,6 +22,10 @@ import java.util.Map;
  */
 public class ShareLinkViewLogDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, share_link_id, viewed_at, viewer_ip, created_at, updated_at, is_deleted";
+
     public Long insert(ShareLinkViewLogDto log) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, log);
@@ -43,7 +47,7 @@ public class ShareLinkViewLogDao {
 
     // 지원자에게 "몇 번 열람됐는지" 보여주기 위한 조회
     public List<ShareLinkViewLogDto> findByShareLinkId(Long shareLinkId) throws SQLException {
-        String sql = "SELECT * FROM SHARE_LINK_VIEW_LOG WHERE share_link_id = ? AND is_deleted = FALSE " +
+        String sql = "SELECT " + COLUMNS + " FROM SHARE_LINK_VIEW_LOG WHERE share_link_id = ? AND is_deleted = FALSE " +
                 "ORDER BY viewed_at DESC";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {

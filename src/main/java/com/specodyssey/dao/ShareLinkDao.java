@@ -20,6 +20,12 @@ import java.util.List;
  */
 public class ShareLinkDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, user_id, token, is_active, expires_at, scope_basic, scope_skills, " +
+            "scope_growth, scope_resume, scope_cover_letter, label, created_at, " +
+            "updated_at, is_deleted";
+
     public Long insert(ShareLinkDto link) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, link);
@@ -49,7 +55,7 @@ public class ShareLinkDao {
     }
 
     public List<ShareLinkDto> findByUserId(Long userId) throws SQLException {
-        String sql = "SELECT * FROM SHARE_LINK WHERE user_id = ? AND is_deleted = FALSE ORDER BY id DESC";
+        String sql = "SELECT " + COLUMNS + " FROM SHARE_LINK WHERE user_id = ? AND is_deleted = FALSE ORDER BY id DESC";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);
@@ -66,7 +72,7 @@ public class ShareLinkDao {
     // 면접관이 토큰으로 접근할 때 조회 (FR-85)
     // is_active·expires_at도 함께 확인한다 — 안 그러면 지원자가 링크를 비활성화(FR-86)해도 계속 열람 가능해진다.
     public ShareLinkDto findByToken(String token) throws SQLException {
-        String sql = "SELECT * FROM SHARE_LINK WHERE token = ? AND is_active = TRUE " +
+        String sql = "SELECT " + COLUMNS + " FROM SHARE_LINK WHERE token = ? AND is_active = TRUE " +
                 "AND (expires_at IS NULL OR expires_at > NOW()) AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -79,7 +85,7 @@ public class ShareLinkDao {
 
     // 면접관이 담아 둔 링크를 id로 다시 읽을 때 — findByToken과 같은 조건(활성·만료 전)으로 확인한다.
     public ShareLinkDto findActiveById(Long id) throws SQLException {
-        String sql = "SELECT * FROM SHARE_LINK WHERE id = ? AND is_active = TRUE " +
+        String sql = "SELECT " + COLUMNS + " FROM SHARE_LINK WHERE id = ? AND is_active = TRUE " +
                 "AND (expires_at IS NULL OR expires_at > NOW()) AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {

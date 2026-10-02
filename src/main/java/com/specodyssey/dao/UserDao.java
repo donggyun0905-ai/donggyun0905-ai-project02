@@ -19,6 +19,13 @@ import java.util.List;
  */
 public class UserDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, user_type, login_id, password_hash, name, age, career_status, email, " +
+            "major, grade, interest_field, desired_job_id, desired_job_status, " +
+            "resume_document_id, cover_letter_document_id, privacy_consent_at, " +
+            "profile_updated_at, last_login_at, created_at, updated_at, is_deleted";
+
     // FR-11~13 회원가입
     public Long insert(UserDto user) throws SQLException {
         String sql = "INSERT INTO USERS " +
@@ -55,7 +62,7 @@ public class UserDao {
 
     // SpecScoreScheduler의 일 1회 전체 스냅샷 배치용
     public List<UserDto> findAll() throws SQLException {
-        String sql = "SELECT * FROM USERS WHERE is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM USERS WHERE is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {
@@ -82,7 +89,7 @@ public class UserDao {
 
     // FR-12 로그인
     public UserDto findByLoginId(String loginId) throws SQLException {
-        String sql = "SELECT * FROM USERS WHERE login_id = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM USERS WHERE login_id = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -95,7 +102,7 @@ public class UserDao {
 
     // 세션 기반 본인 프로필 조회
     public UserDto findById(Long id) throws SQLException {
-        String sql = "SELECT * FROM USERS WHERE id = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM USERS WHERE id = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 

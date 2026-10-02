@@ -19,6 +19,11 @@ import java.time.LocalDateTime;
  */
 public class UserScoreSummaryDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "user_id, total_score, current_tier_id, streak_count, last_mission_date, " +
+            "created_at, updated_at, is_deleted";
+
     public void insert(UserScoreSummaryDto summary) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             insert(conn, summary);
@@ -39,7 +44,7 @@ public class UserScoreSummaryDao {
     }
 
     public UserScoreSummaryDto findByUserId(Long userId) throws SQLException {
-        String sql = "SELECT * FROM USER_SCORE_SUMMARY WHERE user_id = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM USER_SCORE_SUMMARY WHERE user_id = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);
