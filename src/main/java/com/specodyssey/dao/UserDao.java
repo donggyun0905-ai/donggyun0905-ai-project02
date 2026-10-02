@@ -193,6 +193,17 @@ public class UserDao {
     }
 
     // FR-12 로그인 성공 시 마지막 접속 시각 갱신
+    // 비밀번호 변경 — 새 해시만 바꾼다. 본인(id) 한 행만 대상이고 탈퇴한 계정은 건드리지 않는다.
+    public boolean updatePasswordHash(Long userId, String passwordHash) throws SQLException {
+        String sql = "UPDATE USERS SET password_hash = ? WHERE id = ? AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, passwordHash);
+            pstmt.setLong(2, userId);
+            return pstmt.executeUpdate() > 0;
+        }
+    }
+
     public void updateLastLogin(Long id) throws SQLException {
         String sql = "UPDATE USERS SET last_login_at = CURRENT_TIMESTAMP WHERE id = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();

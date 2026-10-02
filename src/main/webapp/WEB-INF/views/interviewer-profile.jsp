@@ -24,4 +24,7 @@
     </form>
 </div>
 
+<c:set var="passwordAction" value="/interviewer/password" />
+<%@ include file="/WEB-INF/views/common/password-change.jspf" %>
+
 <jsp:include page="/WEB-INF/views/common/footer.jsp" />

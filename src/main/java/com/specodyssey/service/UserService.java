@@ -76,11 +76,7 @@ public class UserService {
         if (trimmedLoginId.isEmpty() || trimmedLoginId.length() > LOGIN_ID_MAX_LENGTH) {
             throw new InvalidInputException("아이디는 1~" + LOGIN_ID_MAX_LENGTH + "자로 입력해주세요.");
         }
-        if (rawPassword == null || rawPassword.length() < PASSWORD_MIN_LENGTH
-                || rawPassword.length() > PASSWORD_MAX_LENGTH) {
-            throw new InvalidInputException(
-                    "비밀번호는 " + PASSWORD_MIN_LENGTH + "~" + PASSWORD_MAX_LENGTH + "자로 입력해주세요.");
-        }
+        requirePasswordRule(rawPassword);
 
         if (userDao.existsByLoginId(trimmedLoginId)) {
             throw new DuplicateLoginIdException("이미 사용 중인 아이디입니다.");
@@ -94,6 +90,15 @@ public class UserService {
         user.setDesiredJobStatus("UNSET");
         user.setPrivacyConsentAt(LocalDateTime.now());
         return user;
+    }
+
+    // 가입과 비밀번호 변경이 같은 규칙을 쓴다
+    private static void requirePasswordRule(String rawPassword) throws InvalidInputException {
+        if (rawPassword == null || rawPassword.length() < PASSWORD_MIN_LENGTH
+                || rawPassword.length() > PASSWORD_MAX_LENGTH) {
+            throw new InvalidInputException(
+                    "비밀번호는 " + PASSWORD_MIN_LENGTH + "~" + PASSWORD_MAX_LENGTH + "자로 입력해주세요.");
+        }
     }
 
     private Long insert(UserDto user) throws SQLException, DuplicateLoginIdException {
@@ -123,5 +128,23 @@ public class UserService {
             throw new InvalidCredentialException("비밀번호가 올바르지 않습니다.");
         }
         userDao.softDelete(userId);
+    }
+
+    /**
+     * 비밀번호 변경 — 현재 비밀번호를 다시 확인하고, 새 비밀번호는 가입 때와 같은 규칙을 지켜야 하며 현재와 달라야 한다.
+     * @throws InvalidCredentialException 현재 비밀번호가 틀림
+     * @throws InvalidInputException 새 비밀번호가 규칙에 맞지 않거나 현재와 같음
+     */
+    public void changePassword(Long userId, String currentPassword, String newPassword)
+            throws SQLException, InvalidCredentialException, InvalidInputException {
+        UserDto user = userDao.findById(userId);
+        if (user == null || currentPassword == null || !PasswordUtil.verify(currentPassword, user.getPasswordHash())) {
+            throw new InvalidCredentialException("현재 비밀번호가 올바르지 않습니다.");
+        }
+        requirePasswordRule(newPassword);
+        if (newPassword.equals(currentPassword)) {
+            throw new InvalidInputException("새 비밀번호는 현재 비밀번호와 달라야 합니다.");
+        }
+        userDao.updatePasswordHash(userId, PasswordUtil.hash(newPassword));
     }
 }
