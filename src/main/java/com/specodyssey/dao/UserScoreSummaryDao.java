@@ -51,7 +51,16 @@ public class UserScoreSummaryDao {
 
     // 트랜잭션 안에서 앞선 적립을 반영한 값을 읽어야 할 때 — 같은 연결로 읽는다
     public UserScoreSummaryDto findByUserId(Connection conn, Long userId) throws SQLException {
-        String sql = "SELECT " + COLUMNS + " FROM USER_SCORE_SUMMARY WHERE user_id = ? AND is_deleted = FALSE";
+        return findByUserId(conn, userId, false);
+    }
+
+    /**
+     * forUpdate = true면 이 행을 잠그고 읽는다(트랜잭션이 끝날 때까지). 점수 적립은 "읽고 → 더해서 → 쓰는" 순서라서, 같은 사용자의
+     * 적립 두 건이 동시에 돌면 둘 다 같은 옛 값을 읽어 한쪽 점수가 사라진다(lost update) — 잠그고 읽어 한 건씩 순서대로 처리한다.
+     */
+    public UserScoreSummaryDto findByUserId(Connection conn, Long userId, boolean forUpdate) throws SQLException {
+        String sql = "SELECT " + COLUMNS + " FROM USER_SCORE_SUMMARY WHERE user_id = ? AND is_deleted = FALSE"
+                + (forUpdate ? " FOR UPDATE" : "");
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);
             try (ResultSet rs = pstmt.executeQuery()) {

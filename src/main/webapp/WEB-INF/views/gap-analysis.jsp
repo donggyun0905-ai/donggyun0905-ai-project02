@@ -62,7 +62,7 @@
     <%-- 정상 상태(실제 데이터) --%>
     <c:otherwise>
         <h1>격차 분석</h1>
-        <p class="muted">목표 직무 <strong>${job.jobName}</strong>의 요구 기술과 지금 가진 스펙을 비교했습니다. 분석일 ${analysis.analyzedAt}</p>
+        <p class="muted">목표 직무 <strong><c:out value='${job.jobName}' /></strong>의 요구 기술과 지금 가진 스펙을 비교했습니다. 분석일 ${analysis.analyzedAt}</p>
 
         <div class="two-col" style="margin-top:16px;">
             <div class="primary">
@@ -79,7 +79,7 @@
                         <tr><th>기술</th><th>상태</th></tr>
                         <c:forEach var="item" items="${items}">
                             <tr>
-                                <td>${item.skillName}</td>
+                                <td><c:out value='${item.skillName}' /></td>
                                 <c:choose>
                                     <c:when test="${item.met}"><td style="color:var(--teal);">✔ 충족</td></c:when>
                                     <c:otherwise><td style="color:var(--danger);">✘ 부족</td></c:otherwise>

@@ -83,8 +83,8 @@ public class SideWidgetFilter implements Filter {
             }
         }
         try {
-            List<DocumentDto> documents = documentDao.findByUserId(userId);
-            req.setAttribute("recentDocuments", documents.subList(0, Math.min(RECENT_DOCUMENT_COUNT, documents.size())));
+            List<DocumentDto> documents = documentDao.findRecentByUserId(userId, RECENT_DOCUMENT_COUNT);
+            req.setAttribute("recentDocuments", documents);
         } catch (Exception e) {
             LOG.log(Level.WARNING, "최근 서류 위젯 조회 실패 — 빈 목록으로 표시합니다", e);
         }
