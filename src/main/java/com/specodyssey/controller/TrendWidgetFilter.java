@@ -29,7 +29,8 @@ import java.util.logging.Logger;
  */
 @WebFilter(urlPatterns = {
         "/dashboard", "/dday", "/documents", "/gap-analysis", "/insights",
-        "/job-discovery", "/mission", "/resume-feedback", "/share-links", "/roadmap"
+        "/job-discovery", "/mission", "/resume-feedback", "/share-links", "/roadmap",
+        "/spec-archive", "/spec-archive/post" // 스펙 아카이브 목록·글 상세 (글쓰기는 편집기 폭 때문에 위젯 없음)
 })
 public class TrendWidgetFilter implements Filter {
 

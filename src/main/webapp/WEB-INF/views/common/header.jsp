@@ -58,6 +58,7 @@
         <a href="${ctx}/dday" class="${path == '/dday' ? 'active' : ''}">🗓️ D-day 알림<c:if test="${not empty navDdayText}"> <span class="nav-badge">${navDdayText}</span></c:if></a>
         <a href="${ctx}/documents" class="${path == '/documents' ? 'active' : ''}">📁 서류 보관함</a>
         <a href="${ctx}/resume-feedback" class="${path == '/resume-feedback' ? 'active' : ''}">✏️ 자소서 첨삭</a>
+        <a href="${ctx}/spec-archive" class="${path.startsWith('/spec-archive') ? 'active' : ''}">📚 스펙 아카이브</a>
 
         <div class="nav-group-title">공유 · 계정</div>
         <a href="${ctx}/share-links" class="${path == '/share-links' ? 'active' : ''}">🔗 공유 링크</a>
