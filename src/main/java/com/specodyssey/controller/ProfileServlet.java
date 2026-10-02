@@ -6,6 +6,7 @@ import com.specodyssey.dao.JobDao;
 import com.specodyssey.dao.UserDao;
 import com.specodyssey.dto.JobDto;
 import com.specodyssey.dto.UserDto;
+import com.specodyssey.dto.UserProjectDto;
 import com.specodyssey.service.AiUsageLogService;
 import com.specodyssey.service.PersonalInfo;
 import com.specodyssey.service.ProfileService;
@@ -165,6 +166,7 @@ public class ProfileServlet extends HttpServlet {
     private void refreshSessionUser(HttpServletRequest req, Long userId) throws SQLException {
         UserDto refreshed = userDao.findById(userId);
         refreshed.setPasswordHash(null);
+        refreshed.setRecoveryCodeHash(null);
         req.getSession().setAttribute("loginUser", refreshed);
     }
 
@@ -179,7 +181,9 @@ public class ProfileServlet extends HttpServlet {
                     .ifPresent(j -> req.setAttribute("desiredJobQuery", j.getJobName()));
         }
         req.setAttribute("specs", profileService.getSpecs(userId));
-        req.setAttribute("projects", profileService.getProjects(userId));
+        List<UserProjectDto> projects = profileService.getProjects(userId);
+        req.setAttribute("projects", projects);
+        req.setAttribute("projectLinks", profileService.getProjectLinks(projects));
         req.setAttribute("skills", profileService.getSkills(userId));
         // FR-62 프로젝트에 연결된 첨부 파일 조회·다운로드 — PROJECT 로드맵 단계 완료 시 자동 등록된다.
         req.setAttribute("documents", documentDao.findByUserId(userId));

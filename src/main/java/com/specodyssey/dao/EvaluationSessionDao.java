@@ -20,6 +20,11 @@ import java.time.LocalDateTime;
  */
 public class EvaluationSessionDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, user_id, session_token, company_name, expires_at, created_at, updated_at, " +
+            "is_deleted";
+
     public Long insert(EvaluationSessionDto session) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, session);
@@ -47,7 +52,7 @@ public class EvaluationSessionDao {
 
     // 면접관 계정의 비교 목록 — 계정당 하나(UNIQUE user_id)
     public EvaluationSessionDto findByUserId(Long userId) throws SQLException {
-        String sql = "SELECT * FROM EVALUATION_SESSION WHERE user_id = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM EVALUATION_SESSION WHERE user_id = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);
@@ -59,7 +64,7 @@ public class EvaluationSessionDao {
 
     // 만료된 세션은 조회되지 않게 expires_at도 함께 확인한다.
     public EvaluationSessionDto findByToken(String sessionToken) throws SQLException {
-        String sql = "SELECT * FROM EVALUATION_SESSION WHERE session_token = ? " +
+        String sql = "SELECT " + COLUMNS + " FROM EVALUATION_SESSION WHERE session_token = ? " +
                 "AND (expires_at IS NULL OR expires_at > NOW()) AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {

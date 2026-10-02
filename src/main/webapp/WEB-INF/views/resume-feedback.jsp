@@ -105,6 +105,7 @@
             <p class="error-message"><c:out value="${errorMessage}" /></p>
         </c:if>
         <form id="feedbackForm" action="${pageContext.request.contextPath}/resume-feedback" method="post">
+            <input type="hidden" name="_csrf" value="${csrfToken}">
             <div class="row" style="margin-top:10px;">
                 <span style="flex:1;">
                     <label for="jobId">목표 직무</label>

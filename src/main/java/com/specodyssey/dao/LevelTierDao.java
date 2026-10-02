@@ -21,6 +21,11 @@ import java.util.List;
  */
 public class LevelTierDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, min_score, max_score, tier_name, title_name, problem_level_min, " +
+            "problem_level_max, created_at, updated_at, is_deleted";
+
     public Long insert(LevelTierDto tier) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, tier);
@@ -47,7 +52,7 @@ public class LevelTierDao {
 
     // 점수 구간 오름차순 — 대시보드에서 현재 등급 판정에 그대로 순회 사용 가능
     public List<LevelTierDto> findAll() throws SQLException {
-        String sql = "SELECT * FROM LEVEL_TIER WHERE is_deleted = FALSE ORDER BY min_score";
+        String sql = "SELECT " + COLUMNS + " FROM LEVEL_TIER WHERE is_deleted = FALSE ORDER BY min_score";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {

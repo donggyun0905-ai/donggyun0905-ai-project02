@@ -24,6 +24,7 @@
     --locked: #b8a88a;
 
     --radius: 10px;
+    --header-h: 64px;
     --shadow: 0 2px 8px rgba(58, 47, 36, 0.12);
 }
 
@@ -62,6 +63,11 @@ header {
     align-items: center;
     gap: 16px;
     border-bottom: 3px solid var(--gold);
+    /* 스크롤해도 맨 위에 고정(2026-10-01) — 높이는 --header-h로 고정해 두어 고정 사이드바가 그 아래에서 시작한다 */
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    min-height: var(--header-h);
 }
 
 header .brand {
@@ -107,7 +113,7 @@ header .spacer { flex-grow: 1; }
     position: fixed; inset: 0;
     background: rgba(58,47,36,0.35);
     display: none;
-    z-index: 50;
+    z-index: 60;
 }
 #nav-toggle:checked ~ .nav-drawer { display: block; }
 .nav-drawer-panel {
@@ -136,6 +142,14 @@ header .spacer { flex-grow: 1; }
     padding: 9px 20px; color: var(--ink); font-size: 0.92rem;
 }
 .nav-drawer-panel a:hover { background: var(--page-bg); text-decoration: none; }
+/* 로그아웃은 POST 폼이라 버튼이지만 다른 메뉴 링크와 똑같이 보이게 한다 */
+.nav-drawer-panel .logout-form { margin: 0; }
+.nav-drawer-panel .logout-form button {
+    display: flex; align-items: center; justify-content: space-between; width: 100%;
+    padding: 9px 20px; margin: 0; border: none; border-radius: 0; background: none;
+    color: var(--ink); font: inherit; font-size: 0.92rem; text-align: left; cursor: pointer;
+}
+.nav-drawer-panel .logout-form button:hover { background: var(--page-bg); transform: translateX(2px); }
 .nav-drawer-panel a.active { background: var(--header-bg); color: #fff; }
 .nav-badge {
     background: var(--danger); color: #fff; font-size: 0.68rem; font-weight: 700;

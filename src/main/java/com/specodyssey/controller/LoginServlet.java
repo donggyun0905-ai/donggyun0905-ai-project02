@@ -1,6 +1,7 @@
 package com.specodyssey.controller;
 
 import com.specodyssey.dto.UserDto;
+import com.specodyssey.util.LoginThrottle;
 import com.specodyssey.service.UserService;
 
 import jakarta.servlet.ServletException;
@@ -19,6 +20,8 @@ import java.sql.SQLException;
  */
 @WebServlet("/login")
 public class LoginServlet extends HttpServlet {
+
+    private static final LoginThrottle THROTTLE = new LoginThrottle();
 
     private final UserService userService = new UserService();
 
@@ -41,9 +44,21 @@ public class LoginServlet extends HttpServlet {
         String loginId = req.getParameter("loginId");
         String password = req.getParameter("password");
 
+        String throttleKey = LoginThrottle.key(loginId, req.getRemoteAddr());
+        long now = System.currentTimeMillis();
+        long lockedSeconds = THROTTLE.secondsLocked(throttleKey, now);
+        if (lockedSeconds > 0) {
+            req.setAttribute("errorMessage", "로그인에 여러 번 실패해 잠시 막혔습니다. "
+                    + ((lockedSeconds + 59) / 60) + "분 뒤에 다시 시도해주세요.");
+            req.getRequestDispatcher("/WEB-INF/views/login.jsp").forward(req, resp);
+            return;
+        }
+
         try {
             UserDto user = userService.login(loginId, password);
+            THROTTLE.recordSuccess(throttleKey);
             user.setPasswordHash(null); // 세션에는 해시조차 남기지 않는다
+            user.setRecoveryCodeHash(null);
             HttpSession session = req.getSession();
             req.changeSessionId(); // 세션 고정(session fixation) 공격 방지 — 인증 성공 시 세션 ID 교체
             session.setAttribute("loginUser", user);
@@ -53,6 +68,7 @@ public class LoginServlet extends HttpServlet {
             // 면접관 계정은 대시보드·로드맵이 없다 — 공유받은 이력 화면이 첫 화면이다.
             resp.sendRedirect(req.getContextPath() + homeFor(user));
         } catch (UserService.InvalidCredentialException e) {
+            THROTTLE.recordFailure(throttleKey, now);
             req.setAttribute("errorMessage", e.getMessage());
             req.getRequestDispatcher("/WEB-INF/views/login.jsp").forward(req, resp);
         } catch (SQLException e) {
@@ -62,6 +78,9 @@ public class LoginServlet extends HttpServlet {
 
     // 로그인 직후와 "이미 로그인한 상태로 /login에 온" 경우가 같은 곳으로 가게 한 곳에 둔다.
     private static String homeFor(UserDto user) {
+        if (com.specodyssey.util.AdminAccess.isAdmin(user)) {
+            return "/admin"; // 관리자는 로그인하면 바로 관리자 화면
+        }
         return RoleFilter.INTERVIEWER.equals(user.getUserType()) ? RoleFilter.INTERVIEWER_HOME : "/roadmap";
     }
 }

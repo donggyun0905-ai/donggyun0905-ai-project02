@@ -43,6 +43,25 @@ public class ShareViewDto {
     // scope_growth — 날짜 오름차순
     private List<SpecScoreHistoryDto> growth = new ArrayList<>();
 
+    /** 타임라인 항목에 붙는 링크 한 개(이름 + 주소). */
+    public static class Link {
+        private final String label;
+        private final String url;
+
+        public Link(String label, String url) {
+            this.label = label;
+            this.url = url;
+        }
+
+        public String getLabel() {
+            return label;
+        }
+
+        public String getUrl() {
+            return url;
+        }
+    }
+
     /** 타임라인 한 줄 (FR-81). */
     public static class TimelineItem {
         private final String dateText;
@@ -52,17 +71,29 @@ public class ShareViewDto {
         // CERT 항목이면서 완료 당시 증빙 서류를 첨부했을 때만 채워진다 — 그 외엔 null
         // (화면에서 null이면 "서류 보기" 링크를 안 보여준다).
         private final Long documentId;
+        // 프로젝트 항목의 저장소·배포·기타 링크. 웹 주소(http/https)만 담긴다 — 없으면 빈 목록
+        private final List<Link> links;
 
         public TimelineItem(String dateText, String typeLabel, String title, String detail) {
             this(dateText, typeLabel, title, detail, null);
         }
 
         public TimelineItem(String dateText, String typeLabel, String title, String detail, Long documentId) {
+            this(dateText, typeLabel, title, detail, documentId, List.of());
+        }
+
+        public TimelineItem(String dateText, String typeLabel, String title, String detail, Long documentId,
+                            List<Link> links) {
             this.dateText = dateText;
             this.typeLabel = typeLabel;
             this.title = title;
             this.detail = detail;
             this.documentId = documentId;
+            this.links = links;
+        }
+
+        public List<Link> getLinks() {
+            return links;
         }
 
         public String getDateText() {

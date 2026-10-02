@@ -1,7 +1,7 @@
 # 스펙 오디세이 — DB 설계 및 ERD
 
-> 요구사항 명세서(총정리본 v2) 기준으로 설계한 테이블 46개. 관계(FK) 70개, 컬럼 318개(공통 컬럼 3개 제외).
-> (2026-10-01 기준 — 기술 글 게시판 6개, 프로젝트 문서 2개가 늘었다. 실제 DB와 `information_schema`로 대조해 맞춘 숫자다.)
+> 요구사항 명세서(총정리본 v2) 기준으로 설계한 테이블 48개. 관계(FK) 71개, 컬럼 327개(공통 컬럼 3개 제외).
+> (2026-10-02 기준 — 기술 글 게시판 6개, 프로젝트 문서 2개, 프로젝트 기타 링크 1개가 늘었고 USERS에 복구 코드 해시 컬럼이 생겼다. 실제 DB와 `information_schema`로 대조해 맞춘 숫자다.)
 > 이 문서가 스키마의 기준입니다. 구조를 바꿔야 하면 먼저 팀에 확인하세요.
 
 ## 공통 규칙
@@ -100,6 +100,8 @@ erDiagram
     SKILL ||--o{ TECH_ARTICLE : "기술별 글"
     ROADMAP_STEP ||--o| TECH_ARTICLE : "EXPERT 증빙"
     TECH_ARTICLE ||--o{ TECH_ARTICLE_COMMENT : "댓글"
+    TECH_ARTICLE ||--o{ TECH_ARTICLE_ATTACHMENT : "첨부"
+    USERS ||--o{ TECH_ARTICLE_COMMENT : "답글 대상"
     TECH_ARTICLE_COMMENT ||--o{ TECH_ARTICLE_COMMENT : "대댓글"
     USERS ||--o{ TECH_ARTICLE_COMMENT : "작성"
     TECH_ARTICLE ||--o{ TECH_ARTICLE_LIKE : "하트"
@@ -114,6 +116,7 @@ erDiagram
     SKILL ||--o{ PROJECT_TECH_NOTE : "기술"
     USER_PROJECTS ||--o{ PROJECT_DOCUMENT_ITEM : "문서 체크리스트"
     DOCUMENTS ||--o{ PROJECT_DOCUMENT_ITEM : "제출 파일"
+    USER_PROJECTS ||--o{ PROJECT_LINK : "기타 링크"
 ```
 
 ## 테이블 정의
@@ -144,6 +147,7 @@ erDiagram
 | `resume_document_id` | BIGINT | FK | 이력서 파일 → DOCUMENTS (지정하지 않았으면 NULL) |
 | `cover_letter_document_id` | BIGINT | FK | 자소서 파일 → DOCUMENTS (선택, 지정하지 않았으면 NULL) |
 | `privacy_consent_at` | DATETIME |  | 민감정보 수집 동의 시점 (NFR-4) |
+| `recovery_code_hash` | VARCHAR(255) |  | 비밀번호 찾기용 복구 코드의 해시(원문은 저장 안 함). NULL이면 코드가 없는 계정 |
 | `profile_updated_at` | DATETIME |  | 스펙·프로젝트·스킬 중 하나라도 바뀐 시각 — 재분석 판단 기준 |
 | `last_login_at` | DATETIME |  | 마지막 접속 |
 
@@ -153,6 +157,7 @@ erDiagram
 - (변경) name·age·career_status를 추가했다. 면접관이 여러 지원자를 비교할 때 "지원자 1, 2"로는 누가 누구인지 알 수 없어서 이름이 필요했고, 같이 나이와 구분(학생/취준생/직장인)을 가입 필수 항목으로 받기로 했다. 컬럼 추가 전에 가입한 회원은 값이 없어 NULL을 허용하고, 내 프로필에서 저장할 때 채우게 한다. 면접관 계정은 이름만 받는다. 이미 만든 DB에는 `sql/08_alter_users_profile.sql`을 실행한다.
 - (변경) resume_document_id를 추가했다. 이력서는 파일로 저장하기로 했고, 파일 자체는 이미 있는 서류 보관함(DOCUMENTS)에 올린다. 이 컬럼은 그중 어느 파일이 "내 이력서"인지만 가리킨다 — 파일 경로·크기·체크섬을 USERS에 또 두면 DOCUMENTS와 같은 정보를 두 곳에서 관리하게 된다. USERS가 DOCUMENTS보다 먼저 만들어지므로 FK는 03_schema_extended.sql 끝에서 ALTER로 건다. 이미 만든 DB에는 `sql/09_alter_users_resume.sql`을 실행한다.
 - (변경) cover_letter_document_id를 추가했다. 이력서와 같은 방식으로, 내 프로필에서 자소서를 **선택으로** 올려 두면 면접관이 공유 링크 하나로 이력서·자소서를 한눈에 볼 수 있다. 이력서·자소서 모두 안 올려도 가입·분석·로드맵에는 아무 지장이 없다(둘 다 NULL 허용). 파일은 DOCUMENTS에 한 행으로 저장하고 이 컬럼이 그 행을 가리킨다. 이력서와 자소서를 한 컬럼에 `종류` 구분으로 합치지 않고 컬럼을 따로 둔 이유는, 사용자당 각각 하나뿐이라 N:1 구조가 필요 없고 "내 이력서가 어느 파일인지"를 조인 없이 바로 읽을 수 있기 때문이다.
+- (변경) recovery_code_hash를 추가했다(2026-10-02). 메일 발송 수단이 없어도 되는 비밀번호 찾기 방식 — 가입(또는 프로필 재발급) 때 16자 복구 코드를 화면에 한 번만 보여 주고 서버에는 비밀번호와 같은 방식(PBKDF2)의 해시만 둔다. 이메일은 선택 입력이라 메일 재설정으로는 모든 계정을 못 구하고, 코드는 쓰면 새 코드로 바뀌며 재발급하면 이전 코드는 무효가 된다. NULL은 코드가 없는 계정(이 기능 이전 가입자)이다.
 - email은 명세서 가입 항목에 없었지만 FR-73 이메일 알림을 살릴 여지를 두려고 추가하기로 했다. 선택 입력.
 - profile_updated_at은 FR-37 재분석 트리거용이다. USERS.updated_at만으로는 안 된다. 사용자가 자격증을 추가해도 바뀌는 건 USER_SPECS이지 USERS가 아니라서, 자식 테이블 세 개의 MAX(updated_at)을 매번 구해야 한다. 자식이 바뀔 때 이 컬럼을 같이 찍어두면 GAP_ANALYSIS.analyzed_at과 한 번 비교하면 끝난다.
 - 희망 직무가 없으면 desired_job_id가 NULL이고 desired_job_status가 UNSET이 된다. 이 값으로 "직무 발굴" 화면으로 보낼지 "격차 분석"으로 보낼지 갈린다.
@@ -244,6 +249,26 @@ README·실행 화면 캡처·기획서·설계 문서·API 명세서·테스트
 - 필수는 README와 SCREENSHOT 둘뿐이다. 이 둘은 "없음"을 못 누른다(애플리케이션 규칙). 5분이 안 걸리면서 "이게 실제로 존재하고 동작한다"는 최소 증빙이 확실히 되고, 그 이상 늘리면 학습 로직 자체를 회피하게 될 위험이 있다.
 - 완료 판정 규칙: doc_type이 README, SCREENSHOT인 두 행의 status가 둘 다 SUBMITTED여야 로드맵 PROJECT 단계를 완료 처리한다.
 - 복합 UNIQUE (project_id, doc_type) — 같은 종류 문서를 중복 체크하지 않게.
+
+#### PROJECT_LINK (프로젝트 기타 링크) — 신설
+
+관련 요구사항: FR-24 · FR-81
+
+저장소(repo_url)·배포(deploy_url) 말고도 블로그 글, 발표 영상, 노션 등 프로젝트를 보여줄 링크를 이름 + 주소로 프로젝트당 최대 5개까지 받는 곳. 면접관 공유 타임라인에도 같이 보인다.
+
+| 컬럼 | 타입 | 키 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK | 식별자 |
+| `project_id` | BIGINT | FK | → USER_PROJECTS |
+| `label` | VARCHAR(50) |  | 링크 이름(예: 블로그 글). 비워도 된다 |
+| `url` | VARCHAR(500) |  | http/https 주소 |
+| `sort_order` | INT |  | 입력 순서 |
+
+설계 판단:
+
+- 링크가 늘어날 때마다 USER_PROJECTS에 컬럼을 더하지 않으려고 별도 테이블로 뒀다. 이름(label)은 비워도 되고, 비우면 화면에서 주소의 도메인을 대신 보여준다.
+- 수정은 "프로젝트의 링크를 통째로 바꾸는" 한 동작이다 — 기존 줄을 is_deleted로 지우고 새로 넣는다. 그래서 UNIQUE를 두지 않았고 sort_order로 입력 순서를 지킨다.
+- 주소는 http/https만 허용한다. 저장할 때와 면접관 화면에 내보낼 때 둘 다 확인해서 javascript: 같은 주소가 링크로 실행되지 않게 한다(NFR-4 취지). 프로젝트당 최대 5개는 애플리케이션 규칙이다.
 
 #### USER_SKILLS (보유 기술 스택)
 
@@ -625,8 +650,8 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | `id` | BIGINT | PK | 식별자 |
 | `roadmap_id` | BIGINT | FK | → ROADMAP |
 | `step_order` | INT |  | 단계 순서 |
-| `step_type` | VARCHAR(20) |  | CERT / PROJECT / SKILL |
-| `tier` | VARCHAR(20) |  | ENTRY / CORE / ADVANCED / EXPERT |
+| `step_type` | VARCHAR(20) |  | CERT / PROJECT / SKILL / REVIEW (기술 복습 — 주기가 지나면 자동으로 이어 붙음) |
+| `tier` | VARCHAR(20) |  | ENTRY / CORE / ADVANCED / EXPERT / REVIEW (복습 단계) |
 | `certification_id` | BIGINT | FK | → CERTIFICATION (CERT 단계일 때) |
 | `related_skill_id` | BIGINT | FK | → SKILL (어떤 부족 역량을 메우는지) |
 | `reason` | TEXT |  | "왜 지금 이걸 해야 하는지" (FR-33) |
@@ -754,6 +779,27 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 
 - ref_id에 적립 근거 레코드의 id를 넣어 중복 적립을 막는다. 같은 로드맵 단계를 체크 해제했다가 다시 체크해도 점수가 두 번 들어가면 안 된다.
 - 배점은 명세서 TD-5 값을 그대로 쓴다 — 로드맵 단계 완료 +100, 코테 정답 +10~30(난이도별), 문제 풀이 +5, 서류 등록 +30, 자가진단 초기 1회 +0~50.
+
+#### SCORING_RULE (점수·복습 주기 규칙) — 신설
+
+로드맵 단계 점수와 복습·유지 주기·감쇠 값을 코드 상수 대신 담는 설정표. 일일 문제 풀이 점수(DAILY_POINTS_1..5, 등급 순서별)도 여기서 읽는다.
+
+| 컬럼 | 타입 | 키 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK | 식별자 |
+| `rule_key` | VARCHAR(50) | UNIQUE | 규칙 이름 (예: LADDER_BUDGET, REVIEW_DAYS_CORE, DAILY_POINTS_1, STREAK_BONUS_MAX) |
+| `rule_value` | INT |  | 값. 0 이하는 코드 기본값으로 대체(감쇠 폭만 0 허용) |
+| `description` | VARCHAR(200) |  | 설명 |
+
+**복합 UNIQUE**: (rule_key)
+
+설계 판단:
+
+- 기술 단계 점수 = `LADDER_BUDGET`(직무 사다리 총점) × 이 단계 가중치 / 사다리 전체 가중치 합. 가중치 = 중요도(필수 2·우대 1) × 티어(입문 1·핵심 2·심화 2·전문가 3). 기술이 몇 개든 사다리 완주 점수가 같아서, 등급(LEVEL_TIER)은 사다리 뒤에도 일일 문제·복습·업데이트로 시간을 들여 올린다.
+- 신기술: 단가는 사용자가 그 직무로 처음 로드맵을 만든 시점에 이미 있던 기술(`JOB_REQUIRED_SKILL.created_at`)만으로 정한다. 이후 추가된 기술은 같은 단가로 점수를 더 받을 뿐 기존 단계의 점수를 깎지 않는다.
+- 일일 문제 풀이 점수는 등급 순서별 6/6/8/10/12점으로 낮추고, 연속으로 푼 날에는 `STREAK` 신호(SCORE_LOG, ref_id = 날짜 일수)로 보너스를 더 준다 — 둘째 날부터 하루마다 +2(상한 20), 7일째 +30, 30일째 +100. 하나라도 코드를 제출해 풀어야 받는다("실패"만 눌러 연속을 이어가는 것은 보너스 없음).
+- 관리자 화면(`/admin`)에서 값을 고친다. 관리자는 로그인 아이디가 `ADMIN_LOGIN_ID`(기본 admin)인 계정.
+- 코드에 같은 기본값이 있어서 행이 없거나 테이블이 아직 없어도 동작한다. 읽은 값은 1분 캐시. 이미 만든 DB에는 `sql/17_schema_scoring_rule.sql`을 실행한다.
 
 #### LEVEL_TIER (등급 구간) — 신설
 
@@ -1015,9 +1061,9 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | --- | --- | --- | --- |
 | `id` | BIGINT | PK | 식별자 |
 | `user_id` | BIGINT | FK | → USERS (작성자) |
-| `skill_id` | BIGINT | FK | → SKILL. 어떤 기술에 대한 글인지 — 다른 사용자가 이 기준으로 찾아본다 |
+| `skill_id` | BIGINT | FK | → SKILL. 어떤 기술에 대한 글인지 — 다른 사용자가 이 기준으로 찾아본다. ARCHIVE_TIP은 NULL 가능 |
 | `roadmap_step_id` | BIGINT | FK | → ROADMAP_STEP. EXPERT 단계에서 나온 글이면 그 단계, 자유 글이면 NULL. UNIQUE |
-| `source_type` | VARCHAR(20) |  | ROADMAP_EXPERT(로드맵 증빙으로 자동 게시) / FREE(자유 작성) |
+| `source_type` | VARCHAR(20) |  | ROADMAP_EXPERT(로드맵 증빙으로 자동 게시) / FREE(자유 작성) / ARCHIVE_TIP(스펙 아카이브 팁) |
 | `title` | VARCHAR(200) |  | 제목 |
 | `content` | TEXT |  | 본문 |
 | `status` | VARCHAR(20) |  | DRAFT(임시저장) / PUBLISHED(공개) / HIDDEN(운영자가 내림) |
@@ -1048,13 +1094,45 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | `article_id` | BIGINT | FK | → TECH_ARTICLE |
 | `user_id` | BIGINT | FK | → USERS (작성자) |
 | `parent_comment_id` | BIGINT | FK | → TECH_ARTICLE_COMMENT(자기참조). 대댓글이면 부모 댓글, 최상위 댓글이면 NULL |
-| `content` | VARCHAR(1000) |  | 댓글 내용 |
+| `reply_to_user_id` | BIGINT | FK | → USERS. 답글이 가리키는 사람 — 화면에 @이름. 최상위 댓글이면 NULL |
+| `content` | VARCHAR(1000) |  | 댓글 내용 (스펙 아카이브는 300자 제한 — 애플리케이션 규칙) |
 
 설계 판단:
 
+- 답글은 인스타그램식이다. 답글에 다시 답해도 깊어지지 않고 같은 최상위 댓글 밑에 모이며, 누구에게 답했는지는 reply_to_user_id로 남겨 "@이름"으로 보여준다. 이름은 본문에 박지 않고 id로 둬서 상대가 이름을 바꿔도 맞게 나온다.
 - 대댓글은 한 단계만 허용한다. 부모가 최상위 댓글인지는 애플리케이션이 확인한다(스키마로는 깊이를 막지 못한다). 끝없이 들여쓰는 게시판은 읽기 어렵고 구현도 재귀가 된다.
 - 삭제는 is_deleted로 한다. 대댓글이 달린 댓글을 지우면 대댓글이 고아가 되므로 화면에는 "삭제된 댓글입니다"로 남기고, 대댓글만 보여준다.
 - 목록 조회는 (article_id, created_at) 인덱스를 쓴다.
+
+#### TECH_ARTICLE_ATTACHMENT (글 첨부) — 신설 (스펙 아카이브)
+
+관련 요구사항: 없음(신규 — 스펙 아카이브) · `sql/19_alter_tech_article_spec_archive.sql`
+
+글에 붙는 이미지·영상. 글 하나에 여러 개(개수 제한 없음, 용량만 — 글 하나에 사진을 모두 합쳐 10MB).
+본문(TECH_ARTICLE.content)에 `[[att:N]]`을 넣어 N번 첨부(sort_order = N)가 놓일 자리를 표시한다. 본문에 적은 유튜브·이미지 링크는 저장할 때 자동으로 첨부로 옮겨지고, 링크와 첨부 표시는 2,000자 글자 수에 세지 않는다.
+
+| 컬럼 | 타입 | 키 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK | 식별자 |
+| `article_id` | BIGINT | FK | → TECH_ARTICLE |
+| `attachment_type` | VARCHAR(20) |  | IMAGE_UPLOAD(서버 저장 이미지) / IMAGE_URL(이미지 링크) / YOUTUBE(유튜브 영상) |
+| `sort_order` | INT |  | 글에 보이는 순서 (0부터) |
+| `url` | VARCHAR(2048) |  | IMAGE_URL · YOUTUBE 원본 링크 |
+| `embed_key` | VARCHAR(20) |  | YOUTUBE 영상 ID — 임베드 주소는 이 값으로만 만든다 |
+| `original_name` | VARCHAR(255) |  | IMAGE_UPLOAD 원본 파일명 |
+| `stored_name` | VARCHAR(255) |  | IMAGE_UPLOAD 저장 파일명 |
+| `file_path` | VARCHAR(500) |  | IMAGE_UPLOAD 저장 경로 |
+| `file_size` | BIGINT |  | IMAGE_UPLOAD 크기 (10MB 제한) |
+| `mime_type` | VARCHAR(100) |  | IMAGE_UPLOAD image/png · jpeg · gif · webp |
+
+**복합 UNIQUE**: (article_id, sort_order)
+
+설계 판단:
+
+- 링크가 길어서 본문(content)에 섞지 않고 따로 둔다. 본문 2000자 제한에 링크 길이가 잡아먹히지 않고, 임베드할 링크와 본문 속 일반 링크(자동 하이퍼링크)를 구분할 수 있다.
+- 업로드 이미지 컬럼은 DOCUMENTS와 같은 구성(원본명·저장명·경로·크기·형식)이라 FileStorageUtil을 그대로 쓴다.
+- 유튜브는 원본 url을 그대로 iframe에 넣지 않고, 검증한 영상 ID(embed_key)로 `youtube-nocookie.com/embed/{ID}` 주소를 서버가 만든다 — 다른 사이트를 끼워 넣지 못하게.
+- 세 종류를 테이블 하나에 둔 이유: 한 글 안에서 이미지·영상의 표시 순서를 sort_order 하나로 정할 수 있다.
 
 #### TECH_ARTICLE_LIKE (기술 글 하트) — 신설
 
@@ -1257,6 +1335,7 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | PROJECT_TECH_NOTE | (project_id, skill_id) — 한 프로젝트에서 같은 기술의 설명서가 두 개 생기지 않게 |
 | PROJECT_DOCUMENT_ITEM | (project_id, doc_type) — 같은 종류 문서를 중복 체크하지 않게 |
 | TECH_ARTICLE | (roadmap_step_id) — EXPERT 단계 하나에서 글 하나 (NULL인 자유 글은 여러 개 가능) |
+| TECH_ARTICLE_ATTACHMENT | (article_id, sort_order) — 한 글 안에서 첨부 표시 순서가 겹치지 않게 |
 | TECH_ARTICLE_LIKE | (article_id, user_id) — 한 사람이 한 글에 하트는 한 번 (취소는 행 되살리기) |
 | TECH_ARTICLE_BOOKMARK | (article_id, user_id) — 한 사람이 한 글을 한 번만 북마크 |
 | TECH_ARTICLE_VIEW_LOG | (article_id, viewer_user_id, viewed_date) — 사용자 1명이 같은 글을 하루에 한 번만 조회수에 반영 |

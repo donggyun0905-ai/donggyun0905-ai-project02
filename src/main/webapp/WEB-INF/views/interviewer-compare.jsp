@@ -23,6 +23,7 @@
                 <span class="row">
                     <span class="muted">가중치 ${criterion.weight}</span>
                     <form method="post" action="${pageContext.request.contextPath}/interviewer/compare" class="inline-form">
+                        <input type="hidden" name="_csrf" value="${csrfToken}">
                         <input type="hidden" name="action" value="removeCriterion">
                         <input type="hidden" name="criterionId" value="${criterion.id}">
                         <button type="submit" class="link-button" title="역량 삭제">✕</button>
@@ -35,6 +36,7 @@
         </c:if>
     </div>
     <form method="post" action="${pageContext.request.contextPath}/interviewer/compare" class="row" style="margin-top:12px; align-items:flex-end;">
+        <input type="hidden" name="_csrf" value="${csrfToken}">
         <input type="hidden" name="action" value="addCriterion">
         <span style="flex:2;"><label for="skillName">기술</label>
             <input type="text" id="skillName" name="skillName" list="skill-options" required placeholder="예) Java" value="<c:out value='${param.skillName}' />">

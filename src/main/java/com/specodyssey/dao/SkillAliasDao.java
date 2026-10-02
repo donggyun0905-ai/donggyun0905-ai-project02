@@ -19,8 +19,13 @@ import java.util.List;
  */
 public class SkillAliasDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, skill_id, alias_name, match_type, similarity_score, created_at, " +
+            "updated_at, is_deleted";
+
     public List<SkillAliasDto> findAll() throws SQLException {
-        String sql = "SELECT * FROM SKILL_ALIAS WHERE is_deleted = FALSE ORDER BY alias_name";
+        String sql = "SELECT " + COLUMNS + " FROM SKILL_ALIAS WHERE is_deleted = FALSE ORDER BY alias_name";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {
@@ -33,7 +38,7 @@ public class SkillAliasDao {
     }
 
     public SkillAliasDto findByAliasName(String aliasName) throws SQLException {
-        String sql = "SELECT * FROM SKILL_ALIAS WHERE alias_name = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM SKILL_ALIAS WHERE alias_name = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, aliasName);

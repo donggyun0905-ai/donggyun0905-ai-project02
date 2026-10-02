@@ -1,0 +1,49 @@
+<%-- FR-101·102(선택) AI 활용 기록 자기 제출 — "이런 식으로 AI를 활용했다"를 직접 적어두는
+     최하위 우선순위 선택 기능. 공유 여부는 본인이 항목별로 정한다(NFR-4). --%>
+<h2 style="margin-top:24px; margin-bottom:10px;">AI 활용 기록 <span class="muted" style="font-size:0.78rem; font-weight:normal;">(선택)</span></h2>
+<p class="muted" style="margin-top:0;">AI 도구를 어떻게 활용했는지 직접 기록해두는 공간입니다. 공유 여부는 항목마다 따로 정할 수 있습니다.</p>
+<c:choose>
+    <c:when test="${empty aiUsageEntries}">
+        <p class="muted">아직 작성한 기록이 없습니다.</p>
+    </c:when>
+    <c:otherwise>
+        <ul class="item-list">
+            <c:forEach var="entry" items="${aiUsageEntries}">
+                <li>
+                    <div class="spread">
+                        <strong>${entry.title}</strong>
+                        <span class="row" style="gap:8px;">
+                            <c:choose>
+                                <c:when test="${entry.shared}"><span class="chip chip-teal">공유함</span></c:when>
+                                <c:otherwise><span class="chip chip-locked">비공개</span></c:otherwise>
+                            </c:choose>
+                            <form action="${pageContext.request.contextPath}/profile/ai-usage" method="post" class="inline-form">
+                                <input type="hidden" name="_csrf" value="${csrfToken}">
+                                <input type="hidden" name="action" value="toggleShare">
+                                <input type="hidden" name="logId" value="${entry.id}">
+                                <input type="hidden" name="shared" value="${entry.shared ? 'false' : 'true'}">
+                                <button type="submit" class="link-button">${entry.shared ? '비공개로' : '공유하기'}</button>
+                            </form>
+                            <form action="${pageContext.request.contextPath}/profile/ai-usage" method="post" class="inline-form">
+                                <input type="hidden" name="_csrf" value="${csrfToken}">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="logId" value="${entry.id}">
+                                <button type="submit" class="link-button">삭제</button>
+                            </form>
+                        </span>
+                    </div>
+                    <c:if test="${not empty entry.description}"><p class="muted" style="margin:6px 0 0; font-size:0.88rem;">${entry.description}</p></c:if>
+                </li>
+            </c:forEach>
+        </ul>
+    </c:otherwise>
+</c:choose>
+<div class="card">
+    <form action="${pageContext.request.contextPath}/profile/ai-usage" method="post">
+        <input type="hidden" name="_csrf" value="${csrfToken}">
+        <p><input type="text" name="title" placeholder="제목 (예: 프로젝트 버그 디버깅에 ChatGPT 활용)" required></p>
+        <p><textarea name="description" placeholder="어떻게 활용했는지 자유롭게 적어주세요"></textarea></p>
+        <p><label style="display:inline; width:auto;"><input type="checkbox" name="shared" value="true" style="width:auto;"> 면접관에게 공유 허용</label></p>
+        <button type="submit">기록 추가</button>
+    </form>
+</div>

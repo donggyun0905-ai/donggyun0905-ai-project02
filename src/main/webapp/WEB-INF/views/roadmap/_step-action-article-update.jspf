@@ -1,0 +1,18 @@
+                                        <c:if test="${step.reviewStatus == 'NEEDS_REVISION'}">
+                                            <p class="error-message" style="font-size:0.85rem; margin:6px 0;">📝 <c:out value="${step.reviewNote}" /></p>
+                                        </c:if>
+                                        <button type="button" class="open-step-dialog" data-dialog="stepDialog-${step.id}">보강한 글 PDF 제출하기</button>
+                                        <dialog id="stepDialog-${step.id}" class="step-dialog">
+                                        <div class="step-dialog-head"><h3>보강한 글 PDF 제출하기</h3><button type="button" class="dialog-close link-button" aria-label="닫기">✕</button></div>
+                                            <p class="muted" style="line-height:1.6;"><c:out value="${step.reason}" /></p>
+                                            <form action="${pageContext.request.contextPath}/roadmap" method="post"
+                                                  enctype="multipart/form-data" style="margin-top:10px;">
+                                                <input type="hidden" name="_csrf" value="${csrfToken}">
+                                                <input type="hidden" name="action" value="submitArticleUpdate">
+                                                <input type="hidden" name="stepId" value="${step.id}">
+                                                <p><label>보강한 기술 글 PDF (800자 이상 · 기술명 3회 이상 · 외부 링크 1개 이상)</label>
+                                                    <input type="file" name="file" accept="application/pdf" required></p>
+                                                <p class="muted" style="font-size:0.8rem;">같은 기술 글을 업데이트할수록 받는 점수가 줄어요 (60 → 50 → 40 → … 최저 5점).</p>
+                                                <button type="submit">제출하기</button>
+                                            </form>
+                                        </dialog>

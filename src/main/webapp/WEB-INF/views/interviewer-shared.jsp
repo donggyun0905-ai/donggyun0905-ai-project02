@@ -13,6 +13,7 @@
         <p class="error-message" style="margin-top:10px;"><c:out value="${errorMessage}" /></p>
     </c:if>
     <form method="post" action="${pageContext.request.contextPath}/interviewer/shared" class="row" style="margin-top:10px;">
+        <input type="hidden" name="_csrf" value="${csrfToken}">
         <input type="hidden" name="action" value="add">
         <input type="text" name="link" required placeholder="받은 공유 링크 주소를 붙여 넣으세요" style="flex:1;">
         <button type="submit">담기</button>
@@ -63,6 +64,7 @@
                                 </c:if>
                             </c:if>
                             <form method="post" action="${pageContext.request.contextPath}/interviewer/shared" class="inline-form remove-item">
+                                <input type="hidden" name="_csrf" value="${csrfToken}">
                                 <input type="hidden" name="action" value="remove">
                                 <input type="hidden" name="itemId" value="${applicant.itemId}">
                                 <button type="submit" class="link-button">목록에서 빼기</button>

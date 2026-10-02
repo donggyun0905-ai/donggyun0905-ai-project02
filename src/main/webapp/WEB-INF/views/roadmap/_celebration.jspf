@@ -1,0 +1,28 @@
+<%-- 티어 돌파 환영 창(2026-10-01) — 방금 이 요청으로 점수 등급(LEVEL_TIER: 비기너→취준생→실전러→
+     취뽀 임박→취뽀)이 올랐을 때만 서버가 celebrateTierName·celebrateTierImage를 넘겨준다(세션에 한 번 실었다가 꺼내며 지우므로 새로고침하면 다시 안 뜬다).
+     사용자 요청대로 배경 없이 투명하게, 달성한 등급 이미지만 중앙에 크게 보여주고 몇 초 뒤
+     저절로 사라져 원래 화면으로 돌아간다(클릭해도 바로 닫힌다). 이미지는 올라간 등급(ScoreService.getTierLogoPath)의 로고다.
+     공통 CSS는 A 담당 파일이라 이 창의 스타일은 이 화면 안에 둔다. --%>
+<c:if test="${not empty celebrateTierName}">
+    <style>
+        .tier-celebrate { position: fixed; inset: 0; z-index: 1000; display: flex;
+            align-items: center; justify-content: center; background: transparent;
+            animation: tierCelebrateOut 0.6s ease-in 2.6s forwards; cursor: pointer; }
+        .tier-celebrate img { max-width: min(70vw, 420px); max-height: 70vh;
+            filter: drop-shadow(0 8px 24px rgba(0,0,0,0.35));
+            animation: tierCelebrateIn 0.7s cubic-bezier(.2,1.4,.4,1) both; }
+        @keyframes tierCelebrateIn { from { transform: scale(0.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        @keyframes tierCelebrateOut { to { opacity: 0; transform: scale(0.6); } }
+    </style>
+    <div class="tier-celebrate" id="tierCelebrate" role="img" aria-label="${celebrateTierName} 티어 돌파">
+        <img src="${pageContext.request.contextPath}${celebrateTierImage}" alt="${celebrateTierName} 티어 돌파">
+    </div>
+    <script>
+    (function () {
+        var el = document.getElementById('tierCelebrate');
+        function close() { if (el.parentNode) { el.parentNode.removeChild(el); } }
+        el.addEventListener('click', close);
+        el.addEventListener('animationend', function (e) { if (e.animationName === 'tierCelebrateOut') { close(); } });
+    })();
+    </script>
+</c:if>

@@ -20,6 +20,11 @@ import java.time.LocalDateTime;
  */
 public class ExternalApiCacheDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, api_type, request_key, response_body, status, cached_at, expires_at, " +
+            "created_at, updated_at, is_deleted";
+
     public Long insert(ExternalApiCacheDto cache) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, cache);
@@ -91,7 +96,7 @@ public class ExternalApiCacheDao {
 
     // 캐시 히트 조회 — 만료 여부 판단은 호출부에서 expiresAt과 현재 시각을 비교
     public ExternalApiCacheDto findByTypeAndKey(String apiType, String requestKey) throws SQLException {
-        String sql = "SELECT * FROM EXTERNAL_API_CACHE " +
+        String sql = "SELECT " + COLUMNS + " FROM EXTERNAL_API_CACHE " +
                 "WHERE api_type = ? AND request_key = ? AND is_deleted = FALSE " +
                 "ORDER BY cached_at DESC LIMIT 1";
         try (Connection conn = DBUtil.getConnection();

@@ -20,6 +20,7 @@ public class UserDto {
     private Long resumeDocumentId; // 이력서 파일 → DOCUMENTS. 지정하지 않았으면 null
     private Long coverLetterDocumentId; // 자소서 파일 → DOCUMENTS (선택). 지정하지 않았으면 null
     private LocalDateTime privacyConsentAt;
+    private String recoveryCodeHash; // 복구 코드의 해시 — 원문은 저장하지 않는다
     private LocalDateTime profileUpdatedAt;
     private LocalDateTime lastLoginAt;
     private LocalDateTime createdAt;
@@ -144,6 +145,14 @@ public class UserDto {
 
     public void setDesiredJobStatus(String desiredJobStatus) {
         this.desiredJobStatus = desiredJobStatus;
+    }
+
+    public String getRecoveryCodeHash() {
+        return recoveryCodeHash;
+    }
+
+    public void setRecoveryCodeHash(String recoveryCodeHash) {
+        this.recoveryCodeHash = recoveryCodeHash;
     }
 
     public LocalDateTime getPrivacyConsentAt() {

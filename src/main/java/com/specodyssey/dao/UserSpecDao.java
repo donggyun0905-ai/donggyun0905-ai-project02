@@ -21,6 +21,11 @@ import java.util.List;
  */
 public class UserSpecDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, user_id, spec_type, title, issuer, score, acquired_date, created_at, " +
+            "updated_at, is_deleted";
+
     public Long insert(UserSpecDto spec) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, spec);
@@ -63,7 +68,7 @@ public class UserSpecDao {
 
     // FR-81 취득일 순 타임라인 정렬
     public List<UserSpecDto> findByUserId(Long userId) throws SQLException {
-        String sql = "SELECT * FROM USER_SPECS WHERE user_id = ? AND is_deleted = FALSE ORDER BY acquired_date";
+        String sql = "SELECT " + COLUMNS + " FROM USER_SPECS WHERE user_id = ? AND is_deleted = FALSE ORDER BY acquired_date";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);

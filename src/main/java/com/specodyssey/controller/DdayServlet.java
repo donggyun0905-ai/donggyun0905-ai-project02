@@ -1,5 +1,6 @@
 package com.specodyssey.controller;
 
+import com.specodyssey.util.Pager;
 import com.specodyssey.dto.DdayItemDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.service.DdayService;
@@ -22,6 +23,8 @@ import java.util.List;
  */
 @WebServlet("/dday")
 public class DdayServlet extends HttpServlet {
+
+    private static final int PAGE_SIZE = 10;
 
     private final DdayService ddayService = new DdayService();
 
@@ -76,7 +79,10 @@ public class DdayServlet extends HttpServlet {
             throws SQLException, ServletException, IOException {
         LocalDate today = LocalDate.now();
         List<DdayItemDto> items = ddayService.listItems(userId, today);
-        req.setAttribute("items", items);
+        // 가장 급한 일정은 전체에서 고르고, 목록만 쪽으로 자른다
+        Pager<DdayItemDto> pager = Pager.of(items, Pager.parsePage(req.getParameter("page")), PAGE_SIZE);
+        req.setAttribute("items", pager.getItems());
+        req.setAttribute("pager", pager);
         req.setAttribute("urgentItem", ddayService.findMostUrgent(items));
         req.setAttribute("today", today);
         req.getRequestDispatcher("/WEB-INF/views/dday.jsp").forward(req, resp);

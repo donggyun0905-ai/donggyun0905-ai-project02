@@ -20,6 +20,10 @@ import java.util.List;
  */
 public class AiUsageLogDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, user_id, usage_record_json, is_shared, created_at, updated_at, is_deleted";
+
     public Long insert(AiUsageLogDto log) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, log);
@@ -40,7 +44,7 @@ public class AiUsageLogDao {
     }
 
     public List<AiUsageLogDto> findByUserId(Long userId) throws SQLException {
-        String sql = "SELECT * FROM AI_USAGE_LOG WHERE user_id = ? AND is_deleted = FALSE ORDER BY id DESC";
+        String sql = "SELECT " + COLUMNS + " FROM AI_USAGE_LOG WHERE user_id = ? AND is_deleted = FALSE ORDER BY id DESC";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);
