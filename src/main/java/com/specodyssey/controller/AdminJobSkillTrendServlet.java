@@ -8,7 +8,6 @@ import com.specodyssey.dto.JobSkillTrendDto;
 import com.specodyssey.dto.SkillDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.service.JobSkillTrendService;
-import com.specodyssey.util.AppConfig;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -27,7 +26,7 @@ import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 /**
- * [임시] JOB_SKILL_TREND 수동 재집계 화면 — 팀 결정 항목 2-1.
+ * JOB_SKILL_TREND 수동 재집계 화면(관리자 화면의 한 탭) — 팀 결정 항목 2-1.
  * 관련 요구사항: FR-47. LLM 없이 JOB_POSTING.tech_stack을 규칙 기반으로 다시 집계하는
  * JobSkillTrendService.refreshAll()을 수동으로 돌려보기 위한 용도다.
  *
@@ -40,7 +39,6 @@ import java.util.stream.Collectors;
 public class AdminJobSkillTrendServlet extends HttpServlet {
 
     private static final int TOP_N = 15;
-    private static final String DEFAULT_ADMIN_LOGIN_ID = "admin";
 
     private final JobSkillTrendService jobSkillTrendService = new JobSkillTrendService();
     private final JobSkillTrendDao jobSkillTrendDao = new JobSkillTrendDao();
@@ -82,21 +80,11 @@ public class AdminJobSkillTrendServlet extends HttpServlet {
         req.getRequestDispatcher("/WEB-INF/views/admin-job-skill-trend.jsp").forward(req, resp);
     }
 
-    // 임시 접근 제한 — 세션의 로그인 아이디가 ADMIN_LOGIN_ID(.env, 기본값 "admin")와 같은지만 본다.
+    // 관리자 판단은 AdminAccess 한 곳에서 한다(메뉴·로그인 후 이동도 같은 기준)
     private boolean isAdmin(HttpServletRequest req) {
         HttpSession session = req.getSession(false);
-        if (session == null) {
-            return false;
-        }
-        UserDto loginUser = (UserDto) session.getAttribute("loginUser");
-        if (loginUser == null) {
-            return false;
-        }
-        String adminLoginId = AppConfig.get("ADMIN_LOGIN_ID");
-        if (adminLoginId == null || adminLoginId.isBlank()) {
-            adminLoginId = DEFAULT_ADMIN_LOGIN_ID;
-        }
-        return adminLoginId.equals(loginUser.getLoginId());
+        UserDto loginUser = session == null ? null : (UserDto) session.getAttribute("loginUser");
+        return com.specodyssey.util.AdminAccess.isAdmin(loginUser);
     }
 
     private void loadSummary(HttpServletRequest req) throws SQLException {

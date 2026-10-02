@@ -28,6 +28,23 @@ public class ScoringRuleDao {
         }
     }
 
+    /** 설명까지 — 관리 화면용. 입력(저장) 순서대로 */
+    public java.util.List<RuleRow> findAllDetailed() throws SQLException {
+        String sql = "SELECT rule_key, rule_value, description FROM SCORING_RULE WHERE is_deleted = FALSE ORDER BY id";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+            java.util.List<RuleRow> rows = new java.util.ArrayList<>();
+            while (rs.next()) {
+                rows.add(new RuleRow(rs.getString("rule_key"), rs.getInt("rule_value"), rs.getString("description")));
+            }
+            return rows;
+        }
+    }
+
+    public record RuleRow(String key, int value, String description) {
+    }
+
     public void upsert(String key, int value) throws SQLException {
         String sql = "INSERT INTO SCORING_RULE (rule_key, rule_value) VALUES (?, ?) " +
                 "ON DUPLICATE KEY UPDATE rule_value = VALUES(rule_value), is_deleted = FALSE";

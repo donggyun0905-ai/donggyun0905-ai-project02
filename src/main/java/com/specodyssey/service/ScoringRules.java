@@ -99,9 +99,21 @@ final class ScoringRules {
         return stored;
     }
 
-    private static boolean allowsZero(String key) {
+    static boolean allowsZero(String key) {
         return REVIEW_POINTS_DECAY.equals(key) || UPKEEP_POINTS_DECAY.equals(key)
                 || STREAK_BONUS_PER_DAY.equals(key) || STREAK_BONUS_DAY7.equals(key) || STREAK_BONUS_DAY30.equals(key);
+    }
+
+    static boolean isKnown(String key) {
+        return DEFAULTS.containsKey(key);
+    }
+
+    static int defaultOf(String key) {
+        return DEFAULTS.get(key);
+    }
+
+    static java.util.Set<String> knownKeys() {
+        return DEFAULTS.keySet();
     }
 
     // 값을 바꾼 직후(관리 도구·테스트) 바로 반영하고 싶을 때

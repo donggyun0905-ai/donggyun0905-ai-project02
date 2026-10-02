@@ -105,6 +105,11 @@ public final class FakeWeb {
                                 return contentType;
                             case "getParameter":
                                 return params.get(args[0]);
+                            case "getParameterMap": {
+                                Map<String, String[]> all = new HashMap<>();
+                                params.forEach((k, v) -> all.put(k, new String[] {v}));
+                                return all;
+                            }
                             case "getHeader":
                                 return headers.get(args[0]);
                             case "getAttribute":

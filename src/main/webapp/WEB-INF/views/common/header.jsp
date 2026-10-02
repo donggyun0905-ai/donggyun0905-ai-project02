@@ -62,6 +62,11 @@
         <a href="${ctx}/documents" class="${path == '/documents' ? 'active' : ''}">📁 서류 보관함</a>
         <a href="${ctx}/resume-feedback" class="${path == '/resume-feedback' ? 'active' : ''}">✏️ 자소서 첨삭</a>
 
+        <c:if test="${isAdmin}">
+        <div class="nav-group-title">관리</div>
+        <a href="${ctx}/admin" class="${path == '/admin' || path == '/admin/job-skill-trend' ? 'active' : ''}">🛠 관리자</a>
+        </c:if>
+
         <div class="nav-group-title">공유 · 계정</div>
         <a href="${ctx}/share-links" class="${path == '/share-links' ? 'active' : ''}">🔗 공유 링크</a>
         <a href="${ctx}/profile" class="${path == '/profile' ? 'active' : ''}">👤 내 프로필</a>

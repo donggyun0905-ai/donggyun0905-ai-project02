@@ -71,6 +71,7 @@ public class SessionFilter implements Filter {
         }
 
         attachTierInfo(req, loginUser.getId());
+        req.setAttribute("isAdmin", com.specodyssey.util.AdminAccess.isAdmin(loginUser));
         chain.doFilter(request, response);
     }
 

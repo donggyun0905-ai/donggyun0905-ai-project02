@@ -78,6 +78,9 @@ public class LoginServlet extends HttpServlet {
 
     // 로그인 직후와 "이미 로그인한 상태로 /login에 온" 경우가 같은 곳으로 가게 한 곳에 둔다.
     private static String homeFor(UserDto user) {
+        if (com.specodyssey.util.AdminAccess.isAdmin(user)) {
+            return "/admin"; // 관리자는 로그인하면 바로 관리자 화면
+        }
         return RoleFilter.INTERVIEWER.equals(user.getUserType()) ? RoleFilter.INTERVIEWER_HOME : "/roadmap";
     }
 }
