@@ -24,7 +24,7 @@
     --locked: #b8a88a;
 
     --radius: 10px;
-    --header-h: 64px;
+    --header-h: 71px;
     --shadow: 0 2px 8px rgba(58, 47, 36, 0.12);
 }
 
@@ -38,6 +38,8 @@ body {
         "header header"
         "main   aside"
         "footer footer";
+    /* 헤더·푸터는 내용 높이, 남는 높이는 본문 행이 가져간다 — 행 높이를 안 정하면 남는 공간이 모든 행에 나뉘어 헤더가 커진다 */
+    grid-template-rows: auto 1fr auto;
     min-height: 100vh;
     background: var(--page-bg);
     color: var(--ink);
@@ -63,11 +65,15 @@ header {
     align-items: center;
     gap: 16px;
     border-bottom: 3px solid var(--gold);
-    /* 스크롤해도 맨 위에 고정(2026-10-01) — 높이는 --header-h로 고정해 두어 고정 사이드바가 그 아래에서 시작한다 */
+    /* 스크롤해도 맨 위에 고정(2026-10-01) — 높이는 --header-h로 못 박아 화면마다 같고, 고정 사이드바가 그 아래에서 시작한다.
+       (예전엔 min-height만 있고 body 그리드 행이 auto라서 내용이 짧은 화면에서는 남는 높이가 헤더 행에 나뉘어 3px씩 커졌다) */
     position: sticky;
     top: 0;
     z-index: 50;
+    height: var(--header-h);
     min-height: var(--header-h);
+    padding-top: 0;
+    padding-bottom: 0;
 }
 
 header .brand {
@@ -92,6 +98,8 @@ header .brand img { height: 26px; display: block; }
 }
 
 header .spacer { flex-grow: 1; }
+/* 공통 label 규칙의 아래 여백(4px)이 메뉴 버튼에도 먹어 헤더 안에서 위로 쏠리던 것을 없앤다 */
+header .menu-btn { margin-bottom: 0; }
 
 .tier-badge {
     display: inline-flex;
@@ -395,3 +403,29 @@ button.link-button:hover, button.link-button:active { transform: none; box-shado
 .nav-drawer-panel a:hover { transform: translateX(2px); }
 
 details > summary:hover { color: var(--primary-hover); }
+
+/* ------------------------------------------------------------ 좌우 고정 위젯 (2026-10-02)
+   자소서 첨삭·프로필을 뺀 지원자 화면 전체에서, 왼쪽(일일 미션·최근 서류)과 오른쪽(오늘의 트렌드 기술·연습장)을 화면 좌우 끝에
+   붙여 고정한다. 맨 위 헤더(--header-h)도 고정이라 스크롤해도 둘 다 보이고, 위젯이 길면 위젯 안에서만 스크롤된다.
+   본문은 두 위젯 폭만큼 안쪽 여백을 두고 남은 폭을 쓴다. 좁은 화면(≤1100px)에서는 고정을 풀고 본문 아래에 쌓는다. */
+body.has-side {
+    grid-template-columns: 262px minmax(0, 1fr) 282px;
+    grid-template-areas:
+        "header header header"
+        ".      main   ."
+        ".      footer .";
+}
+.side-left, .side-right { display: flex; flex-direction: column; gap: 16px; position: fixed;
+    top: var(--header-h); bottom: 0; overflow-y: auto; padding: 16px 12px; background: var(--page-bg); z-index: 10; }
+.side-left { left: 0; width: 246px; border-right: 1px solid var(--border); }
+.side-right { right: 0; width: 266px; border-left: 1px solid var(--border); }
+.side-left .card, .side-right .card { margin-bottom: 0; padding: 16px 18px; }
+.rm-note textarea { width: 100%; min-height: 180px; resize: vertical; box-sizing: border-box; }
+@media (max-width: 1100px) {
+    body.has-side { display: flex; flex-direction: column; }
+    body.has-side > main { order: 1; }
+    body.has-side > .side-left { order: 2; }
+    body.has-side > .side-right { order: 3; }
+    body.has-side > .site-footer { order: 4; }
+    .side-left, .side-right { position: static; width: auto; overflow: visible; padding: 16px 24px; border: none; }
+}

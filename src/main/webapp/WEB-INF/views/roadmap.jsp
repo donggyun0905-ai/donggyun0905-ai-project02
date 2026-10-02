@@ -44,10 +44,6 @@
             </div>
         </c:if>
 
-        <div class="roadmap-layout">
-        <aside class="rm-left">
-            <jsp:include page="/WEB-INF/views/common/roadmap-left-widgets.jsp" />
-        </aside>
         <div class="rm-center">
         <c:choose>
             <c:when test="${empty roadmap}">
@@ -254,11 +250,6 @@
         </form>
             </c:otherwise>
         </c:choose>
-        </div>
-        <aside class="rm-right">
-            <jsp:include page="/WEB-INF/views/common/trend-widget.jsp" />
-            <jsp:include page="/WEB-INF/views/common/roadmap-note-widget.jsp" />
-        </aside>
         </div>
     </c:otherwise>
 </c:choose>

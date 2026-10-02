@@ -85,9 +85,6 @@
             <p class="muted" style="margin-top:10px; margin-bottom:0;"><strong>가장 약한 곳</strong> 인프라·배포 분야의 심화·전문가 단계 · <a href="${pageContext.request.contextPath}/roadmap">로드맵에서 채우기</a></p>
         </div>
     </div>
-    <div class="side">
-        <jsp:include page="/WEB-INF/views/common/trend-widget.jsp" />
-    </div>
 </div>
 
 <jsp:include page="/WEB-INF/views/common/footer.jsp" />
