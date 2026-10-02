@@ -1,4 +1,10 @@
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
 </main>
+<c:if test="${sideWidgets}">
+<aside class="side-left"><jsp:include page="/WEB-INF/views/common/side-left-widgets.jsp" /></aside>
+<aside class="side-right"><jsp:include page="/WEB-INF/views/common/side-right-widgets.jsp" /></aside>
+</c:if>
 <%-- FR-54 전용 우측 사이드바 자리는 아니고(그건 각 화면이 트렌드 위젯을 본문 오른쪽 칼럼에
      직접 넣는다 — common/trend-widget.jsp), 이 자리는 비워둔 채 유지한다.
      아래 <aside>는 태그 사이에 공백 한 글자도 없어야 한다 — 있으면 #trend-sidebar:empty가

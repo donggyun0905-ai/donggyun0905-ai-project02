@@ -1,0 +1,134 @@
+/* 스펙 아카이브 (목록 · 글쓰기 · 상세) — 공통 토큰(style.css)의 색을 그대로 쓴다 */
+
+.sa-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.sa-head p { margin: 4px 0 0; }
+.sa-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin: 16px 0 10px; }
+.sa-tabs, .sa-sort { display: flex; gap: 6px; flex-wrap: wrap; }
+.sa-tabs a, .sa-sort a { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--card-bg); color: var(--ink); font-size: 0.88rem; }
+.sa-tabs a.active, .sa-sort a.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.sa-lock { background: var(--card-bg); border: 1px dashed var(--gold); border-radius: var(--radius); padding: 10px 14px; font-size: 0.88rem; color: var(--ink-soft); }
+.sa-flash { background: var(--teal-bg); color: var(--teal); border: 1px solid rgba(31,122,108,0.3); border-radius: 6px; padding: 10px 14px; margin-bottom: 14px; }
+
+/* 목록 */
+.sa-list { display: grid; gap: 10px; }
+.sa-item { display: block; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; color: var(--ink); }
+.sa-item:hover { border-color: var(--gold); text-decoration: none; }
+.sa-item h3 { font-size: 1.05rem; margin: 0 0 6px; }
+.sa-preview { color: var(--ink-soft); font-size: 0.9rem; margin: 0 0 8px; overflow-wrap: anywhere; }
+.sa-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 0.82rem; color: var(--ink-soft); }
+.sa-stats { display: flex; gap: 10px; margin-left: auto; }
+.sa-tier { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: rgba(201,162,75,0.25); color: #8a6a2c; }
+.sa-empty { text-align: center; padding: 40px 16px; color: var(--ink-soft); }
+.sa-pager { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 16px; }
+
+/* 글쓰기 */
+.sa-form { display: grid; gap: 14px; max-width: 820px; background: transparent; border: none; box-shadow: none; padding: 0; }
+.sa-form label { font-weight: 600; font-size: 0.9rem; }
+.sa-form input[type="text"] { width: 100%; box-sizing: border-box; }
+.sa-count { font-size: 0.8rem; color: var(--ink-soft); text-align: right; margin-top: 4px; }
+.sa-count.over { color: var(--danger); font-weight: 700; }
+
+/* 노션식 블록 편집기 — 쓰는 화면이 곧 올라갈 모습 (상세 화면 .sa-body · .sa-media와 같은 글꼴·간격) */
+.ed-page { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px 14px 44px; }
+.ed-title { width: 100%; box-sizing: border-box; border: none; background: transparent; padding: 4px 0;
+            font-family: Georgia, 'Noto Serif KR', serif; font-size: 1.9rem; font-weight: 700; color: var(--ink); }
+.ed-title:focus { outline: none; }
+.ed-title::placeholder { color: var(--locked); }
+.ed-page > .sa-count[data-count-for="title"] { text-align: left; margin: 0 0 10px; }
+.ed-toolbar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin: 4px 0 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.ed-hint { font-size: 0.8rem; flex: 1 1 260px; }
+.ed-editor { position: relative; display: grid; gap: 2px; min-height: 20rem; }
+.ed-editor.file-over { outline: 2px dashed var(--teal); outline-offset: 6px; border-radius: 6px; }
+
+.ed-block { position: relative; border-radius: 6px; }
+.ed-block.dragging { opacity: 0.3; }
+.ed-handle { position: absolute; left: -30px; top: 6px; width: 22px; height: 24px; display: flex; align-items: center; justify-content: center;
+             color: var(--locked); font-size: 1rem; border-radius: 4px; cursor: grab; opacity: 0; transition: opacity 0.1s; user-select: none; }
+.ed-block:hover .ed-handle, .ed-block:focus-within .ed-handle { opacity: 1; }
+.ed-handle:hover { background: var(--page-bg); color: var(--ink); }
+.ed-handle:active { cursor: grabbing; }
+
+.ed-text textarea { display: block; width: 100%; box-sizing: border-box; border: none; padding: 4px 2px; margin: 0;
+                    resize: none; overflow: hidden; font: inherit; font-size: 0.97rem; line-height: 1.8; background: transparent;
+                    white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink); }
+.ed-text textarea:focus { outline: none; }
+.ed-text textarea::placeholder { color: var(--locked); }
+.ed-text.gap textarea { min-height: 1.6rem; }
+.ed-text.gap textarea::placeholder { color: transparent; }
+.ed-text.gap:hover textarea::placeholder, .ed-text.gap textarea:focus::placeholder { color: var(--locked); }
+.ed-text.only textarea { min-height: 18rem; }
+
+.ed-media { position: relative; padding: 6px 0; }
+.ed-media img { display: block; max-width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--border); user-select: none; }
+.ed-media .sa-video { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: #000; }
+.ed-media .sa-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.ed-media-info { position: absolute; left: 10px; bottom: 14px; background: rgba(58,47,36,0.7); color: #fff; font-size: 0.72rem;
+                 padding: 2px 8px; border-radius: 999px; opacity: 0; transition: opacity 0.1s; }
+.ed-remove { position: absolute; top: 12px; right: 8px; width: 28px; height: 28px; padding: 0; border-radius: 6px;
+             background: rgba(58,47,36,0.7); color: #fff; font-size: 0.85rem; opacity: 0; transition: opacity 0.1s; }
+.ed-block:hover .ed-remove, .ed-block:hover .ed-media-info, .ed-remove:focus { opacity: 1; }
+.ed-remove:hover { background: var(--danger); }
+
+.ed-drop-line { position: absolute; left: 0; right: 0; height: 3px; border-radius: 2px; background: var(--teal);
+                box-shadow: 0 0 0 3px rgba(31,122,108,0.18); pointer-events: none; z-index: 5; }
+.ed-status { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
+.ed-status .sa-count { margin: 0; }
+.ed-mirror { position: absolute; visibility: hidden; white-space: pre-wrap; overflow-wrap: anywhere; top: 0; left: -9999px; }
+@media (max-width: 600px) { .ed-page { padding-left: 32px; } .ed-handle { left: -26px; opacity: 1; } }
+
+/* 상세 */
+.sa-post { max-width: 780px; }
+.sa-post h1 { overflow-wrap: anywhere; }
+.sa-content { margin: 16px 0; display: grid; gap: 12px; }
+.sa-body { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; }
+.sa-body a, .sa-comment-text a { color: var(--teal); text-decoration: underline; overflow-wrap: anywhere; }
+.sa-media { display: grid; gap: 12px; }
+.sa-media img { max-width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--border); background: #fff; }
+.sa-media .sa-video { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: #000; }
+.sa-media .sa-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.sa-media .source { font-size: 0.78rem; color: var(--ink-soft); overflow-wrap: anywhere; }
+.sa-reactions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 10px 0; margin: 16px 0; }
+.sa-reactions form { margin: 0; }
+.sa-react { background: #fff; color: var(--ink); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; font-weight: 600; }
+.sa-react:hover { background: var(--page-bg); }
+.sa-react.on { border-color: var(--danger); color: var(--danger); background: var(--danger-bg); }
+.sa-react.on.bookmark { border-color: var(--teal); color: var(--teal); background: var(--teal-bg); }
+.sa-reactions .spacer { margin-left: auto; }
+
+/* 댓글 — 인스타그램식: 최상위 댓글 밑에 답글이 한 줄기로 모인다 */
+.sa-comment-form { display: grid; gap: 8px; margin-bottom: 18px; }
+.sa-comment-form textarea { width: 100%; min-height: 4rem; box-sizing: border-box; }
+.sa-replying { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; color: var(--teal); }
+.sa-thread { border-top: 1px solid var(--border); padding: 12px 0; }
+.sa-comment { display: grid; gap: 4px; }
+.sa-comment-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 0.84rem; }
+.sa-comment-head strong { color: var(--ink); }
+.sa-comment-head .muted { font-size: 0.8rem; }
+.sa-comment-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.sa-mention { color: var(--teal); font-weight: 700; margin-right: 4px; }
+.sa-comment-actions { display: flex; gap: 12px; font-size: 0.8rem; }
+.sa-comment-actions form { margin: 0; display: inline; }
+.sa-replies { margin: 10px 0 0 22px; padding-left: 14px; border-left: 2px solid var(--border); display: grid; gap: 12px; }
+.sa-deleted { color: var(--ink-soft); font-style: italic; }
+
+/* 코드 블록 — 편집기(.ed-code)와 상세(.sa-code)가 같은 모양 */
+.ed-codebox, .sa-code { position: relative; border: 1px solid var(--border); border-radius: 8px; background: #f6f8fa; overflow: hidden; margin: 4px 0; }
+.ed-code-head, .sa-code-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 10px;
+                               border-bottom: 1px solid var(--border); background: #eef1f4; font-size: 0.8rem; color: #57606a; }
+.ed-code-lang { font: inherit; font-size: 0.8rem; padding: 2px 6px; border: 1px solid #d0d7de; border-radius: 6px; background: #fff; color: #24292f; }
+.ed-code-hint { font-size: 0.75rem; color: #8c959f; margin-right: 34px; }
+.ed-code-area { position: relative; display: grid; }
+/* 같은 칸에 색 입힌 글(pre)과 투명한 입력칸(textarea)을 겹친다 — 글꼴·여백·줄바꿈이 완전히 같아야 겹친다 */
+.ed-code-hl, .ed-code-input, .sa-code pre { grid-area: 1 / 1; margin: 0; padding: 12px 14px; border: 0; box-sizing: border-box;
+    font-family: ui-monospace, SFMono-Regular, Consolas, 'D2Coding', 'Liberation Mono', monospace; font-size: 0.86rem; line-height: 1.6;
+    tab-size: 4; white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal; letter-spacing: normal; }
+.ed-code-hl { pointer-events: none; background: transparent; }
+.ed-code-hl code.hljs, .sa-code pre code.hljs { padding: 0; background: transparent; font: inherit; }
+.ed-code-input { width: 100%; resize: none; overflow: hidden; background: transparent; color: transparent; caret-color: #24292f; min-height: 3.2rem; }
+.ed-code-input:focus { outline: none; }
+.ed-code-input::placeholder { color: #8c959f; }
+.ed-code-input::selection { background: rgba(31,122,108,0.25); color: transparent; }
+.ed-codebox .ed-remove { top: 4px; right: 6px; width: 24px; height: 24px; }
+.ed-code .ed-handle { top: 4px; }
+.sa-code pre { white-space: pre; overflow-x: auto; overflow-wrap: normal; }
+.sa-code-head button { font-size: 0.78rem; }

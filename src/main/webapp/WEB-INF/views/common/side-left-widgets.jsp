@@ -1,11 +1,11 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<%-- 로드맵 왼쪽 위젯(2026-10-01) — 위: 일일 미션, 아래: 최근 서류 보관함(토글).
-     데이터(dailyMissions·dailyMissionDone·dailyMissionPercent·recentDocuments)는 RoadmapServlet이 실어 준다. --%>
+<%-- 왼쪽 고정 위젯(2026-10-01 로드맵, 2026-10-02 자소서 첨삭·프로필을 뺀 모든 화면으로 확대) — 위: 일일 미션, 아래: 최근 서류 보관함(토글).
+     데이터(dailyMissions·dailyMissionDone·recentDocuments)는 SideWidgetFilter(미션 화면은 MissionProblemFilter)가 실어 준다. --%>
 <div class="card">
     <h2 style="font-size:1rem;">일일 미션</h2>
     <p style="margin:8px 0 6px; font-size:0.9rem;"><strong><c:out value="${dailyMissionDone}" default="0" /></strong> / <c:out value="${empty dailyMissions ? 0 : dailyMissions.size()}" /> 완료</p>
-    <div class="progress-track"><div class="progress-fill teal" style="width:${empty dailyMissionPercent ? 0 : dailyMissionPercent}%;"></div></div>
+    <div class="progress-track"><div class="progress-fill teal" style="width:${empty dailyMissions or dailyMissions.size() == 0 ? 0 : (dailyMissionDone * 100) / dailyMissions.size()}%;"></div></div>
     <c:choose>
         <c:when test="${empty dailyMissions}">
             <p class="muted" style="margin:10px 0; font-size:0.85rem;">추천할 문제가 없습니다.</p>
