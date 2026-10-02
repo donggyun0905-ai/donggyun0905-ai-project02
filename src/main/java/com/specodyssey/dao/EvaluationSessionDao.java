@@ -9,14 +9,21 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.LocalDateTime;
 
 /**
  * EVALUATION_SESSION 테이블 DAO.
  * 관련 요구사항: FR-82
- * 면접관은 계정이 없으므로(FR-14) session_token 자체가 소유 증명이다 — user_id 대신 토큰으로 소유자를 확인한다.
+ * 면접관 계정의 비교 목록은 user_id로 찾는다(findByUserId). user_id가 없는 익명 세션은 session_token이 소유 증명이다.
+ * 수정·삭제는 두 경우 모두 session_token으로 소유자를 확인한다 — 계정 세션에도 토큰이 하나씩 있다.
  */
 public class EvaluationSessionDao {
+
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, user_id, session_token, company_name, expires_at, created_at, updated_at, " +
+            "is_deleted";
 
     public Long insert(EvaluationSessionDto session) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
@@ -25,11 +32,17 @@ public class EvaluationSessionDao {
     }
 
     public Long insert(Connection conn, EvaluationSessionDto session) throws SQLException {
-        String sql = "INSERT INTO EVALUATION_SESSION (session_token, company_name, expires_at) VALUES (?, ?, ?)";
+        String sql = "INSERT INTO EVALUATION_SESSION (user_id, session_token, company_name, expires_at) " +
+                "VALUES (?, ?, ?, ?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            pstmt.setString(1, session.getSessionToken());
-            pstmt.setString(2, session.getCompanyName());
-            pstmt.setTimestamp(3, toTimestamp(session.getExpiresAt()));
+            if (session.getUserId() == null) {
+                pstmt.setNull(1, Types.BIGINT);
+            } else {
+                pstmt.setLong(1, session.getUserId());
+            }
+            pstmt.setString(2, session.getSessionToken());
+            pstmt.setString(3, session.getCompanyName());
+            pstmt.setTimestamp(4, toTimestamp(session.getExpiresAt()));
             pstmt.executeUpdate();
             try (ResultSet keys = pstmt.getGeneratedKeys()) {
                 return keys.next() ? keys.getLong(1) : null;
@@ -37,9 +50,21 @@ public class EvaluationSessionDao {
         }
     }
 
+    // 면접관 계정의 비교 목록 — 계정당 하나(UNIQUE user_id)
+    public EvaluationSessionDto findByUserId(Long userId) throws SQLException {
+        String sql = "SELECT " + COLUMNS + " FROM EVALUATION_SESSION WHERE user_id = ? AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        }
+    }
+
     // 만료된 세션은 조회되지 않게 expires_at도 함께 확인한다.
     public EvaluationSessionDto findByToken(String sessionToken) throws SQLException {
-        String sql = "SELECT * FROM EVALUATION_SESSION WHERE session_token = ? " +
+        String sql = "SELECT " + COLUMNS + " FROM EVALUATION_SESSION WHERE session_token = ? " +
                 "AND (expires_at IS NULL OR expires_at > NOW()) AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -75,6 +100,7 @@ public class EvaluationSessionDao {
     private EvaluationSessionDto mapRow(ResultSet rs) throws SQLException {
         EvaluationSessionDto session = new EvaluationSessionDto();
         session.setId(rs.getLong("id"));
+        session.setUserId(rs.getObject("user_id", Long.class));
         session.setSessionToken(rs.getString("session_token"));
         session.setCompanyName(rs.getString("company_name"));
         session.setExpiresAt(toLocalDateTime(rs.getTimestamp("expires_at")));

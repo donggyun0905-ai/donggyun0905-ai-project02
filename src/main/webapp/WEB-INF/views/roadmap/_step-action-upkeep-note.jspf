@@ -1,0 +1,25 @@
+                                        <c:set var="upkeepTitle" value="${step.stepType == 'PROJECT_UPDATE' ? '프로젝트 업데이트 기록하고 완료하기' : '배운 내용 기록하고 완료하기'}" />
+                                        <button type="button" class="open-step-dialog" data-dialog="stepDialog-${step.id}"><c:out value="${upkeepTitle}" /></button>
+                                        <dialog id="stepDialog-${step.id}" class="step-dialog">
+                                        <div class="step-dialog-head"><h3><c:out value="${upkeepTitle}" /></h3><button type="button" class="dialog-close link-button" aria-label="닫기">✕</button></div>
+                                            <p class="muted" style="line-height:1.6;"><c:out value="${step.reason}" /></p>
+                                            <form action="${pageContext.request.contextPath}/roadmap" method="post" style="margin-top:10px;">
+                                                <input type="hidden" name="_csrf" value="${csrfToken}">
+                                                <input type="hidden" name="action" value="completeUpkeep">
+                                                <input type="hidden" name="stepId" value="${step.id}">
+                                                <p><label>
+                                                    <c:choose>
+                                                        <c:when test="${step.stepType == 'PROJECT_UPDATE'}">무엇을 바꿨나요? (20자 이상) — 보강한 문서, 추가한 기능, 정리한 코드, 다시 배포한 내용</c:when>
+                                                        <c:otherwise>무엇을 해 보고 배웠나요? (20자 이상) — 따라 해 본 것, 알게 된 점, 우리 프로젝트에 쓸 수 있을지</c:otherwise>
+                                                    </c:choose>
+                                                </label>
+                                                    <textarea name="note" minlength="20" maxlength="1000" required></textarea></p>
+                                                <p class="muted" style="font-size:0.8rem;">
+                                                    <c:choose>
+                                                        <c:when test="${step.stepType == 'PROJECT_UPDATE'}">같은 프로젝트를 업데이트할수록 받는 점수가 줄어요 (60 → 50 → 40 → … 최저 5점). 완료하면 이 프로젝트의 "마지막으로 손본 날"이 오늘로 바뀝니다.</c:when>
+                                                        <c:otherwise>트렌딩 학습은 새 주제마다 40점이에요.</c:otherwise>
+                                                    </c:choose>
+                                                </p>
+                                                <button type="submit">기록하고 완료</button>
+                                            </form>
+                                        </dialog>

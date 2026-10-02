@@ -8,6 +8,9 @@
 <c:set var="activePill" value="background:var(--primary); color:#fff; border-color:var(--primary);" />
 
 <h1>직무 찾기</h1>
+<c:if test="${not empty onboardingNotice}">
+    <div class="banner"><span><c:out value="${onboardingNotice}" /></span></div>
+</c:if>
 <p class="muted">희망 직무가 아직 정해지지 않았다면, 간단한 설문과 지금까지 쌓은 전공·스펙을 함께 보고 어울리는 직무를 찾아드립니다.</p>
 
 <div class="two-col" style="margin-top:16px;">
@@ -31,6 +34,7 @@
                 </c:when>
                 <c:otherwise>
                     <form action="${ctx}/job-discovery" method="post">
+                        <input type="hidden" name="_csrf" value="${csrfToken}">
                         <input type="hidden" name="action" value="survey">
                         <c:forEach var="q" items="${questions}" varStatus="qs">
                             <div style="margin-top:14px;">
@@ -66,6 +70,7 @@
                         <c:if test="${r.selected}"><span class="pill">선택함</span></c:if>
                         <p style="margin:8px 0;"><strong>추천 이유</strong> <c:out value="${r.matchReason}" /></p>
                         <form action="${ctx}/job-discovery" method="post">
+                            <input type="hidden" name="_csrf" value="${csrfToken}">
                             <input type="hidden" name="action" value="select">
                             <input type="hidden" name="recommendationId" value="${r.id}">
                             <button type="submit" class="${r.rankOrder == 1 ? '' : 'secondary'}">이 직무로 격차 분석하기</button>

@@ -19,8 +19,13 @@ import java.util.List;
  */
 public class CertificationDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, cert_name, issuer, job_category, difficulty_level, created_at, " +
+            "updated_at, is_deleted";
+
     public List<CertificationDto> findAll() throws SQLException {
-        String sql = "SELECT * FROM CERTIFICATION WHERE is_deleted = FALSE ORDER BY cert_name";
+        String sql = "SELECT " + COLUMNS + " FROM CERTIFICATION WHERE is_deleted = FALSE ORDER BY cert_name";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {
@@ -40,7 +45,7 @@ public class CertificationDao {
 
     // 로드맵 CERT 단계 완료 시 USER_SPECS 자동 반영에 필요 (ROADMAP_STEP.certification_id로 조회)
     public CertificationDto findById(Connection conn, Long id) throws SQLException {
-        String sql = "SELECT * FROM CERTIFICATION WHERE id = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM CERTIFICATION WHERE id = ? AND is_deleted = FALSE";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, id);
             try (ResultSet rs = pstmt.executeQuery()) {
@@ -50,7 +55,7 @@ public class CertificationDao {
     }
 
     public CertificationDto findByName(String certName) throws SQLException {
-        String sql = "SELECT * FROM CERTIFICATION WHERE cert_name = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM CERTIFICATION WHERE cert_name = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, certName);
@@ -61,12 +66,16 @@ public class CertificationDao {
     }
 
     // FR-32 로드맵 자격증 단계 후보 조회 — 난이도 낮은 순(ENTRY 티어에 맞는 것부터).
+    // job_category = 'COMMON'(컴활·정보처리기능사 등 특정 직무에 안 묶이는 범용 자격증)도 항상 같이
+    // 조회해야 한다 — db-design.md·role-plan.md에 명시된 원칙인데 누락돼 있었다(2026-09-30 수정).
+    // 대상 직무 카테고리를 COMMON보다 먼저 보여주도록 정렬한다.
     public List<CertificationDto> findByJobCategory(String jobCategory) throws SQLException {
-        String sql = "SELECT * FROM CERTIFICATION WHERE job_category = ? AND is_deleted = FALSE " +
-                "ORDER BY difficulty_level ASC, cert_name ASC";
+        String sql = "SELECT " + COLUMNS + " FROM CERTIFICATION WHERE (job_category = ? OR job_category = 'COMMON') " +
+                "AND is_deleted = FALSE ORDER BY (job_category = ?) DESC, difficulty_level ASC, cert_name ASC";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, jobCategory);
+            pstmt.setString(2, jobCategory);
             try (ResultSet rs = pstmt.executeQuery()) {
                 List<CertificationDto> certifications = new ArrayList<>();
                 while (rs.next()) {

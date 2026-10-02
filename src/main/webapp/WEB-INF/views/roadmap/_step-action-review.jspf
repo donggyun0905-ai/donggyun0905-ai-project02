@@ -1,0 +1,14 @@
+                                        <button type="button" class="open-step-dialog" data-dialog="stepDialog-${step.id}">복습 기록하고 완료하기</button>
+                                        <dialog id="stepDialog-${step.id}" class="step-dialog">
+                                        <div class="step-dialog-head"><h3>복습 기록하고 완료하기</h3><button type="button" class="dialog-close link-button" aria-label="닫기">✕</button></div>
+                                            <p class="muted" style="line-height:1.6;"><c:out value="${step.reason}" /></p>
+                                            <form action="${pageContext.request.contextPath}/roadmap" method="post" style="margin-top:10px;">
+                                                <input type="hidden" name="_csrf" value="${csrfToken}">
+                                                <input type="hidden" name="action" value="completeReview">
+                                                <input type="hidden" name="stepId" value="${step.id}">
+                                                <p><label>복습 기록 (20자 이상) — 기억나는 핵심 개념, 헷갈렸던 점, 다시 찾아본 내용</label>
+                                                    <textarea name="reviewNote" minlength="20" maxlength="1000" required></textarea></p>
+                                                <p class="muted" style="font-size:0.8rem;">같은 기술을 복습할수록 받는 점수가 줄어요 (40 → 30 → 20 → 10 → 5점).</p>
+                                                <button type="submit">복습 완료</button>
+                                            </form>
+                                        </dialog>

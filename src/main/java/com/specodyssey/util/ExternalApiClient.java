@@ -48,6 +48,16 @@ public final class ExternalApiClient {
             .build();
     private static final Gson GSON = new Gson();
 
+    // ProjectIdeaService·TrendLlmService·JobBenchmarkSpecService가 전부 같은 Groq 엔드포인트를
+    // 쓰는데, 테스트 전체를 한 번에 돌리거나 여러 요청이 동시에 들어오면 한꺼번에 몰려서 Groq가
+    // 429(요청 제한)를 돌려준다(2026-10-01 전체 테스트 실행 중 RoadmapServiceTest 3건이 이걸로
+    // 재시도 4회를 다 쓰고 실패하는 걸 직접 겪음). 호출부마다 막는 대신 공용 유틸 한 곳에서
+    // 동시 1건 + 최소 간격을 강제해 몰리는 것 자체를 막는다.
+    private static final String GROQ_HOST = "api.groq.com";
+    private static final java.util.concurrent.Semaphore GROQ_GATE = new java.util.concurrent.Semaphore(1);
+    private static final long GROQ_MIN_INTERVAL_MS = 1500;
+    private static volatile long lastGroqCallEndedAt = 0;
+
     private ExternalApiClient() {
     }
 
@@ -99,7 +109,27 @@ public final class ExternalApiClient {
     }
 
     private static String send(HttpRequest.Builder requestBuilder, String url) throws ExternalApiException {
+        boolean throttled = url.contains(GROQ_HOST);
+        if (throttled) {
+            try {
+                GROQ_GATE.acquire();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new ExternalApiException("외부 API 호출이 중단됨: " + maskQuery(url), e);
+            }
+        }
         try {
+            if (throttled) {
+                long wait = GROQ_MIN_INTERVAL_MS - (System.currentTimeMillis() - lastGroqCallEndedAt);
+                if (wait > 0) {
+                    try {
+                        Thread.sleep(wait);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new ExternalApiException("외부 API 호출이 중단됨: " + maskQuery(url), ie);
+                    }
+                }
+            }
             HttpResponse<String> response =
                     CLIENT.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 400) {
@@ -113,6 +143,11 @@ public final class ExternalApiClient {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new ExternalApiException("외부 API 호출이 중단됨: " + maskQuery(url), e);
+        } finally {
+            if (throttled) {
+                lastGroqCallEndedAt = System.currentTimeMillis();
+                GROQ_GATE.release();
+            }
         }
     }
 

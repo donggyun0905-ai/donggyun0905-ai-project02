@@ -21,6 +21,11 @@ import java.util.List;
  */
 public class UserDailyMissionDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, user_id, problem_id, assigned_date, is_completed, completed_at, " +
+            "is_correct, created_at, updated_at, is_deleted";
+
     public Long insert(UserDailyMissionDto mission) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, mission);
@@ -47,7 +52,7 @@ public class UserDailyMissionDao {
 
     // FR-53 스트릭·진행도 계산용 — 배정일 순
     public List<UserDailyMissionDto> findByUserId(Long userId) throws SQLException {
-        String sql = "SELECT * FROM USER_DAILY_MISSION WHERE user_id = ? AND is_deleted = FALSE " +
+        String sql = "SELECT " + COLUMNS + " FROM USER_DAILY_MISSION WHERE user_id = ? AND is_deleted = FALSE " +
                 "ORDER BY assigned_date DESC";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {

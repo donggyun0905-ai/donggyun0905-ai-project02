@@ -1,0 +1,10 @@
+<div class="card" style="margin-top:28px; border-color:var(--danger);">
+    <h2 style="color:var(--danger); margin-bottom:8px;">회원 탈퇴</h2>
+    <p class="muted">탈퇴하면 로그인·프로필 조회가 모두 불가능해집니다. 비밀번호를 입력하고 확인해주세요.</p>
+    <form action="${pageContext.request.contextPath}/profile/withdraw" method="post"
+          onsubmit="return confirm('정말 탈퇴하시겠습니까?');" class="row">
+        <input type="hidden" name="_csrf" value="${csrfToken}">
+        <input type="password" name="password" placeholder="비밀번호" style="width:auto;" required>
+        <button type="submit" class="danger">회원 탈퇴</button>
+    </form>
+</div>

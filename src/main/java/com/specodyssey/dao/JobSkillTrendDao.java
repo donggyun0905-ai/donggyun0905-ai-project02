@@ -21,6 +21,11 @@ import java.util.List;
  */
 public class JobSkillTrendDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, job_id, skill_id, period_ym, mention_count, mention_ratio, created_at, " +
+            "updated_at, is_deleted";
+
     public Long insert(JobSkillTrendDto trend) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, trend);
@@ -43,9 +48,43 @@ public class JobSkillTrendDao {
         }
     }
 
+    // JOB_POSTING 집계 배치(JobSkillTrendService) 전용 — 같은 달을 다시 돌리면(그 달 공고가
+    // 아직도 들어오는 중이라 재실행할 수 있음) 새 값으로 덮어쓴다. 복합 UNIQUE(job_id, skill_id,
+    // period_ym) 기준 upsert라, 이미 지난 달(더 이상 공고가 안 들어옴)은 그냥 같은 값으로 다시
+    // 써질 뿐이라 "append-only" 원칙과 실질적으로 충돌하지 않는다.
+    public void upsertMonth(Connection conn, JobSkillTrendDto trend) throws SQLException {
+        String sql = "INSERT INTO JOB_SKILL_TREND (job_id, skill_id, period_ym, mention_count, mention_ratio) " +
+                "VALUES (?, ?, ?, ?, ?) " +
+                "ON DUPLICATE KEY UPDATE mention_count = ?, mention_ratio = ?, is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, trend.getJobId());
+            pstmt.setLong(2, trend.getSkillId());
+            pstmt.setString(3, trend.getPeriodYm());
+            pstmt.setInt(4, trend.getMentionCount());
+            setNullableBigDecimal(pstmt, 5, trend.getMentionRatio());
+            pstmt.setInt(6, trend.getMentionCount());
+            setNullableBigDecimal(pstmt, 7, trend.getMentionRatio());
+            pstmt.executeUpdate();
+        }
+    }
+
+    // 임시 관리자 화면(AdminJobSkillTrendServlet)의 현재 적재 현황 요약용
+    public List<JobSkillTrendDto> findAll() throws SQLException {
+        String sql = "SELECT " + COLUMNS + " FROM JOB_SKILL_TREND WHERE is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+            List<JobSkillTrendDto> trends = new ArrayList<>();
+            while (rs.next()) {
+                trends.add(mapRow(rs));
+            }
+            return trends;
+        }
+    }
+
     // FR-47 특정 직무의 기술 언급 추이 — 월 순 정렬
     public List<JobSkillTrendDto> findByJobId(Long jobId) throws SQLException {
-        String sql = "SELECT * FROM JOB_SKILL_TREND WHERE job_id = ? AND is_deleted = FALSE ORDER BY period_ym";
+        String sql = "SELECT " + COLUMNS + " FROM JOB_SKILL_TREND WHERE job_id = ? AND is_deleted = FALSE ORDER BY period_ym";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, jobId);

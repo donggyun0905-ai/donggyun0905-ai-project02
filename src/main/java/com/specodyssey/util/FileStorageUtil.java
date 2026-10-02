@@ -10,7 +10,11 @@ import java.nio.file.Paths;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Collections;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
@@ -30,10 +34,32 @@ public final class FileStorageUtil {
     private static final String ENV_FILE = "/.env";
     private static final Path UPLOAD_DIR;
 
-    // 저장 폴더에 실행 파일류가 섞여 들어가지 않게 하는 최소한의 방어(NFR-7 확장자 제한).
-    private static final Set<String> BLOCKED_EXTENSIONS = Set.of(
-            "exe", "bat", "cmd", "sh", "msi", "jar", "com", "scr", "ps1", "vbs"
-    );
+    // 업로드할 수 있는 파일 형식은 이 한 곳(허용 목록)에서만 정한다 — 서류 보관함·로드맵 제출·공유 문서가 모두 쓴다.
+    // 예전에는 차단 목록(exe·bat 등)이라 html·svg 같은 파일도 올라가고, 그걸 면접관이 브라우저에서 열 수 있었다.
+    // 확장자별 MIME도 여기서 고정한다 — 브라우저가 보낸 Content-Type은 믿지 않는다.
+    private static final Map<String, String> MIME_BY_EXTENSION = mimeTable();
+
+    private static Map<String, String> mimeTable() {
+        Map<String, String> m = new LinkedHashMap<>();
+        m.put("pdf", "application/pdf");
+        m.put("doc", "application/msword");
+        m.put("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        m.put("hwp", "application/x-hwp");
+        m.put("hwpx", "application/haansofthwpx");
+        m.put("ppt", "application/vnd.ms-powerpoint");
+        m.put("pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation");
+        m.put("txt", "text/plain; charset=UTF-8");
+        m.put("md", "text/plain; charset=UTF-8");
+        m.put("png", "image/png");
+        m.put("jpg", "image/jpeg");
+        m.put("jpeg", "image/jpeg");
+        m.put("gif", "image/gif");
+        m.put("zip", "application/zip");
+        return Collections.unmodifiableMap(m);
+    }
+
+    // 브라우저 안에서 바로 열어도 스크립트가 돌 수 없는 형식(공유 문서 미리보기용). 나머지는 내려받기만 된다.
+    private static final Set<String> INLINE_SAFE_EXTENSIONS = Set.of("pdf", "png", "jpg", "jpeg", "gif");
 
     static {
         Properties env = loadEnvFile();
@@ -50,8 +76,22 @@ public final class FileStorageUtil {
     private FileStorageUtil() {
     }
 
-    public static boolean isExtensionBlocked(String originalFilename) {
-        return BLOCKED_EXTENSIONS.contains(extensionOf(originalFilename).toLowerCase());
+    /** 올릴 수 있는 파일 형식인지(허용 목록). 파일명이 없거나 확장자가 없으면 false. */
+    public static boolean isAllowedFile(String originalFilename) {
+        return originalFilename != null && MIME_BY_EXTENSION.containsKey(extensionOf(originalFilename).toLowerCase(Locale.ROOT));
+    }
+
+    /** 확장자로 정한 MIME. 허용 목록 밖이면 application/octet-stream. */
+    public static String mimeTypeFor(String originalFilename) {
+        if (originalFilename == null) {
+            return "application/octet-stream";
+        }
+        return MIME_BY_EXTENSION.getOrDefault(extensionOf(originalFilename).toLowerCase(Locale.ROOT), "application/octet-stream");
+    }
+
+    /** 브라우저에서 바로 열어도 안전한 형식(PDF·이미지)인지. */
+    public static boolean isInlineSafe(String originalFilename) {
+        return originalFilename != null && INLINE_SAFE_EXTENSIONS.contains(extensionOf(originalFilename).toLowerCase(Locale.ROOT));
     }
 
     // 원본 파일명은 저장 경로 생성에 전혀 쓰지 않는다(UUID로만 생성) — 경로 조작 공격 자체가 성립하지 않는다.
@@ -86,6 +126,11 @@ public final class FileStorageUtil {
     // 다운로드 서블릿이 소유자 확인 후에만 호출한다.
     public static void writeTo(String filePath, OutputStream out) throws IOException {
         Files.copy(Paths.get(filePath), out);
+    }
+
+    // 텍스트 파일(연습장 노트 등)을 UTF-8 문자열로 읽는다. 호출부가 소유자 확인을 끝낸 경로만 넘긴다.
+    public static String readText(String filePath) throws IOException {
+        return Files.readString(Paths.get(filePath), java.nio.charset.StandardCharsets.UTF_8);
     }
 
     private static String extensionOf(String filename) {

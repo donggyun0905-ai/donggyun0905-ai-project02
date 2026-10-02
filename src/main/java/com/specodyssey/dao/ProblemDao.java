@@ -21,6 +21,11 @@ import java.util.List;
  */
 public class ProblemDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, title, description, difficulty_level, source_type, external_url, " +
+            "answer_key, created_at, updated_at, is_deleted";
+
     public Long insert(ProblemDto problem) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, problem);
@@ -45,7 +50,7 @@ public class ProblemDao {
     }
 
     public List<ProblemDto> findAll() throws SQLException {
-        String sql = "SELECT * FROM PROBLEM WHERE is_deleted = FALSE ORDER BY id";
+        String sql = "SELECT " + COLUMNS + " FROM PROBLEM WHERE is_deleted = FALSE ORDER BY id";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {
@@ -58,7 +63,7 @@ public class ProblemDao {
     }
 
     public List<ProblemDto> findByDifficultyLevel(int difficultyLevel) throws SQLException {
-        String sql = "SELECT * FROM PROBLEM WHERE difficulty_level = ? AND is_deleted = FALSE ORDER BY id";
+        String sql = "SELECT " + COLUMNS + " FROM PROBLEM WHERE difficulty_level = ? AND is_deleted = FALSE ORDER BY id";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, difficultyLevel);

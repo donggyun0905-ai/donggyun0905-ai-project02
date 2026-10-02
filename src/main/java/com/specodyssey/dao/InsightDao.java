@@ -12,14 +12,10 @@ import java.util.List;
 
 /**
  * 데이터 인사이트 화면용 집계 조회 전용 DAO (읽기만, 쓰기 없음).
- * 관련 요구사항: FR-45 · 47 · 48
+ * 관련 요구사항: FR-47 · 48 (FR-45 또래 점수는 SpecScoreService가 조회)
  * 여러 테이블을 묶어 세는 쿼리라 테이블별 DAO에 넣지 않고 여기에 모았다.
  */
 public class InsightDao {
-
-    /** 또래 비교 대상 1명의 최신 완성도 점수. */
-    public record PeerScoreRow(long userId, BigDecimal score) {
-    }
 
     /** 직무·기술·월별 언급 비율. */
     public record TrendRow(long skillId, String skillName, String periodYm, BigDecimal mentionRatio) {
@@ -27,42 +23,6 @@ public class InsightDao {
 
     /** 격차 분석 항목 1개 — 기술 분야·요구 수준·충족 여부. */
     public record GapCellRow(String category, String requiredLevel, boolean missing) {
-    }
-
-    // FR-45 같은 전공·학년 사용자들의 "가장 최근" 스냅샷 점수 (사용자당 1행)
-    public List<PeerScoreRow> findLatestPeerScores(String major, String grade) throws SQLException {
-        String sql = "SELECT h.user_id, h.completeness_score FROM SPEC_SCORE_HISTORY h " +
-                "JOIN (SELECT user_id, MAX(snapshot_date) AS last_date FROM SPEC_SCORE_HISTORY " +
-                "      WHERE major = ? AND grade = ? AND is_deleted = FALSE GROUP BY user_id) latest " +
-                "  ON latest.user_id = h.user_id AND latest.last_date = h.snapshot_date " +
-                "WHERE h.major = ? AND h.grade = ? AND h.is_deleted = FALSE";
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, major);
-            pstmt.setString(2, grade);
-            pstmt.setString(3, major);
-            pstmt.setString(4, grade);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                List<PeerScoreRow> rows = new ArrayList<>();
-                while (rs.next()) {
-                    rows.add(new PeerScoreRow(rs.getLong("user_id"), rs.getBigDecimal("completeness_score")));
-                }
-                return rows;
-            }
-        }
-    }
-
-    // FR-45 내 가장 최근 완성도 점수 — 스냅샷이 없으면 null
-    public BigDecimal findLatestScore(Long userId) throws SQLException {
-        String sql = "SELECT completeness_score FROM SPEC_SCORE_HISTORY " +
-                "WHERE user_id = ? AND is_deleted = FALSE ORDER BY snapshot_date DESC, id DESC LIMIT 1";
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setLong(1, userId);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                return rs.next() ? rs.getBigDecimal("completeness_score") : null;
-            }
-        }
     }
 
     // FR-48 보유 기술 수 — 0이면 히트맵이 전부 "부족"으로 나오므로 안내로 대체한다

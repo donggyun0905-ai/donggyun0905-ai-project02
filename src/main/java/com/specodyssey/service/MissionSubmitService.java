@@ -37,13 +37,22 @@ public class MissionSubmitService {
 
     /** 제출 결과. SAVED가 아니면 message를 화면에 보여 준다. */
     public record SubmitResult(Status status, String message) {
+        // JSP의 EL이 읽을 수 있게 getter를 같이 둔다 — Tomcat 10.1(BeanELResolver)은 getX()만, Tomcat 11(RecordELResolver)은 x()만 찾는다.
+        public Status getStatus() {
+            return status;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
         public boolean isSaved() {
             return status == Status.SAVED;
         }
     }
 
     private static final String SIGNAL_TYPE_PROBLEM = "PROBLEM";
-    private static final int[] POINTS_BY_TIER_ORDER = {15, 15, 20, 25, 30};
+    private static final int TIER_ORDER_COUNT = 5; // DAILY_POINTS_1..5 (SCORING_RULE)
 
     private final MissionDao missionDao = new MissionDao();
     private final CodeCompileService compileService = new CodeCompileService();
@@ -69,14 +78,19 @@ public class MissionSubmitService {
 
     /** "실패" 버튼 — 본인 미션이면 실패(완료 + 오답)로 표시하고 true, 없거나 남의 미션이면 false. */
     public boolean markFailed(Long userId, Long missionId) throws SQLException {
-        return TransactionUtil.runInTransaction(conn -> {
+        final int[] streakNow = {0};
+        boolean marked = TransactionUtil.runInTransaction(conn -> {
             if (missionDao.markFailed(conn, userId, missionId, LocalDateTime.now(ZONE)) != 1) {
                 return false;
             }
             // 실패로 끝낸 문제도 "끝낸 문제"로 쳐서 스트릭에 반영한다 (점수는 없음)
-            streakService.recordIfDayComplete(conn, userId, missionId);
+            streakNow[0] = streakService.recordIfDayComplete(conn, userId, missionId);
             return true;
         });
+        if (marked) {
+            streakService.awardBonusIfEarned(userId, streakNow[0]);
+        }
+        return marked;
     }
 
     public SubmitResult submit(Long userId, Long missionId, String languageCode, String code) throws SQLException {
@@ -109,6 +123,7 @@ public class MissionSubmitService {
 
         // 코드 저장과 점수 적립은 한 트랜잭션 — 둘 중 하나만 반영되지 않게 한다
         int points = pointsForCurrentTier(userId);
+        final int[] streakNow = {0};
         boolean saved = TransactionUtil.runInTransaction(conn -> {
             if (missionDao.saveSubmission(conn, userId, missionId, language.name(), code,
                     LocalDateTime.now(ZONE)) != 1) {
@@ -117,9 +132,13 @@ public class MissionSubmitService {
             // (user, PROBLEM, 미션 id)로 한 번만 적립된다 — 다시 제출해도 점수는 그대로
             scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_PROBLEM, missionId, points);
             // 적립이 요약 행 전체를 다시 쓰므로 스트릭은 반드시 그 뒤에 갱신한다
-            streakService.recordIfDayComplete(conn, userId, missionId);
+            streakNow[0] = streakService.recordIfDayComplete(conn, userId, missionId);
             return true;
         });
+        if (saved) {
+            // 오늘 미션을 다 끝낸 날이면 연속 보너스 — 문제 점수와 따로(트랜잭션 밖) 적립한다
+            streakService.awardBonusIfEarned(userId, streakNow[0]);
+        }
         return saved
                 ? new SubmitResult(Status.SAVED, null)
                 : new SubmitResult(Status.INVALID, "미션을 찾을 수 없습니다.");
@@ -127,6 +146,14 @@ public class MissionSubmitService {
 
     /** 사용자의 현재 등급 이름과, 지금 문제를 풀면 받는 점수. 등급 마스터가 비어 있으면 name은 null. */
     public record CurrentTier(String name, int points) {
+        // JSP의 EL이 읽을 수 있게 getter를 같이 둔다 — Tomcat 10.1(BeanELResolver)은 getX()만, Tomcat 11(RecordELResolver)은 x()만 찾는다.
+        public String getName() {
+            return name;
+        }
+
+        public int getPoints() {
+            return points;
+        }
     }
 
     // TD-5 현재 등급 — 점수 기록이 없으면 0점(가장 낮은 등급)으로 본다. 미션 화면 표시와 점수 적립이 같은 기준을 쓴다.
@@ -149,10 +176,10 @@ public class MissionSubmitService {
 
     /**
      * 등급 순서(LEVEL_TIER min_score 오름차순, 0부터)별 문제 풀이 점수.
-     * 비기너 15 · 취준생 15 · 실전러 20 · 취뽀 임박 25 · 취뽀 30 — ScoreService 로고처럼 순서로 대응한다.
+     * 기본값: 비기너 6 · 취준생 6 · 실전러 8 · 취뽀 임박 10 · 취뽀 12(SCORING_RULE DAILY_POINTS_1..5) — ScoreService 로고처럼 순서로 대응한다.
      */
     static int pointsForTierOrder(int order) {
-        int i = Math.max(0, Math.min(order, POINTS_BY_TIER_ORDER.length - 1));
-        return POINTS_BY_TIER_ORDER[i];
+        int i = Math.max(0, Math.min(order, TIER_ORDER_COUNT - 1));
+        return ScoringRules.get(ScoringRules.DAILY_POINTS_PREFIX + (i + 1));
     }
 }

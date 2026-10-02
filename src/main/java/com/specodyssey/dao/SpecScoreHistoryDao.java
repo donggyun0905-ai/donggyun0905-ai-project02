@@ -9,6 +9,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +20,11 @@ import java.util.List;
  * 스냅샷을 스택처럼 쌓아 시계열/또래비교를 계산하는 용도라 수정·삭제는 없다.
  */
 public class SpecScoreHistoryDao {
+
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, user_id, snapshot_date, completeness_score, major, grade, is_seed, " +
+            "created_at, updated_at, is_deleted";
 
     public Long insert(SpecScoreHistoryDto history) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
@@ -43,8 +49,20 @@ public class SpecScoreHistoryDao {
         }
     }
 
+    // SpecScoreService의 일 1회 스냅샷 가드 — 오늘 이미 기록했으면 다시 쌓지 않는다.
+    public boolean existsForUserOnDate(Connection conn, Long userId, LocalDate date) throws SQLException {
+        String sql = "SELECT 1 FROM SPEC_SCORE_HISTORY WHERE user_id = ? AND snapshot_date = ? AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            pstmt.setDate(2, java.sql.Date.valueOf(date));
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
     public List<SpecScoreHistoryDto> findByUserId(Long userId) throws SQLException {
-        String sql = "SELECT * FROM SPEC_SCORE_HISTORY WHERE user_id = ? AND is_deleted = FALSE " +
+        String sql = "SELECT " + COLUMNS + " FROM SPEC_SCORE_HISTORY WHERE user_id = ? AND is_deleted = FALSE " +
                 "ORDER BY snapshot_date";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -61,7 +79,7 @@ public class SpecScoreHistoryDao {
 
     // FR-45 또래 비교 — 전공·학년이 같은 시드/실사용자 스냅샷 조회
     public List<SpecScoreHistoryDto> findByMajorAndGrade(String major, String grade) throws SQLException {
-        String sql = "SELECT * FROM SPEC_SCORE_HISTORY WHERE major = ? AND grade = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM SPEC_SCORE_HISTORY WHERE major = ? AND grade = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, major);

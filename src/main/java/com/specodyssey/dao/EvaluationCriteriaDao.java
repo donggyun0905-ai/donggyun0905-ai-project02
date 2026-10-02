@@ -21,6 +21,10 @@ import java.util.List;
  */
 public class EvaluationCriteriaDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, session_id, skill_id, weight, created_at, updated_at, is_deleted";
+
     public Long insert(EvaluationCriteriaDto criteria) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, criteria);
@@ -41,7 +45,7 @@ public class EvaluationCriteriaDao {
     }
 
     public List<EvaluationCriteriaDto> findBySessionId(Long sessionId) throws SQLException {
-        String sql = "SELECT * FROM EVALUATION_CRITERIA WHERE session_id = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM EVALUATION_CRITERIA WHERE session_id = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, sessionId);
@@ -52,6 +56,21 @@ public class EvaluationCriteriaDao {
                 }
                 return criteriaList;
             }
+        }
+    }
+
+    // 요구 역량 추가 — 이미 있는 역량이면 가중치만 바꾸고, 지웠던(is_deleted) 역량이면 되살린다.
+    // (session_id, skill_id) UNIQUE는 지운 행에도 걸려서 그냥 INSERT하면 다시 추가할 때 실패한다.
+    public void save(Long sessionId, Long skillId, int weight) throws SQLException {
+        String sql = "INSERT INTO EVALUATION_CRITERIA (session_id, skill_id, weight) VALUES (?, ?, ?) " +
+                "ON DUPLICATE KEY UPDATE weight = ?, is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, sessionId);
+            pstmt.setLong(2, skillId);
+            pstmt.setInt(3, weight);
+            pstmt.setInt(4, weight);
+            pstmt.executeUpdate();
         }
     }
 

@@ -20,6 +20,11 @@ import java.util.List;
  */
 public class TrendTechDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, tech_name, summary, source_url, published_at, created_at, updated_at, " +
+            "is_deleted";
+
     public Long insert(TrendTechDto trendTech) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, trendTech);
@@ -42,7 +47,7 @@ public class TrendTechDao {
 
     // FR-54 최신순 노출
     public List<TrendTechDto> findAll() throws SQLException {
-        String sql = "SELECT * FROM TREND_TECH WHERE is_deleted = FALSE ORDER BY published_at DESC";
+        String sql = "SELECT " + COLUMNS + " FROM TREND_TECH WHERE is_deleted = FALSE ORDER BY published_at DESC";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {

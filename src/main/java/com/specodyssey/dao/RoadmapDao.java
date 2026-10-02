@@ -21,6 +21,11 @@ import java.util.List;
  */
 public class RoadmapDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, user_id, gap_analysis_id, version, is_active, is_primary, target_level, " +
+            "created_at, updated_at, is_deleted";
+
     public Long insert(RoadmapDto roadmap) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, roadmap);
@@ -45,7 +50,7 @@ public class RoadmapDao {
     }
 
     public List<RoadmapDto> findByUserId(Long userId) throws SQLException {
-        String sql = "SELECT * FROM ROADMAP WHERE user_id = ? AND is_deleted = FALSE ORDER BY version DESC";
+        String sql = "SELECT " + COLUMNS + " FROM ROADMAP WHERE user_id = ? AND is_deleted = FALSE ORDER BY version DESC";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);
@@ -62,7 +67,7 @@ public class RoadmapDao {
     // gap_analysis_id는 UNIQUE(1:1)라, 같은 분석으로 로드맵을 또 만들려는 요청(중복 클릭 등)을
     // 막으려면 먼저 이걸로 이미 있는지 확인해야 한다 — FR-32 생성 흐름에서 사용.
     public RoadmapDto findByGapAnalysisId(Long gapAnalysisId) throws SQLException {
-        String sql = "SELECT * FROM ROADMAP WHERE gap_analysis_id = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM ROADMAP WHERE gap_analysis_id = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, gapAnalysisId);
@@ -74,7 +79,7 @@ public class RoadmapDao {
 
     // 대시보드·일일 미션이 바라보는 메인 여정
     public RoadmapDto findPrimaryByUserId(Long userId) throws SQLException {
-        String sql = "SELECT * FROM ROADMAP WHERE user_id = ? AND is_primary = TRUE AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM ROADMAP WHERE user_id = ? AND is_primary = TRUE AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);
@@ -96,6 +101,31 @@ public class RoadmapDao {
             pstmt.setLong(3, roadmapId);
             pstmt.setLong(4, userId);
             pstmt.executeUpdate();
+        }
+    }
+
+    // 이 로드맵이 겨냥한 직무 — 단계 점수를 직무 사다리 기준으로 정하려고 쓴다(GAP_ANALYSIS.job_id)
+    public Long findJobIdByRoadmapId(Connection conn, Long roadmapId) throws SQLException {
+        String sql = "SELECT g.job_id FROM ROADMAP r JOIN GAP_ANALYSIS g ON g.id = r.gap_analysis_id WHERE r.id = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, roadmapId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? rs.getLong("job_id") : null;
+            }
+        }
+    }
+
+    // 이 사용자가 이 직무로 처음 로드맵을 만든 시각 — 이후 직무에 새로 추가된 기술(신기술)을 가르는 기준
+    public LocalDateTime findFirstCreatedAtByUserAndJob(Connection conn, Long userId, Long jobId) throws SQLException {
+        String sql = "SELECT MIN(r.created_at) AS first_at FROM ROADMAP r " +
+                "JOIN GAP_ANALYSIS g ON g.id = r.gap_analysis_id " +
+                "WHERE r.user_id = ? AND g.job_id = ? AND r.is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            pstmt.setLong(2, jobId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? toLocalDateTime(rs.getTimestamp("first_at")) : null;
+            }
         }
     }
 

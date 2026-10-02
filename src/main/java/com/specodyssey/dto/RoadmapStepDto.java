@@ -12,6 +12,11 @@ public class RoadmapStepDto {
     private Long certificationId;
     private Long relatedSkillId;
     private String reason;
+    private String proofType;
+    private String proofContent;
+    private Long evidenceProjectId;
+    private String reviewStatus;
+    private String reviewNote;
     private boolean completed;
     private LocalDateTime completedAt;
     private LocalDateTime createdAt;
@@ -80,6 +85,52 @@ public class RoadmapStepDto {
 
     public void setReason(String reason) {
         this.reason = reason;
+    }
+
+    public String getProofType() {
+        return proofType;
+    }
+
+    public void setProofType(String proofType) {
+        this.proofType = proofType;
+    }
+
+    public String getProofContent() {
+        return proofContent;
+    }
+
+    public void setProofContent(String proofContent) {
+        this.proofContent = proofContent;
+    }
+
+    /** 시간이 지나 이어 붙는 단계(복습·프로젝트 업데이트·글 업데이트·트렌딩 학습)인지 — 화면이 사다리 단계와 구분해 그린다 */
+    public boolean isUpkeep() {
+        return "REVIEW".equals(stepType) || "PROJECT_UPDATE".equals(stepType)
+                || "ARTICLE_UPDATE".equals(stepType) || "TREND_STUDY".equals(stepType);
+    }
+
+    public Long getEvidenceProjectId() {
+        return evidenceProjectId;
+    }
+
+    public void setEvidenceProjectId(Long evidenceProjectId) {
+        this.evidenceProjectId = evidenceProjectId;
+    }
+
+    public String getReviewStatus() {
+        return reviewStatus;
+    }
+
+    public void setReviewStatus(String reviewStatus) {
+        this.reviewStatus = reviewStatus;
+    }
+
+    public String getReviewNote() {
+        return reviewNote;
+    }
+
+    public void setReviewNote(String reviewNote) {
+        this.reviewNote = reviewNote;
     }
 
     public boolean isCompleted() {

@@ -1,7 +1,6 @@
 package com.specodyssey.service;
 
 import com.specodyssey.dao.InsightDao.GapCellRow;
-import com.specodyssey.dao.InsightDao.PeerScoreRow;
 import com.specodyssey.dao.InsightDao.TrendRow;
 import com.specodyssey.dto.InsightViewDto;
 import com.specodyssey.dto.InsightViewDto.BenchmarkTier;
@@ -11,7 +10,8 @@ import com.specodyssey.dto.InsightViewDto.Notice;
 import com.specodyssey.dto.InsightViewDto.PeerView;
 import com.specodyssey.dto.InsightViewDto.TrendSkill;
 import com.specodyssey.dto.InsightViewDto.TrendView;
-import com.specodyssey.dto.JobBenchmarkSpecDto;
+import com.specodyssey.service.JobBenchmarkSpecService.BenchmarkItem;
+import com.specodyssey.service.JobBenchmarkSpecService.TierBenchmark;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -29,39 +29,33 @@ class InsightServiceTest {
     // ---------- FR-45 또래 비교 ----------
 
     @Test
-    void 또래_평균은_본인을_빼고_계산한다() {
-        List<PeerScoreRow> peers = Arrays.asList(
-                new PeerScoreRow(1L, new BigDecimal("62")),
-                new PeerScoreRow(2L, new BigDecimal("50")),
-                new PeerScoreRow(3L, new BigDecimal("61")));
-        PeerView view = InsightService.comparePeers(1L, "컴퓨터공학", "4", new BigDecimal("62"), peers);
+    void 또래_평균과_비교한_문구를_만든다() {
+        PeerView view = InsightService.comparePeers("컴퓨터공학", "4", new BigDecimal("62.00"), new BigDecimal("55.50"), 2);
 
         assertTrue(view.isComparable());
         assertEquals(62, view.myScore());
-        assertEquals(56, view.peerAverage(), "(50+61)/2 = 55.5 → 반올림 56");
+        assertEquals(56, view.peerAverage(), "55.5 → 반올림 56");
         assertEquals(2, view.peerCount());
         assertEquals("평균보다 6점 높습니다.", view.message());
     }
 
     @Test
     void 또래가_없거나_전공이_없으면_비교하지_않는다() {
-        PeerView alone = InsightService.comparePeers(1L, "컴퓨터공학", "4", new BigDecimal("40"),
-                List.of(new PeerScoreRow(1L, new BigDecimal("40"))));
+        PeerView alone = InsightService.comparePeers("컴퓨터공학", "4", new BigDecimal("40"), null, 0);
         assertFalse(alone.isComparable());
         assertEquals(0, alone.peerCount());
 
-        PeerView noMajor = InsightService.comparePeers(1L, null, "4", new BigDecimal("40"), Collections.emptyList());
+        PeerView noMajor = InsightService.comparePeers(null, "4", new BigDecimal("40"), null, 0);
         assertFalse(noMajor.isComparable());
         assertTrue(noMajor.message().contains("전공과 학년"));
 
-        PeerView noScore = InsightService.comparePeers(1L, "컴퓨터공학", "4", null, Collections.emptyList());
+        PeerView noScore = InsightService.comparePeers("컴퓨터공학", "4", null, null, 0);
         assertFalse(noScore.isComparable());
     }
 
     @Test
     void 완성도_0점이면_비교하지_않고_프로필_안내() {
-        PeerView view = InsightService.comparePeers(1L, "컴퓨터공학", "4", new BigDecimal("0.00"),
-                List.of(new PeerScoreRow(2L, new BigDecimal("50"))));
+        PeerView view = InsightService.comparePeers("컴퓨터공학", "4", new BigDecimal("0.00"), new BigDecimal("50"), 1);
         assertFalse(view.isComparable());
         assertNull(view.myScore());
         assertTrue(view.message().contains("프로필"));
@@ -72,7 +66,7 @@ class InsightServiceTest {
     @Test
     void 프로필이_빈_사용자는_프로필과_격차분석_안내를_받는다() {
         InsightViewDto view = new InsightViewDto();
-        view.setPeer(InsightService.comparePeers(1L, "응소", "4", BigDecimal.ZERO, Collections.emptyList()));
+        view.setPeer(InsightService.comparePeers("응소", "4", BigDecimal.ZERO, null, 0));
         view.setHeatmap(InsightService.buildHeatmap(List.of(new GapCellRow("언어", "BASIC", true))));
 
         List<Notice> notices = InsightService.buildNotices(view, true);
@@ -82,8 +76,7 @@ class InsightServiceTest {
     @Test
     void 데이터가_다_있으면_안내가_없다() {
         InsightViewDto view = new InsightViewDto();
-        view.setPeer(InsightService.comparePeers(1L, "컴퓨터공학", "4", new BigDecimal("64"),
-                List.of(new PeerScoreRow(2L, new BigDecimal("57")))));
+        view.setPeer(InsightService.comparePeers("컴퓨터공학", "4", new BigDecimal("64"), new BigDecimal("57"), 1));
         view.setHeatmap(InsightService.buildHeatmap(List.of(new GapCellRow("언어", "BASIC", false))));
         assertTrue(InsightService.buildNotices(view, false).isEmpty());
     }
@@ -125,18 +118,18 @@ class InsightServiceTest {
     // ---------- FR-46 합격자 참고 루트 ----------
 
     @Test
-    void 참고_루트는_입문부터_전문가_순서로_묶는다() {
-        List<BenchmarkTier> tiers = InsightService.groupBenchmark(Arrays.asList(
-                spec("EXPERT", "오픈소스 기여"),
-                spec("ENTRY", "정보처리기사"),
-                spec("ENTRY", "Spring 프로젝트 1개"),
-                spec("UNKNOWN", "무시됨")));
+    void 참고_루트에_단계_표시명을_붙인다() {
+        List<BenchmarkTier> tiers = InsightService.toBenchmarkTiers(Arrays.asList(
+                new TierBenchmark("ENTRY", List.of(new BenchmarkItem("CERT", "정보처리기사"),
+                        new BenchmarkItem("PROJECT", "Spring 프로젝트 1개"))),
+                new TierBenchmark("CORE", List.of()),
+                new TierBenchmark("EXPERT", List.of(new BenchmarkItem("SKILL", "오픈소스 기여")))));
 
-        assertEquals(2, tiers.size(), "항목 없는 단계와 모르는 단계는 뺀다");
+        assertEquals(2, tiers.size(), "항목 없는 단계는 뺀다");
         assertEquals("입문", tiers.get(0).label());
         assertEquals(List.of("정보처리기사", "Spring 프로젝트 1개"), tiers.get(0).items());
-        assertEquals("EXPERT", tiers.get(1).tier());
-        assertTrue(InsightService.groupBenchmark(Collections.emptyList()).isEmpty());
+        assertEquals("전문가", tiers.get(1).label());
+        assertTrue(InsightService.toBenchmarkTiers(Collections.emptyList()).isEmpty());
     }
 
     // ---------- FR-48 약점 히트맵 ----------
@@ -178,12 +171,5 @@ class InsightServiceTest {
         assertEquals(2, InsightService.shade(2, 4));
         assertEquals(3, InsightService.shade(4, 4));
         assertEquals(0, InsightService.shade(0, 0));
-    }
-
-    private static JobBenchmarkSpecDto spec(String tier, String content) {
-        JobBenchmarkSpecDto dto = new JobBenchmarkSpecDto();
-        dto.setTier(tier);
-        dto.setContent(content);
-        return dto;
     }
 }

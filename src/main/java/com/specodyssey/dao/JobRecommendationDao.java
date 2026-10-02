@@ -20,6 +20,11 @@ import java.util.List;
  */
 public class JobRecommendationDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, user_id, job_id, rank_order, match_reason, summary_json, is_selected, " +
+            "created_at, updated_at, is_deleted";
+
     public Long insert(JobRecommendationDto recommendation) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, recommendation);
@@ -45,7 +50,7 @@ public class JobRecommendationDao {
 
     // FR-34 추천 순위대로
     public List<JobRecommendationDto> findByUserId(Long userId) throws SQLException {
-        String sql = "SELECT * FROM JOB_RECOMMENDATION WHERE user_id = ? AND is_deleted = FALSE ORDER BY rank_order";
+        String sql = "SELECT " + COLUMNS + " FROM JOB_RECOMMENDATION WHERE user_id = ? AND is_deleted = FALSE ORDER BY rank_order";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);
