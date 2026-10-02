@@ -166,7 +166,7 @@ public class RoadmapServlet extends HttpServlet {
             scoreTierBefore = mayCompleteStep ? tierCelebration.currentScoreTierId(userId) : null;
             if ("generate".equals(action)) {
                 ReviewCheckGate.reset(req.getSession(false));
-                roadmapService.generate(userId);
+                noticeRefresh(req, roadmapService.refresh(userId));
             } else if ("complete".equals(action)) {
                 Long stepId = Long.valueOf(req.getParameter("stepId"));
                 boolean completed = "true".equals(req.getParameter("completed"));
@@ -217,7 +217,7 @@ public class RoadmapServlet extends HttpServlet {
                 if (user.getDesiredJobId() != null) {
                     ReviewCheckGate.reset(req.getSession(false));
                     gapAnalysisService.analyze(userId, user.getDesiredJobId());
-                    roadmapService.generate(userId);
+                    noticeRefresh(req, roadmapService.refresh(userId));
                 }
             } else {
                 resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "잘못된 요청입니다.");
@@ -248,6 +248,18 @@ public class RoadmapServlet extends HttpServlet {
             }
         }
         resp.sendRedirect(req.getContextPath() + "/roadmap");
+    }
+
+    // 바뀐 부분만 반영한 결과를 다음 화면에 한 번 알려준다. 통째로 새로 만든 경우(처음 만들기 등)는 따로 알리지 않는다.
+    private void noticeRefresh(HttpServletRequest req, com.specodyssey.service.RoadmapRefresher.Result result) {
+        if (result.rebuilt()) {
+            return;
+        }
+        String notice = result.isChanged()
+                ? "바뀐 부분만 반영했어요 — 새 단계 " + result.addedSteps() + "개 추가, 필요 없어진 단계 "
+                        + result.removedSteps() + "개 제외. 나머지 단계와 완료 기록은 그대로입니다."
+                : "바뀐 내용이 없어 로드맵을 그대로 두었어요.";
+        req.getSession().setAttribute("roadmapNotice", notice);
     }
 
     // 파일 저장(디스크 I/O)은 DB 트랜잭션 밖에서 먼저 끝내고, 실패하면 이미 쓴 파일을 되돌린 뒤

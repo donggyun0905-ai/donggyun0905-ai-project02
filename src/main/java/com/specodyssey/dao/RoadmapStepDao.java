@@ -118,6 +118,31 @@ public class RoadmapStepDao {
         }
     }
 
+    // 바뀐 부분만 반영(RoadmapRefresher)할 때 — 새 단계가 사이에 끼면 뒤 단계의 순서를 다시 매긴다.
+    public int updateStepOrder(Connection conn, Long stepId, Long userId, int stepOrder) throws SQLException {
+        String sql = "UPDATE ROADMAP_STEP rs JOIN ROADMAP r ON rs.roadmap_id = r.id " +
+                "SET rs.step_order = ? " +
+                "WHERE rs.id = ? AND r.user_id = ? AND rs.is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, stepOrder);
+            pstmt.setLong(2, stepId);
+            pstmt.setLong(3, userId);
+            return pstmt.executeUpdate();
+        }
+    }
+
+    // 직무 요구에서 빠진 기술의 아직 안 끝낸 단계를 논리 삭제한다. 끝낸 단계는 기록이라 지우지 않는다(is_completed = FALSE 조건).
+    public int softDeleteIncomplete(Connection conn, Long stepId, Long userId) throws SQLException {
+        String sql = "UPDATE ROADMAP_STEP rs JOIN ROADMAP r ON rs.roadmap_id = r.id " +
+                "SET rs.is_deleted = TRUE " +
+                "WHERE rs.id = ? AND r.user_id = ? AND rs.is_completed = FALSE AND rs.is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, stepId);
+            pstmt.setLong(2, userId);
+            return pstmt.executeUpdate();
+        }
+    }
+
     public int updateCompleted(Connection conn, Long stepId, Long userId, boolean completed, LocalDateTime completedAt)
             throws SQLException {
         String sql = "UPDATE ROADMAP_STEP rs JOIN ROADMAP r ON rs.roadmap_id = r.id " +

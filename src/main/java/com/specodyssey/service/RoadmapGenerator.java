@@ -209,7 +209,7 @@ public class RoadmapGenerator {
     }
 
     // GAP_ANALYSIS_ITEM 중 MISSING만 골라 JOB_REQUIRED_SKILL.importance 기준 점수 내림차순 정렬.
-    private List<GapAnalysisItemDto> rankMissingSkills(GapAnalysisDto analysis) throws SQLException {
+    List<GapAnalysisItemDto> rankMissingSkills(GapAnalysisDto analysis) throws SQLException {
         Map<Long, String> importanceBySkillId = importanceMap(analysis.getJobId());
         return gapAnalysisItemDao.findByGapAnalysisId(analysis.getId()).stream()
                 .filter(item -> "MISSING".equals(item.getStatus()))
@@ -218,7 +218,7 @@ public class RoadmapGenerator {
                 .collect(Collectors.toList());
     }
 
-    private Map<Long, String> importanceMap(Long jobId) throws SQLException {
+    Map<Long, String> importanceMap(Long jobId) throws SQLException {
         Map<Long, String> map = new HashMap<>();
         for (JobRequiredSkillDto req : jobRequiredSkillDao.findByJobId(jobId)) {
             map.put(req.getSkillId(), req.getImportance());
@@ -237,7 +237,7 @@ public class RoadmapGenerator {
     }
 
     // 목표 직무 카테고리의 자격증 중, 사용자가 이미 보유(USER_SPECS)하지 않았고 난이도가 가장 낮은 것을 고른다.
-    private CertificationDto findSuggestedCertification(Long userId, JobDto job) throws SQLException {
+    CertificationDto findSuggestedCertification(Long userId, JobDto job) throws SQLException {
         if (job == null || job.getJobCategory() == null) {
             return null;
         }
@@ -261,7 +261,7 @@ public class RoadmapGenerator {
         return existing.isEmpty() ? 1 : existing.get(0).getVersion() + 1;
     }
 
-    private String buildCertReason(JobDto job, CertificationDto cert) {
+    String buildCertReason(JobDto job, CertificationDto cert) {
         String category = job == null || job.getJobCategory() == null ? "이 직무" : job.getJobCategory();
         return category + " 직무에서 기본 요건으로 자주 요구되는 자격증(" + cert.getCertName() + ")입니다.";
     }
@@ -269,7 +269,7 @@ public class RoadmapGenerator {
     // LLM(ProjectIdeaService)이 목표 직무 + 부족 기술로 구체적인 프로젝트 아이디어를 만들어준다.
     // 실패(API 키 없음·타임아웃·응답 형식 오류 등)해도 로드맵 생성 자체를 막으면 안 되므로(FR-111),
     // 여기서 예외를 잡아 기존 고정 문구로 조용히 대체한다 — 2026-09-30, 집 PC 작업에서 신규 도입.
-    private String buildProjectReason(JobDto job, List<Long> skillIds) throws SQLException {
+    String buildProjectReason(JobDto job, List<Long> skillIds) throws SQLException {
         List<String> names = new ArrayList<>();
         for (Long skillId : skillIds) {
             if (names.size() >= 3) {
@@ -290,7 +290,7 @@ public class RoadmapGenerator {
         }
     }
 
-    private String buildSkillReason(Long skillId, String importance, String tier) throws SQLException {
+    String buildSkillReason(Long skillId, String importance, String tier) throws SQLException {
         SkillDto skill = skillDao.findById(skillId);
         String skillName = skill == null ? "이 기술" : skill.getSkillName();
         if (TIER_CORE.equals(tier)) {

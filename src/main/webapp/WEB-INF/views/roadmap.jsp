@@ -112,7 +112,6 @@
             <div class="journey-track-scroll" id="journeyScroll">
             <div class="journey-track" style="margin-top:16px;" data-user-id="${sessionScope.loginUser.id}">
                 <c:set var="foundCurrent" value="false" scope="page" />
-                <c:set var="rowIndex" value="0" scope="page" />
                 <c:if test="${hiddenCompletedCount > 0}">
                     <p class="muted" style="text-align:center; margin:0 0 10px;"><a href="${pageContext.request.contextPath}/roadmap?history=all">이전 완료 기록 ${hiddenCompletedCount}개 더 보기</a></p>
                 </c:if>
@@ -124,7 +123,6 @@
                     <c:if test="${step.completed || step.upkeep
                                   || (not progress.journeyComplete && step.tier == currentTier.tier)
                                   || (not empty nextLockedTier && step.tier == nextLockedTier.tier)}">
-                        <c:set var="rowIndex" value="${rowIndex + 1}" scope="page" />
                         <c:choose>
                             <c:when test="${step.completed}">
                                 <c:set var="markerClass" value="completed is-past" />
@@ -155,9 +153,14 @@
                             </c:otherwise>
                         </c:choose>
 
-                        <div class="journey-row ${rowIndex % 2 == 1 ? 'card-left' : 'card-right'}" data-step-id="${step.id}">
+                        <%-- 좌우는 화면에 보이는 순번이 아니라 단계 고유 번호(id)로 정한다 — 한 번 정해진 자리는 바뀌지 않는다.
+                             보이는 순번으로 정하면 끝낸 단계가 접히거나 새 단계가 사이에 끼어들 때마다 뒤 단계의 좌우가 전부
+                             뒤집혀 길 모양이 바뀐다. 한 번에 만든 단계는 id가 이어져 있어 좌우가 번갈아 나오고, 나중에 붙은
+                             단계(복습·새 기술)는 앞 단계와 같은 쪽에 놓일 수 있다. --%>
+                        <c:set var="cardLeft" value="${step.id % 2 == 1}" scope="page" />
+                        <div class="journey-row ${cardLeft ? 'card-left' : 'card-right'}" data-step-id="${step.id}">
                             <div class="journey-marker ${markerClass}">${markerIcon}</div>
-                            <div class="journey-card ${cardClass}" style="grid-column: ${rowIndex % 2 == 1 ? 1 : 3};">
+                            <div class="journey-card ${cardClass}" style="grid-column: ${cardLeft ? 1 : 3};">
                                 <div class="row" style="margin-bottom:6px;">
                                     <span class="chip chip-teal">
                                         <c:choose>
@@ -246,7 +249,7 @@
         <form action="${pageContext.request.contextPath}/roadmap" method="post" style="margin-top:20px;">
             <input type="hidden" name="_csrf" value="${csrfToken}">
             <input type="hidden" name="action" value="generate">
-            <button type="submit" class="secondary">다시 생성 (재분석 반영)</button>
+            <button type="submit" class="secondary">바뀐 부분만 다시 만들기 (재분석 반영)</button>
         </form>
             </c:otherwise>
         </c:choose>
