@@ -1106,7 +1106,7 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 
 #### TECH_ARTICLE_ATTACHMENT (글 첨부) — 신설 (스펙 아카이브)
 
-관련 요구사항: 없음(신규 — 스펙 아카이브) · `sql/15_alter_tech_article_spec_archive.sql`
+관련 요구사항: 없음(신규 — 스펙 아카이브) · `sql/19_alter_tech_article_spec_archive.sql`
 
 글에 붙는 이미지·영상. 글 하나에 여러 개(개수 제한 없음, 용량만 — 글 하나에 사진을 모두 합쳐 10MB).
 본문(TECH_ARTICLE.content)에 `[[att:N]]`을 넣어 N번 첨부(sort_order = N)가 놓일 자리를 표시한다. 본문에 적은 유튜브·이미지 링크는 저장할 때 자동으로 첨부로 옮겨지고, 링크와 첨부 표시는 2,000자 글자 수에 세지 않는다.

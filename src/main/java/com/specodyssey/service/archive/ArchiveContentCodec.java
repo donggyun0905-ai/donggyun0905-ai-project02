@@ -240,6 +240,11 @@ public final class ArchiveContentCodec {
         // getAttachment()와 이름이 겹치면 JSP(EL)가 어느 쪽을 읽을지 헷갈리므로 media로 둔다
         public boolean isMedia() { return attachment != null; }
         public boolean isCodeBlock() { return code != null; }
+
+        // Tomcat 11(EL 6)은 record에서 getX()가 아니라 x()만 찾는다 — 계산해서 만든 값은 x()도 함께 둔다(Tomcat 10 계열은 위의 getX/isX를 쓴다)
+        public String codeLanguageLabel() { return getCodeLanguageLabel(); }
+        public boolean media() { return isMedia(); }
+        public boolean codeBlock() { return isCodeBlock(); }
     }
 
     /**

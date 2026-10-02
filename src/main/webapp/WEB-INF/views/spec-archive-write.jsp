@@ -23,6 +23,7 @@
         <%-- 편집기: js/spec-archive-editor.js. 보낼 때 본문(사진 자리에 [[upload:K]])과 사진 파일(image_K)을 채운다 --%>
         <form id="writeForm" class="card sa-form" action="${ctx}/spec-archive/write" method="post" enctype="multipart/form-data" autocomplete="off"
               data-content-max="${contentMax}" data-max-image-mb="${maxImageMb}" data-max-total-mb="${maxTotalMb}">
+            <input type="hidden" name="_csrf" value="${csrfToken}">
             <%-- 노션처럼 쓰는 화면이 곧 올라갈 모습이다 — 제목 · 본문 블록(글/사진/영상) --%>
             <div class="ed-page">
                 <input type="text" id="title" name="title" class="ed-title" maxlength="${titleMax}" required

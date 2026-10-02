@@ -80,16 +80,19 @@
 
     <div class="sa-reactions" id="reactions">
         <form method="post" action="${ctx}/spec-archive/post">
+            <input type="hidden" name="_csrf" value="${csrfToken}">
             <input type="hidden" name="id" value="${post.id}"><input type="hidden" name="action" value="like">
             <button type="submit" class="sa-react ${detail.liked ? 'on' : ''}" aria-pressed="${detail.liked}">${detail.liked ? '❤️' : '🤍'} ${post.likeCount}</button>
         </form>
         <form method="post" action="${ctx}/spec-archive/post">
+            <input type="hidden" name="_csrf" value="${csrfToken}">
             <input type="hidden" name="id" value="${post.id}"><input type="hidden" name="action" value="bookmark">
             <button type="submit" class="sa-react bookmark ${detail.bookmarked ? 'on' : ''}" aria-pressed="${detail.bookmarked}">🔖 ${detail.bookmarked ? '북마크됨' : '북마크'} ${post.bookmarkCount}</button>
         </form>
         <span class="muted">💬 ${post.commentCount}</span>
         <c:if test="${detail.mine}">
             <form method="post" action="${ctx}/spec-archive/post" class="spacer" data-confirm="이 글을 지울까요? 지우면 되돌릴 수 없습니다.">
+                <input type="hidden" name="_csrf" value="${csrfToken}">
                 <input type="hidden" name="id" value="${post.id}"><input type="hidden" name="action" value="deletePost">
                 <button type="submit" class="danger">글 지우기</button>
             </form>
@@ -100,6 +103,7 @@
         <h2 style="font-size:1.05rem;">댓글 ${post.commentCount}</h2>
 
         <form id="commentForm" class="sa-comment-form" method="post" action="${ctx}/spec-archive/post" style="margin-top:10px;">
+            <input type="hidden" name="_csrf" value="${csrfToken}">
             <input type="hidden" name="id" value="${post.id}">
             <input type="hidden" name="action" value="comment">
             <input type="hidden" name="replyTo" id="replyTo" value="">
@@ -132,6 +136,7 @@
                                 <button type="button" class="link-button" data-reply="${top.id}" data-reply-name="<c:out value='${top.authorName}' />">답글 달기</button>
                                 <c:if test="${top.userId == me}">
                                     <form method="post" action="${ctx}/spec-archive/post" data-confirm="댓글을 지울까요?">
+                                        <input type="hidden" name="_csrf" value="${csrfToken}">
                                         <input type="hidden" name="id" value="${post.id}"><input type="hidden" name="action" value="deleteComment">
                                         <input type="hidden" name="commentId" value="${top.id}">
                                         <button type="submit" class="link-button" style="color:var(--danger);">지우기</button>
@@ -155,6 +160,7 @@
                                     <button type="button" class="link-button" data-reply="${reply.id}" data-reply-name="<c:out value='${reply.authorName}' />">답글 달기</button>
                                     <c:if test="${reply.userId == me}">
                                         <form method="post" action="${ctx}/spec-archive/post" data-confirm="댓글을 지울까요?">
+                                            <input type="hidden" name="_csrf" value="${csrfToken}">
                                             <input type="hidden" name="id" value="${post.id}"><input type="hidden" name="action" value="deleteComment">
                                             <input type="hidden" name="commentId" value="${reply.id}">
                                             <button type="submit" class="link-button" style="color:var(--danger);">지우기</button>

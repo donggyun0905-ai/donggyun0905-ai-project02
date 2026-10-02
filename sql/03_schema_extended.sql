@@ -913,7 +913,7 @@ CREATE TABLE TECH_ARTICLE_COMMENT (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =========================================================
--- TECH_ARTICLE_ATTACHMENT (글 첨부) — 신설 (스펙 아카이브, sql/15_alter_tech_article_spec_archive.sql)
+-- TECH_ARTICLE_ATTACHMENT (글 첨부) — 신설 (스펙 아카이브, sql/19_alter_tech_article_spec_archive.sql)
 -- 글 하나에 여러 개(개수 제한 없음, 용량만 — 사진 1장 10MB). 본문의 [[att:N]](N = sort_order)이 놓일 자리다.
 -- attachment_type에 따라 쓰는 컬럼이 다르다.
 --   IMAGE_UPLOAD : 서버에 저장한 이미지(최대 10MB) → original_name · stored_name · file_path · file_size · mime_type
