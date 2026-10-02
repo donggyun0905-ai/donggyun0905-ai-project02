@@ -75,8 +75,11 @@ public class SpecArchiveService {
         public boolean isMine() { return mine; }
     }
 
-    /** 편집기에서 올린 사진 — 서블릿이 이미 디스크에 저장한 뒤, 본문의 [[upload:K]] 번호(K)와 함께 넘긴다 */
-    public record UploadedImage(String originalName, String storedName, String filePath, long fileSize, String mimeType) {
+    /**
+     * 편집기에서 올린 사진 — 서블릿이 형식을 확인한 뒤 내용(바이트)째 본문의 [[upload:K]] 번호(K)와 함께 넘긴다.
+     * 사진은 DB(file_data)에 저장한다 — 팀원마다 자기 PC에서 서버를 켜도 같은 DB면 사진이 보이게.
+     */
+    public record UploadedImage(String originalName, String mimeType, byte[] data) {
     }
 
     // ---------------------------------------------------------------- 권한
@@ -199,7 +202,7 @@ public class SpecArchiveService {
     /**
      * 새 글. 본문 속 [[upload:K]]를 올린 사진으로, 유튜브·이미지 링크를 첨부로 바꿔(ArchiveContentCodec)
      * 글과 첨부를 한 트랜잭션으로 넣는다. 첨부 개수 제한은 없다(용량은 서블릿이 본다). 새 글 id를 돌려준다.
-     * 본문에서 가리키지 않은 업로드 사진은 저장하지 않는다 — 호출부가 그 파일을 지운다(unusedUploadKeys).
+     * 본문에서 가리키지 않은 업로드 사진(편집 중 지운 것 등)은 저장하지 않는다.
      * @throws IllegalArgumentException 입력이 규칙에 맞지 않음 (메시지를 화면에 보여준다)
      * @throws SecurityException        글쓰기 권한이 없는 티어
      */
@@ -231,10 +234,9 @@ public class SpecArchiveService {
                     UploadedImage img = uploads.get(upload.key());
                     row.setAttachmentType(TechArticleAttachmentDto.IMAGE_UPLOAD);
                     row.setOriginalName(img.originalName());
-                    row.setStoredName(img.storedName());
-                    row.setFilePath(img.filePath());
-                    row.setFileSize(img.fileSize());
+                    row.setFileSize((long) img.data().length);
                     row.setMimeType(img.mimeType());
+                    row.setFileData(img.data());
                 } else if (item instanceof ArchiveContentCodec.ImageLink link) {
                     row.setAttachmentType(TechArticleAttachmentDto.IMAGE_URL);
                     row.setUrl(link.url());
@@ -247,19 +249,6 @@ public class SpecArchiveService {
             }
             return articleId;
         });
-    }
-
-    /** 올라왔지만 본문에서 가리키지 않아 저장되지 않는 업로드 번호 — 서블릿이 그 파일을 지우는 데 쓴다 */
-    public static java.util.Set<Integer> unusedUploadKeys(String rawContent, java.util.Set<Integer> uploadKeys) {
-        java.util.Set<Integer> used = new java.util.HashSet<>();
-        for (ArchiveContentCodec.Item item : ArchiveContentCodec.encode(rawContent, uploadKeys).items()) {
-            if (item instanceof ArchiveContentCodec.Upload upload) {
-                used.add(upload.key());
-            }
-        }
-        java.util.Set<Integer> unused = new java.util.HashSet<>(uploadKeys);
-        unused.removeAll(used);
-        return unused;
     }
 
     /** 작성자 본인 글 삭제. 지웠으면 true. */

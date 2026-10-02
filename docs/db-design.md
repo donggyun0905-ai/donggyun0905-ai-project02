@@ -1106,7 +1106,7 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 
 #### TECH_ARTICLE_ATTACHMENT (글 첨부) — 신설 (스펙 아카이브)
 
-관련 요구사항: 없음(신규 — 스펙 아카이브) · `sql/19_alter_tech_article_spec_archive.sql`
+관련 요구사항: 없음(신규 — 스펙 아카이브) · `sql/19_alter_tech_article_spec_archive.sql`, `sql/20_alter_attachment_file_data.sql`(file_data)
 
 글에 붙는 이미지·영상. 글 하나에 여러 개(개수 제한 없음, 용량만 — 글 하나에 사진을 모두 합쳐 10MB).
 본문(TECH_ARTICLE.content)에 `[[att:N]]`을 넣어 N번 첨부(sort_order = N)가 놓일 자리를 표시한다. 본문에 적은 유튜브·이미지 링크는 저장할 때 자동으로 첨부로 옮겨지고, 링크와 첨부 표시는 2,000자 글자 수에 세지 않는다.
@@ -1115,22 +1115,23 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | --- | --- | --- | --- |
 | `id` | BIGINT | PK | 식별자 |
 | `article_id` | BIGINT | FK | → TECH_ARTICLE |
-| `attachment_type` | VARCHAR(20) |  | IMAGE_UPLOAD(서버 저장 이미지) / IMAGE_URL(이미지 링크) / YOUTUBE(유튜브 영상) |
+| `attachment_type` | VARCHAR(20) |  | IMAGE_UPLOAD(올린 이미지, DB 저장) / IMAGE_URL(이미지 링크) / YOUTUBE(유튜브 영상) |
 | `sort_order` | INT |  | 글에 보이는 순서 (0부터) |
 | `url` | VARCHAR(2048) |  | IMAGE_URL · YOUTUBE 원본 링크 |
 | `embed_key` | VARCHAR(20) |  | YOUTUBE 영상 ID — 임베드 주소는 이 값으로만 만든다 |
 | `original_name` | VARCHAR(255) |  | IMAGE_UPLOAD 원본 파일명 |
-| `stored_name` | VARCHAR(255) |  | IMAGE_UPLOAD 저장 파일명 |
-| `file_path` | VARCHAR(500) |  | IMAGE_UPLOAD 저장 경로 |
+| `stored_name` | VARCHAR(255) |  | 디스크 저장 시절 행만 — 새 행은 비어 있음 |
+| `file_path` | VARCHAR(500) |  | 디스크 저장 시절 행만 — file_data가 없을 때만 읽음 |
 | `file_size` | BIGINT |  | IMAGE_UPLOAD 크기 (10MB 제한) |
 | `mime_type` | VARCHAR(100) |  | IMAGE_UPLOAD image/png · jpeg · gif · webp |
+| `file_data` | MEDIUMBLOB |  | IMAGE_UPLOAD 사진 내용 (최대 16MB, 글당 합계 10MB 제한) |
 
 **복합 UNIQUE**: (article_id, sort_order)
 
 설계 판단:
 
 - 링크가 길어서 본문(content)에 섞지 않고 따로 둔다. 본문 2000자 제한에 링크 길이가 잡아먹히지 않고, 임베드할 링크와 본문 속 일반 링크(자동 하이퍼링크)를 구분할 수 있다.
-- 업로드 이미지 컬럼은 DOCUMENTS와 같은 구성(원본명·저장명·경로·크기·형식)이라 FileStorageUtil을 그대로 쓴다.
+- 업로드 사진은 내용째 DB(file_data)에 넣는다. 팀원마다 자기 PC에서 서버를 켜고 같은 DB를 쓰기 때문에, 서버 PC 폴더에 두면 다른 사람이 올린 사진이 안 보인다. 목록·상세 조회는 file_data를 읽지 않고, `/spec-archive/image/{id}` 요청 때만 읽는다.
 - 유튜브는 원본 url을 그대로 iframe에 넣지 않고, 검증한 영상 ID(embed_key)로 `youtube-nocookie.com/embed/{ID}` 주소를 서버가 만든다 — 다른 사이트를 끼워 넣지 못하게.
 - 세 종류를 테이블 하나에 둔 이유: 한 글 안에서 이미지·영상의 표시 순서를 sort_order 하나로 정할 수 있다.
 
