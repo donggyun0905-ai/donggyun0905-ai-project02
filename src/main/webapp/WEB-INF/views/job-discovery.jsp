@@ -80,9 +80,6 @@
             </div>
         </c:if>
     </div>
-    <div class="side">
-        <jsp:include page="/WEB-INF/views/common/trend-widget.jsp" />
-    </div>
 </div>
 
 <jsp:include page="/WEB-INF/views/common/footer.jsp" />

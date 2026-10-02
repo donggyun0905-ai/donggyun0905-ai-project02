@@ -844,9 +844,9 @@ CREATE TABLE PROJECT_LINK (
 CREATE TABLE TECH_ARTICLE (
     id               BIGINT       NOT NULL AUTO_INCREMENT,
     user_id          BIGINT       NOT NULL,
-    skill_id         BIGINT       NOT NULL, -- 어떤 기술에 대한 글인지 — 다른 사용자가 이 기준으로 찾아본다
+    skill_id         BIGINT       NULL,     -- 어떤 기술에 대한 글인지 — 다른 사용자가 이 기준으로 찾아본다. ARCHIVE_TIP은 NULL 가능
     roadmap_step_id  BIGINT       NULL,     -- EXPERT 단계에서 나온 글이면 그 단계. 자유 글이면 NULL
-    source_type      VARCHAR(20)  NOT NULL DEFAULT 'ROADMAP_EXPERT', -- ROADMAP_EXPERT(로드맵 증빙) / FREE(자유 작성)
+    source_type      VARCHAR(20)  NOT NULL DEFAULT 'ROADMAP_EXPERT', -- ROADMAP_EXPERT(로드맵 증빙) / FREE(자유 작성) / ARCHIVE_TIP(스펙 아카이브 팁)
     title            VARCHAR(200) NOT NULL,
     content          TEXT         NOT NULL,
     status           VARCHAR(20)  NOT NULL DEFAULT 'DRAFT', -- DRAFT(임시저장) / PUBLISHED(공개) / HIDDEN(운영자가 내림)
@@ -865,6 +865,7 @@ CREATE TABLE TECH_ARTICLE (
     KEY idx_tech_article_user_id (user_id),
     KEY idx_tech_article_skill_status (skill_id, status, published_at),
     KEY idx_tech_article_status_published (status, published_at),
+    KEY idx_tech_article_source_status_published (source_type, status, published_at),
     CONSTRAINT fk_tech_article_user
         FOREIGN KEY (user_id) REFERENCES USERS (id)
         ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -879,6 +880,7 @@ CREATE TABLE TECH_ARTICLE (
 -- =========================================================
 -- TECH_ARTICLE_COMMENT (기술 글 댓글) — 신설
 -- 대댓글은 한 단계만 허용한다(parent_comment_id가 가리키는 댓글은 최상위여야 함 — 애플리케이션 규칙).
+-- 인스타그램식: 답글에 다시 답해도 같은 최상위 댓글 밑에 모이고, 답한 상대는 reply_to_user_id(@이름)로 남긴다.
 -- 삭제는 is_deleted로 하고, 대댓글이 달린 댓글은 화면에 "삭제된 댓글입니다"로 남긴다.
 -- =========================================================
 CREATE TABLE TECH_ARTICLE_COMMENT (
@@ -886,6 +888,7 @@ CREATE TABLE TECH_ARTICLE_COMMENT (
     article_id          BIGINT         NOT NULL,
     user_id             BIGINT         NOT NULL,
     parent_comment_id   BIGINT         NULL, -- 대댓글이면 부모 댓글 (자기참조)
+    reply_to_user_id    BIGINT         NULL, -- 답글이 가리키는 사람 — 화면에 @이름. 최상위 댓글이면 NULL
     content             VARCHAR(1000)  NOT NULL,
     created_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -894,6 +897,7 @@ CREATE TABLE TECH_ARTICLE_COMMENT (
     KEY idx_tech_article_comment_article_id (article_id, created_at),
     KEY idx_tech_article_comment_user_id (user_id),
     KEY idx_tech_article_comment_parent_id (parent_comment_id),
+    KEY idx_tech_article_comment_reply_to_user_id (reply_to_user_id),
     CONSTRAINT fk_tech_article_comment_article
         FOREIGN KEY (article_id) REFERENCES TECH_ARTICLE (id)
         ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -902,6 +906,40 @@ CREATE TABLE TECH_ARTICLE_COMMENT (
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_tech_article_comment_parent
         FOREIGN KEY (parent_comment_id) REFERENCES TECH_ARTICLE_COMMENT (id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_tech_article_comment_reply_to_user
+        FOREIGN KEY (reply_to_user_id) REFERENCES USERS (id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
+-- TECH_ARTICLE_ATTACHMENT (글 첨부) — 신설 (스펙 아카이브, sql/19_alter_tech_article_spec_archive.sql)
+-- 글 하나에 여러 개(개수 제한 없음, 용량만 — 사진 1장 10MB). 본문의 [[att:N]](N = sort_order)이 놓일 자리다.
+-- attachment_type에 따라 쓰는 컬럼이 다르다.
+--   IMAGE_UPLOAD : 서버에 저장한 이미지(최대 10MB) → original_name · stored_name · file_path · file_size · mime_type
+--   IMAGE_URL    : 외부 이미지 링크(https) → url
+--   YOUTUBE      : 유튜브 영상 → url(원본) · embed_key(영상 ID)
+-- 복합 UNIQUE: (article_id, sort_order) — 한 글 안에서 표시 순서가 겹치지 않게.
+-- =========================================================
+CREATE TABLE TECH_ARTICLE_ATTACHMENT (
+    id               BIGINT         NOT NULL AUTO_INCREMENT,
+    article_id       BIGINT         NOT NULL,
+    attachment_type  VARCHAR(20)    NOT NULL, -- IMAGE_UPLOAD / IMAGE_URL / YOUTUBE
+    sort_order       INT            NOT NULL,
+    url              VARCHAR(2048)  NULL,
+    embed_key        VARCHAR(20)    NULL,
+    original_name    VARCHAR(255)   NULL,
+    stored_name      VARCHAR(255)   NULL,
+    file_path        VARCHAR(500)   NULL,
+    file_size        BIGINT         NULL,
+    mime_type        VARCHAR(100)   NULL,
+    created_at       DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at       DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted       BOOLEAN        NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_tech_article_attachment_article_order (article_id, sort_order),
+    CONSTRAINT fk_tech_article_attachment_article
+        FOREIGN KEY (article_id) REFERENCES TECH_ARTICLE (id)
         ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
