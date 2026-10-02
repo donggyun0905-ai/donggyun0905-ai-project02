@@ -12,6 +12,7 @@
 
     <div class="card">
         <form action="${pageContext.request.contextPath}/login" method="post">
+            <input type="hidden" name="_csrf" value="${csrfToken}">
             <p><label>아이디</label><input type="text" name="loginId" required></p>
             <p><label>비밀번호</label><input type="password" name="password" required></p>
             <button type="submit" style="width:100%; margin-top:6px;">로그인</button>

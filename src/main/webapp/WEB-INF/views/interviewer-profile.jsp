@@ -15,6 +15,7 @@
 
 <div class="card" style="margin-top:16px;">
     <form method="post" action="${pageContext.request.contextPath}/interviewer/profile">
+        <input type="hidden" name="_csrf" value="${csrfToken}">
         <p><label>아이디</label><input type="text" value="<c:out value='${user.loginId}' />" readonly></p>
         <p><label for="name">이름</label><input type="text" id="name" name="name" maxlength="50" required value="<c:out value='${empty param.name ? user.name : param.name}' />"></p>
         <p><label for="email">이메일 (선택)</label><input type="email" id="email" name="email" value="<c:out value='${user.email}' />"></p>

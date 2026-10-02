@@ -78,7 +78,8 @@
                                 <div class="row">
                                     <a class="btn" href="<c:out value='${m.externalUrl}' />" target="_blank" rel="noopener noreferrer">풀러 가기</a>
                                     <a class="btn secondary" href="<c:url value='/mission/submit'><c:param name='missionId' value='${m.missionId}' /></c:url>">정답 입력하기</a>
-                                    <form method="post" action="<c:url value='/mission/fail' />" style="display:inline;"
+                                    <form method="post" action="<c:url value='/mission/fail' />
+                                        <input type="hidden" name="_csrf" value="${csrfToken}">" style="display:inline;"
                                           onsubmit="return confirm('이 문제를 실패로 처리할까요?');">
                                         <input type="hidden" name="missionId" value="<c:out value='${m.missionId}' />">
                                         <button type="submit" class="secondary">실패</button>

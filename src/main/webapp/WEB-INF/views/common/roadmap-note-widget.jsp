@@ -19,7 +19,7 @@
         status.textContent = '저장 중...';
         fetch('${pageContext.request.contextPath}/roadmap-note', {
             method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'},
+            headers: {'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', 'X-CSRF-Token': '${csrfToken}'},
             body: 'text=' + encodeURIComponent(text.value)
         }).then(function (r) {
             status.textContent = r.ok ? '저장됐어요' : '저장하지 못했어요';

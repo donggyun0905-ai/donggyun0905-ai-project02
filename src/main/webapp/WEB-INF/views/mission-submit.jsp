@@ -32,7 +32,8 @@
         </div>
     </c:if>
 
-    <form method="post" action="<c:url value='/mission/submit' />">
+    <form method="post" action="<c:url value='/mission/submit' />
+        <input type="hidden" name="_csrf" value="${csrfToken}">">
         <input type="hidden" name="missionId" value="<c:out value='${mission.missionId}' />">
 
         <label for="language">언어</label>

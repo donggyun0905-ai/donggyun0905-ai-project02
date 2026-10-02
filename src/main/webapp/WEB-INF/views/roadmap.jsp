@@ -72,6 +72,7 @@
             <div class="banner">
                 🔔 목표 직무의 요구 기술이 바뀌었어요. 반영하면 로드맵이 새로 갱신됩니다.
                 <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form" style="margin-top:6px;">
+                    <input type="hidden" name="_csrf" value="${csrfToken}">
                     <input type="hidden" name="action" value="reanalyzeAndRegenerate">
                     <button type="submit">재분석하고 반영</button>
                 </form>
@@ -88,6 +89,7 @@
                 <div class="card">
                     <p>아직 생성된 로드맵이 없습니다. 먼저 격차 분석을 완료해야 만들 수 있습니다.</p>
                     <form action="${pageContext.request.contextPath}/roadmap" method="post">
+                        <input type="hidden" name="_csrf" value="${csrfToken}">
                         <input type="hidden" name="action" value="generate">
                         <button type="submit">로드맵 생성하기</button>
                     </form>
@@ -224,6 +226,7 @@
                                     <c:when test="${step.completed}">
                                         <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form cancel-step"
                                               data-project="${step.stepType == 'PROJECT'}">
+                                            <input type="hidden" name="_csrf" value="${csrfToken}">
                                             <input type="hidden" name="action" value="complete">
                                             <input type="hidden" name="stepId" value="${step.id}">
                                             <input type="hidden" name="completed" value="false">
@@ -236,6 +239,7 @@
                                         <div class="step-dialog-head"><h3>복습 기록하고 완료하기</h3><button type="button" class="dialog-close link-button" aria-label="닫기">✕</button></div>
                                             <p class="muted" style="line-height:1.6;"><c:out value="${step.reason}" /></p>
                                             <form action="${pageContext.request.contextPath}/roadmap" method="post" style="margin-top:10px;">
+                                                <input type="hidden" name="_csrf" value="${csrfToken}">
                                                 <input type="hidden" name="action" value="completeReview">
                                                 <input type="hidden" name="stepId" value="${step.id}">
                                                 <p><label>복습 기록 (20자 이상) — 기억나는 핵심 개념, 헷갈렸던 점, 다시 찾아본 내용</label>
@@ -252,6 +256,7 @@
                                         <c:if test="${not empty ideaDesc}"><p class="muted" style="line-height:1.6;">💡 ${ideaTitle}<br>${ideaDesc}</p></c:if>
                                             <form action="${pageContext.request.contextPath}/roadmap" method="post"
                                                   enctype="multipart/form-data" style="margin-top:10px;">
+                                                <input type="hidden" name="_csrf" value="${csrfToken}">
                                                 <input type="hidden" name="action" value="completeProject">
                                                 <input type="hidden" name="stepId" value="${step.id}">
                                                 <c:set var="draft" value="${projectDrafts[step.id]}" scope="request" />
@@ -262,6 +267,7 @@
                                         <%-- [TEST] 파일 없이 통과 — 테스트할 때마다 파일을 매번 첨부하기 번거로워서 다시 추가함
                                              (2026-09-30, 사용자 요청). 실제 운영 배포 전에는 반드시 지울 것. --%>
                                         <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">
+                                            <input type="hidden" name="_csrf" value="${csrfToken}">
                                             <input type="hidden" name="action" value="complete">
                                             <input type="hidden" name="stepId" value="${step.id}">
                                             <input type="hidden" name="completed" value="true">
@@ -279,6 +285,7 @@
                                         <div class="step-dialog-head"><h3>${step.tier == 'EXPERT' ? '기술 설명 글 PDF 제출하기' : '공부노트 PDF 제출하기'}</h3><button type="button" class="dialog-close link-button" aria-label="닫기">✕</button></div>
                                             <form action="${pageContext.request.contextPath}/roadmap" method="post"
                                                   enctype="multipart/form-data" style="margin-top:10px;">
+                                                <input type="hidden" name="_csrf" value="${csrfToken}">
                                                 <input type="hidden" name="action" value="submitSkillNote">
                                                 <input type="hidden" name="stepId" value="${step.id}">
                                                 <p>
@@ -298,6 +305,7 @@
                                              review_status/proof_content 없이 바로 완료 처리한다(규칙 판정 자체는 건너뜀).
                                              실제 운영 배포 전에는 반드시 지울 것. --%>
                                         <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">
+                                            <input type="hidden" name="_csrf" value="${csrfToken}">
                                             <input type="hidden" name="action" value="complete">
                                             <input type="hidden" name="stepId" value="${step.id}">
                                             <input type="hidden" name="completed" value="true">
@@ -317,6 +325,7 @@
                                                      경우) ADVANCED를 완료할 방법이 없어 전문가 티어가 영영 안 열리던 문제(2026-10-01 확인)라서,
                                                      테스트 통과 버튼만은 이 경우에도 보이게 한다. 운영 배포 전에는 다른 [TEST] 버튼과 함께 지울 것. --%>
                                                 <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">
+                                                    <input type="hidden" name="_csrf" value="${csrfToken}">
                                                     <input type="hidden" name="action" value="complete">
                                                     <input type="hidden" name="stepId" value="${step.id}">
                                                     <input type="hidden" name="completed" value="true">
@@ -329,6 +338,7 @@
                                         <div class="step-dialog-head"><h3>프로젝트 등록/업그레이드하고 완료하기</h3><button type="button" class="dialog-close link-button" aria-label="닫기">✕</button></div>
                                                     <form action="${pageContext.request.contextPath}/roadmap" method="post"
                                                           enctype="multipart/form-data" style="margin-top:10px;">
+                                                        <input type="hidden" name="_csrf" value="${csrfToken}">
                                                         <input type="hidden" name="action" value="submitSkillProject">
                                                         <input type="hidden" name="stepId" value="${step.id}">
                                                         <c:if test="${not empty userProjects}">
@@ -352,6 +362,7 @@
                                                      "업그레이드 필수" 검증도 이걸로는 건너뛴다 — 테스트 전용이라 상관없음.
                                                      실제 운영 배포 전에는 반드시 지울 것. --%>
                                                 <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">
+                                                    <input type="hidden" name="_csrf" value="${csrfToken}">
                                                     <input type="hidden" name="action" value="complete">
                                                     <input type="hidden" name="stepId" value="${step.id}">
                                                     <input type="hidden" name="completed" value="true">
@@ -372,6 +383,7 @@
                                             <form action="${pageContext.request.contextPath}/roadmap" method="post"
                                                   enctype="multipart/form-data" style="margin-top:10px;"
                                                   onsubmit="return confirm('이 자격증 문서는 면접관 공유 화면에 그대로 노출됩니다. 제출하시겠습니까?');">
+                                                <input type="hidden" name="_csrf" value="${csrfToken}">
                                                 <input type="hidden" name="action" value="submitCertProof">
                                                 <input type="hidden" name="stepId" value="${step.id}">
                                                 <p><label>증빙 서류 (합격 확인서·자격증 사진 등)</label><input type="file" name="file" required></p>
@@ -384,6 +396,7 @@
                                              testShortcut 파라미터를 별도로 둬서 더미 증빙으로 대체한다.
                                              실제 운영 배포 전에는 반드시 지울 것. --%>
                                         <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">
+                                            <input type="hidden" name="_csrf" value="${csrfToken}">
                                             <input type="hidden" name="action" value="submitCertProof">
                                             <input type="hidden" name="stepId" value="${step.id}">
                                             <input type="hidden" name="testShortcut" value="1">
@@ -401,6 +414,7 @@
         </div>
 
         <form action="${pageContext.request.contextPath}/roadmap" method="post" style="margin-top:20px;">
+            <input type="hidden" name="_csrf" value="${csrfToken}">
             <input type="hidden" name="action" value="generate">
             <button type="submit" class="secondary">다시 생성 (재분석 반영)</button>
         </form>

@@ -33,6 +33,7 @@
                 <p class="error-message"><c:out value="${errorMessage}" /></p>
             </c:if>
             <form method="post" action="${pageContext.request.contextPath}/share-links">
+                <input type="hidden" name="_csrf" value="${csrfToken}">
                 <div class="row" style="margin-top:10px;">
                     <span style="flex:2;"><label for="label">메모 (나만 보임)</label><input type="text" id="label" name="label" maxlength="50" placeholder="예) A사 백엔드 지원" value="<c:out value='${param.label}' />"></span>
                     <span style="flex:1;"><label for="expiryDays">만료</label>
@@ -98,6 +99,7 @@
                                 <div class="row" style="margin-top:8px;">
                                     <c:if test="${link.status == 'ACTIVE'}">
                                         <form method="post" action="${pageContext.request.contextPath}/share-links">
+                                            <input type="hidden" name="_csrf" value="${csrfToken}">
                                             <input type="hidden" name="action" value="stop">
                                             <input type="hidden" name="linkId" value="${link.id}">
                                             <button type="submit" class="secondary">공유 중단</button>
@@ -106,12 +108,14 @@
                                     </c:if>
                                     <c:if test="${link.status == 'STOPPED'}">
                                         <form method="post" action="${pageContext.request.contextPath}/share-links">
+                                            <input type="hidden" name="_csrf" value="${csrfToken}">
                                             <input type="hidden" name="action" value="resume">
                                             <input type="hidden" name="linkId" value="${link.id}">
                                             <button type="submit" class="secondary">다시 공유하기</button>
                                         </form>
                                     </c:if>
                                     <form method="post" action="${pageContext.request.contextPath}/share-links" class="delete-link">
+                                        <input type="hidden" name="_csrf" value="${csrfToken}">
                                         <input type="hidden" name="action" value="delete">
                                         <input type="hidden" name="linkId" value="${link.id}">
                                         <button type="submit" class="link-button">삭제</button>

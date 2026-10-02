@@ -30,6 +30,14 @@
 
     <!-- 공통 에러 처리 (FR-111 취지 — 화면마다 제각각 처리하지 않게) -->
     <error-page>
+        <error-code>403</error-code>
+        <location>/WEB-INF/views/error.jsp</location>
+    </error-page>
+    <error-page>
+        <error-code>413</error-code>
+        <location>/WEB-INF/views/error.jsp</location>
+    </error-page>
+    <error-page>
         <error-code>404</error-code>
         <location>/WEB-INF/views/error.jsp</location>
     </error-page>

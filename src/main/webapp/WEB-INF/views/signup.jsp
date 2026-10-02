@@ -22,6 +22,7 @@
 
     <div class="card">
         <form action="${pageContext.request.contextPath}/register" method="post">
+            <input type="hidden" name="_csrf" value="${csrfToken}">
             <p>
                 <label>가입 유형</label>
                 <label style="display:inline; width:auto; margin-right:14px;"><input type="radio" name="userType" value="APPLICANT" style="width:auto;" ${param.userType == 'INTERVIEWER' ? '' : 'checked'}> 지원자</label>

@@ -19,6 +19,7 @@
         <span>최신 집계월 <strong><c:out value="${empty latestPeriod ? '없음' : latestPeriod}" /></strong></span>
     </div>
     <form method="post" style="margin-top:14px;">
+        <input type="hidden" name="_csrf" value="${csrfToken}">
         <button type="submit">지금 다시 집계하기</button>
     </form>
 </div>

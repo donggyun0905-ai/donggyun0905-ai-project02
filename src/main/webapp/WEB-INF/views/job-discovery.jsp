@@ -31,6 +31,7 @@
                 </c:when>
                 <c:otherwise>
                     <form action="${ctx}/job-discovery" method="post">
+                        <input type="hidden" name="_csrf" value="${csrfToken}">
                         <input type="hidden" name="action" value="survey">
                         <c:forEach var="q" items="${questions}" varStatus="qs">
                             <div style="margin-top:14px;">
@@ -66,6 +67,7 @@
                         <c:if test="${r.selected}"><span class="pill">선택함</span></c:if>
                         <p style="margin:8px 0;"><strong>추천 이유</strong> <c:out value="${r.matchReason}" /></p>
                         <form action="${ctx}/job-discovery" method="post">
+                            <input type="hidden" name="_csrf" value="${csrfToken}">
                             <input type="hidden" name="action" value="select">
                             <input type="hidden" name="recommendationId" value="${r.id}">
                             <button type="submit" class="${r.rankOrder == 1 ? '' : 'secondary'}">이 직무로 격차 분석하기</button>

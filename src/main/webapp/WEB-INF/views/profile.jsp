@@ -43,6 +43,7 @@
             </c:if>
             <div class="row" style="margin-top:14px; gap:10px;">
                 <form action="${pageContext.request.contextPath}/profile" method="post">
+                    <input type="hidden" name="_csrf" value="${csrfToken}">
                     <input type="hidden" name="action" value="confirmJob">
                     <input type="hidden" name="confirmedJobId" value="${pendingJobMatch.job.id}">
                     <input type="hidden" name="email" value="${pendingEmail}">
@@ -61,6 +62,7 @@
     <c:otherwise>
         <div class="card">
             <form action="${pageContext.request.contextPath}/profile" method="post">
+                <input type="hidden" name="_csrf" value="${csrfToken}">
                 <%-- 저장에 실패해 다시 그릴 때는 방금 입력한 값(param)을, 아니면 저장된 값을 보여준다 --%>
                 <c:set var="statusValue" value="${empty param.careerStatus ? user.careerStatus : param.careerStatus}" />
                 <p><label>이름</label><input type="text" name="name" maxlength="50" required value="<c:out value='${empty param.name ? user.name : param.name}' />"></p>
@@ -144,12 +146,14 @@
         </c:otherwise>
     </c:choose>
     <form action="${pageContext.request.contextPath}/profile/resume" method="post" enctype="multipart/form-data" class="row">
+        <input type="hidden" name="_csrf" value="${csrfToken}">
         <input type="file" name="resume" required accept=".pdf,.doc,.docx,.hwp,.hwpx" style="flex:1;">
         <button type="submit">${empty resume ? '이력서 올리기' : '새 파일로 바꾸기'}</button>
     </form>
     <p class="muted" style="font-size:0.8rem; margin:8px 0 0;">PDF, Word(doc·docx), 한글(hwp·hwpx) 파일을 10MB까지 올릴 수 있습니다. 새 파일을 올리면 이전 이력서는 지워집니다.</p>
     <c:if test="${not empty resume}">
         <form action="${pageContext.request.contextPath}/profile/resume" method="post" class="delete-resume" style="margin-top:8px;">
+            <input type="hidden" name="_csrf" value="${csrfToken}">
             <input type="hidden" name="action" value="delete">
             <button type="submit" class="link-button">이력서 삭제</button>
         </form>
@@ -180,12 +184,14 @@
         </c:otherwise>
     </c:choose>
     <form action="${pageContext.request.contextPath}/profile/cover-letter" method="post" enctype="multipart/form-data" class="row">
+        <input type="hidden" name="_csrf" value="${csrfToken}">
         <input type="file" name="coverLetter" required accept=".pdf,.doc,.docx,.hwp,.hwpx" style="flex:1;">
         <button type="submit">${empty coverLetter ? '자소서 올리기' : '새 파일로 바꾸기'}</button>
     </form>
     <p class="muted" style="font-size:0.8rem; margin:8px 0 0;">PDF, Word(doc·docx), 한글(hwp·hwpx) 파일을 10MB까지 올릴 수 있습니다. 새 파일을 올리면 이전 자소서는 지워집니다.</p>
     <c:if test="${not empty coverLetter}">
         <form action="${pageContext.request.contextPath}/profile/cover-letter" method="post" class="delete-coverLetter" style="margin-top:8px;">
+            <input type="hidden" name="_csrf" value="${csrfToken}">
             <input type="hidden" name="action" value="delete">
             <button type="submit" class="link-button">자소서 삭제</button>
         </form>
@@ -213,6 +219,7 @@
                 <details class="inline-form">
                     <summary>수정</summary>
                     <form action="${pageContext.request.contextPath}/profile/specs" method="post">
+                        <input type="hidden" name="_csrf" value="${csrfToken}">
                         <input type="hidden" name="action" value="update">
                         <input type="hidden" name="specId" value="${spec.id}">
                         <p>
@@ -230,6 +237,7 @@
                     </form>
                 </details>
                 <form action="${pageContext.request.contextPath}/profile/specs" method="post" class="inline-form">
+                    <input type="hidden" name="_csrf" value="${csrfToken}">
                     <input type="hidden" name="action" value="delete">
                     <input type="hidden" name="specId" value="${spec.id}">
                     <button type="submit" class="link-button">삭제</button>
@@ -240,6 +248,7 @@
 </ul>
 <div class="card">
     <form action="${pageContext.request.contextPath}/profile/specs" method="post" class="row">
+        <input type="hidden" name="_csrf" value="${csrfToken}">
         <input type="hidden" name="action" value="add">
         <select name="specType" style="width:auto;">
             <option value="CERT">자격증</option>
@@ -271,6 +280,7 @@
                 <details class="inline-form">
                     <summary>수정</summary>
                     <form action="${pageContext.request.contextPath}/profile/projects" method="post">
+                        <input type="hidden" name="_csrf" value="${csrfToken}">
                         <input type="hidden" name="action" value="update">
                         <input type="hidden" name="projectId" value="${project.id}">
                         <p><input type="text" name="title" value="${project.title}" placeholder="프로젝트명" required></p>
@@ -284,6 +294,7 @@
                     </form>
                 </details>
                 <form action="${pageContext.request.contextPath}/profile/projects" method="post" class="inline-form">
+                    <input type="hidden" name="_csrf" value="${csrfToken}">
                     <input type="hidden" name="action" value="delete">
                     <input type="hidden" name="projectId" value="${project.id}">
                     <button type="submit" class="link-button">삭제</button>
@@ -294,6 +305,7 @@
 </ul>
 <div class="card">
     <form action="${pageContext.request.contextPath}/profile/projects" method="post">
+        <input type="hidden" name="_csrf" value="${csrfToken}">
         <p><input type="text" name="title" placeholder="프로젝트명" required></p>
         <p><textarea name="description" placeholder="설명"></textarea></p>
         <p><input type="text" name="techStack" placeholder="사용 기술 (예: Java, Spring, MySQL)"></p>
@@ -314,6 +326,7 @@
                 <details class="inline-form">
                     <summary>수정</summary>
                     <form action="${pageContext.request.contextPath}/profile/skills" method="post">
+                        <input type="hidden" name="_csrf" value="${csrfToken}">
                         <input type="hidden" name="action" value="update">
                         <input type="hidden" name="userSkillId" value="${skill.id}">
                         <p><input type="text" name="rawInput" value="${skill.rawInput}" placeholder="기술명 (예: Python, React)" required></p>
@@ -329,6 +342,7 @@
                     </form>
                 </details>
                 <form action="${pageContext.request.contextPath}/profile/skills" method="post" class="inline-form">
+                    <input type="hidden" name="_csrf" value="${csrfToken}">
                     <input type="hidden" name="action" value="delete">
                     <input type="hidden" name="userSkillId" value="${skill.id}">
                     <button type="submit" class="link-button">삭제</button>
@@ -339,6 +353,7 @@
 </ul>
 <div class="card">
     <form action="${pageContext.request.contextPath}/profile/skills" method="post" class="row">
+        <input type="hidden" name="_csrf" value="${csrfToken}">
         <input type="text" name="rawInput" placeholder="기술명 (예: Python, React)" required style="width:auto; flex-grow:1;">
         <select name="proficiency" style="width:auto;">
             <option value="">숙련도 선택 안함</option>
@@ -370,12 +385,14 @@
                                 <c:otherwise><span class="chip chip-locked">비공개</span></c:otherwise>
                             </c:choose>
                             <form action="${pageContext.request.contextPath}/profile/ai-usage" method="post" class="inline-form">
+                                <input type="hidden" name="_csrf" value="${csrfToken}">
                                 <input type="hidden" name="action" value="toggleShare">
                                 <input type="hidden" name="logId" value="${entry.id}">
                                 <input type="hidden" name="shared" value="${entry.shared ? 'false' : 'true'}">
                                 <button type="submit" class="link-button">${entry.shared ? '비공개로' : '공유하기'}</button>
                             </form>
                             <form action="${pageContext.request.contextPath}/profile/ai-usage" method="post" class="inline-form">
+                                <input type="hidden" name="_csrf" value="${csrfToken}">
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="logId" value="${entry.id}">
                                 <button type="submit" class="link-button">삭제</button>
@@ -390,6 +407,7 @@
 </c:choose>
 <div class="card">
     <form action="${pageContext.request.contextPath}/profile/ai-usage" method="post">
+        <input type="hidden" name="_csrf" value="${csrfToken}">
         <p><input type="text" name="title" placeholder="제목 (예: 프로젝트 버그 디버깅에 ChatGPT 활용)" required></p>
         <p><textarea name="description" placeholder="어떻게 활용했는지 자유롭게 적어주세요"></textarea></p>
         <p><label style="display:inline; width:auto;"><input type="checkbox" name="shared" value="true" style="width:auto;"> 면접관에게 공유 허용</label></p>
@@ -402,6 +420,7 @@
     <p class="muted">탈퇴하면 로그인·프로필 조회가 모두 불가능해집니다. 비밀번호를 입력하고 확인해주세요.</p>
     <form action="${pageContext.request.contextPath}/profile/withdraw" method="post"
           onsubmit="return confirm('정말 탈퇴하시겠습니까?');" class="row">
+        <input type="hidden" name="_csrf" value="${csrfToken}">
         <input type="password" name="password" placeholder="비밀번호" style="width:auto;" required>
         <button type="submit" class="danger">회원 탈퇴</button>
     </form>

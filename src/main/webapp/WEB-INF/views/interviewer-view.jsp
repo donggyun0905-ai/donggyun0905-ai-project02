@@ -19,6 +19,7 @@
             <c:choose>
                 <c:when test="${interviewer}">
                     <form method="post" action="${pageContext.request.contextPath}/interviewer/shared">
+                        <input type="hidden" name="_csrf" value="${csrfToken}">
                         <input type="hidden" name="action" value="add">
                         <input type="hidden" name="link" value="<c:out value='${token}' />">
                         <button type="submit" class="secondary">비교 목록에 담기</button>

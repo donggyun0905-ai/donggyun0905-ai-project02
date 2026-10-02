@@ -20,6 +20,7 @@
             <h2>서류 올리기</h2>
             <form action="${pageContext.request.contextPath}/documents" method="post" enctype="multipart/form-data"
                   class="row" style="margin-top:10px; align-items:flex-end;">
+                <input type="hidden" name="_csrf" value="${csrfToken}">
                 <input type="hidden" name="action" value="upload">
                 <span style="flex:1;"><label>파일</label><input type="file" name="file" required></span>
                 <span style="flex:1;"><label>연결할 프로젝트 (선택)</label>
@@ -55,6 +56,7 @@
                                 </td>
                                 <td>
                                     <form action="${pageContext.request.contextPath}/documents" method="post" class="inline-form">
+                                        <input type="hidden" name="_csrf" value="${csrfToken}">
                                         <input type="hidden" name="action" value="link">
                                         <input type="hidden" name="documentId" value="${d.id}">
                                         <select name="projectId" onchange="this.form.submit()" aria-label="연결 프로젝트">
@@ -70,7 +72,8 @@
                                 <td>
                                     <a href="${pageContext.request.contextPath}/documents/${d.id}">내려받기</a> ·
                                     <form action="${pageContext.request.contextPath}/documents" method="post" class="inline-form delete-doc"
-                                          data-name="<c:out value='${d.originalName}' />" data-purpose="<c:out value='${d.purpose}' />">
+                                          data-name="<c:out value='${d.originalName}' />
+                                        <input type="hidden" name="_csrf" value="${csrfToken}">" data-purpose="<c:out value='${d.purpose}' />">
                                         <input type="hidden" name="action" value="delete">
                                         <input type="hidden" name="documentId" value="${d.id}">
                                         <button type="submit" class="link-button" style="color:var(--danger);">삭제</button>
