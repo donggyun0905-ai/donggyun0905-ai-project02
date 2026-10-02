@@ -1,0 +1,28 @@
+                                        <button type="button" class="open-step-dialog" data-dialog="stepDialog-${step.id}">증빙 서류 첨부하고 완료하기</button>
+                                        <dialog id="stepDialog-${step.id}" class="step-dialog">
+                                        <div class="step-dialog-head"><h3>증빙 서류 첨부하고 완료하기</h3><button type="button" class="dialog-close link-button" aria-label="닫기">✕</button></div>
+                                            <%-- 서류 내용은 검증하지 않고 첨부 자체를 신뢰하는 대신(팀 결정),
+                                                 제출 전에 면접관 공유 화면에 그대로 노출된다는 걸 분명히 알린다
+                                                 (2026-10-01 사용자 요청). --%>
+                                            <form action="${pageContext.request.contextPath}/roadmap" method="post"
+                                                  enctype="multipart/form-data" style="margin-top:10px;"
+                                                  onsubmit="return confirm('이 자격증 문서는 면접관 공유 화면에 그대로 노출됩니다. 제출하시겠습니까?');">
+                                                <input type="hidden" name="_csrf" value="${csrfToken}">
+                                                <input type="hidden" name="action" value="submitCertProof">
+                                                <input type="hidden" name="stepId" value="${step.id}">
+                                                <p><label>증빙 서류 (합격 확인서·자격증 사진 등)</label><input type="file" name="file" required></p>
+                                                <button type="submit">제출하고 완료하기</button>
+                                            </form>
+                                        </dialog>
+                                        <%-- [TEST] 파일 없이 통과 — 다른 단계들과 동일하게 테스트 편의용으로 추가함
+                                             (2026-09-30, 사용자 요청). action=complete는 CERT 단계에 대해 서버에서
+                                             거부하도록 막아뒀으므로(진짜 증빙 요구가 이번 요청의 핵심), submitCertProof에
+                                             testShortcut 파라미터를 별도로 둬서 더미 증빙으로 대체한다.
+                                             실제 운영 배포 전에는 반드시 지울 것. --%>
+                                        <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">
+                                            <input type="hidden" name="_csrf" value="${csrfToken}">
+                                            <input type="hidden" name="action" value="submitCertProof">
+                                            <input type="hidden" name="stepId" value="${step.id}">
+                                            <input type="hidden" name="testShortcut" value="1">
+                                            <button type="submit" class="link-button">[TEST] 파일 없이 통과</button>
+                                        </form>

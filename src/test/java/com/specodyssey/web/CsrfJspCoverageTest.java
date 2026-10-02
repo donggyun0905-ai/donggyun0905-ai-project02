@@ -28,7 +28,7 @@ class CsrfJspCoverageTest {
     private static List<Path> jsps() throws IOException {
         try (Stream<Path> files = Files.walk(WEBAPP)) {
             List<Path> result = new ArrayList<>();
-            files.filter(p -> p.toString().endsWith(".jsp")).forEach(result::add);
+            files.filter(p -> p.toString().endsWith(".jsp") || p.toString().endsWith(".jspf")).forEach(result::add);
             return result;
         }
     }
