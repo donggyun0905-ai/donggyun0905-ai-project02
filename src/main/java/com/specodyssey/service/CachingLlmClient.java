@@ -69,8 +69,10 @@ public class CachingLlmClient implements LlmClient {
         ExternalApiCacheDto cached = readCache(key);
         LocalDateTime now = LocalDateTime.now();
 
-        // 재사용 여부는 저장 때 정한 expires_at이 아니라 지금 이 객체의 ttl로 판단한다 — ttl 0이면 항상 새로 호출
-        if (cached != null && cached.getCachedAt() != null && cached.getCachedAt().plus(ttl).isAfter(now)) {
+        // 재사용 여부는 저장 때 정한 expires_at이 아니라 지금 이 객체의 ttl로 판단한다 — ttl 0이면 항상 새로 호출.
+        // ttl 0을 따로 막는 이유: DATETIME이 초 단위로 반올림돼 cached_at이 지금보다 미래일 수 있다
+        if (!ttl.isZero() && !ttl.isNegative() && cached != null && cached.getCachedAt() != null
+                && cached.getCachedAt().plus(ttl).isAfter(now)) {
             T hit = parseOrNull(cached, type);
             if (hit != null) {
                 return LlmResult.cached(hit, cached.getCachedAt());

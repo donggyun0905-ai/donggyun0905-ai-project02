@@ -7,90 +7,150 @@ import com.specodyssey.dto.SkillDto;
 import com.specodyssey.util.EditDistanceUtil;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
- * TD-1 임베딩 매칭(DJL+ONNX ko-sroberta)이 붙기 전까지 쓰는 중간 단계 구현
- * (팀 결정, 2026-09-30 — "시맨틱 매칭, 스킬 이름 일치라도 먼저").
+ * 스킬 이름·별칭(SKILL_ALIAS) 기반 매칭. 의미 기반 매칭(EmbeddingMatcher)이 이 매처를 먼저 쓰고,
+ * 여기서 못 찾았을 때만 임베딩으로 넘어간다 (2026-09-30 동균 작성, 2026-10-02 정확도 개선).
  *
- * ⚠️ 진짜 의미 기반 매칭이 아니다. SKILL_ALIAS에 미리 등록해둔 것 이상의 동의어(사전에 없는
- * 새로운 표현)는 여전히 못 잡는다 — 그건 임베딩이 붙어야 풀리는 문제(TD-1 본 과제, 여전히
- * 미착수)다. 여기서 하는 건 ① 자주 쓰는 한글 표기·줄임말을 SKILL_ALIAS 사전으로 미리 커버하고,
- * ② 사전에도 없는 오타·띄어쓰기 차이는 편집거리로 흡수하는 것까지다.
+ * 순서 — 앞 단계에서 찾으면 거기서 끝낸다. 잘못 연결하느니 못 찾는 쪽을 택한다.
+ * 1) 입력 전체가 SKILL 이름·별칭과 정확히 같음 → score 1.0
+ * 2) 단어 단위 정확 일치: 띄어쓰기·쉼표·슬래시로 나눈 단어가 이름·별칭과 같으면 그 스킬 (여러 개면 모두)
+ *    예) "Java Spring" → Java, Spring / "자바 백엔드" → Java
+ * 3) 앞부분 일치: 입력이 이름·별칭으로 시작하고 그것이 입력의 절반 이상이면 그 스킬
+ *    예) "Java 17"·"JavaEE"·"Java8" → Java, "Reactjs"·"React.js" → React
+ * 4) 오타: 이름의 75% 이상이 같을 때만 (이웃 글자 순서 바뀜은 1글자로 셈). 3글자 이하 입력은 오타를 허용하지 않는다
+ *    예) "Pyhton" → Python, "Kubernets" → Kubernetes
  *
- * 1) 정확 일치(SKILL.skill_name, 대소문자 무시) → score 1.0
- * 2) 정확 일치(SKILL_ALIAS.alias_name) → score 1.0 (사전에 등록된 별칭이라 확실한 매칭으로 취급)
- * 3) 그래도 실패하면 SKILL 이름 + SKILL_ALIAS 별칭을 합친 후보군 전체와 편집거리를 비교해 가장
- *    가까운 것을 찾는다. 이름 길이의 40%를 넘는 차이는 다른 기술일 가능성이 커서 인정하지 않는다
- *    (ProfileService의 직무명 퍼지 매칭과 같은 임계값, 팀 합의 2026-09-29 재사용).
+ * 2026-10-02 이전에는 4)만 있었고 이름 길이 40%까지 차이를 허용해서 "Java Spring"→JavaScript,
+ * "JSP"→JavaScript, "ES6"→CSS3, "React.js"→Next.js처럼 다른 기술로 연결되는 일이 있었다.
  */
 public class FuzzyNameMatcher implements SkillMatcher {
 
-    private static final double MAX_EDIT_DISTANCE_RATIO = 0.4;
+    private static final double MIN_TYPO_SIMILARITY = 0.75;
+    // 이보다 짧은 입력은 한두 글자 차이가 곧 다른 기술이다 (JSP↔JS, ES6↔CSS3)
+    private static final int MIN_TYPO_LENGTH = 4;
+    // 앞부분 일치로 인정할 이름의 최소 길이 — Go·R 같은 짧은 이름이 아무 입력 앞에나 붙지 않게
+    private static final int MIN_PREFIX_LENGTH = 3;
+    // 앞부분 뒤에 글자가 바로 이어져도 같은 기술로 보는 꼬리 ("Reactjs", "JavaEE")
+    private static final Set<String> PREFIX_SUFFIXES = Set.of("js", "ee");
+    private static final Pattern WORD_SEPARATOR = Pattern.compile("[\\s,/+&·()]+");
 
     private final SkillDao skillDao = new SkillDao();
     private final SkillAliasDao skillAliasDao = new SkillAliasDao();
 
     @Override
     public MatchResult match(String raw) throws SQLException {
+        List<MatchResult> all = matchAll(raw);
+        return all.isEmpty() ? MatchResult.none() : all.get(0);
+    }
+
+    @Override
+    public List<MatchResult> matchAll(String raw) throws SQLException {
         if (raw == null || raw.isBlank()) {
-            return MatchResult.none();
+            return List.of();
         }
         String trimmed = raw.trim();
 
+        // 1) 정확 일치는 DB 콜레이션(대소문자 무시) 규칙 그대로 확인한다
         SkillDto exact = skillDao.findByName(trimmed);
         if (exact != null) {
-            return new MatchResult(exact.getId(), 1.0);
+            return List.of(new MatchResult(exact.getId(), 1.0));
         }
-
         SkillAliasDto exactAlias = skillAliasDao.findByAliasName(trimmed);
         if (exactAlias != null) {
-            return new MatchResult(exactAlias.getSkillId(), 1.0);
+            return List.of(new MatchResult(exactAlias.getSkillId(), 1.0));
         }
 
-        String normalizedQuery = normalize(trimmed);
-        // 전체 후보는 매번 DB에서 읽지 않고 메모리 캐시를 쓴다 (2026-10-01, 매칭 속도 개선)
-        SkillCatalog.Snapshot catalog = SkillCatalog.current();
-        List<SkillDto> skills = catalog.skills();
-        List<SkillAliasDto> aliases = catalog.aliases();
+        // 나머지 단계는 매번 DB를 읽지 않고 메모리 캐시를 쓴다 (2026-10-01, 매칭 속도 개선)
+        Map<String, Long> byName = nameIndex(SkillCatalog.current());
 
-        Long bestSkillId = null;
+        List<MatchResult> words = wordMatches(trimmed, byName);
+        if (!words.isEmpty()) {
+            return words;
+        }
+        String query = normalize(trimmed);
+        MatchResult prefix = prefixMatch(query, byName);
+        if (prefix != null) {
+            return List.of(prefix);
+        }
+        MatchResult typo = typoMatch(query, byName);
+        return typo == null ? List.of() : List.of(typo);
+    }
+
+    // 정규화한 이름·별칭 → skill_id. 이름이 별칭보다 우선한다.
+    private Map<String, Long> nameIndex(SkillCatalog.Snapshot catalog) {
+        Map<String, Long> byName = new HashMap<>();
+        for (SkillDto skill : catalog.skills()) {
+            if (skill.getSkillName() != null) {
+                byName.putIfAbsent(normalize(skill.getSkillName()), skill.getId());
+            }
+        }
+        for (SkillAliasDto alias : catalog.aliases()) {
+            if (alias.getAliasName() != null) {
+                byName.putIfAbsent(normalize(alias.getAliasName()), alias.getSkillId());
+            }
+        }
+        byName.remove("");
+        return byName;
+    }
+
+    // 2) 입력에 나온 순서대로, 같은 스킬은 한 번만
+    private List<MatchResult> wordMatches(String input, Map<String, Long> byName) {
+        List<MatchResult> found = new ArrayList<>();
+        Set<Long> seen = new HashSet<>();
+        for (String word : WORD_SEPARATOR.split(input)) {
+            Long skillId = byName.get(normalize(word));
+            if (skillId != null && seen.add(skillId)) {
+                found.add(new MatchResult(skillId, 1.0));
+            }
+        }
+        return found;
+    }
+
+    // 3) 가장 긴 이름을 고른다 — "javascriptes6"은 "java"가 아니라 "javascript"로
+    private MatchResult prefixMatch(String query, Map<String, Long> byName) {
+        String best = null;
+        for (String name : byName.keySet()) {
+            if (name.length() < MIN_PREFIX_LENGTH || name.length() >= query.length()
+                    || name.length() * 2 < query.length() || !query.startsWith(name)) {
+                continue;
+            }
+            String rest = query.substring(name.length());
+            // "Javadoc"처럼 글자가 그대로 이어지면 다른 단어일 수 있다 — 숫자·기호로 끊기거나 정해진 꼬리일 때만
+            boolean boundary = !Character.isLetter(rest.charAt(0)) || PREFIX_SUFFIXES.contains(rest);
+            if (boundary && (best == null || name.length() > best.length())) {
+                best = name;
+            }
+        }
+        return best == null ? null : new MatchResult(byName.get(best), (double) best.length() / query.length());
+    }
+
+    // 4)
+    private MatchResult typoMatch(String query, Map<String, Long> byName) {
+        if (query.length() < MIN_TYPO_LENGTH) {
+            return null;
+        }
+        String best = null;
         int bestDistance = Integer.MAX_VALUE;
-        String bestName = null;
-        for (SkillDto candidate : skills) {
-            if (candidate.getSkillName() == null) {
-                continue;
-            }
-            int distance = EditDistanceUtil.distance(normalizedQuery, normalize(candidate.getSkillName()));
+        for (String name : byName.keySet()) {
+            int distance = EditDistanceUtil.transpositionAwareDistance(query, name);
             if (distance < bestDistance) {
                 bestDistance = distance;
-                bestSkillId = candidate.getId();
-                bestName = candidate.getSkillName();
+                best = name;
             }
         }
-        for (SkillAliasDto candidate : aliases) {
-            if (candidate.getAliasName() == null) {
-                continue;
-            }
-            int distance = EditDistanceUtil.distance(normalizedQuery, normalize(candidate.getAliasName()));
-            if (distance < bestDistance) {
-                bestDistance = distance;
-                bestSkillId = candidate.getSkillId();
-                bestName = candidate.getAliasName();
-            }
+        if (best == null) {
+            return null;
         }
-        if (bestSkillId == null) {
-            return MatchResult.none();
-        }
-
-        int threshold = Math.max(1, (int) Math.ceil(normalizedQuery.length() * MAX_EDIT_DISTANCE_RATIO));
-        if (bestDistance > threshold) {
-            return MatchResult.none();
-        }
-
-        int maxLen = Math.max(normalizedQuery.length(), normalize(bestName).length());
-        double score = maxLen == 0 ? 0.0 : 1.0 - (double) bestDistance / maxLen;
-        return new MatchResult(bestSkillId, score);
+        double similarity = 1.0 - (double) bestDistance / Math.max(query.length(), best.length());
+        return similarity >= MIN_TYPO_SIMILARITY ? new MatchResult(byName.get(best), similarity) : null;
     }
 
     private String normalize(String s) {

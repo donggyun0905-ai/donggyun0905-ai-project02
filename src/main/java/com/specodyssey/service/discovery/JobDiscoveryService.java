@@ -208,8 +208,8 @@ public class JobDiscoveryService {
         }
         List<OwnedSkill> owned = new ArrayList<>();
         for (String raw : raws.values()) {
-            SkillMatcher.MatchResult m = skillMatcher.match(raw);
-            if (m != null && m.skillId() != null) {
+            // "Java Spring"처럼 원문 하나에 기술이 여러 개 있으면 모두 보유로 본다 (2026-10-02)
+            for (SkillMatcher.MatchResult m : skillMatcher.matchAll(raw)) {
                 owned.add(new OwnedSkill(m.skillId(), raw, m.score()));
             }
         }

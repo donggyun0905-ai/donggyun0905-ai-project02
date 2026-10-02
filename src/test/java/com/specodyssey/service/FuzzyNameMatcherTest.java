@@ -162,4 +162,68 @@ class FuzzyNameMatcherTest {
         assertEquals(expected.getId(), matcher.match(alias).skillId(),
                 () -> "'" + alias + "' 은(는) '" + expectedCanonicalName + "'로 매칭돼야 한다");
     }
+
+    // ================= 2026-10-02 정확도 개선 =================
+
+    // 단어 단위·앞부분 일치·오타(순서 바뀜 포함)로 맞게 연결돼야 하는 입력
+    @ParameterizedTest
+    @CsvSource({
+            "자바 백엔드, Java",
+            "자바 웹개발, Java",
+            "Java Spring, Java",
+            "Vanilla JS, JavaScript",
+            "JavaScript ES6, JavaScript",
+            "Java 17, Java",
+            "Java8, Java",
+            "JavaEE, Java",
+            "Reactjs, React",
+            "React.js, React",
+            "Pyhton, Python",
+            "Djnago, Django",
+            "Typescirpt, TypeScript",
+            "Kubernets, Kubernetes",
+            "Javscript, JavaScript",
+            "Dockr, Docker",
+            "Jenkin, Jenkins",
+    })
+    void 표기가_달라도_맞는_스킬로_연결된다(String input, String expectedCanonicalName) throws Exception {
+        SkillDto expected = skillDao.findByName(expectedCanonicalName);
+        assertEquals(expected.getId(), matcher.match(input).skillId(),
+                () -> "'" + input + "' 은(는) '" + expectedCanonicalName + "'로 매칭돼야 한다");
+    }
+
+    // 예전 규칙(40% 편집거리)에서 다른 기술로 잘못 가던 입력 — 잘못 연결하느니 못 찾는 게 낫다
+    @ParameterizedTest
+    @CsvSource({
+            "JSP, JavaScript",
+            "Jsp, JavaScript",
+            "ES6, CSS3",
+            "React.js, Next.js",
+            "Java Spring, JavaScript",
+            "자바 백엔드, JavaScript",
+    })
+    void 다른_기술로_잘못_연결되지_않는다(String input, String wrongCanonicalName) throws Exception {
+        SkillDto wrong = skillDao.findByName(wrongCanonicalName);
+        assertTrue(matcher.matchAll(input).stream().noneMatch(r -> r.skillId().equals(wrong.getId())),
+                () -> "'" + input + "' 이(가) '" + wrongCanonicalName + "'로 연결되면 안 된다");
+    }
+
+    @Test
+    void 원문에_기술이_여러_개면_matchAll이_입력_순서대로_모두_돌려준다() throws Exception {
+        Long java = skillDao.findByName("Java").getId();
+        Long spring = skillDao.findByName("Spring").getId();
+
+        var all = matcher.matchAll("Java Spring");
+
+        assertEquals(2, all.size());
+        assertEquals(java, all.get(0).skillId());
+        assertEquals(spring, all.get(1).skillId());
+        assertEquals(java, matcher.match("Java Spring").skillId(), "match()는 앞 단어 하나");
+    }
+
+    @Test
+    void 짧은_입력은_오타를_허용하지_않는다() throws Exception {
+        assertNull(matcher.match("ES6").skillId());
+        assertNull(matcher.match("JSP").skillId());
+    }
 }
