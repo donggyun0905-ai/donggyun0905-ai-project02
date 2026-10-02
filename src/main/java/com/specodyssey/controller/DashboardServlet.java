@@ -21,6 +21,8 @@ import com.specodyssey.dto.UserDto;
 import com.specodyssey.dto.UserScoreSummaryDto;
 import com.specodyssey.service.GapAnalysisService;
 import com.specodyssey.service.RoadmapService;
+import com.specodyssey.service.TierProgress;
+import com.specodyssey.service.RoadmapProgress;
 import com.specodyssey.service.ScoreService;
 import com.specodyssey.service.SpecScoreService;
 import com.specodyssey.service.DailyMissionService;
@@ -101,10 +103,10 @@ public class DashboardServlet extends HttpServlet {
             return;
         }
         List<RoadmapStepDto> steps = roadmapService.getSteps(roadmap.getId());
-        RoadmapService.RoadmapProgress progress = roadmapService.computeProgress(steps);
+        RoadmapProgress progress = roadmapService.computeProgress(steps);
         req.setAttribute("journeyProgress", progress);
 
-        RoadmapService.TierProgress currentTier = progress.getCurrentTier();
+        TierProgress currentTier = progress.getCurrentTier();
         req.setAttribute("journeyCurrentTier", currentTier);
         if (currentTier != null) {
             steps.stream()

@@ -16,6 +16,7 @@ import com.specodyssey.service.NoteService;
 import com.specodyssey.service.ProjectSubmission;
 import com.specodyssey.service.ProjectSubmissionService;
 import com.specodyssey.service.RoadmapService;
+import com.specodyssey.service.RoadmapProgress;
 import com.specodyssey.service.ScoreService;
 import com.specodyssey.util.FileStorageUtil;
 import com.specodyssey.util.PdfTextUtil;
@@ -543,7 +544,7 @@ public class RoadmapServlet extends HttpServlet {
         return LocalDate.parse(value);
     }
 
-    private RoadmapService.RoadmapProgress currentProgress(Long userId) throws SQLException {
+    private RoadmapProgress currentProgress(Long userId) throws SQLException {
         RoadmapDto roadmap = roadmapService.getPrimaryRoadmap(userId);
         return roadmap == null ? null : roadmapService.computeProgress(roadmapService.getSteps(roadmap.getId()));
     }

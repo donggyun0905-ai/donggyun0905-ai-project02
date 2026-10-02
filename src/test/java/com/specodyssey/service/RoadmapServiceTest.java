@@ -1103,8 +1103,8 @@ class RoadmapServiceTest {
         List<RoadmapStepDto> entrySteps = steps.stream().filter(s -> "ENTRY".equals(s.getTier())).toList();
         assertFalse(entrySteps.isEmpty());
 
-        RoadmapService.RoadmapProgress before = roadmapService.computeProgress(steps);
-        RoadmapService.TierProgress entryBefore = before.getTier("ENTRY");
+        RoadmapProgress before = roadmapService.computeProgress(steps);
+        TierProgress entryBefore = before.getTier("ENTRY");
         assertEquals(entrySteps.size(), entryBefore.getTotal());
         assertEquals(0, entryBefore.getDone());
         assertFalse(entryBefore.isComplete());
@@ -1115,8 +1115,8 @@ class RoadmapServiceTest {
             roadmapService.completeStep(userId, step.getId(), true);
         }
 
-        RoadmapService.RoadmapProgress after = roadmapService.computeProgress(roadmapService.getSteps(roadmapId));
-        RoadmapService.TierProgress entryAfter = after.getTier("ENTRY");
+        RoadmapProgress after = roadmapService.computeProgress(roadmapService.getSteps(roadmapId));
+        TierProgress entryAfter = after.getTier("ENTRY");
         assertEquals(entrySteps.size(), entryAfter.getDone());
         assertEquals(100, entryAfter.getPercent());
         assertTrue(entryAfter.isComplete());
@@ -1170,7 +1170,7 @@ class RoadmapServiceTest {
             assertEquals(5, advancedCount);
             assertEquals(5, expertCount);
 
-            RoadmapService.RoadmapProgress progress = roadmapService.computeProgress(steps);
+            RoadmapProgress progress = roadmapService.computeProgress(steps);
             assertTrue(progress.getTier("ENTRY").isUnlocked());
             assertFalse(progress.getTier("CORE").isUnlocked(), "ENTRY를 안 끝냈으면 CORE는 아직 잠겨 있어야 한다");
             assertFalse(progress.getTier("ADVANCED").isUnlocked());
@@ -1183,7 +1183,7 @@ class RoadmapServiceTest {
                     roadmapService.completeStep(userId, step.getId(), true);
                 }
             }
-            RoadmapService.RoadmapProgress afterEntry = roadmapService.computeProgress(roadmapService.getSteps(roadmapId));
+            RoadmapProgress afterEntry = roadmapService.computeProgress(roadmapService.getSteps(roadmapId));
             assertTrue(afterEntry.getTier("CORE").isUnlocked(), "ENTRY를 다 끝냈으면 CORE가 풀려야 한다");
             assertFalse(afterEntry.getTier("ADVANCED").isUnlocked());
             assertEquals("CORE", afterEntry.getCurrentTier().getTier());
