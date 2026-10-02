@@ -51,8 +51,9 @@ public class RoadmapService {
     private final RoadmapUpkeepService upkeep = new RoadmapUpkeepService();
     private final RoadmapProgressCalculator progressCalculator = new RoadmapProgressCalculator();
 
+    // 기술 보충도 캐시를 씌운다 — 같은 직무·후보면 재사용하고, 실패하면 직전 선택으로 대체(FR-111, 2026-10-02)
     public RoadmapService() {
-        this(new ProjectIdeaService(), new SkillDeepenService(GroqLlmClient.fromConfig()));
+        this(new ProjectIdeaService(), new SkillDeepenService(new CachingLlmClient(GroqLlmClient.fromConfig())));
     }
 
     // 테스트에서 StubLlmClient 기반 ProjectIdeaService를 넣어 실제 Groq 호출을 피하려고 열어둔 생성자

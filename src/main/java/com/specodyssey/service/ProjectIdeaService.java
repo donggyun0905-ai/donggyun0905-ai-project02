@@ -29,8 +29,9 @@ public class ProjectIdeaService {
 
     private final LlmClient llm;
 
+    // 같은 직무·부족 기술이면 7일 동안 재사용하고, Groq가 실패하면 직전에 받은 아이디어로 대체한다(FR-111, 2026-10-02)
     public ProjectIdeaService() {
-        this(GroqLlmClient.fromConfig());
+        this(new CachingLlmClient(GroqLlmClient.fromConfig()));
     }
 
     public ProjectIdeaService(LlmClient llm) {

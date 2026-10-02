@@ -40,7 +40,7 @@ import java.util.Map;
  * 재응답 정책: 직무 발굴 설문은 다시 풀 수 있다. 관심이 바뀌거나 스펙이 늘면 추천도 달라져야 하기 때문이다.
  * 다시 풀면 응답은 덮어쓰고(upsert), 이전 추천은 논리 삭제한 뒤 새 추천을 저장한다 — 한 트랜잭션.
  *
- * LLM(E 담당 LlmClient)이 병합되면 추천 이유·요약(summary_json)을 LLM 문장으로 바꿀 자리: {@link #describe}.
+ * 추천 이유는 RecommendationDescriber가 LLM 문장으로 다듬는다(2026-10-02 연결): {@link #describe}.
  * LLM이 실패해도 계산기가 만든 기본 문장이 남아 있어 화면이 멈추지 않는다(FR-111).
  */
 public class JobDiscoveryService {
@@ -56,6 +56,7 @@ public class JobDiscoveryService {
     private final UserProjectDao userProjectDao = new UserProjectDao();
     private final UserDao userDao = new UserDao();
     private final SkillMatcher skillMatcher;
+    private final RecommendationDescriber describer;
     private final JobDiscoveryScorer scorer = new JobDiscoveryScorer();
 
     public JobDiscoveryService() {
@@ -65,7 +66,12 @@ public class JobDiscoveryService {
     }
 
     public JobDiscoveryService(SkillMatcher skillMatcher) {
+        this(skillMatcher, new RecommendationDescriber());
+    }
+
+    public JobDiscoveryService(SkillMatcher skillMatcher, RecommendationDescriber describer) {
         this.skillMatcher = skillMatcher;
+        this.describer = describer;
     }
 
     /** 설문 응답이 빠졌거나 범위를 벗어났을 때. 서블릿이 400으로 돌려준다. */
@@ -237,12 +243,12 @@ public class JobDiscoveryService {
     }
 
     /**
-     * 추천 이유·요약을 다듬는 자리 (FR-35 · 38의 "AI가 종합").
-     * TODO(C): E의 LlmClient가 병합되면 여기서 호출해 r.reason을 바꾸고 summary_json을 채운다.
-     *          실패하면 아무것도 하지 않고 넘어가서 계산기 기본 문장을 그대로 쓴다(FR-111).
+     * 추천 이유를 다듬는 자리 (FR-35 · 38의 "AI가 종합").
+     * 실패하면 아무것도 하지 않고 넘어가서 계산기 기본 문장을 그대로 쓴다(FR-111).
+     * summary_json(하는 일·필요 역량·전망)은 화면에서 아직 쓰지 않아 채우지 않는다.
      */
     private void describe(List<Recommendation> recommendations) {
-        // 아직 LlmClient 없음 — 기본 문장 유지
+        describer.describe(recommendations);
     }
 
     /** JSP 표시용. EL이 getter로 읽으므로 record 대신 클래스로 둔다(Tomcat 10.1의 EL 5.0은 record 접근자를 못 읽음). */
