@@ -107,6 +107,24 @@ class RoadmapSubmissionFormTest {
     }
 
     @Test
+    void 기타_링크_입력칸이_폼에_없으면_null이고_있으면_줄_목록이다() throws Exception {
+        assertNull(RoadmapSubmissionForm.buildSubmission(form().http()).getLinks(), "입력칸 자체가 없으면 기존 링크를 건드리지 않는다");
+
+        FakeWeb.Request req = form().param("linkLabel_0", "블로그").param("linkUrl_0", "https://blog.example.com")
+                .param("linkLabel_1", "").param("linkUrl_1", "")
+                .param("linkLabel_2", "영상").param("linkUrl_2", "https://youtu.be/x");
+        var links = RoadmapSubmissionForm.buildSubmission(req.http()).getLinks();
+        assertEquals(3, links.size(), "빈 줄도 일단 읽고, 걸러내는 건 서비스가 한다");
+        assertEquals("블로그", links.get(0).getLabel());
+        assertEquals("https://youtu.be/x", links.get(2).getUrl());
+
+        // 입력칸은 있었지만 전부 비운 경우 — 빈 목록(= 링크를 모두 지움)
+        var cleared = RoadmapSubmissionForm.buildSubmission(form().param("linkUrl_0", "").http()).getLinks();
+        assertEquals(1, cleared.size());
+        assertEquals(0, com.specodyssey.service.ProjectLinkService.normalize(cleared).size());
+    }
+
+    @Test
     void trimToNull은_공백만_있으면_null이다() {
         assertNull(RoadmapSubmissionForm.trimToNull("   "));
         assertNull(RoadmapSubmissionForm.trimToNull(null));

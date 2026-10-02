@@ -9,6 +9,7 @@ import com.specodyssey.dao.ShareLinkDao;
 import com.specodyssey.dao.ShareLinkViewLogDao;
 import com.specodyssey.dao.SpecScoreHistoryDao;
 import com.specodyssey.dao.UserDao;
+import com.specodyssey.dao.ProjectLinkDao;
 import com.specodyssey.dao.UserProjectDao;
 import com.specodyssey.dao.UserSkillDao;
 import com.specodyssey.dao.UserSpecDao;
@@ -23,7 +24,9 @@ import com.specodyssey.dto.ShareViewDto;
 import com.specodyssey.dto.ShareViewDto.TimelineItem;
 import com.specodyssey.dto.SpecScoreHistoryDto;
 import com.specodyssey.dto.UserDto;
+import com.specodyssey.dto.ProjectLinkDto;
 import com.specodyssey.dto.UserProjectDto;
+import com.specodyssey.util.UrlRules;
 import com.specodyssey.dto.UserSkillDto;
 import com.specodyssey.dto.UserSpecDto;
 
@@ -36,6 +39,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 import java.util.logging.Logger;
 
 /**
@@ -61,6 +65,7 @@ public class ShareViewService {
     private final JobDao jobDao = new JobDao();
     private final UserSpecDao userSpecDao = new UserSpecDao();
     private final UserProjectDao userProjectDao = new UserProjectDao();
+    private final ProjectLinkDao projectLinkDao = new ProjectLinkDao();
     private final UserSkillDao userSkillDao = new UserSkillDao();
     private final SpecScoreHistoryDao specScoreHistoryDao = new SpecScoreHistoryDao();
     private final CertificationDao certificationDao = new CertificationDao();
@@ -208,17 +213,39 @@ public class ShareViewService {
         }
         List<UserProjectDto> projects = userProjectDao.findByUserId(userId);
         view.setProjectCount(projects.size());
+        Map<Long, List<ProjectLinkDto>> extraLinks = projectLinkDao.findByProjectIds(
+                projects.stream().map(UserProjectDto::getId).collect(Collectors.toList()));
         for (UserProjectDto project : projects) {
             String techStack = isBlank(project.getTechStack()) ? null : "사용 기술: " + project.getTechStack();
             dated.add(new Dated(project.getStartDate(), new TimelineItem(
                     period(project.getStartDate(), project.getEndDate()),
-                    "프로젝트", project.getTitle(), join(project.getDescription(), techStack))));
+                    "프로젝트", project.getTitle(), join(project.getDescription(), techStack), null,
+                    projectLinks(project, extraLinks.get(project.getId())))));
         }
         dated.sort(Comparator.comparing((Dated d) -> d.date, Comparator.nullsLast(Comparator.naturalOrder())));
 
         for (Dated d : dated) {
             view.getTimeline().add(d.item);
         }
+    }
+
+    // 면접관이 누르는 링크라서 저장할 때 검증했더라도 내보내기 직전에 한 번 더 웹 주소(http/https)만 남긴다.
+    static List<ShareViewDto.Link> projectLinks(UserProjectDto project, List<ProjectLinkDto> extra) {
+        List<ShareViewDto.Link> links = new ArrayList<>();
+        if (UrlRules.isWebUrl(project.getRepoUrl())) {
+            links.add(new ShareViewDto.Link("코드 저장소", project.getRepoUrl()));
+        }
+        if (UrlRules.isWebUrl(project.getDeployUrl())) {
+            links.add(new ShareViewDto.Link("배포 주소", project.getDeployUrl()));
+        }
+        if (extra != null) {
+            for (ProjectLinkDto link : extra) {
+                if (UrlRules.isWebUrl(link.getUrl())) {
+                    links.add(new ShareViewDto.Link(link.getDisplayName(), link.getUrl()));
+                }
+            }
+        }
+        return links;
     }
 
     // USER_SPECS에는 로드맵 단계로 직접 연결하는 FK가 없어서 "대표 로드맵의 완료된 CERT 단계 중

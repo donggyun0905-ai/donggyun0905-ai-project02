@@ -159,6 +159,7 @@ class RoadmapServiceTest {
             for (UserProjectDto project : userProjectDao.findByUserId(userId)) {
                 TestFixtures.hardDeleteByColumn(conn, "PROJECT_DOCUMENT_ITEM", "project_id", project.getId());
                 TestFixtures.hardDeleteByColumn(conn, "PROJECT_TECH_NOTE", "project_id", project.getId());
+                TestFixtures.hardDeleteByColumn(conn, "PROJECT_LINK", "project_id", project.getId());
             }
             TestFixtures.hardDeleteByColumn(conn, "DOCUMENTS", "user_id", userId);
             for (RoadmapDto roadmap : roadmapDao.findByUserId(userId)) {
@@ -731,6 +732,72 @@ class RoadmapServiceTest {
             pstmt.setLong(2, stepId);
             pstmt.executeUpdate();
         }
+    }
+
+    // ---- 프로젝트 기타 링크(블로그 글·발표 영상 등)
+
+    private RoadmapStepDto firstProjectStep(Long roadmapId) throws Exception {
+        return roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> "PROJECT".equals(s.getStepType())).findFirst().orElseThrow();
+    }
+
+    @Test
+    void 프로젝트를_완료하며_낸_기타_링크가_저장되고_다시_완료할_때_입력칸이_없으면_그대로_둔다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto step = firstProjectStep(roadmapId);
+        ProjectSubmission submission = sampleSubmission();
+        submission.setLinks(List.of(new com.specodyssey.dto.ProjectLinkDto(" 블로그 ", " https://blog.example.com/p "),
+                new com.specodyssey.dto.ProjectLinkDto("", "")));
+        roadmapService.completeProjectStep(userId, step.getId(), submission);
+
+        Long projectId = userProjectDao.findByUserId(userId).get(0).getId();
+        List<com.specodyssey.dto.ProjectLinkDto> saved = new com.specodyssey.dao.ProjectLinkDao().findByProjectId(projectId);
+        assertEquals(1, saved.size(), "빈 줄은 저장하지 않는다");
+        assertEquals("블로그", saved.get(0).getLabel());
+        assertEquals("https://blog.example.com/p", saved.get(0).getUrl());
+
+        // 완료 취소 후 다시 완료 — 링크 입력칸 없이(links == null) 내면 기존 링크를 건드리지 않는다
+        roadmapService.completeStep(userId, step.getId(), false);
+        roadmapService.completeProjectStep(userId, step.getId(), new ProjectSubmission(sampleProject()));
+        assertEquals(1, new com.specodyssey.dao.ProjectLinkDao().findByProjectId(projectId).size());
+
+        // 이번엔 입력칸이 있었고 전부 비웠다 = 링크를 모두 지운다
+        roadmapService.completeStep(userId, step.getId(), false);
+        ProjectSubmission cleared = new ProjectSubmission(sampleProject());
+        cleared.setLinks(List.of());
+        roadmapService.completeProjectStep(userId, step.getId(), cleared);
+        assertTrue(new com.specodyssey.dao.ProjectLinkDao().findByProjectId(projectId).isEmpty());
+    }
+
+    @Test
+    void 주소가_잘못된_링크가_있으면_프로젝트도_완료도_만들어지지_않는다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto step = firstProjectStep(roadmapId);
+        ProjectSubmission bad = sampleSubmission();
+        bad.setLinks(List.of(new com.specodyssey.dto.ProjectLinkDto("나쁜 링크", "javascript:alert(1)")));
+
+        assertThrows(IllegalArgumentException.class, () -> roadmapService.completeProjectStep(userId, step.getId(), bad));
+
+        assertTrue(userProjectDao.findByUserId(userId).isEmpty());
+        assertFalse(roadmapService.getSteps(roadmapId).stream()
+                .filter(st -> st.getId().equals(step.getId())).findFirst().orElseThrow().isCompleted());
+    }
+
+    @Test
+    void 임시저장된_링크가_다시_열_때의_초안에_실린다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto step = firstProjectStep(roadmapId);
+        ProjectSubmission submission = sampleSubmission();
+        submission.setLinks(List.of(new com.specodyssey.dto.ProjectLinkDto("발표 영상", "https://youtu.be/abc")));
+        roadmapService.completeProjectStep(userId, step.getId(), submission);
+        roadmapService.completeStep(userId, step.getId(), false);
+
+        RoadmapStepDto reread = roadmapService.getSteps(roadmapId).stream()
+                .filter(st -> st.getId().equals(step.getId())).findFirst().orElseThrow();
+        ProjectSubmissionService.ProjectDraft draft =
+                new ProjectSubmissionService().loadDraft(userId, reread.getEvidenceProjectId());
+        assertEquals(1, draft.getLinks().size());
+        assertEquals("발표 영상", draft.getLinks().get(0).getLabel());
     }
 
     // SKILL 단계 학습 검증(2026-09-30 팀 결정, 규칙 기반) — ENTRY 공부노트 제출.

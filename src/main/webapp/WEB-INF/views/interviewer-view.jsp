@@ -103,6 +103,11 @@
                                         <c:if test="${not empty item.detail}">
                                             <br><span class="muted" style="font-size:0.84rem;"><c:out value="${item.detail}" /></span>
                                         </c:if>
+                                        <c:if test="${not empty item.links}">
+                                            <br><span style="font-size:0.84rem;">🔗
+                                                <c:forEach var="link" items="${item.links}" varStatus="ls"><c:if test="${!ls.first}"> · </c:if><a href="<c:out value='${link.url}' />" target="_blank" rel="noopener noreferrer nofollow"><c:out value="${link.label}" /></a></c:forEach>
+                                            </span>
+                                        </c:if>
                                         <c:if test="${not empty item.documentId}">
                                             <br><a href="${pageContext.request.contextPath}/share/documents/${token}/${item.documentId}" target="_blank" style="font-size:0.84rem;">증빙 서류 보기</a>
                                         </c:if>

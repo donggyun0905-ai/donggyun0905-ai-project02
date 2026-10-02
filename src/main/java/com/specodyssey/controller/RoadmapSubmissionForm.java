@@ -45,6 +45,7 @@ final class RoadmapSubmissionForm {
         }
 
         ProjectSubmission submission = new ProjectSubmission(project);
+        submission.setLinks(ProjectLinkForm.parse(req));
         for (int i = 0; i < MAX_TECH_NOTES; i++) {
             String name = trimToNull(req.getParameter("techName_" + i));
             String desc = trimToNull(req.getParameter("techDesc_" + i));

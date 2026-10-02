@@ -3,13 +3,16 @@ package com.specodyssey.service;
 import com.specodyssey.dao.JobAliasDao;
 import com.specodyssey.dao.JobDao;
 import com.specodyssey.dao.UserDao;
+import com.specodyssey.dao.ProjectLinkDao;
 import com.specodyssey.dao.UserProjectDao;
 import com.specodyssey.dao.UserSkillDao;
 import com.specodyssey.dao.UserSpecDao;
 import com.specodyssey.dto.JobAliasDto;
 import com.specodyssey.dto.JobDto;
 import com.specodyssey.dto.UserDto;
+import com.specodyssey.dto.ProjectLinkDto;
 import com.specodyssey.dto.UserProjectDto;
+import com.specodyssey.util.UrlRules;
 import com.specodyssey.dto.UserSkillDto;
 import com.specodyssey.dto.UserSpecDto;
 import com.specodyssey.util.EditDistanceUtil;
@@ -37,6 +40,7 @@ public class ProfileService {
     private final UserDao userDao = new UserDao();
     private final UserSpecDao userSpecDao = new UserSpecDao();
     private final UserProjectDao userProjectDao = new UserProjectDao();
+    private final ProjectLinkDao projectLinkDao = new ProjectLinkDao();
     private final UserSkillDao userSkillDao = new UserSkillDao();
     private final JobDao jobDao = new JobDao();
     private final JobAliasDao jobAliasDao = new JobAliasDao();
@@ -213,15 +217,63 @@ public class ProfileService {
     }
 
     public Long addProject(Long userId, UserProjectDto project) throws SQLException {
+        return addProject(userId, project, null);
+    }
+
+    /**
+     * @param links 기타 링크 — null이면 입력칸이 없던 요청이라 건드리지 않는다(새 프로젝트면 링크 없음)
+     * @throws IllegalArgumentException 저장소·배포·기타 링크가 웹 주소가 아니거나 개수·길이가 넘을 때
+     */
+    public Long addProject(Long userId, UserProjectDto project, List<ProjectLinkDto> links) throws SQLException {
+        validateProjectUrls(project);
+        List<ProjectLinkDto> normalized = links == null ? null : ProjectLinkService.normalize(links);
         project.setUserId(userId);
-        return runInTransaction(userId, conn -> userProjectDao.insert(conn, project));
+        return runInTransaction(userId, conn -> {
+            Long projectId = userProjectDao.insert(conn, project);
+            if (normalized != null) {
+                projectLinkDao.replaceForProject(conn, projectId, normalized);
+            }
+            return projectId;
+        });
     }
 
     public void updateProject(Long userId, UserProjectDto project) throws SQLException {
+        updateProject(userId, project, null);
+    }
+
+    /**
+     * 프로필 화면의 프로젝트 수정. 이 화면에 없는 값(완료 회고)은 기존 값을 그대로 둔다 — 안 그러면 수정할 때마다
+     * 로드맵에서 제출한 회고가 지워진다. 본인 프로젝트가 아니면 아무 것도 바꾸지 않는다.
+     */
+    public void updateProject(Long userId, UserProjectDto project, List<ProjectLinkDto> links) throws SQLException {
+        validateProjectUrls(project);
+        List<ProjectLinkDto> normalized = links == null ? null : ProjectLinkService.normalize(links);
         runInTransaction(userId, conn -> {
+            UserProjectDto existing = userProjectDao.findById(conn, project.getId(), userId);
+            if (existing == null) {
+                return null;
+            }
+            project.setRetrospective(existing.getRetrospective());
             userProjectDao.update(conn, project, userId);
+            if (normalized != null) {
+                projectLinkDao.replaceForProject(conn, existing.getId(), normalized);
+            }
             return null;
         });
+    }
+
+    /** 프로젝트에 붙은 기타 링크(프로젝트 id → 링크 목록). 링크가 없는 프로젝트는 키가 없다. */
+    public java.util.Map<Long, List<ProjectLinkDto>> getProjectLinks(List<UserProjectDto> projects) throws SQLException {
+        List<Long> ids = new java.util.ArrayList<>();
+        for (UserProjectDto project : projects) {
+            ids.add(project.getId());
+        }
+        return projectLinkDao.findByProjectIds(ids);
+    }
+
+    private void validateProjectUrls(UserProjectDto project) {
+        UrlRules.requireWebUrlIfPresent(project.getRepoUrl(), "코드 저장소 링크");
+        UrlRules.requireWebUrlIfPresent(project.getDeployUrl(), "배포 주소");
     }
 
     public void deleteProject(Long userId, Long projectId) throws SQLException {

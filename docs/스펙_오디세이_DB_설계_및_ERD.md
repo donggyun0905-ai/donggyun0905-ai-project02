@@ -1,7 +1,7 @@
 # 스펙 오디세이 — DB 설계 및 ERD
 
-> 요구사항 명세서(총정리본 v2) 기준으로 설계한 테이블 46개. 관계(FK) 70개, 컬럼 318개(공통 컬럼 3개 제외).
-> (2026-10-01 기준 — 기술 글 게시판 6개, 프로젝트 문서 2개가 늘었다. 실제 DB와 `information_schema`로 대조해 맞춘 숫자다.)
+> 요구사항 명세서(총정리본 v2) 기준으로 설계한 테이블 47개. 관계(FK) 71개, 컬럼 323개(공통 컬럼 3개 제외).
+> (2026-10-02 기준 — 기술 글 게시판 6개, 프로젝트 문서 2개, 프로젝트 기타 링크 1개가 늘었다. 실제 DB와 `information_schema`로 대조해 맞춘 숫자다.)
 > 이 문서가 스키마의 기준입니다. 구조를 바꿔야 하면 먼저 팀에 확인하세요.
 
 ## 공통 규칙
@@ -114,6 +114,7 @@ erDiagram
     SKILL ||--o{ PROJECT_TECH_NOTE : "기술"
     USER_PROJECTS ||--o{ PROJECT_DOCUMENT_ITEM : "문서 체크리스트"
     DOCUMENTS ||--o{ PROJECT_DOCUMENT_ITEM : "제출 파일"
+    USER_PROJECTS ||--o{ PROJECT_LINK : "기타 링크"
 ```
 
 ## 테이블 정의
@@ -244,6 +245,26 @@ README·실행 화면 캡처·기획서·설계 문서·API 명세서·테스트
 - 필수는 README와 SCREENSHOT 둘뿐이다. 이 둘은 "없음"을 못 누른다(애플리케이션 규칙). 5분이 안 걸리면서 "이게 실제로 존재하고 동작한다"는 최소 증빙이 확실히 되고, 그 이상 늘리면 학습 로직 자체를 회피하게 될 위험이 있다.
 - 완료 판정 규칙: doc_type이 README, SCREENSHOT인 두 행의 status가 둘 다 SUBMITTED여야 로드맵 PROJECT 단계를 완료 처리한다.
 - 복합 UNIQUE (project_id, doc_type) — 같은 종류 문서를 중복 체크하지 않게.
+
+#### PROJECT_LINK (프로젝트 기타 링크) — 신설
+
+관련 요구사항: FR-24 · FR-81
+
+저장소(repo_url)·배포(deploy_url) 말고도 블로그 글, 발표 영상, 노션 등 프로젝트를 보여줄 링크를 이름 + 주소로 프로젝트당 최대 5개까지 받는 곳. 면접관 공유 타임라인에도 같이 보인다.
+
+| 컬럼 | 타입 | 키 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK | 식별자 |
+| `project_id` | BIGINT | FK | → USER_PROJECTS |
+| `label` | VARCHAR(50) |  | 링크 이름(예: 블로그 글). 비워도 된다 |
+| `url` | VARCHAR(500) |  | http/https 주소 |
+| `sort_order` | INT |  | 입력 순서 |
+
+설계 판단:
+
+- 링크가 늘어날 때마다 USER_PROJECTS에 컬럼을 더하지 않으려고 별도 테이블로 뒀다. 이름(label)은 비워도 되고, 비우면 화면에서 주소의 도메인을 대신 보여준다.
+- 수정은 "프로젝트의 링크를 통째로 바꾸는" 한 동작이다 — 기존 줄을 is_deleted로 지우고 새로 넣는다. 그래서 UNIQUE를 두지 않았고 sort_order로 입력 순서를 지킨다.
+- 주소는 http/https만 허용한다. 저장할 때와 면접관 화면에 내보낼 때 둘 다 확인해서 javascript: 같은 주소가 링크로 실행되지 않게 한다(NFR-4 취지). 프로젝트당 최대 5개는 애플리케이션 규칙이다.
 
 #### USER_SKILLS (보유 기술 스택)
 

@@ -2,18 +2,20 @@ package com.specodyssey.service;
 
 import com.specodyssey.dao.DocumentDao;
 import com.specodyssey.dao.ProjectDocumentItemDao;
+import com.specodyssey.dao.ProjectLinkDao;
 import com.specodyssey.dao.ProjectTechNoteDao;
 import com.specodyssey.dao.SkillAliasDao;
 import com.specodyssey.dao.SkillDao;
 import com.specodyssey.dao.UserProjectDao;
 import com.specodyssey.dto.DocumentDto;
 import com.specodyssey.dto.ProjectDocumentItemDto;
+import com.specodyssey.dto.ProjectLinkDto;
 import com.specodyssey.dto.ProjectTechNoteDto;
 import com.specodyssey.dto.SkillAliasDto;
 import com.specodyssey.dto.SkillDto;
 import com.specodyssey.dto.UserProjectDto;
+import com.specodyssey.util.UrlRules;
 
-import java.net.URI;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
@@ -41,7 +43,6 @@ public class ProjectSubmissionService {
     public static final String STATUS_SUBMITTED = "SUBMITTED";
     public static final String STATUS_NOT_APPLICABLE = "NOT_APPLICABLE";
 
-    static final int MAX_URL_LENGTH = 500;
     static final int MAX_RETROSPECTIVE_LENGTH = 1000;
     static final int MAX_NOTE_LENGTH = 1000;
 
@@ -61,6 +62,7 @@ public class ProjectSubmissionService {
     private final DocumentDao documentDao = new DocumentDao();
     private final ProjectDocumentItemDao itemDao = new ProjectDocumentItemDao();
     private final ProjectTechNoteDao noteDao = new ProjectTechNoteDao();
+    private final ProjectLinkDao linkDao = new ProjectLinkDao();
     private final SkillDao skillDao = new SkillDao();
     private final SkillAliasDao skillAliasDao = new SkillAliasDao();
 
@@ -69,11 +71,18 @@ public class ProjectSubmissionService {
         private final UserProjectDto project;
         private final Map<String, DraftDoc> docs;
         private final List<ProjectTechNoteDto> notes;
+        private final List<ProjectLinkDto> links;
 
-        ProjectDraft(UserProjectDto project, Map<String, DraftDoc> docs, List<ProjectTechNoteDto> notes) {
+        ProjectDraft(UserProjectDto project, Map<String, DraftDoc> docs, List<ProjectTechNoteDto> notes,
+                     List<ProjectLinkDto> links) {
             this.project = project;
             this.docs = docs;
             this.notes = notes;
+            this.links = links;
+        }
+
+        public List<ProjectLinkDto> getLinks() {
+            return links;
         }
 
         public UserProjectDto getProject() {
@@ -127,7 +136,8 @@ public class ProjectSubmissionService {
         if (project == null) {
             return null;
         }
-        return new ProjectDraft(project, currentDocs(projectId), noteDao.findByProjectId(projectId));
+        return new ProjectDraft(project, currentDocs(projectId), noteDao.findByProjectId(projectId),
+                linkDao.findByProjectId(projectId));
     }
 
     // 이전 제출 상태 — 파일이 서류 보관함에서 지워졌으면 "제출됨"이 아니다(항목은 삭제 때 이미 풀렸지만 한 번 더 확인).
@@ -153,8 +163,11 @@ public class ProjectSubmissionService {
      */
     public void validate(ProjectSubmission submission, Long existingProjectId) throws SQLException {
         UserProjectDto project = submission.getProject();
-        requireUrl(project.getRepoUrl(), "코드 저장소 링크");
-        requireUrl(project.getDeployUrl(), "배포 주소");
+        UrlRules.requireWebUrlIfPresent(project.getRepoUrl(), "코드 저장소 링크");
+        UrlRules.requireWebUrlIfPresent(project.getDeployUrl(), "배포 주소");
+        if (submission.getLinks() != null) {
+            submission.setLinks(ProjectLinkService.normalize(submission.getLinks()));
+        }
         if (project.getRetrospective() != null && project.getRetrospective().length() > MAX_RETROSPECTIVE_LENGTH) {
             throw new IllegalArgumentException("완료 회고는 " + MAX_RETROSPECTIVE_LENGTH + "자 이내로 적어주세요.");
         }
@@ -228,6 +241,10 @@ public class ProjectSubmissionService {
             insertDocument(conn, userId, stepId, projectId, file);
         }
 
+        if (submission.getLinks() != null) {
+            linkDao.replaceForProject(conn, projectId, submission.getLinks());
+        }
+
         for (ProjectSubmission.TechNote note : submission.getTechNotes()) {
             if (note.getDescription() == null || note.getDescription().isBlank()) {
                 continue;
@@ -267,24 +284,5 @@ public class ProjectSubmissionService {
         }
         SkillAliasDto alias = skillAliasDao.findByAliasName(name);
         return alias == null ? null : alias.getSkillId();
-    }
-
-    private static void requireUrl(String value, String label) {
-        if (value == null) {
-            return;
-        }
-        if (value.length() > MAX_URL_LENGTH) {
-            throw new IllegalArgumentException(label + "는 " + MAX_URL_LENGTH + "자 이내로 입력해주세요.");
-        }
-        try {
-            URI uri = URI.create(value);
-            String scheme = uri.getScheme();
-            boolean web = "http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme);
-            if (!web || uri.getHost() == null) {
-                throw new IllegalArgumentException(label + "는 http:// 또는 https://로 시작하는 주소여야 합니다.");
-            }
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(label + "는 http:// 또는 https://로 시작하는 올바른 주소여야 합니다.");
-        }
     }
 }

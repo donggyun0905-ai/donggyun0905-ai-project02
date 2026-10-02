@@ -1,6 +1,7 @@
 package com.specodyssey.service;
 
 import com.specodyssey.dto.DocumentDto;
+import com.specodyssey.dto.ProjectLinkDto;
 import com.specodyssey.dto.UserProjectDto;
 
 import java.util.ArrayList;
@@ -72,6 +73,8 @@ public class ProjectSubmission {
     private final List<DocumentDto> extraFiles = new ArrayList<>();
     // 저장 결과: SKILL 마스터에 없는 기술이라 설명서를 저장하지 못한 기술 이름 — 화면에 알려준다
     private final List<String> skippedTechNotes = new ArrayList<>();
+    // 기타 링크 — null이면 "이번 제출에 링크 입력칸이 없었다"(기존 링크를 그대로 둔다), 빈 목록이면 "모두 지움"
+    private List<ProjectLinkDto> links;
 
     public ProjectSubmission(UserProjectDto project) {
         this.project = project;
@@ -91,6 +94,14 @@ public class ProjectSubmission {
 
     public List<DocumentDto> getExtraFiles() {
         return extraFiles;
+    }
+
+    public List<ProjectLinkDto> getLinks() {
+        return links;
+    }
+
+    public void setLinks(List<ProjectLinkDto> links) {
+        this.links = links;
     }
 
     public List<String> getSkippedTechNotes() {
