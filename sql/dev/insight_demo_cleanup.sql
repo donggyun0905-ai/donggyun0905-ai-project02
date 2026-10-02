@@ -1,10 +1,13 @@
 -- =========================================================
 -- 데이터 인사이트 확인용 데모 데이터 삭제 (insight_demo_seed.sql로 넣은 것 전부)
 -- 대상: login_id가 insight_demo / insight_peer_ 로 시작하는 사용자와 그 사용자의 모든 행,
---       generated_at = '2026-10-01 00:00:00' 으로 표시한 백엔드 개발자(job_id=1) 참고 루트
+--       예전 버전 시드가 넣었던 참고 루트(generated_at = '2026-10-01 00:00:00'로 표시한 것)
 -- 데모 전용 데이터라 논리 삭제가 아니라 실제로 지운다.
 -- =========================================================
 SET NAMES utf8mb4;
+
+-- 직무 id는 DB를 다시 만들 때마다 바뀌므로 이름으로 찾는다
+SET @job := (SELECT id FROM JOB WHERE job_name = '백엔드 개발자' AND is_deleted = FALSE LIMIT 1);
 
 DROP TEMPORARY TABLE IF EXISTS tmp_demo_users;
 CREATE TEMPORARY TABLE tmp_demo_users AS
@@ -32,6 +35,6 @@ DELETE FROM DDAY_ALERT WHERE user_id IN (SELECT id FROM tmp_demo_users);
 DELETE FROM AI_USAGE_LOG WHERE user_id IN (SELECT id FROM tmp_demo_users);
 DELETE FROM USERS WHERE id IN (SELECT id FROM tmp_demo_users);
 
-DELETE FROM JOB_BENCHMARK_SPEC WHERE job_id = 1 AND generated_at = '2026-10-01 00:00:00';
+DELETE FROM JOB_BENCHMARK_SPEC WHERE job_id = @job AND generated_at = '2026-10-01 00:00:00';
 
 DROP TEMPORARY TABLE tmp_demo_users;
