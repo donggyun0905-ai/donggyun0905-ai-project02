@@ -46,8 +46,12 @@ INSERT IGNORE INTO SCORING_RULE (rule_key, rule_value, description) VALUES
     ('TREND_STUDY_POINTS',            40, '트렌딩 학습 점수(고정)'),
     ('UPKEEP_POINTS_DECAY',           10, '유지 단계 감쇠 폭'),
     ('UPKEEP_POINTS_MIN',              5, '유지 단계 최저 점수'),
-    ('DAILY_POINTS_1',                15, '일일 문제 풀이 점수 — 등급 1번째(비기너)'),
-    ('DAILY_POINTS_2',                15, '일일 문제 풀이 점수 — 등급 2번째(취준생)'),
-    ('DAILY_POINTS_3',                20, '일일 문제 풀이 점수 — 등급 3번째(실전러)'),
-    ('DAILY_POINTS_4',                25, '일일 문제 풀이 점수 — 등급 4번째(취뽀 임박)'),
-    ('DAILY_POINTS_5',                30, '일일 문제 풀이 점수 — 등급 5번째(취뽀)');
+    ('DAILY_POINTS_1',               6, '일일 문제 풀이 점수 — 등급 1번째(비기너)'),
+    ('DAILY_POINTS_2',               6, '일일 문제 풀이 점수 — 등급 2번째(취준생)'),
+    ('DAILY_POINTS_3',               8, '일일 문제 풀이 점수 — 등급 3번째(실전러)'),
+    ('DAILY_POINTS_4',              10, '일일 문제 풀이 점수 — 등급 4번째(취뽀 임박)'),
+    ('DAILY_POINTS_5',              12, '일일 문제 풀이 점수 — 등급 5번째(취뽀)'),
+    ('STREAK_BONUS_PER_DAY',           2, '일일 문제 연속 보너스 — 연속 하루마다 늘어나는 점수(2일째부터)'),
+    ('STREAK_BONUS_MAX',              20, '일일 문제 연속 보너스 상한(하루치)'),
+    ('STREAK_BONUS_DAY7',             30, '7일 연속 달성일에 더 붙는 보너스'),
+    ('STREAK_BONUS_DAY30',           100, '30일 연속 달성일에 더 붙는 보너스');

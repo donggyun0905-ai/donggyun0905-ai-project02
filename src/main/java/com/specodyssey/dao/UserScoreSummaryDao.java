@@ -44,9 +44,15 @@ public class UserScoreSummaryDao {
     }
 
     public UserScoreSummaryDto findByUserId(Long userId) throws SQLException {
+        try (Connection conn = DBUtil.getConnection()) {
+            return findByUserId(conn, userId);
+        }
+    }
+
+    // 트랜잭션 안에서 앞선 적립을 반영한 값을 읽어야 할 때 — 같은 연결로 읽는다
+    public UserScoreSummaryDto findByUserId(Connection conn, Long userId) throws SQLException {
         String sql = "SELECT " + COLUMNS + " FROM USER_SCORE_SUMMARY WHERE user_id = ? AND is_deleted = FALSE";
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 return rs.next() ? mapRow(rs) : null;

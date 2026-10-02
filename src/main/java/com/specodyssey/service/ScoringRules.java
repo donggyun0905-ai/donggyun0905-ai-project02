@@ -32,6 +32,10 @@ final class ScoringRules {
     static final String TREND_STUDY_POINTS = "TREND_STUDY_POINTS";
     static final String UPKEEP_POINTS_DECAY = "UPKEEP_POINTS_DECAY";
     static final String UPKEEP_POINTS_MIN = "UPKEEP_POINTS_MIN";
+    static final String STREAK_BONUS_PER_DAY = "STREAK_BONUS_PER_DAY";
+    static final String STREAK_BONUS_MAX = "STREAK_BONUS_MAX";
+    static final String STREAK_BONUS_DAY7 = "STREAK_BONUS_DAY7";
+    static final String STREAK_BONUS_DAY30 = "STREAK_BONUS_DAY30";
     static final String DAILY_POINTS_PREFIX = "DAILY_POINTS_"; // 1..5 = 등급 순서별 문제 풀이 점수
 
     private static final long CACHE_MILLIS = 60_000L;
@@ -63,11 +67,15 @@ final class ScoringRules {
             Map.entry(TREND_STUDY_POINTS, 40),
             Map.entry(UPKEEP_POINTS_DECAY, 10),
             Map.entry(UPKEEP_POINTS_MIN, 5),
-            Map.entry("DAILY_POINTS_1", 15),
-            Map.entry("DAILY_POINTS_2", 15),
-            Map.entry("DAILY_POINTS_3", 20),
-            Map.entry("DAILY_POINTS_4", 25),
-            Map.entry("DAILY_POINTS_5", 30));
+            Map.entry("DAILY_POINTS_1", 6),
+            Map.entry("DAILY_POINTS_2", 6),
+            Map.entry("DAILY_POINTS_3", 8),
+            Map.entry("DAILY_POINTS_4", 10),
+            Map.entry("DAILY_POINTS_5", 12),
+            Map.entry(STREAK_BONUS_PER_DAY, 2),
+            Map.entry(STREAK_BONUS_MAX, 20),
+            Map.entry(STREAK_BONUS_DAY7, 30),
+            Map.entry(STREAK_BONUS_DAY30, 100));
 
     private static final ScoringRuleDao DAO = new ScoringRuleDao();
 
@@ -92,7 +100,8 @@ final class ScoringRules {
     }
 
     private static boolean allowsZero(String key) {
-        return REVIEW_POINTS_DECAY.equals(key) || UPKEEP_POINTS_DECAY.equals(key);
+        return REVIEW_POINTS_DECAY.equals(key) || UPKEEP_POINTS_DECAY.equals(key)
+                || STREAK_BONUS_PER_DAY.equals(key) || STREAK_BONUS_DAY7.equals(key) || STREAK_BONUS_DAY30.equals(key);
     }
 
     // 값을 바꾼 직후(관리 도구·테스트) 바로 반영하고 싶을 때
