@@ -4,6 +4,7 @@ import com.specodyssey.dto.DocumentDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.service.DocumentService;
 import com.specodyssey.util.FileStorageUtil;
+import com.specodyssey.util.Pager;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.MultipartConfig;
@@ -32,6 +33,7 @@ public class DocumentsManageServlet extends HttpServlet {
 
     private static final String MESSAGE_KEY = "documentsMessage";
     private static final String ERROR_KEY = "documentsError";
+    private static final int PAGE_SIZE = 10;
 
     private final DocumentService documentService = new DocumentService();
 
@@ -39,7 +41,10 @@ public class DocumentsManageServlet extends HttpServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         Long userId = currentUserId(req);
         try {
-            req.setAttribute("documents", documentService.listViews(userId));
+            Pager<DocumentService.DocumentView> pager =
+                    Pager.of(documentService.listViews(userId), Pager.parsePage(req.getParameter("page")), PAGE_SIZE);
+            req.setAttribute("documents", pager.getItems());
+            req.setAttribute("pager", pager);
             req.setAttribute("projects", documentService.listProjects(userId));
         } catch (SQLException e) {
             throw new ServletException("서류 목록을 불러오는 중 오류가 발생했습니다.", e);
@@ -114,7 +119,7 @@ public class DocumentsManageServlet extends HttpServlet {
         document.setStoredName(saved.getStoredName());
         document.setFilePath(saved.getFilePath());
         document.setFileSize(saved.getFileSize());
-        document.setMimeType(part.getContentType());
+        document.setMimeType(FileStorageUtil.mimeTypeFor(originalName));
         document.setChecksum(saved.getChecksum());
         try {
             documentService.upload(userId, document, projectId);

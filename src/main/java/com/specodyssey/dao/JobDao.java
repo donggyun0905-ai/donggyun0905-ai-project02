@@ -17,8 +17,13 @@ import java.util.List;
  */
 public class JobDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, job_name, job_category, is_popular, last_collected_at, " +
+            "requirement_version, created_at, updated_at, is_deleted";
+
     public List<JobDto> findAll() throws SQLException {
-        String sql = "SELECT * FROM JOB WHERE is_deleted = FALSE ORDER BY job_name";
+        String sql = "SELECT " + COLUMNS + " FROM JOB WHERE is_deleted = FALSE ORDER BY job_name";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {
@@ -32,7 +37,7 @@ public class JobDao {
 
     // FR-32 로드맵 생성 시 목표 직무의 job_category(자격증 매칭 등)를 조회하는 데 쓰인다.
     public JobDto findById(Long id) throws SQLException {
-        String sql = "SELECT * FROM JOB WHERE id = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM JOB WHERE id = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, id);
@@ -45,7 +50,7 @@ public class JobDao {
     // 프로필의 희망 직무 검색창 — 정식 명칭을 그대로 입력했을 때 매칭용.
     // utf8mb4_unicode_ci 콜레이션이라 대소문자 구분 없이 매칭된다.
     public JobDto findByName(String jobName) throws SQLException {
-        String sql = "SELECT * FROM JOB WHERE job_name = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM JOB WHERE job_name = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, jobName);

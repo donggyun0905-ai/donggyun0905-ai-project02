@@ -19,6 +19,13 @@ import java.util.List;
  */
 public class UserDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, user_type, login_id, password_hash, name, age, career_status, email, " +
+            "major, grade, interest_field, desired_job_id, desired_job_status, " +
+            "resume_document_id, cover_letter_document_id, privacy_consent_at, recovery_code_hash, " +
+            "profile_updated_at, last_login_at, created_at, updated_at, is_deleted";
+
     // FR-11~13 회원가입
     public Long insert(UserDto user) throws SQLException {
         String sql = "INSERT INTO USERS " +
@@ -55,7 +62,7 @@ public class UserDao {
 
     // SpecScoreScheduler의 일 1회 전체 스냅샷 배치용
     public List<UserDto> findAll() throws SQLException {
-        String sql = "SELECT * FROM USERS WHERE is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM USERS WHERE is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {
@@ -82,7 +89,7 @@ public class UserDao {
 
     // FR-12 로그인
     public UserDto findByLoginId(String loginId) throws SQLException {
-        String sql = "SELECT * FROM USERS WHERE login_id = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM USERS WHERE login_id = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -95,7 +102,7 @@ public class UserDao {
 
     // 세션 기반 본인 프로필 조회
     public UserDto findById(Long id) throws SQLException {
-        String sql = "SELECT * FROM USERS WHERE id = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM USERS WHERE id = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -186,6 +193,41 @@ public class UserDao {
     }
 
     // FR-12 로그인 성공 시 마지막 접속 시각 갱신
+    // 비밀번호 변경 — 새 해시만 바꾼다. 본인(id) 한 행만 대상이고 탈퇴한 계정은 건드리지 않는다.
+    public boolean updatePasswordHash(Long userId, String passwordHash) throws SQLException {
+        String sql = "UPDATE USERS SET password_hash = ? WHERE id = ? AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, passwordHash);
+            pstmt.setLong(2, userId);
+            return pstmt.executeUpdate() > 0;
+        }
+    }
+
+    // 복구 코드(해시)를 새로 정한다 — 발급·재발급. 이전 코드는 이 순간부터 쓸 수 없다.
+    public boolean updateRecoveryCodeHash(Long userId, String recoveryCodeHash) throws SQLException {
+        String sql = "UPDATE USERS SET recovery_code_hash = ? WHERE id = ? AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, recoveryCodeHash);
+            pstmt.setLong(2, userId);
+            return pstmt.executeUpdate() > 0;
+        }
+    }
+
+    // 복구 코드로 비밀번호를 찾을 때 — 새 비밀번호와 새 복구 코드를 한 번에 바꾼다(쓴 코드는 바로 못 쓰게).
+    public boolean resetPasswordAndRecoveryCode(Long userId, String passwordHash, String recoveryCodeHash)
+            throws SQLException {
+        String sql = "UPDATE USERS SET password_hash = ?, recovery_code_hash = ? WHERE id = ? AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, passwordHash);
+            pstmt.setString(2, recoveryCodeHash);
+            pstmt.setLong(3, userId);
+            return pstmt.executeUpdate() > 0;
+        }
+    }
+
     public void updateLastLogin(Long id) throws SQLException {
         String sql = "UPDATE USERS SET last_login_at = CURRENT_TIMESTAMP WHERE id = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
@@ -205,9 +247,11 @@ public class UserDao {
         }
     }
 
-    // FR-13 회원 탈퇴 — 논리 삭제
+    // FR-13 회원 탈퇴 — 논리 삭제. login_id가 UNIQUE라서 탈퇴한 아이디가 그대로 남으면 같은 아이디로 다시 가입할 수 없다
+    // ("이미 사용 중"). 그래서 앞에 del_<id>_를 붙여 비워 준다(id가 앞에 있어 잘려도 겹치지 않는다). 탈퇴 계정은 로그인할 수 없다.
     public void softDelete(Long id) throws SQLException {
-        String sql = "UPDATE USERS SET is_deleted = TRUE WHERE id = ?";
+        String sql = "UPDATE USERS SET is_deleted = TRUE, login_id = LEFT(CONCAT('del_', id, '_', login_id), 50) " +
+                "WHERE id = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -234,6 +278,7 @@ public class UserDao {
         user.setResumeDocumentId(rs.getObject("resume_document_id", Long.class));
         user.setCoverLetterDocumentId(rs.getObject("cover_letter_document_id", Long.class));
         user.setPrivacyConsentAt(toLocalDateTime(rs.getTimestamp("privacy_consent_at")));
+        user.setRecoveryCodeHash(rs.getString("recovery_code_hash"));
         user.setProfileUpdatedAt(toLocalDateTime(rs.getTimestamp("profile_updated_at")));
         user.setLastLoginAt(toLocalDateTime(rs.getTimestamp("last_login_at")));
         user.setCreatedAt(toLocalDateTime(rs.getTimestamp("created_at")));

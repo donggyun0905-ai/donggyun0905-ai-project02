@@ -21,6 +21,12 @@ import java.util.List;
  */
 public class UserProjectDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, user_id, title, description, tech_stack, start_date, end_date, " +
+            "upgraded_from_project_id, repo_url, deploy_url, retrospective, created_at, " +
+            "updated_at, is_deleted";
+
     public Long insert(UserProjectDto project) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, project);
@@ -50,7 +56,7 @@ public class UserProjectDao {
     }
 
     public List<UserProjectDto> findByUserId(Long userId) throws SQLException {
-        String sql = "SELECT * FROM USER_PROJECTS WHERE user_id = ? AND is_deleted = FALSE ORDER BY start_date DESC";
+        String sql = "SELECT " + COLUMNS + " FROM USER_PROJECTS WHERE user_id = ? AND is_deleted = FALSE ORDER BY start_date DESC";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);
@@ -68,7 +74,7 @@ public class UserProjectDao {
     // 본인 소유인지 확인하는 용도(RoadmapService.submitSkillProjectStep) — user_id를 조건에 넣어
     // 다른 사용자의 프로젝트를 업그레이드 대상으로 지정할 수 없게 막는다.
     public UserProjectDto findById(Connection conn, Long id, Long userId) throws SQLException {
-        String sql = "SELECT * FROM USER_PROJECTS WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM USER_PROJECTS WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, id);
             pstmt.setLong(2, userId);
@@ -101,6 +107,17 @@ public class UserProjectDao {
             pstmt.setLong(9, project.getId());
             pstmt.setLong(10, userId);
             pstmt.executeUpdate();
+        }
+    }
+
+    // 프로젝트 "업데이트" 단계를 끝내면 마지막으로 손본 시각(updated_at)을 지금으로 — 다음 업데이트 주기가 여기서부터 다시 센다.
+    public int touch(Connection conn, Long projectId, Long userId) throws SQLException {
+        String sql = "UPDATE USER_PROJECTS SET updated_at = CURRENT_TIMESTAMP " +
+                "WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, projectId);
+            pstmt.setLong(2, userId);
+            return pstmt.executeUpdate();
         }
     }
 

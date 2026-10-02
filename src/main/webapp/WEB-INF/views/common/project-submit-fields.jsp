@@ -25,6 +25,8 @@
     <span style="flex:1;"><label>코드 저장소 링크 (선택)</label><input type="url" name="repoUrl" value="<c:out value='${pRepo}' />" placeholder="https://github.com/..."></span>
     <span style="flex:1;"><label>배포 주소 (선택)</label><input type="url" name="deployUrl" value="<c:out value='${pDeploy}' />" placeholder="https://..."></span>
 </p>
+<c:set var="linkRows" value="${draft.links}" />
+<%@ include file="/WEB-INF/views/common/project-link-fields.jspf" %>
 <p><label>완료 회고 (선택, 1000자 이내)</label><textarea name="retrospective" maxlength="1000" placeholder="무엇을 배웠고 어디가 아쉬웠는지"><c:out value="${pRetro}" /></textarea></p>
 
 <fieldset style="border:1px solid var(--border, #ddd); border-radius:6px; padding:10px 12px; margin:10px 0;">

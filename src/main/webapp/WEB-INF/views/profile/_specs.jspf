@@ -1,0 +1,57 @@
+<h2 style="margin-top:24px; margin-bottom:10px;">보유 스펙</h2>
+<ul class="item-list">
+    <c:forEach var="spec" items="${specs}">
+        <li class="spread">
+            <span>
+                [${spec.specType}] ${spec.title}
+                <c:if test="${not empty spec.issuer}"> · ${spec.issuer}</c:if>
+                <c:if test="${not empty spec.score}"> · ${spec.score}</c:if>
+                <c:if test="${not empty spec.acquiredDate}"> · ${spec.acquiredDate}</c:if>
+            </span>
+            <span class="row" style="gap:8px;">
+                <details class="inline-form">
+                    <summary>수정</summary>
+                    <form action="${pageContext.request.contextPath}/profile/specs" method="post">
+                        <input type="hidden" name="_csrf" value="${csrfToken}">
+                        <input type="hidden" name="action" value="update">
+                        <input type="hidden" name="specId" value="${spec.id}">
+                        <p>
+                            <select name="specType">
+                                <option value="CERT" ${spec.specType == 'CERT' ? 'selected' : ''}>자격증</option>
+                                <option value="LANGUAGE" ${spec.specType == 'LANGUAGE' ? 'selected' : ''}>어학</option>
+                                <option value="AWARD" ${spec.specType == 'AWARD' ? 'selected' : ''}>수상</option>
+                            </select>
+                        </p>
+                        <p><input type="text" name="title" value="${spec.title}" placeholder="명칭" required></p>
+                        <p><input type="text" name="issuer" value="${spec.issuer}" placeholder="발급기관"></p>
+                        <p><input type="text" name="score" value="${spec.score}" placeholder="점수(어학 등)"></p>
+                        <p><input type="date" name="acquiredDate" value="${spec.acquiredDate}"></p>
+                        <button type="submit">저장</button>
+                    </form>
+                </details>
+                <form action="${pageContext.request.contextPath}/profile/specs" method="post" class="inline-form">
+                    <input type="hidden" name="_csrf" value="${csrfToken}">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="specId" value="${spec.id}">
+                    <button type="submit" class="link-button">삭제</button>
+                </form>
+            </span>
+        </li>
+    </c:forEach>
+</ul>
+<div class="card">
+    <form action="${pageContext.request.contextPath}/profile/specs" method="post" class="row">
+        <input type="hidden" name="_csrf" value="${csrfToken}">
+        <input type="hidden" name="action" value="add">
+        <select name="specType" style="width:auto;">
+            <option value="CERT">자격증</option>
+            <option value="LANGUAGE">어학</option>
+            <option value="AWARD">수상</option>
+        </select>
+        <input type="text" name="title" placeholder="명칭" required style="width:auto; flex-grow:1;">
+        <input type="text" name="issuer" placeholder="발급기관" style="width:auto;">
+        <input type="text" name="score" placeholder="점수(어학 등)" style="width:auto;">
+        <input type="date" name="acquiredDate" style="width:auto;">
+        <button type="submit">스펙 추가</button>
+    </form>
+</div>

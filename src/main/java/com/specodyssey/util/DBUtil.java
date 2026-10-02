@@ -1,9 +1,11 @@
 package com.specodyssey.util;
 
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
@@ -22,11 +24,12 @@ public final class DBUtil {
     private static final String DB_USER;
     private static final String DB_PASSWORD;
 
+    private static final Properties ENV = loadEnvFile();
+
     static {
-        Properties env = loadEnvFile();
-        DB_URL = firstNonNull(env.getProperty("DB_URL"), System.getenv("DB_URL"));
-        DB_USER = firstNonNull(env.getProperty("DB_USER"), System.getenv("DB_USER"));
-        DB_PASSWORD = firstNonNull(env.getProperty("DB_PASSWORD"), System.getenv("DB_PASSWORD"));
+        DB_URL = firstNonNull(ENV.getProperty("DB_URL"), System.getenv("DB_URL"));
+        DB_USER = firstNonNull(ENV.getProperty("DB_USER"), System.getenv("DB_USER"));
+        DB_PASSWORD = firstNonNull(ENV.getProperty("DB_PASSWORD"), System.getenv("DB_PASSWORD"));
 
         if (DB_URL == null || DB_USER == null || DB_PASSWORD == null) {
             throw new ExceptionInInitializerError(
@@ -49,109 +52,89 @@ public final class DBUtil {
     private DBUtil() {
     }
 
-    // ---------------------------------------------------------------- 간단한 커넥션 풀
-    // 호출마다 DriverManager로 새 연결(TCP + 인증)을 맺던 걸 재사용한다. 공유 DB가 원격이면 연결 한 번이
-    // 수십~수백 ms라서, 한 화면이 DAO를 여러 번 부르는 것만으로 느려졌다. 외부 라이브러리 없이 JDK만 쓴다.
-    // 호출부는 그대로 try-with-resources로 close()하면 되고, close()는 연결을 닫지 않고 풀에 돌려준다.
-    // 돌려줄 때 트랜잭션이 열려 있으면 롤백하고 autoCommit을 되돌려 다음 사용자에게 상태가 새지 않게 한다.
-    // 풀이 비면 새로 맺고(상한 없음 — 기존 동작과 같다), 풀에는 최대 MAX_IDLE개만 남긴다.
-    private static final int MAX_IDLE = 10;
-    private static final long VALIDATE_AFTER_IDLE_MILLIS = 5_000;
-    private static final long MAX_IDLE_MILLIS = 4 * 60_000; // 서버 wait_timeout보다 짧게
+    // ---------------------------------------------------------------- 커넥션 풀 (HikariCP)
+    // 호출마다 새 연결(TCP + 인증)을 맺던 걸 풀에서 빌려 쓴다. 공유 DB가 원격이면 연결 한 번이 수십~수백 ms라서
+    // 한 화면이 DAO를 여러 번 부르는 것만으로 느려졌다. 호출부는 그대로 try-with-resources로 close()하면 되고,
+    // close()는 연결을 닫지 않고 풀에 돌려준다(커밋 안 한 트랜잭션은 롤백, autoCommit은 원래대로 복구).
+    //
+    // 크기: 기본 최대 10개 / 최소 유휴 2개. 환경변수 DB_POOL_SIZE로 바꾼다(.env에도 쓸 수 있다).
+    // 주의: 트랜잭션(TransactionUtil) 안에서 DAO를 또 부르면 한 요청이 연결을 2개 쓴다 — 동시 요청이 많은데 풀이 너무
+    // 작으면 서로 기다리다 connectionTimeout(10초)에 실패할 수 있으니, 동시 사용자가 늘면 DB_POOL_SIZE를 키운다.
+    // 팀원 여럿이 같은 공유 DB를 쓰므로 (사람 수 × 최대 크기)가 DB의 max_connections를 넘지 않게 한다.
+    private static final int DEFAULT_POOL_SIZE = 10;
+    private static final int MIN_IDLE = 2;
+    private static final long CONNECTION_TIMEOUT_MS = 10_000;
+    private static final long IDLE_TIMEOUT_MS = 5 * 60_000;
+    private static final long MAX_LIFETIME_MS = 25 * 60_000; // 서버 wait_timeout(기본 8시간)·중간 장비보다 짧게
+    private static final long KEEPALIVE_MS = 2 * 60_000;
 
-    private static final class IdleConnection {
-        final Connection connection;
-        final long returnedAtMillis;
+    private static volatile HikariDataSource dataSource;
+    // 내려가는 중이면 새 풀을 다시 만들지 않는다 — 종료 직전 스케줄러 스레드가 마지막으로 DB를 부르면 닫은 풀이 되살아나 누수가 된다
+    private static volatile boolean shutDown;
 
-        IdleConnection(Connection connection, long returnedAtMillis) {
-            this.connection = connection;
-            this.returnedAtMillis = returnedAtMillis;
+    private static HikariDataSource pool() {
+        HikariDataSource ds = dataSource;
+        if (ds == null || ds.isClosed()) {
+            synchronized (DBUtil.class) {
+                ds = dataSource;
+                if (ds == null || ds.isClosed()) {
+                    ds = createPool();
+                    dataSource = ds;
+                }
+            }
         }
+        return ds;
     }
 
-    private static final java.util.ArrayDeque<IdleConnection> IDLE = new java.util.ArrayDeque<>();
+    private static HikariDataSource createPool() {
+        int size = poolSize();
+        HikariConfig config = new HikariConfig();
+        config.setPoolName("spec-odyssey");
+        config.setJdbcUrl(DB_URL);
+        config.setUsername(DB_USER);
+        config.setPassword(DB_PASSWORD);
+        config.setDriverClassName("com.mysql.cj.jdbc.Driver");
+        config.setMaximumPoolSize(size);
+        config.setMinimumIdle(Math.min(MIN_IDLE, size));
+        config.setConnectionTimeout(CONNECTION_TIMEOUT_MS);
+        config.setIdleTimeout(IDLE_TIMEOUT_MS);
+        config.setMaxLifetime(MAX_LIFETIME_MS);
+        config.setKeepaliveTime(KEEPALIVE_MS);
+        config.setAutoCommit(true);
+        return new HikariDataSource(config);
+    }
+
+    private static int poolSize() {
+        String configured = firstNonNull(ENV.getProperty("DB_POOL_SIZE"), System.getenv("DB_POOL_SIZE"));
+        if (configured != null) {
+            try {
+                int n = Integer.parseInt(configured.trim());
+                if (n >= 1 && n <= 100) {
+                    return n;
+                }
+            } catch (NumberFormatException ignored) {
+                // 잘못된 값이면 기본값을 쓴다
+            }
+        }
+        return DEFAULT_POOL_SIZE;
+    }
 
     public static Connection getConnection() throws SQLException {
-        long now = System.currentTimeMillis();
-        while (true) {
-            IdleConnection idle;
-            synchronized (IDLE) {
-                idle = IDLE.pollFirst();
-            }
-            if (idle == null) {
-                break;
-            }
-            long idleFor = now - idle.returnedAtMillis;
-            if (idleFor <= MAX_IDLE_MILLIS && (idleFor < VALIDATE_AFTER_IDLE_MILLIS || isAlive(idle.connection))) {
-                return wrap(idle.connection);
-            }
-            closeQuietly(idle.connection);
+        if (shutDown) {
+            throw new SQLException("애플리케이션이 내려가는 중이라 DB 연결을 새로 만들 수 없습니다.");
         }
-        return wrap(DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD));
+        return pool().getConnection();
     }
 
-    private static boolean isAlive(Connection conn) {
-        try {
-            return !conn.isClosed() && conn.isValid(2);
-        } catch (SQLException e) {
-            return false;
-        }
-    }
-
-    private static void closeQuietly(Connection conn) {
-        try {
-            conn.close();
-        } catch (SQLException ignored) {
-            // 이미 끊긴 연결 — 버리면 그만이다.
-        }
-    }
-
-    private static Connection wrap(Connection raw) {
-        java.util.concurrent.atomic.AtomicBoolean closed = new java.util.concurrent.atomic.AtomicBoolean(false);
-        return (Connection) java.lang.reflect.Proxy.newProxyInstance(
-                DBUtil.class.getClassLoader(), new Class<?>[] {Connection.class},
-                (proxy, method, args) -> {
-                    String name = method.getName();
-                    if ("close".equals(name)) {
-                        if (closed.compareAndSet(false, true)) {
-                            release(raw);
-                        }
-                        return null;
-                    }
-                    if ("isClosed".equals(name)) {
-                        return closed.get() || raw.isClosed();
-                    }
-                    if (closed.get()) {
-                        throw new SQLException("이미 반납한 커넥션입니다.");
-                    }
-                    try {
-                        return method.invoke(raw, args);
-                    } catch (java.lang.reflect.InvocationTargetException e) {
-                        throw e.getCause();
-                    }
-                });
-    }
-
-    private static void release(Connection raw) {
-        try {
-            if (raw.isClosed()) {
-                return;
+    /** 애플리케이션이 내려갈 때(재배포 포함) 풀을 닫는다 — 안 닫으면 풀 스레드와 DB 연결이 남는다. */
+    public static void shutdown() {
+        synchronized (DBUtil.class) {
+            shutDown = true;
+            if (dataSource != null && !dataSource.isClosed()) {
+                dataSource.close();
             }
-            if (!raw.getAutoCommit()) {
-                raw.rollback();
-                raw.setAutoCommit(true);
-            }
-        } catch (SQLException e) {
-            closeQuietly(raw);
-            return;
+            dataSource = null;
         }
-        synchronized (IDLE) {
-            if (IDLE.size() < MAX_IDLE) {
-                IDLE.addFirst(new IdleConnection(raw, System.currentTimeMillis()));
-                return;
-            }
-        }
-        closeQuietly(raw);
     }
 
     // src/main/resources/.env를 클래스패스에서 읽는다 — 배포 위치(WAR/exploded 등)와 무관하게 항상 같은 방식으로 찾는다.

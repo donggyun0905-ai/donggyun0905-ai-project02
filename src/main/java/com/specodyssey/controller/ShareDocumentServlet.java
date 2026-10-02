@@ -59,8 +59,10 @@ public class ShareDocumentServlet extends HttpServlet {
                 return;
             }
 
-            resp.setContentType(document.getMimeType() != null ? document.getMimeType() : "application/octet-stream");
-            resp.setHeader("Content-Disposition", "inline; filename*=UTF-8''"
+            // 브라우저가 보낸 MIME은 믿지 않고 확장자로 정하며, 스크립트가 돌 수 있는 형식은 열지 않고 내려받게만 한다
+            resp.setContentType(FileStorageUtil.mimeTypeFor(document.getOriginalName()));
+            String disposition = FileStorageUtil.isInlineSafe(document.getOriginalName()) ? "inline" : "attachment";
+            resp.setHeader("Content-Disposition", disposition + "; filename*=UTF-8''"
                     + URLEncoder.encode(document.getOriginalName(), StandardCharsets.UTF_8));
             FileStorageUtil.writeTo(document.getFilePath(), resp.getOutputStream());
         } catch (SQLException e) {

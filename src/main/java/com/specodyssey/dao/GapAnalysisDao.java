@@ -20,6 +20,11 @@ import java.util.List;
  */
 public class GapAnalysisDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, user_id, job_id, match_rate, job_requirement_version, analyzed_at, " +
+            "created_at, updated_at, is_deleted";
+
     public Long insert(GapAnalysisDto analysis) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, analysis);
@@ -50,7 +55,7 @@ public class GapAnalysisDao {
     // analyzed_at은 DATETIME(초 단위)이라 짧은 시간에 재분석하면 값이 같을 수 있다 — id DESC를
     // 2차 정렬로 둬서 동점일 때도 항상 더 나중에 만들어진(=더 큰 id) 쪽이 먼저 오게 한다.
     public List<GapAnalysisDto> findByUserId(Long userId) throws SQLException {
-        String sql = "SELECT * FROM GAP_ANALYSIS WHERE user_id = ? AND is_deleted = FALSE " +
+        String sql = "SELECT " + COLUMNS + " FROM GAP_ANALYSIS WHERE user_id = ? AND is_deleted = FALSE " +
                 "ORDER BY analyzed_at DESC, id DESC";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -66,7 +71,7 @@ public class GapAnalysisDao {
     }
 
     public GapAnalysisDto findById(Long id) throws SQLException {
-        String sql = "SELECT * FROM GAP_ANALYSIS WHERE id = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM GAP_ANALYSIS WHERE id = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, id);

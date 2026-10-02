@@ -37,4 +37,16 @@ class MissionStreakServiceTest {
         assertEquals(0, MissionStreakService.displayStreak(4, TODAY.minusDays(2), TODAY), "하루 비면 끊김");
         assertEquals(0, MissionStreakService.displayStreak(0, null, TODAY));
     }
+
+    @Test
+    void 연속_보너스는_둘째_날부터_하루마다_늘다가_상한에_멈추고_7일_30일째에_더_붙는다() {
+        assertEquals(0, MissionStreakService.bonusFor(1), "첫날은 없다");
+        assertEquals(2, MissionStreakService.bonusFor(2));
+        assertEquals(10, MissionStreakService.bonusFor(6));
+        assertEquals(12 + 30, MissionStreakService.bonusFor(7), "7일째는 큰 보너스가 더 붙는다");
+        assertEquals(20, MissionStreakService.bonusFor(11));
+        assertEquals(20, MissionStreakService.bonusFor(20), "상한");
+        assertEquals(20 + 100, MissionStreakService.bonusFor(30), "30일째");
+        assertEquals(20, MissionStreakService.bonusFor(31));
+    }
 }

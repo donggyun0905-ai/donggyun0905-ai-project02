@@ -811,6 +811,29 @@ CREATE TABLE PROJECT_DOCUMENT_ITEM (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =========================================================
+-- PROJECT_LINK (프로젝트 기타 링크) — 신설
+-- 저장소(repo_url)·배포(deploy_url) 말고도 블로그 글, 발표 영상, 노션 등 프로젝트를 보여줄 링크가 더 필요할 수 있어서
+-- 이름(label) + 주소(url)를 프로젝트당 최대 5개까지 받는다. 면접관 공유 타임라인에도 같이 보인다.
+-- 수정은 "기존 줄을 지우고(is_deleted) 새로 넣는" 방식이라 UNIQUE를 두지 않는다. sort_order로 입력 순서를 지킨다.
+-- 주소는 http/https만 허용한다 — 애플리케이션이 저장할 때와 면접관 화면에 보여줄 때 둘 다 확인한다.
+-- =========================================================
+CREATE TABLE PROJECT_LINK (
+    id            BIGINT       NOT NULL AUTO_INCREMENT,
+    project_id    BIGINT       NOT NULL,
+    label         VARCHAR(50)  NULL,     -- 링크 이름(예: 블로그 글, 발표 영상). 비우면 화면에서 주소의 도메인을 보여준다
+    url           VARCHAR(500) NOT NULL,
+    sort_order    INT          NOT NULL DEFAULT 0,
+    created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted    BOOLEAN      NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (id),
+    KEY idx_project_link_project_id (project_id),
+    CONSTRAINT fk_project_link_project
+        FOREIGN KEY (project_id) REFERENCES USER_PROJECTS (id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
 -- TECH_ARTICLE (기술 글 — 게시판) — 신설
 -- 로드맵 EXPERT 단계의 "기술 설명 글"을 서비스 안에서 블로그처럼 공개한다 (개발일지 4-3).
 -- 규칙 판정(글자 수·키워드·링크)을 통과하면 곧바로 PUBLISHED, 문제가 있으면 팀이 나중에 HIDDEN으로 내린다.
@@ -1018,4 +1041,19 @@ CREATE TABLE TECH_ARTICLE_REPORT (
     CONSTRAINT fk_tech_article_report_reporter
         FOREIGN KEY (reporter_user_id) REFERENCES USERS (id)
         ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------------
+-- SCORING_RULE (점수·복습 주기 규칙) — 신설. 기본값 행은 sql/04_seed_extended.sql
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS SCORING_RULE (
+    id          BIGINT        NOT NULL AUTO_INCREMENT,
+    rule_key    VARCHAR(50)   NOT NULL,
+    rule_value  INT           NOT NULL,
+    description VARCHAR(200)  NULL,
+    created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted  BOOLEAN       NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_scoring_rule_key (rule_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

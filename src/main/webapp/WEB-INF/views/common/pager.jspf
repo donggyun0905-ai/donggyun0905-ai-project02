@@ -1,0 +1,9 @@
+<%-- 쪽 이동 — 요청 속성 pager(com.specodyssey.util.Pager)와 페이지 변수 pagerPath(쪽 번호를 붙일 주소)를 쓴다.
+     쪽이 하나뿐이면 아무것도 그리지 않는다. --%>
+<c:if test="${pager.needed}">
+    <p class="pager" style="display:flex; gap:14px; align-items:center; justify-content:center; margin:14px 0 0; font-size:0.9rem;">
+        <c:if test="${pager.hasPrevious}"><a href="${pagerPath}?page=${pager.page - 1}">‹ 이전</a></c:if>
+        <span class="muted">${pager.page} / ${pager.totalPages}쪽 · 총 ${pager.total}개</span>
+        <c:if test="${pager.hasNext}"><a href="${pagerPath}?page=${pager.page + 1}">다음 ›</a></c:if>
+    </p>
+</c:if>

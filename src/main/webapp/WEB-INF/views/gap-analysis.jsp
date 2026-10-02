@@ -91,9 +91,11 @@
 
                 <div class="row">
                     <form action="${pageContext.request.contextPath}/gap-analysis" method="post">
+                        <input type="hidden" name="_csrf" value="${csrfToken}">
                         <button type="submit" class="secondary">다시 분석하기</button>
                     </form>
                     <form action="${pageContext.request.contextPath}/roadmap" method="post">
+                        <input type="hidden" name="_csrf" value="${csrfToken}">
                         <input type="hidden" name="action" value="generate">
                         <button type="submit">이 결과로 로드맵 만들기</button>
                     </form>

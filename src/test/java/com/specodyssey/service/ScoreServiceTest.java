@@ -110,4 +110,14 @@ class ScoreServiceTest {
         UserScoreSummaryDto summary = scoreService.getSummary(userId);
         assertEquals(105, summary.getTotalScore());
     }
+
+    @Test
+    void 한_트랜잭션에서_두_번_적립해도_앞의_점수가_사라지지_않는다() throws Exception {
+        com.specodyssey.util.TransactionUtil.runInTransaction(conn -> {
+            scoreService.awardWithinTransaction(conn, userId, "PROBLEM", 7001L, 6);
+            scoreService.awardWithinTransaction(conn, userId, "STREAK", 7002L, 4);
+            return null;
+        });
+        assertEquals(10, scoreService.getSummary(userId).getTotalScore());
+    }
 }

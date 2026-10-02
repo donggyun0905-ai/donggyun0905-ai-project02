@@ -87,7 +87,7 @@ public class ProfileResumeServlet extends HttpServlet {
         document.setStoredName(saved.getStoredName());
         document.setFilePath(saved.getFilePath());
         document.setFileSize(saved.getFileSize());
-        document.setMimeType(part.getContentType());
+        document.setMimeType(FileStorageUtil.mimeTypeFor(originalName));
         document.setChecksum(saved.getChecksum());
         try {
             if (coverLetter) {

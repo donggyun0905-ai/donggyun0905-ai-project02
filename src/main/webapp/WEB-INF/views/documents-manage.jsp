@@ -20,6 +20,7 @@
             <h2>서류 올리기</h2>
             <form action="${pageContext.request.contextPath}/documents" method="post" enctype="multipart/form-data"
                   class="row" style="margin-top:10px; align-items:flex-end;">
+                <input type="hidden" name="_csrf" value="${csrfToken}">
                 <input type="hidden" name="action" value="upload">
                 <span style="flex:1;"><label>파일</label><input type="file" name="file" required></span>
                 <span style="flex:1;"><label>연결할 프로젝트 (선택)</label>
@@ -36,7 +37,7 @@
         </div>
 
         <div class="card">
-            <h2>내 서류 ${documents.size()}개</h2>
+            <h2>내 서류 ${pager.total}개</h2>
             <c:choose>
                 <c:when test="${empty documents}">
                     <p class="muted" style="margin-top:10px;">아직 올린 서류가 없습니다. 위에서 파일을 올리거나, 로드맵에서 프로젝트·증빙을 제출하면 여기에 모입니다.</p>
@@ -55,6 +56,7 @@
                                 </td>
                                 <td>
                                     <form action="${pageContext.request.contextPath}/documents" method="post" class="inline-form">
+                                        <input type="hidden" name="_csrf" value="${csrfToken}">
                                         <input type="hidden" name="action" value="link">
                                         <input type="hidden" name="documentId" value="${d.id}">
                                         <select name="projectId" onchange="this.form.submit()" aria-label="연결 프로젝트">
@@ -71,6 +73,7 @@
                                     <a href="${pageContext.request.contextPath}/documents/${d.id}">내려받기</a> ·
                                     <form action="${pageContext.request.contextPath}/documents" method="post" class="inline-form delete-doc"
                                           data-name="<c:out value='${d.originalName}' />" data-purpose="<c:out value='${d.purpose}' />">
+                                        <input type="hidden" name="_csrf" value="${csrfToken}">
                                         <input type="hidden" name="action" value="delete">
                                         <input type="hidden" name="documentId" value="${d.id}">
                                         <button type="submit" class="link-button" style="color:var(--danger);">삭제</button>
@@ -83,6 +86,8 @@
                         서류를 지우면 파일이 완전히 삭제됩니다. 이력서·자소서 지정과 프로젝트 문서 체크리스트에서도 함께 빠지지만,
                         로드맵 단계의 완료 표시와 받은 점수는 그대로 남습니다.
                     </p>
+                    <c:set var="pagerPath" value="${pageContext.request.contextPath}/documents" />
+<%@ include file="/WEB-INF/views/common/pager.jspf" %>
                 </c:otherwise>
             </c:choose>
         </div>

@@ -21,6 +21,10 @@ import java.util.List;
  */
 public class EvaluationSessionItemDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, session_id, share_link_id, added_at, created_at, updated_at, is_deleted";
+
     public Long insert(EvaluationSessionItemDto item) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, item);
@@ -41,7 +45,7 @@ public class EvaluationSessionItemDao {
     }
 
     public List<EvaluationSessionItemDto> findBySessionId(Long sessionId) throws SQLException {
-        String sql = "SELECT * FROM EVALUATION_SESSION_ITEM WHERE session_id = ? AND is_deleted = FALSE " +
+        String sql = "SELECT " + COLUMNS + " FROM EVALUATION_SESSION_ITEM WHERE session_id = ? AND is_deleted = FALSE " +
                 "ORDER BY added_at";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -60,7 +64,7 @@ public class EvaluationSessionItemDao {
     // (session_id, share_link_id) UNIQUE는 뺀 행에도 걸려서, 뺐다가 다시 담을 때는 새로 넣지 않고 되살려야 한다.
     public EvaluationSessionItemDto findBySessionIdAndShareLinkId(Long sessionId, Long shareLinkId)
             throws SQLException {
-        String sql = "SELECT * FROM EVALUATION_SESSION_ITEM WHERE session_id = ? AND share_link_id = ?";
+        String sql = "SELECT " + COLUMNS + " FROM EVALUATION_SESSION_ITEM WHERE session_id = ? AND share_link_id = ?";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, sessionId);

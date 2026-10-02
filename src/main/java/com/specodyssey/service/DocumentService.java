@@ -31,22 +31,14 @@ public class DocumentService {
     public static final long MAX_FILE_BYTES = 20L * 1024 * 1024;
     public static final String ALLOWED_HINT = "PDF, DOCX, HWP, PPTX, TXT, MD, PNG, JPG, ZIP 등 · 파일당 최대 20MB";
 
-    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
-            "pdf", "doc", "docx", "hwp", "hwpx", "ppt", "pptx", "txt", "md", "png", "jpg", "jpeg", "gif", "zip");
-
     private final DocumentDao documentDao = new DocumentDao();
     private final UserDao userDao = new UserDao();
     private final UserProjectDao userProjectDao = new UserProjectDao();
     private final ProjectDocumentItemDao projectDocumentItemDao = new ProjectDocumentItemDao();
 
-    /** 서류로 올릴 수 있는 파일 형식인지 — 디스크에 쓰기 전에 확인한다. */
+    /** 서류로 올릴 수 있는 파일 형식인지 — 디스크에 쓰기 전에 확인한다. 허용 목록은 FileStorageUtil 한 곳에만 있다. */
     public static boolean isAllowedFile(String originalFilename) {
-        if (originalFilename == null || FileStorageUtil.isExtensionBlocked(originalFilename)) {
-            return false;
-        }
-        int dot = originalFilename.lastIndexOf('.');
-        return dot >= 0
-                && ALLOWED_EXTENSIONS.contains(originalFilename.substring(dot + 1).toLowerCase(Locale.ROOT));
+        return FileStorageUtil.isAllowedFile(originalFilename);
     }
 
     /** 화면에 보여줄 서류 한 줄. JSP는 출력만 하므로 용도·크기·날짜를 여기서 만들어 넘긴다. */

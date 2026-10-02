@@ -20,6 +20,11 @@ import java.util.List;
  */
 public class ProjectDocumentItemDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, project_id, doc_type, status, document_id, created_at, updated_at, " +
+            "is_deleted";
+
     /**
      * 종류별 한 줄을 만들거나 갱신한다. 이전에 지운(is_deleted) 행이 있으면 되살린다 —
      * 서류 보관함에서 파일을 지우면 이 줄도 논리 삭제되는데, 다시 제출할 때 UNIQUE와 부딪히지 않게 한다.
@@ -49,7 +54,7 @@ public class ProjectDocumentItemDao {
     }
 
     public List<ProjectDocumentItemDto> findByProjectId(Connection conn, Long projectId) throws SQLException {
-        String sql = "SELECT * FROM PROJECT_DOCUMENT_ITEM WHERE project_id = ? AND is_deleted = FALSE ORDER BY id";
+        String sql = "SELECT " + COLUMNS + " FROM PROJECT_DOCUMENT_ITEM WHERE project_id = ? AND is_deleted = FALSE ORDER BY id";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, projectId);
             try (ResultSet rs = pstmt.executeQuery()) {
