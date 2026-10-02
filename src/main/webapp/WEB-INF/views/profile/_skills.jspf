@@ -1,0 +1,47 @@
+<h2 style="margin-top:24px; margin-bottom:10px;">보유 기술 스택</h2>
+<ul class="item-list">
+    <c:forEach var="skill" items="${skills}">
+        <li class="spread">
+            <span>${skill.rawInput}<c:if test="${not empty skill.proficiency}"> (${skill.proficiency})</c:if></span>
+            <span class="row" style="gap:8px;">
+                <details class="inline-form">
+                    <summary>수정</summary>
+                    <form action="${pageContext.request.contextPath}/profile/skills" method="post">
+                        <input type="hidden" name="_csrf" value="${csrfToken}">
+                        <input type="hidden" name="action" value="update">
+                        <input type="hidden" name="userSkillId" value="${skill.id}">
+                        <p><input type="text" name="rawInput" value="${skill.rawInput}" placeholder="기술명 (예: Python, React)" required></p>
+                        <p>
+                            <select name="proficiency">
+                                <option value="" ${empty skill.proficiency ? 'selected' : ''}>숙련도 선택 안함</option>
+                                <option value="BEGINNER" ${skill.proficiency == 'BEGINNER' ? 'selected' : ''}>입문</option>
+                                <option value="INTERMEDIATE" ${skill.proficiency == 'INTERMEDIATE' ? 'selected' : ''}>중급</option>
+                                <option value="ADVANCED" ${skill.proficiency == 'ADVANCED' ? 'selected' : ''}>고급</option>
+                            </select>
+                        </p>
+                        <button type="submit">저장</button>
+                    </form>
+                </details>
+                <form action="${pageContext.request.contextPath}/profile/skills" method="post" class="inline-form">
+                    <input type="hidden" name="_csrf" value="${csrfToken}">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="userSkillId" value="${skill.id}">
+                    <button type="submit" class="link-button">삭제</button>
+                </form>
+            </span>
+        </li>
+    </c:forEach>
+</ul>
+<div class="card">
+    <form action="${pageContext.request.contextPath}/profile/skills" method="post" class="row">
+        <input type="hidden" name="_csrf" value="${csrfToken}">
+        <input type="text" name="rawInput" placeholder="기술명 (예: Python, React)" required style="width:auto; flex-grow:1;">
+        <select name="proficiency" style="width:auto;">
+            <option value="">숙련도 선택 안함</option>
+            <option value="BEGINNER">입문</option>
+            <option value="INTERMEDIATE">중급</option>
+            <option value="ADVANCED">고급</option>
+        </select>
+        <button type="submit">기술 추가</button>
+    </form>
+</div>

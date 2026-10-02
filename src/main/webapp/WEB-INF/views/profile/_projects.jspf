@@ -1,0 +1,53 @@
+<h2 style="margin-top:24px; margin-bottom:10px;">프로젝트 · 경험</h2>
+<ul class="item-list">
+    <c:forEach var="project" items="${projects}">
+        <li>
+            <strong>${project.title}</strong>
+            <span class="muted">(${project.startDate} ~ ${project.endDate})</span><br>
+            ${project.description}<br>
+            <c:if test="${not empty project.techStack}">기술스택: ${project.techStack}</c:if>
+            <c:forEach var="doc" items="${documents}">
+                <c:if test="${doc.projectId == project.id}">
+                    <br><a href="${pageContext.request.contextPath}/documents/${doc.id}">📎 ${doc.originalName}</a>
+                </c:if>
+            </c:forEach>
+            <div class="row" style="margin-top:8px;">
+                <details class="inline-form">
+                    <summary>수정</summary>
+                    <form action="${pageContext.request.contextPath}/profile/projects" method="post">
+                        <input type="hidden" name="_csrf" value="${csrfToken}">
+                        <input type="hidden" name="action" value="update">
+                        <input type="hidden" name="projectId" value="${project.id}">
+                        <p><input type="text" name="title" value="${project.title}" placeholder="프로젝트명" required></p>
+                        <p><textarea name="description" placeholder="설명">${project.description}</textarea></p>
+                        <p><input type="text" name="techStack" value="${project.techStack}" placeholder="사용 기술 (예: Java, Spring, MySQL)"></p>
+                        <p class="row">
+                            <span style="flex:1;">시작일 <input type="date" name="startDate" value="${project.startDate}"></span>
+                            <span style="flex:1;">종료일 <input type="date" name="endDate" value="${project.endDate}"></span>
+                        </p>
+                        <button type="submit">저장</button>
+                    </form>
+                </details>
+                <form action="${pageContext.request.contextPath}/profile/projects" method="post" class="inline-form">
+                    <input type="hidden" name="_csrf" value="${csrfToken}">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="projectId" value="${project.id}">
+                    <button type="submit" class="link-button">삭제</button>
+                </form>
+            </div>
+        </li>
+    </c:forEach>
+</ul>
+<div class="card">
+    <form action="${pageContext.request.contextPath}/profile/projects" method="post">
+        <input type="hidden" name="_csrf" value="${csrfToken}">
+        <p><input type="text" name="title" placeholder="프로젝트명" required></p>
+        <p><textarea name="description" placeholder="설명"></textarea></p>
+        <p><input type="text" name="techStack" placeholder="사용 기술 (예: Java, Spring, MySQL)"></p>
+        <p class="row">
+            <span style="flex:1;">시작일 <input type="date" name="startDate"></span>
+            <span style="flex:1;">종료일 <input type="date" name="endDate"></span>
+        </p>
+        <button type="submit">프로젝트 추가</button>
+    </form>
+</div>

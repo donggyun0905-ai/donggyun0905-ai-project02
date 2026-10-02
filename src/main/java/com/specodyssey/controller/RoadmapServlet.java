@@ -75,10 +75,14 @@ public class RoadmapServlet extends HttpServlet {
             }
 
             // 주기가 지난 기술의 복습 단계를 여정 뒤에 이어 붙인다 — 부가 기능이라 실패해도 로드맵 조회는 막지 않는다.
-            try {
-                roadmapService.appendDueReviews(userId, java.time.LocalDateTime.now());
-            } catch (SQLException e) {
-                getServletContext().log("복습 단계 생성 실패", e);
+            // 검사는 세션당 하루 한 번만 한다(ReviewCheckGate) — 매번 DB를 훑지 않도록.
+            if (ReviewCheckGate.shouldCheck(req.getSession(false), java.time.LocalDate.now())) {
+                try {
+                    roadmapService.appendDueReviews(userId, java.time.LocalDateTime.now());
+                } catch (SQLException e) {
+                    ReviewCheckGate.reset(req.getSession(false)); // 실패했으면 다음에 다시 시도한다
+                    getServletContext().log("복습 단계 생성 실패", e);
+                }
             }
             RoadmapDto roadmap = roadmapService.getPrimaryRoadmap(userId);
             req.setAttribute("roadmap", roadmap);
@@ -168,6 +172,7 @@ public class RoadmapServlet extends HttpServlet {
         try {
             scoreTierBefore = mayCompleteStep ? tierCelebration.currentScoreTierId(userId) : null;
             if ("generate".equals(action)) {
+                ReviewCheckGate.reset(req.getSession(false));
                 roadmapService.generate(userId);
             } else if ("complete".equals(action)) {
                 Long stepId = Long.valueOf(req.getParameter("stepId"));
@@ -200,6 +205,7 @@ public class RoadmapServlet extends HttpServlet {
                 // (2026-09-30 팀 결정). 목표 직무는 UserDto.desiredJobId를 그대로 쓴다.
                 UserDto user = userDao.findById(userId);
                 if (user.getDesiredJobId() != null) {
+                    ReviewCheckGate.reset(req.getSession(false));
                     gapAnalysisService.analyze(userId, user.getDesiredJobId());
                     roadmapService.generate(userId);
                 }
