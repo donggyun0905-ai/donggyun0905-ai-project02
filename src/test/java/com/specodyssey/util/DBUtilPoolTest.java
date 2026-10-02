@@ -93,6 +93,22 @@ class DBUtilPoolTest {
         }
     }
 
+    @Test
+    void DB_URL에_대기_시간이_없으면_기본값을_넣는다() {
+        var props = DBUtil.driverTimeouts("jdbc:mysql://localhost:3306/db?useSSL=false&serverTimezone=Asia/Seoul");
+
+        assertEquals("5000", props.getProperty("connectTimeout"));
+        assertEquals("60000", props.getProperty("socketTimeout"));
+        assertEquals(2, DBUtil.driverTimeouts("jdbc:mysql://localhost:3306/db").size(), "URL에 ?가 없어도 넣는다");
+    }
+
+    @Test
+    void DB_URL에_이미_있는_대기_시간은_덮어쓰지_않는다() {
+        var props = DBUtil.driverTimeouts("jdbc:mysql://localhost:3306/db?useSSL=false&socketTimeout=120000&connectTimeout=3000");
+
+        assertTrue(props.isEmpty(), "URL에 있는 값을 써야 한다: " + props);
+    }
+
     private static long connectionId(Connection c) throws SQLException {
         try (var st = c.createStatement(); var rs = st.executeQuery("SELECT CONNECTION_ID()")) {
             rs.next();
