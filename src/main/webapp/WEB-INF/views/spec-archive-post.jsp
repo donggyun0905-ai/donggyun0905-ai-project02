@@ -178,10 +178,6 @@
 </c:otherwise>
 </c:choose>
 </div>
-<%-- 오늘의 트렌드 기술 (FR-54·55) — 데이터는 TrendWidgetFilter가 목표 직무 기준으로 실어 준다 --%>
-<div class="side">
-    <jsp:include page="/WEB-INF/views/common/trend-widget.jsp" />
-</div>
 </div>
 
 <%-- highlight.js 11.9.0 (BSD-3, js/vendor/highlight/LICENSE) — 코드 블록 색 입히기 --%>

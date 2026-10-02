@@ -53,6 +53,9 @@ public class SpecArchiveService {
         public int getTotalCount() { return totalCount; }
         public boolean isHasPrev() { return page > 1; }
         public boolean isHasNext() { return page < totalPages; }
+        // Tomcat 11은 x() 형태만 찾는다(계산해서 만든 값 한정) — Tomcat 10 계열은 위의 isX를 쓴다
+        public boolean hasPrev() { return isHasPrev(); }
+        public boolean hasNext() { return isHasNext(); }
     }
 
     /** 최상위 댓글 하나와 그 밑에 모인 답글들 (인스타그램식 — 깊이는 1단계) */

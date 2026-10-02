@@ -82,6 +82,8 @@ public class UserService {
         if (userDao.existsByLoginId(trimmedLoginId)) {
             throw new DuplicateLoginIdException("이미 사용 중인 아이디입니다.");
         }
+        // 탈퇴한 계정이 아이디를 쥐고 있으면(UNIQUE) 새로 가입이 막힌다 — 예전에 탈퇴한 계정의 아이디도 여기서 비워 준다
+        userDao.releaseDeletedLoginId(trimmedLoginId);
 
         UserDto user = new UserDto();
         user.setUserType(userType);

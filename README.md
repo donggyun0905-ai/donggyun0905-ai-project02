@@ -11,23 +11,22 @@
 
 | 영역 | 선택 |
 | --- | --- |
-| 언어 / 런타임 | Java 17, JSP/Servlet(`jakarta.*`), Tomcat 10.1+ |
-| DB | MySQL 8.0+ (`utf8mb4`) |
+| 언어 / 런타임 | Java 17, JSP/Servlet(`jakarta.*`), **Tomcat 10.1 / 11 둘 다 지원** |
+| DB | MySQL 8.0+ (`utf8mb4`), 커넥션 풀 HikariCP |
 | 빌드 | Maven |
 | AI 분석 | 하이브리드 — 격차 분석은 규칙기반 SQL, 자연어 생성은 LLM API |
 | 임베딩 | 로컬 생성 — DJL + ONNX Runtime, ko-sroberta-multitask (768차원) |
 
-## 현재 진행 상황
+## 현재 구현된 기능
 
-**1주차 — 회원/인증 + 프로필 CRUD 완료**
+- **회원**: 가입(개인정보 동의·면접관 노출 안내) / 로그인 / 로그아웃(POST) / 비밀번호 변경 / **복구 코드로 비밀번호 재설정** / 회원 탈퇴(같은 아이디로 재가입 가능)
+- **프로필**: 기본정보·보유 스펙·프로젝트(저장소·배포·회고·기타 링크)·기술 스택·이력서·자소서·AI 활용 기록
+- **직무 찾기(설문)** → **격차 분석** → **로드맵**: 기술별 사다리(입문→핵심→심화→전문가), 복습·프로젝트/글 업데이트·트렌딩 학습이 이어 붙는 "끝없는 로드맵", 점수는 직무 사다리 총점 기준으로 정규화
+- **일일 미션**(코드 제출 컴파일 확인, 연속 풀이 보너스) / **점수·등급** / **대시보드** / **데이터 인사이트** / **D-day** / **서류 보관함** / **공유 링크(면접관 열람)** / **자소서 첨삭** / **스펙 아카이브**(상위 티어 팁 게시판)
+- **관리자 화면**(`/admin`): 점수·복습 주기 규칙 편집, 직무 기술 트렌드 재집계
+- 처음 설문을 하기 전에는 **설문과 프로필만** 열립니다. 자소서 첨삭·프로필을 뺀 지원자 화면에는 일일 미션·트렌드 기술·서류·연습장 **좌우 고정 위젯**이 붙습니다.
 
-- [x] `sql/01_schema.sql` — 회원/프로필 관련 8개 테이블 (FK·인덱스·복합 UNIQUE 포함)
-- [x] `sql/02_seed.sql` — IT 직무 18개, 자격증 37개
-- [x] DB 커넥션 유틸 (`DBUtil`) + DTO/DAO
-- [x] 회원가입 / 로그인 / 로그아웃 / 세션 필터
-- [x] 프로필 조회·수정 화면 (기본정보 + 보유 스펙 + 프로젝트 + 기술 스택)
-
-격차 분석, 로드맵 생성, 대시보드 등 나머지 기능은 2주차 이후 범위입니다.
+개발 과정·결정 사항은 [`개발일지/`](개발일지/)에 날짜별로 정리돼 있습니다.
 
 ## 디렉토리 구조
 
@@ -47,8 +46,10 @@ docs/
   ├── requirements.md   요구사항 명세서
   └── db-design.md      DB 설계 및 ERD, 복합 UNIQUE 목록, 설계 판단 근거
 sql/
-  ├── 01_schema.sql
-  └── 02_seed.sql
+  ├── 01~03    스키마 (03 = 확장 스키마, 점수 규칙·게시판 테이블 포함)
+  ├── 04~11    시드 데이터 (직무·기술·자격증·설문·기술 별칭·점수 규칙 기본값)
+  ├── 12~19    이미 만든 DB에 덧붙이는 변경(ALTER 등) — 아래 "이미 DB가 있다면" 참고
+  └── do-not-run/   ⚠ 실행 금지(모든 데이터를 지우는 스냅샷, 약한 비밀번호의 테스트 계정 시드)
 ```
 
 ## 실행 방법
@@ -56,7 +57,7 @@ sql/
 ### 요구사항
 
 - JDK 17
-- Tomcat 10.1 이상 (서블릿 패키지가 `jakarta.servlet.*`이라 9 이하에서는 동작하지 않습니다)
+- Tomcat **10.1 또는 11** (서블릿 패키지가 `jakarta.servlet.*`이라 9 이하에서는 동작하지 않습니다). 두 버전 모두에서 같은 화면이 나오도록 JSP에서 읽는 `record`에는 `getX()`와 `x()`를 함께 둡니다
 - MySQL 8.0 이상
 - Maven — 따로 설치하지 않아도 됩니다. 프로젝트에 Maven Wrapper(`mvnw`)가 들어 있어 첫 실행 때 Maven을 자동으로 받습니다.
 
@@ -66,11 +67,21 @@ sql/
 CREATE DATABASE spec_odyssey CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
+**새 DB라면** 아래 순서로 한 번씩만 실행합니다. 한글이 깨지지 않게 **`--default-character-set=utf8mb4`를 꼭 붙이세요.**
+(이 순서로 만든 DB는 현재 개발 DB와 테이블·컬럼이 같고, 설문 문항 12개·직무 18개·기술 163개 등 기본 데이터가 들어갑니다.)
+
 ```bash
-mysql -u <user> -p spec_odyssey < sql/01_schema.sql
-mysql -u <user> -p spec_odyssey < sql/02_seed.sql
-mysql -u <user> -p spec_odyssey < sql/03_schema_extended.sql
+for f in 01_schema 02_seed 03_schema_extended 04_seed_extended 04_seed_skills \
+         05_seed_survey 09_schema_skill_alias 10_seed_skill_alias 11_seed_skill_alias_english; do
+  mysql -u <user> -p --default-character-set=utf8mb4 spec_odyssey < sql/$f.sql
+done
 ```
+
+**이미 DB가 있다면** 아직 안 돌린 변경만 번호 순서대로 실행합니다(대부분 한 번만 실행해야 하는 `ALTER`라서, 이미 적용했는지 파일 맨 위 설명을 먼저 읽으세요).
+최근 것: `15_schema_project_link`(프로젝트 기타 링크) · `16_alter_users_recovery_code`(**없으면 로그인부터 `Unknown column 'recovery_code_hash'` 오류**) ·
+`17_schema_scoring_rule`(점수·주기 규칙, 없어도 기본값으로 동작) · `18_fix_withdrawn_login_id`(여러 번 실행해도 안전) · `19_alter_tech_article_spec_archive`(스펙 아카이브).
+
+> ⚠ **`sql/do-not-run/`의 파일은 데이터가 든 DB에서 실행하지 마세요.** 스냅샷은 모든 테이블을 지우고 빈 테이블로 다시 만듭니다.
 
 ### 2. 설정 파일 (.env)
 
@@ -96,9 +107,21 @@ cp src/main/resources/.env.example src/main/resources/.env
 | `DB_USER` | `root` |
 | `DB_PASSWORD` | (본인 MySQL 비밀번호) |
 | `UPLOAD_DIR` | (선택) `C:/spec-odyssey-uploads` — 없으면 `<홈>/spec-odyssey-uploads` |
+| `DB_POOL_SIZE` | (선택) DB 커넥션 풀 최대 크기, 기본 10 — (서버 수 × 값)이 DB `max_connections`를 넘지 않게 |
+| `ADMIN_LOGIN_ID` | (선택) 관리자 로그인 아이디, 기본 `admin` — **그 아이디로 먼저 가입**해 두세요(아래 참고) |
+| `ENABLE_TEST_SHORTCUT` | (선택) 로드맵 `[TEST] 파일 없이 통과` 버튼, 기본 켜짐 — **운영 배포에서는 `false`** |
 | `WORK24_*_API_KEY` | 고용24 Open API 인증키 6종 — 키 이름은 `.env.example` 참고 |
 
 `.env`와 환경변수가 둘 다 있으면 `.env` 값이 우선합니다. 둘 다 없으면 `DBUtil`이 기동 시점에 바로 에러를 던집니다 (fail-fast).
+
+### 관리자 계정과 운영 배포 체크리스트
+
+- 관리자는 로그인 아이디가 `ADMIN_LOGIN_ID`와 같은 계정입니다(별도 역할 컬럼은 아직 없음). 해당 아이디로 **회원가입을 한 번** 하면, 이후 로그인할 때 바로 `/admin`으로 가고 메뉴에 "관리자"가 나타납니다.
+  가입이 열려 있는 서버에서는 **누구나 그 아이디를 먼저 가입할 수 있으니**, 배포 직후 가장 먼저 관리자 계정부터 만들고 `ADMIN_LOGIN_ID`는 추측하기 어려운 값으로 정하세요.
+- 운영 `.env`: `ENABLE_TEST_SHORTCUT=false`, 필요 시 `DB_POOL_SIZE`, API 키들. HTTPS 뒤에서 운영하면 세션 쿠키에 Secure가 자동으로 붙습니다.
+- 배포 직후 첫 화면은 폼 토큰(CSRF)이 새로 만들어져 "페이지가 만료됨"이 한 번 뜰 수 있습니다 — 새로고침하면 됩니다.
+- **서버 시간대**: 일부 시각(완료 시각·복습 주기 계산 등)은 서버 JVM의 기본 시간대를 씁니다. 한국 시간 기준으로 맞추려면 Tomcat을 `-Duser.timezone=Asia/Seoul`로 띄우세요(`CATALINA_OPTS`). DB 접속 URL은 이미 `serverTimezone=Asia/Seoul`입니다.
+- JSP를 고친 뒤 화면이 그대로면 Tomcat의 `work` 폴더와 이전 배포본을 지우고 다시 배포하세요(JSP는 한 번 변환해 두고 다시 씁니다).
 
 ### 3. 빌드 & 배포
 
@@ -115,13 +138,22 @@ mvnw.cmd clean package -DskipTests   # Windows
 
 1. 확장 설치: `Extension Pack for Java`, `Community Server Connectors`(Red Hat)
 2. 위 3번 명령으로 빌드
-3. SERVERS 패널 → `Community Server Connector` 우클릭 → **Create New Server** → **No, use server on disk** → Tomcat 10.1 폴더 선택
+3. SERVERS 패널 → `Community Server Connector` 우클릭 → **Create New Server** → **No, use server on disk** → Tomcat 10.1 또는 11 폴더 선택
 4. 만든 서버 우클릭 → **Add Deployment** → `target/spec-odyssey.war` 선택 → **Start Server**
 5. `http://localhost:8080/spec-odyssey/` 접속 (Tomcat 포트가 80이면 `http://localhost/spec-odyssey/`)
 
 코드를 고친 뒤에는 다시 빌드하고, 서버 우클릭 → **Publish Server (Full)** 로 반영합니다.
 
 > Tomcat을 80 포트로 쓸 때 Windows의 IIS가 켜져 있으면 포트 충돌로 403이 뜹니다. IIS를 끄거나 8080을 쓰세요.
+
+## 테스트
+
+```bash
+./mvnw test        # Windows: mvnw.cmd test
+```
+
+테스트는 **`.env`가 가리키는 실제 DB에 접속해서** 돌아갑니다(가짜 DB가 아닙니다). 테스트가 만드는 데이터는 `test_` 접두사로 만들고 끝나면 지우지만, 팀이 함께 쓰는 공유 DB에서는 실행하지 말고 **본인 로컬 DB**에서 돌리세요.
+화면을 열어 LLM이 만든 벤치마크 행(`JOB_BENCHMARK_SPEC`)이 쌓여 있으면 `JobBenchmarkSpecServiceTest`가 실패할 수 있습니다 — 그 테이블을 비우고 다시 돌리면 됩니다.
 
 ## 참고 문서
 

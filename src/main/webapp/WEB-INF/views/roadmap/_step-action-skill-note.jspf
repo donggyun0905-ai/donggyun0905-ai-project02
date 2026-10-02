@@ -1,5 +1,5 @@
                                         <c:if test="${step.reviewStatus == 'NEEDS_REVISION'}">
-                                            <p class="error-message" style="font-size:0.85rem; margin:6px 0;">📝 ${step.reviewNote}</p>
+                                            <p class="error-message" style="font-size:0.85rem; margin:6px 0;">📝 <c:out value='${step.reviewNote}' /></p>
                                         </c:if>
                                         <button type="button" class="open-step-dialog" data-dialog="stepDialog-${step.id}">${step.tier == 'EXPERT' ? '기술 설명 글 PDF 제출하기' : '공부노트 PDF 제출하기'}</button>
                                         <dialog id="stepDialog-${step.id}" class="step-dialog">

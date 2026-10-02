@@ -19,7 +19,7 @@
 </c:if>
 
 <c:if test="${not empty errorMessage}">
-    <p class="error-message">${errorMessage}</p>
+    <p class="error-message"><c:out value='${errorMessage}' /></p>
 </c:if>
 
 <%@ include file="/WEB-INF/views/profile/_basic.jspf" %>

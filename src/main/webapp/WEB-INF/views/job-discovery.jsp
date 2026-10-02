@@ -44,7 +44,7 @@
                                         <label style="display:inline; width:auto;">
                                             <input type="radio" name="q${q.id}" value="${os.count}" style="width:auto;"
                                                    ${myAnswers[q.id] == os.count ? 'checked' : ''} ${os.first ? 'required' : ''}>
-                                            ${label}
+                                            <c:out value='${label}' />
                                         </label>
                                     </c:forTokens>
                                 </div>
@@ -79,9 +79,6 @@
                 </c:forEach>
             </div>
         </c:if>
-    </div>
-    <div class="side">
-        <jsp:include page="/WEB-INF/views/common/trend-widget.jsp" />
     </div>
 </div>
 

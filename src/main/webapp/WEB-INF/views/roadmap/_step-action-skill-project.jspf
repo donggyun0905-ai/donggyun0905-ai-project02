@@ -30,7 +30,7 @@
                                                                         <option value="">-- 신규 프로젝트 --</option>
                                                                     </c:if>
                                                                     <c:forEach var="p" items="${userProjects}">
-                                                                        <option value="${p.id}">${p.title}</option>
+                                                                        <option value="${p.id}"><c:out value='${p.title}' /></option>
                                                                     </c:forEach>
                                                                 </select>
                                                             </p>

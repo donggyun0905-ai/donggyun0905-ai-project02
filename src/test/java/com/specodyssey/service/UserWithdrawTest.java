@@ -60,4 +60,20 @@ class UserWithdrawTest {
         userService.withdraw(b, PASSWORD); // 같은 아이디가 두 번 탈퇴해도 UNIQUE 충돌이 없어야 한다
         assertNotEquals(a, b);
     }
+
+    @Test
+    void 예전_방식으로_탈퇴해_아이디가_그대로_남은_계정도_재가입하면_아이디를_돌려받는다() throws Exception {
+        String loginId = "test_old_" + System.nanoTime();
+        Long old = register(loginId);
+        // 아이디를 비우지 않던 예전 탈퇴 상태를 만든다
+        try (Connection conn = DBUtil.getConnection();
+             java.sql.PreparedStatement p = conn.prepareStatement("UPDATE USERS SET is_deleted = TRUE WHERE id = ?")) {
+            p.setLong(1, old);
+            p.executeUpdate();
+        }
+        Long again = register(loginId);
+        assertNotEquals(old, again);
+        assertEquals(again, userService.login(loginId, PASSWORD).getId());
+        assertThrows(UserService.DuplicateLoginIdException.class, () -> register(loginId), "살아 있는 계정의 아이디는 그대로 중복이다");
+    }
 }
