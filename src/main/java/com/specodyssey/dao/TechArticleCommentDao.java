@@ -19,8 +19,12 @@ import java.util.List;
  */
 public class TechArticleCommentDao {
 
+    private static final String C_COLUMNS =
+            "c.id, c.article_id, c.user_id, c.parent_comment_id, c.reply_to_user_id, c.content, " +
+            "c.created_at, c.updated_at, c.is_deleted";
+
     private static final String SELECT_WITH_NAMES =
-            "SELECT c.*, COALESCE(NULLIF(u.name, ''), u.login_id) AS author_name, " +
+            "SELECT " + C_COLUMNS + ", COALESCE(NULLIF(u.name, ''), u.login_id) AS author_name, " +
             "COALESCE(NULLIF(r.name, ''), r.login_id) AS reply_to_name " +
             "FROM TECH_ARTICLE_COMMENT c " +
             "JOIN USERS u ON u.id = c.user_id " +
