@@ -189,6 +189,19 @@ public class MissionDao {
         }
     }
 
+    // 그날 코드를 제출해서 끝낸 문제 수("실패"로 끝낸 문제는 뺀다) — 연속 보너스는 하나라도 풀어야 받는다
+    public int countSolvedOn(Connection conn, Long userId, LocalDate date) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM USER_DAILY_MISSION WHERE user_id = ? AND assigned_date = ? " +
+                "AND is_completed = TRUE AND is_correct IS NULL AND submitted_code IS NOT NULL AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            pstmt.setDate(2, java.sql.Date.valueOf(date));
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        }
+    }
+
     // 본인 미션의 배정일. 없거나 남의 미션이면 null.
     public LocalDate findAssignedDate(Connection conn, Long userId, Long missionId) throws SQLException {
         String sql = "SELECT assigned_date FROM USER_DAILY_MISSION WHERE id = ? AND user_id = ? AND is_deleted = FALSE";

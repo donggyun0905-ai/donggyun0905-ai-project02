@@ -21,6 +21,11 @@ import java.util.List;
  */
 public class JobSkillTrendDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, job_id, skill_id, period_ym, mention_count, mention_ratio, created_at, " +
+            "updated_at, is_deleted";
+
     public Long insert(JobSkillTrendDto trend) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, trend);
@@ -65,7 +70,7 @@ public class JobSkillTrendDao {
 
     // 임시 관리자 화면(AdminJobSkillTrendServlet)의 현재 적재 현황 요약용
     public List<JobSkillTrendDto> findAll() throws SQLException {
-        String sql = "SELECT * FROM JOB_SKILL_TREND WHERE is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM JOB_SKILL_TREND WHERE is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {
@@ -79,7 +84,7 @@ public class JobSkillTrendDao {
 
     // FR-47 특정 직무의 기술 언급 추이 — 월 순 정렬
     public List<JobSkillTrendDto> findByJobId(Long jobId) throws SQLException {
-        String sql = "SELECT * FROM JOB_SKILL_TREND WHERE job_id = ? AND is_deleted = FALSE ORDER BY period_ym";
+        String sql = "SELECT " + COLUMNS + " FROM JOB_SKILL_TREND WHERE job_id = ? AND is_deleted = FALSE ORDER BY period_ym";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, jobId);

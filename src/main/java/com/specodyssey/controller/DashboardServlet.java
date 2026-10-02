@@ -21,6 +21,8 @@ import com.specodyssey.dto.UserDto;
 import com.specodyssey.dto.UserScoreSummaryDto;
 import com.specodyssey.service.GapAnalysisService;
 import com.specodyssey.service.RoadmapService;
+import com.specodyssey.service.TierProgress;
+import com.specodyssey.service.RoadmapProgress;
 import com.specodyssey.service.ScoreService;
 import com.specodyssey.service.SpecScoreService;
 import com.specodyssey.service.DailyMissionService;
@@ -101,11 +103,11 @@ public class DashboardServlet extends HttpServlet {
             return;
         }
         List<RoadmapStepDto> steps = roadmapService.getSteps(roadmap.getId());
-        RoadmapService.RoadmapProgress progress = roadmapService.computeProgress(steps);
+        RoadmapProgress progress = roadmapService.computeProgress(steps);
         req.setAttribute("journeyProgress", progress);
 
-        RoadmapService.TierProgress currentTier = progress.getCurrentTier();
-        req.setAttribute("currentTier", currentTier);
+        TierProgress currentTier = progress.getCurrentTier();
+        req.setAttribute("journeyCurrentTier", currentTier);
         if (currentTier != null) {
             steps.stream()
                     .filter(s -> currentTier.getTier().equals(s.getTier()) && !s.isCompleted())
@@ -135,14 +137,18 @@ public class DashboardServlet extends HttpServlet {
     // "나의 등급" 카드 — 다음 등급까지 남은 점수는 LEVEL_TIER를 min_score 순으로 훑어 계산한다.
     // 진행률(%)도 여기서 계산해서 넘긴다 — JSP는 출력만 한다(claude.md: JSP에 계산 금지).
     private void loadScoreAndTier(HttpServletRequest req, Long userId) throws SQLException {
+        // 점수를 한 번도 적립하지 않은 새 계정은 요약 행 자체가 없다 — 0점 기준으로 보여준다
+        // (SessionFilter의 헤더 배지와 같은 처리).
         UserScoreSummaryDto summary = scoreService.getSummary(userId);
-        int totalScore = summary.getTotalScore() == null ? 0 : summary.getTotalScore();
+        int totalScore = summary == null || summary.getTotalScore() == null ? 0 : summary.getTotalScore();
         req.setAttribute("totalScore", totalScore);
-        req.setAttribute("streakCount", summary.getStreakCount() == null ? 0 : summary.getStreakCount());
+        req.setAttribute("streakCount", summary == null || summary.getStreakCount() == null ? 0 : summary.getStreakCount());
 
-        LevelTierDto currentTier = scoreService.getTier(summary.getCurrentTierId());
+        LevelTierDto currentTier = summary == null || summary.getCurrentTierId() == null
+                ? scoreService.getTierForScore(totalScore)
+                : scoreService.getTier(summary.getCurrentTierId());
         req.setAttribute("currentScoreTier", currentTier);
-        req.setAttribute("tierLogoPath", scoreService.getTierLogoPath(summary.getCurrentTierId()));
+        req.setAttribute("tierLogoPath", scoreService.getTierLogoPath(currentTier == null ? null : currentTier.getId()));
 
         List<LevelTierDto> allTiers = levelTierDao.findAll().stream()
                 .sorted(Comparator.comparing(LevelTierDto::getMinScore))

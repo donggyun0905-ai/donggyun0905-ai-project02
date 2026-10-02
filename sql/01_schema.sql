@@ -69,16 +69,22 @@ CREATE TABLE CERTIFICATION (
 -- =========================================================
 CREATE TABLE USERS (
     id                    BIGINT       NOT NULL AUTO_INCREMENT,
-    user_type             VARCHAR(15)  NOT NULL DEFAULT 'APPLICANT', -- APPLICANT(지원자) / INTERVIEWER(면접관, 미사용) — TD-4
+    user_type             VARCHAR(15)  NOT NULL DEFAULT 'APPLICANT', -- APPLICANT(지원자) / INTERVIEWER(면접관) — TD-4
     login_id              VARCHAR(50)  NOT NULL,
     password_hash         VARCHAR(255) NOT NULL,
+    name                  VARCHAR(50)  NULL, -- 가입 시 필수 입력. 컬럼 추가 전 가입자는 NULL
+    age                   INT          NULL,
+    career_status         VARCHAR(15)  NULL, -- STUDENT(학생) / JOB_SEEKER(취준생) / EMPLOYED(직장인)
     email                 VARCHAR(100) NULL,
     major                 VARCHAR(50)  NULL,
     grade                 VARCHAR(20)  NULL,
     interest_field        VARCHAR(50)  NULL,
     desired_job_id        BIGINT       NULL,
     desired_job_status    VARCHAR(10)  NOT NULL DEFAULT 'UNSET',
+    resume_document_id    BIGINT       NULL, -- 이력서 파일 → DOCUMENTS. FK는 DOCUMENTS가 생긴 뒤 03_schema_extended.sql에서 건다
+    cover_letter_document_id BIGINT    NULL, -- 자소서 파일 → DOCUMENTS (선택). 이력서와 같은 방식, FK는 03_schema_extended.sql에서 건다
     privacy_consent_at    DATETIME     NULL,
+    recovery_code_hash    VARCHAR(255) NULL, -- 비밀번호 찾기용 복구 코드의 해시(원문은 저장 안 함). NULL이면 코드가 없는 계정
     profile_updated_at    DATETIME     NULL,
     last_login_at         DATETIME     NULL,
     created_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -88,6 +94,8 @@ CREATE TABLE USERS (
     UNIQUE KEY uk_users_login_id (login_id),
     KEY idx_users_email (email),
     KEY idx_users_desired_job_id (desired_job_id),
+    KEY idx_users_resume_document_id (resume_document_id),
+    KEY idx_users_cover_letter_document_id (cover_letter_document_id),
     CONSTRAINT fk_users_desired_job
         FOREIGN KEY (desired_job_id) REFERENCES JOB (id)
         ON DELETE RESTRICT ON UPDATE CASCADE
@@ -130,6 +138,10 @@ CREATE TABLE USER_PROJECTS (
     -- CORE/ADVANCED SKILL 단계를 "기존 프로젝트 업그레이드"로 완료했을 때 이전 버전을 가리킨다
     -- (자기참조, NULL이면 신규 프로젝트) — 2026-09-30 팀 결정, 로드맵 스킬 학습 검증 개편.
     upgraded_from_project_id  BIGINT       NULL,
+    -- 프로젝트 완료 시 받는 것 (개발일지 4-4, 2026-09-30 확정) — 면접관 뷰에서 링크 클릭이 파일 다운로드보다 자연스럽다.
+    repo_url                  VARCHAR(500) NULL, -- 코드 저장소 링크
+    deploy_url                VARCHAR(500) NULL, -- 배포 주소 (선택)
+    retrospective             TEXT         NULL, -- 완료 회고 2~3줄 — 무엇을 배우고 해결했는지
     created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     is_deleted    BOOLEAN      NOT NULL DEFAULT FALSE,

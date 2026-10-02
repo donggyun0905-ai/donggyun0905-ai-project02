@@ -1,5 +1,6 @@
 package com.specodyssey.controller;
 
+import com.specodyssey.util.Pager;
 import com.specodyssey.dto.ShareLinkDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.service.ShareLinkService;
@@ -22,6 +23,8 @@ import java.time.format.DateTimeFormatter;
  */
 @WebServlet("/share-links")
 public class ShareLinksServlet extends HttpServlet {
+
+    private static final int PAGE_SIZE = 10;
 
     // 새로고침으로 링크가 또 만들어지지 않게 POST 뒤에 리다이렉트하므로, 방금 만든 링크는 세션에 잠깐 실어 나른다
     private static final String CREATED_LINK_KEY = "createdShareLink";
@@ -72,7 +75,9 @@ public class ShareLinksServlet extends HttpServlet {
                             expiryDays == 0 ? null : expiryDays, // 0 = 만료 없음
                             req.getParameter("scopeBasic") != null,
                             req.getParameter("scopeSkills") != null,
-                            req.getParameter("scopeGrowth") != null);
+                            req.getParameter("scopeGrowth") != null,
+                            req.getParameter("scopeResume") != null,
+                            req.getParameter("scopeCoverLetter") != null);
                 } catch (IllegalArgumentException e) {
                     req.setAttribute("errorMessage", e.getMessage());
                     showPage(req, resp, userId);
@@ -92,7 +97,9 @@ public class ShareLinksServlet extends HttpServlet {
 
     private void showPage(HttpServletRequest req, HttpServletResponse resp, Long userId)
             throws SQLException, ServletException, IOException {
-        req.setAttribute("links", shareLinkService.listLinks(userId));
+        Pager<?> pager = Pager.of(shareLinkService.listLinks(userId), Pager.parsePage(req.getParameter("page")), PAGE_SIZE);
+        req.setAttribute("links", pager.getItems());
+        req.setAttribute("pager", pager);
         req.setAttribute("shareBaseUrl", shareBaseUrl(req));
         req.getRequestDispatcher("/WEB-INF/views/share-links.jsp").forward(req, resp);
     }

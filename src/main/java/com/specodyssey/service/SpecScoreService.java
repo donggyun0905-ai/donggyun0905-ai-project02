@@ -136,6 +136,34 @@ public class SpecScoreService {
 
     public record GrowthSummary(BigDecimal fromScore, BigDecimal toScore, LocalDate fromDate, LocalDate toDate,
                                  long certDelta, long projectDelta, long skillDelta) {
+        // JSP의 EL이 읽을 수 있게 getter를 같이 둔다 — Tomcat 10.1(BeanELResolver)은 getX()만, Tomcat 11(RecordELResolver)은 x()만 찾는다.
+        public BigDecimal getFromScore() {
+            return fromScore;
+        }
+
+        public BigDecimal getToScore() {
+            return toScore;
+        }
+
+        public LocalDate getFromDate() {
+            return fromDate;
+        }
+
+        public LocalDate getToDate() {
+            return toDate;
+        }
+
+        public long getCertDelta() {
+            return certDelta;
+        }
+
+        public long getProjectDelta() {
+            return projectDelta;
+        }
+
+        public long getSkillDelta() {
+            return skillDelta;
+        }
     }
 
     /**
@@ -167,6 +195,14 @@ public class SpecScoreService {
     }
 
     public record MonthlyScorePoint(String monthLabel, BigDecimal score) {
+        // JSP의 EL이 읽을 수 있게 getter를 같이 둔다 — Tomcat 10.1(BeanELResolver)은 getX()만, Tomcat 11(RecordELResolver)은 x()만 찾는다.
+        public String getMonthLabel() {
+            return monthLabel;
+        }
+
+        public BigDecimal getScore() {
+            return score;
+        }
     }
 
     // FR-81/84 면접관 뷰 "성장 잠재력" 막대 그래프 — 월별로 가장 최근 스냅샷 하나만 남긴다.
@@ -184,6 +220,18 @@ public class SpecScoreService {
     }
 
     public record PeerComparison(BigDecimal myScore, BigDecimal peerAverage, int peerCount) {
+        // JSP의 EL이 읽을 수 있게 getter를 같이 둔다 — Tomcat 10.1(BeanELResolver)은 getX()만, Tomcat 11(RecordELResolver)은 x()만 찾는다.
+        public BigDecimal getMyScore() {
+            return myScore;
+        }
+
+        public BigDecimal getPeerAverage() {
+            return peerAverage;
+        }
+
+        public int getPeerCount() {
+            return peerCount;
+        }
     }
 
     /**

@@ -18,7 +18,7 @@
                         <p class="muted" style="margin-top:6px;">
                             <c:choose>
                                 <c:when test="${missionStreak.todayDone}">오늘 미션 완료! 내일도 이어가세요</c:when>
-                                <c:otherwise>오늘 미션을 끝내면 <c:out value="${missionStreak.nextStreak}" />일이 됩니다</c:otherwise>
+                                <c:otherwise>오늘 미션을 끝내면 <c:out value="${missionStreak.nextStreak}" />일이 됩니다<c:if test="${missionStreak.nextBonus > 0}"> · 하나 이상 풀면 연속 보너스 +<c:out value="${missionStreak.nextBonus}" />점</c:if></c:otherwise>
                             </c:choose>
                         </p>
                         <div class="row" style="margin-top:10px; gap:6px;">
@@ -80,6 +80,7 @@
                                     <a class="btn secondary" href="<c:url value='/mission/submit'><c:param name='missionId' value='${m.missionId}' /></c:url>">정답 입력하기</a>
                                     <form method="post" action="<c:url value='/mission/fail' />" style="display:inline;"
                                           onsubmit="return confirm('이 문제를 실패로 처리할까요?');">
+                                        <input type="hidden" name="_csrf" value="${csrfToken}">
                                         <input type="hidden" name="missionId" value="<c:out value='${m.missionId}' />">
                                         <button type="submit" class="secondary">실패</button>
                                     </form>

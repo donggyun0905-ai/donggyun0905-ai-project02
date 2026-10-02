@@ -35,7 +35,7 @@ public class SessionFilter implements Filter {
 
     // 로그인 없이 접근 가능한 정확한 경로
     private static final Set<String> PUBLIC_PATHS = Set.of(
-            "/", "/index.jsp", "/login", "/register"
+            "/", "/index.jsp", "/login", "/register", "/password-reset", "/recovery-code"
     );
 
     // 로그인 없이 접근 가능한 경로 접두사 (정적 리소스 등)
@@ -71,6 +71,7 @@ public class SessionFilter implements Filter {
         }
 
         attachTierInfo(req, loginUser.getId());
+        req.setAttribute("isAdmin", com.specodyssey.util.AdminAccess.isAdmin(loginUser));
         chain.doFilter(request, response);
     }
 

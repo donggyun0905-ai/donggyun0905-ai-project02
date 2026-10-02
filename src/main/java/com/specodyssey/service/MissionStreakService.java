@@ -28,10 +28,14 @@ public class MissionStreakService {
     private static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
     static final int WEEK_DAYS = 7;
 
+    private static final java.util.logging.Logger LOG = java.util.logging.Logger.getLogger(MissionStreakService.class.getName());
+    static final String SIGNAL_TYPE_STREAK = "STREAK";
+
     private final MissionDao missionDao = new MissionDao();
+    private final ScoreService scoreService = new ScoreService();
 
     /** 미션 화면 "연속 N일째" 카드용. */
-    public record StreakView(int streak, boolean todayDone, List<DayView> days) {
+    public record StreakView(int streak, boolean todayDone, List<DayView> days, int nextBonus) {
         public int getStreak() {
             return streak;
         }
@@ -45,8 +49,24 @@ public class MissionStreakService {
             return streak + 1;
         }
 
+        // Tomcat 11(EL 6)의 RecordELResolver는 record를 만나면 getX()가 아니라 구성요소 이름 그대로의
+        // 접근자 메서드(x())만 찾는다 — JSP의 ${missionStreak.nextStreak}가 NoSuchMethodException으로 터지던 원인.
+        // Tomcat 10 계열(BeanELResolver)은 위 getNextStreak()를 쓰므로 둘 다 둔다.
+        public int nextStreak() {
+            return getNextStreak();
+        }
+
         public List<DayView> getDays() {
             return days;
+        }
+
+        /** 오늘 미션을 풀어서 끝내면 받는 연속 보너스(점). 이미 오늘 끝냈으면 0 */
+        public int getNextBonus() {
+            return nextBonus;
+        }
+
+        public int nextBonus() {
+            return nextBonus;
         }
     }
 
@@ -73,21 +93,69 @@ public class MissionStreakService {
      * 미션 하나를 끝낸 직후 호출한다(제출·실패 트랜잭션 안에서).
      * 오늘 배정분이 모두 끝났으면 스트릭을 갱신한다. 점수 적립(ScoreService)과 같은 트랜잭션이면 적립 뒤에 불러야 한다.
      */
-    public void recordIfDayComplete(Connection conn, Long userId, Long missionId) throws SQLException {
+    public int recordIfDayComplete(Connection conn, Long userId, Long missionId) throws SQLException {
         LocalDate today = LocalDate.now(ZONE);
         if (!today.equals(missionDao.findAssignedDate(conn, userId, missionId))) {
-            return;
+            return 0;
         }
         int[] counts = missionDao.countMissionsByDate(conn, userId, today, today).get(today);
         if (!isDayDone(counts)) {
-            return;
+            return 0;
         }
         StreakRow row = missionDao.findStreak(conn, userId);
         LocalDate last = row == null ? null : row.lastMissionDate();
         if (today.equals(last)) {
-            return;
+            return 0;
         }
-        missionDao.saveStreak(conn, userId, nextStreak(row == null ? 0 : row.streakCount(), last, today), today);
+        int streak = nextStreak(row == null ? 0 : row.streakCount(), last, today);
+        missionDao.saveStreak(conn, userId, streak, today);
+        return streak;
+    }
+
+    /**
+     * 오늘 처음 끝낸 날(recordIfDayComplete가 돌려준 streak)의 연속 보너스를 적립한다. 하나라도 코드를 제출해서
+     * 풀어야 받는다("실패"만 눌러 연속을 이어가는 길을 막는다). 날짜당 한 번(ref_id = 날짜)만 들어가고, 실패해도
+     * 문제 제출은 그대로 둔다.
+     * @return 받은 보너스 점수(없으면 0)
+     */
+    public int awardBonusIfEarned(Long userId, int streak) {
+        if (streak <= 1) {
+            return 0;
+        }
+        try {
+            LocalDate today = LocalDate.now(ZONE);
+            int bonus = bonusFor(streak);
+            if (bonus <= 0) {
+                return 0;
+            }
+            int solved;
+            try (Connection conn = DBUtil.getConnection()) {
+                solved = missionDao.countSolvedOn(conn, userId, today);
+            }
+            if (solved < 1) {
+                return 0;
+            }
+            scoreService.award(userId, SIGNAL_TYPE_STREAK, today.toEpochDay(), bonus);
+            return bonus;
+        } catch (SQLException e) {
+            LOG.log(java.util.logging.Level.WARNING, "연속 보너스를 적립하지 못했습니다", e);
+            return 0;
+        }
+    }
+
+    /** streak일째에 받는 보너스 — 하루마다 늘다가 상한에 멈추고, 7일·30일째에는 큰 보너스가 더 붙는다. 첫날은 0 */
+    static int bonusFor(int streak) {
+        if (streak <= 1) {
+            return 0;
+        }
+        int bonus = Math.min(ScoringRules.get(ScoringRules.STREAK_BONUS_MAX),
+                ScoringRules.get(ScoringRules.STREAK_BONUS_PER_DAY) * (streak - 1));
+        if (streak == 7) {
+            bonus += ScoringRules.get(ScoringRules.STREAK_BONUS_DAY7);
+        } else if (streak == 30) {
+            bonus += ScoringRules.get(ScoringRules.STREAK_BONUS_DAY30);
+        }
+        return bonus;
     }
 
     public StreakView getStreakView(Long userId) throws SQLException {
@@ -104,7 +172,8 @@ public class MissionStreakService {
             }
             LocalDate last = row == null ? null : row.lastMissionDate();
             int streak = displayStreak(row == null ? 0 : row.streakCount(), last, today);
-            return new StreakView(streak, today.equals(last), days);
+            boolean todayDone = today.equals(last);
+            return new StreakView(streak, todayDone, days, todayDone ? 0 : bonusFor(streak + 1));
         }
     }
 

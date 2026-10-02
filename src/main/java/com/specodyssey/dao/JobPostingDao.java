@@ -23,6 +23,12 @@ import java.util.List;
  */
 public class JobPostingDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, job_id, source, source_url, title, company_name, summary, tech_stack, " +
+            "qualifications, preferred, career_level, education_level, salary, region, " +
+            "deadline, posted_at, collected_at, created_at, updated_at, is_deleted";
+
     public Long insert(JobPostingDto posting) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, posting);
@@ -71,7 +77,7 @@ public class JobPostingDao {
 
     // JOB_SKILL_TREND 월별 집계용 — tech_stack이 있는 공고 전체를 훑어서 직무·월별로 묶어야 한다.
     public List<JobPostingDto> findAll() throws SQLException {
-        String sql = "SELECT * FROM JOB_POSTING WHERE is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM JOB_POSTING WHERE is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {
@@ -85,7 +91,7 @@ public class JobPostingDao {
 
     // FR-113: On-demand 조회 결과 공고가 있는지 판단하고, 있으면 보여줄 목록
     public List<JobPostingDto> findByJobId(Long jobId) throws SQLException {
-        String sql = "SELECT * FROM JOB_POSTING WHERE job_id = ? AND is_deleted = FALSE ORDER BY collected_at DESC";
+        String sql = "SELECT " + COLUMNS + " FROM JOB_POSTING WHERE job_id = ? AND is_deleted = FALSE ORDER BY collected_at DESC";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, jobId);

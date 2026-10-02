@@ -21,6 +21,11 @@ import java.util.List;
  */
 public class SpecScoreHistoryDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, user_id, snapshot_date, completeness_score, major, grade, is_seed, " +
+            "created_at, updated_at, is_deleted";
+
     public Long insert(SpecScoreHistoryDto history) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, history);
@@ -57,7 +62,7 @@ public class SpecScoreHistoryDao {
     }
 
     public List<SpecScoreHistoryDto> findByUserId(Long userId) throws SQLException {
-        String sql = "SELECT * FROM SPEC_SCORE_HISTORY WHERE user_id = ? AND is_deleted = FALSE " +
+        String sql = "SELECT " + COLUMNS + " FROM SPEC_SCORE_HISTORY WHERE user_id = ? AND is_deleted = FALSE " +
                 "ORDER BY snapshot_date";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -74,7 +79,7 @@ public class SpecScoreHistoryDao {
 
     // FR-45 또래 비교 — 전공·학년이 같은 시드/실사용자 스냅샷 조회
     public List<SpecScoreHistoryDto> findByMajorAndGrade(String major, String grade) throws SQLException {
-        String sql = "SELECT * FROM SPEC_SCORE_HISTORY WHERE major = ? AND grade = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM SPEC_SCORE_HISTORY WHERE major = ? AND grade = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, major);

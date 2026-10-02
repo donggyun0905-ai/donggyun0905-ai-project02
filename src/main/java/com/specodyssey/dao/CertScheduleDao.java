@@ -21,6 +21,11 @@ import java.util.List;
  */
 public class CertScheduleDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, certification_id, round_name, apply_start, apply_end, exam_date, " +
+            "created_at, updated_at, is_deleted";
+
     public Long insert(CertScheduleDto schedule) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, schedule);
@@ -44,7 +49,7 @@ public class CertScheduleDao {
     }
 
     public List<CertScheduleDto> findByCertificationId(Long certificationId) throws SQLException {
-        String sql = "SELECT * FROM CERT_SCHEDULE WHERE certification_id = ? AND is_deleted = FALSE " +
+        String sql = "SELECT " + COLUMNS + " FROM CERT_SCHEDULE WHERE certification_id = ? AND is_deleted = FALSE " +
                 "ORDER BY exam_date";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {

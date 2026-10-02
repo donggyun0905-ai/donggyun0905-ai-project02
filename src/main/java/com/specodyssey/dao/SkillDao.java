@@ -19,8 +19,13 @@ import java.util.List;
  */
 public class SkillDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, skill_name, category, embedding_vector, embedding_model, embedded_at, " +
+            "created_at, updated_at, is_deleted";
+
     public List<SkillDto> findAll() throws SQLException {
-        String sql = "SELECT * FROM SKILL WHERE is_deleted = FALSE ORDER BY skill_name";
+        String sql = "SELECT " + COLUMNS + " FROM SKILL WHERE is_deleted = FALSE ORDER BY skill_name";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {
@@ -33,7 +38,7 @@ public class SkillDao {
     }
 
     public SkillDto findByName(String skillName) throws SQLException {
-        String sql = "SELECT * FROM SKILL WHERE skill_name = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM SKILL WHERE skill_name = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, skillName);
@@ -45,7 +50,7 @@ public class SkillDao {
 
     // FR-32 로드맵 단계 표시용 — related_skill_id로 기술명을 조회한다.
     public SkillDto findById(Long id) throws SQLException {
-        String sql = "SELECT * FROM SKILL WHERE id = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM SKILL WHERE id = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, id);

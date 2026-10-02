@@ -13,7 +13,7 @@
   --paper:#FBFAF7; --paper-2:#F1EEE8; --ink:#152029; --ink-soft:#5C6B77;
   --line:#D8D2C8; --edge:#4E6B7E; --edge-hi:#F2C879;
   --g-user:#2E7D6B; --g-job:#B03A48; --g-road:#7A5CB8;
-  --g-mission:#B5841B; --g-eval:#2B6CB0; --g-sys:#5A6472;
+  --g-mission:#B5841B; --g-eval:#2B6CB0; --g-sys:#5A6472; --g-board:#C2571A;
   --sans:'IBM Plex Sans KR',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
 }
 :root:not([data-theme="light"]){color-scheme:dark}
@@ -95,6 +95,7 @@ body{background:var(--sea);font-family:var(--sans);color:var(--paper);overflow:h
   padding:6px 9px;border-radius:5px;display:inline-block}
 .note{border-left:3px solid var(--edge-hi);background:rgba(242,200,121,.09);padding:9px 12px;border-radius:0 5px 5px 0;
   margin-bottom:8px;font-size:13px;line-height:1.6;color:#F0E4CC}
+.note,.sec p{overflow-wrap:anywhere}
 .ctab{width:100%;border-collapse:collapse;font-size:12px}
 .ctab th{text-align:left;font-weight:500;font-size:10.5px;color:#7E96A6;padding:0 6px 6px 0;border-bottom:1px solid rgba(255,255,255,.1)}
 .ctab td{padding:7px 6px 7px 0;border-bottom:1px solid rgba(255,255,255,.055);vertical-align:top;color:#DCE6EC;line-height:1.5}
@@ -117,7 +118,7 @@ body{background:var(--sea);font-family:var(--sans);color:var(--paper);overflow:h
 <body>
 
 <div id="bar">
-  <h1>스펙 오디세이 ERD<span>팀 검수판 · 35개 테이블</span></h1>
+  <h1>스펙 오디세이 ERD<span>팀 검수판</span></h1>
   <input id="search" type="search" placeholder="테이블·컬럼 검색" aria-label="테이블 검색">
   <div id="zoomer">
     <button class="zb" id="zout" aria-label="축소">−</button>
@@ -151,7 +152,8 @@ const DOM = {
   road:{ko:'로드맵·여정',c:'var(--g-road)'},
   mission:{ko:'미션·성장 지표',c:'var(--g-mission)'},
   eval:{ko:'면접관 평가',c:'var(--g-eval)'},
-  sys:{ko:'부가·시스템',c:'var(--g-sys)'}
+  sys:{ko:'부가·시스템',c:'var(--g-sys)'},
+  board:{ko:'기술 글 게시판',c:'var(--g-board)'}
 };
 
 /* col: [이름, 타입, 키, 한글설명] */
@@ -160,7 +162,7 @@ const T = [
 {n:'USERS',ko:'회원',g:'user',x:60,y:40,new:0,req:'FR-11 · 12 · 13 · 14 · 21 · 22',
  role:'서비스의 모든 데이터가 매달리는 뿌리 테이블. 로그인 계정 정보와 전공·학년 같은 기본 신상, 그리고 "내가 가고 싶은 직무"를 담는다. 여기 한 줄이 지워지면 그 사람의 여정 전체가 사라진다.',
  notes:['user_type은 지금 전부 \'지원자\'다. 면접관 계정을 나중에 붙일 때 테이블을 갈아엎지 않으려고 미리 뚫어둔 확장 필드(TD-4).','email은 명세서 가입 항목에 없었지만 FR-73 이메일 알림을 살릴 여지를 두려고 추가하기로 했다. 선택 입력.','profile_updated_at은 FR-37 재분석 트리거용이다. USERS.updated_at만으로는 안 된다. 사용자가 자격증을 추가해도 바뀌는 건 USER_SPECS이지 USERS가 아니라서, 자식 테이블 세 개의 MAX(updated_at)을 매번 구해야 한다. 자식이 바뀔 때 이 컬럼을 같이 찍어두면 GAP_ANALYSIS.analyzed_at과 한 번 비교하면 끝난다.','희망 직무가 없으면 desired_job_id가 NULL이고 desired_job_status가 UNSET이 된다. 이 값으로 "직무 발굴" 화면으로 보낼지 "격차 분석"으로 보낼지 갈린다.'],
- cols:[['id','BIGINT','PK','회원 식별자'],['user_type','VARCHAR(10)','','지원자 / 면접관 — 현재는 전부 지원자'],['login_id','VARCHAR(50)','UK','로그인 아이디'],['password_hash','VARCHAR(255)','','해시+솔트 저장 (NFR-2)'],['email','VARCHAR(100)','','마감 알림 발송용 (선택 입력)'],['major','VARCHAR(50)','','전공'],['grade','VARCHAR(20)','','학년'],['interest_field','VARCHAR(50)','','관심 분야'],['desired_job_id','BIGINT','FK','희망 직무 → JOB (없으면 NULL)'],['desired_job_status','VARCHAR(10)','','SET / UNSET(아직 모르겠음)'],['privacy_consent_at','DATETIME','','민감정보 수집 동의 시점 (NFR-4)'],['profile_updated_at','DATETIME','','스펙·프로젝트·스킬 중 하나라도 바뀐 시각 — 재분석 판단 기준'],['last_login_at','DATETIME','','마지막 접속']]},
+ cols:[['id','BIGINT','PK','회원 식별자'],['user_type','VARCHAR(10)','','지원자 / 면접관 — 가입할 때 고른다'],['login_id','VARCHAR(50)','UK','로그인 아이디'],['password_hash','VARCHAR(255)','','해시+솔트 저장 (NFR-2)'],['name','VARCHAR(50)','','이름 — 가입 시 필수. 공유 링크 기본 이력 범위로 면접관에게 보임'],['age','INT','','나이 — 지원자 가입 시 필수'],['career_status','VARCHAR(15)','','STUDENT / JOB_SEEKER / EMPLOYED'],['email','VARCHAR(100)','','마감 알림 발송용 (선택 입력)'],['major','VARCHAR(50)','','전공'],['grade','VARCHAR(20)','','학년'],['interest_field','VARCHAR(50)','','관심 분야'],['desired_job_id','BIGINT','FK','희망 직무 → JOB (없으면 NULL)'],['desired_job_status','VARCHAR(10)','','SET / UNSET(아직 모르겠음)'],['resume_document_id','BIGINT','FK','이력서 파일 → DOCUMENTS (없으면 NULL)'],['cover_letter_document_id','BIGINT','FK','자소서 파일 → DOCUMENTS (선택, 지정하지 않았으면 NULL)'],['privacy_consent_at','DATETIME','','민감정보 수집 동의 시점 (NFR-4)'],['recovery_code_hash','VARCHAR(255)','','비밀번호 찾기용 복구 코드의 해시(원문 저장 안 함). NULL이면 코드가 없는 계정'],['profile_updated_at','DATETIME','','스펙·프로젝트·스킬 중 하나라도 바뀐 시각 — 재분석 판단 기준'],['last_login_at','DATETIME','','마지막 접속']]},
 
 {n:'USER_SPECS',ko:'보유 스펙',g:'user',x:60,y:430,new:0,req:'FR-23 · 81(면접관 타임라인)',
  role:'자격증·어학·수상을 한 줄씩 쌓는 곳. 한 사람이 여러 개를 가지므로 1:N이다. 취득일이 있어서 면접관 뷰의 시간순 타임라인(FR-81)을 그릴 때 정렬 기준이 된다.',
@@ -170,7 +172,7 @@ const T = [
 {n:'USER_PROJECTS',ko:'프로젝트·경험',g:'user',x:60,y:690,new:0,req:'FR-24',
  role:'프로젝트와 경험을 쌓는 곳. 서류 보관함(DOCUMENTS)이 여기에 붙어서 "이 프로젝트의 산출물"로 묶인다.',
  notes:['tech_stack을 둔 이유는 직무 발굴 때문이다. 사용자가 보유 기술을 따로 입력하지 않아도 프로젝트에 쓴 기술에서 역으로 스킬을 뽑아낼 수 있다(FR-38).'],
- cols:[['id','BIGINT','PK','식별자'],['user_id','BIGINT','FK','→ USERS'],['title','VARCHAR(150)','','프로젝트명'],['description','TEXT','','설명'],['tech_stack','VARCHAR(255)','','사용 기술 — 스킬 역산 보조'],['start_date','DATE','','시작일'],['end_date','DATE','','종료일']]},
+ cols:[['id','BIGINT','PK','식별자'],['user_id','BIGINT','FK','→ USERS'],['title','VARCHAR(150)','','프로젝트명'],['description','TEXT','','설명'],['tech_stack','VARCHAR(255)','','사용 기술 — 스킬 역산 보조'],['start_date','DATE','','시작일'],['end_date','DATE','','종료일'],['upgraded_from_project_id','BIGINT','FK','→ USER_PROJECTS(자기참조). "기존 프로젝트 업그레이드"로 로드맵 CORE/ADVANCED SKILL 단계를 완료했을 때 이전 버전 연결. NULL이면 신규 프로젝트'],['repo_url','VARCHAR(500)','','코드 저장소 링크 — 파일 스크린샷보다 실제로 열어볼 수 있는 링크가 신뢰도가 높다. 완료 판정에는 안 쓴다(참고용)'],['deploy_url','VARCHAR(500)','','배포 주소 (선택) — 있으면 완성도가 확실히 보이지만 강제하면 4주 일정에 부담이라 NULL 허용'],['retrospective','TEXT','','완료 회고 2~3줄 — "업그레이드했다"는 사실만이 아니라 무엇을 배우고 해결했는지. 완료 판정에는 안 쓴다']]},
 
 {n:'USER_SKILLS',ko:'보유 기술 스택',g:'user',x:60,y:950,new:0,req:'FR-25 (필수로 격상)',
  role:'사용자가 입력한 기술을 표준 스킬(SKILL)에 연결해 두는 다리. 이 연결이 있어야 "내 기술 vs 직무 요구 기술"을 DB에서 맞대어 볼 수 있다.',
@@ -198,7 +200,7 @@ const T = [
 {n:'JOB',ko:'직무 마스터',g:'job',x:420,y:350,new:1,req:'TD-2 On-demand 수집',
  role:'서비스가 다루는 직무 목록. 사용자가 입력한 직무명을 정규화한 결과가 여기 한 줄이 된다. 요구 기술·합격 기준·추천·격차 분석이 전부 이 테이블을 가리킨다.',
  notes:['IT 계열로 한정하기로 확정했다. 초기 대상이 15~20개로 줄어 명세서 TD-2의 "수기 구축 5~10개"보다 넓은 커버리지를 확보할 수 있고, 스킬 마스터도 IT 기술로만 채워져 임베딩 품질이 올라간다.','is_popular가 true면 미리 수집해 둔다(조회가 빠름). false면 사용자가 요청할 때 워크넷을 호출하고 결과를 캐싱해 다음 사용자부터 빨라진다.','재수집은 워크넷 배치 주 1회(일요일 새벽), On-demand 캐시는 TTL 7일로 추천.'],
- cols:[['id','BIGINT','PK','식별자'],['job_name','VARCHAR(100)','UK','정규화된 직무명'],['job_category','VARCHAR(50)','','BACKEND / FRONTEND / DATA / DEVOPS / SECURITY / PM'],['is_popular','BOOLEAN','','사전 수집 대상 여부'],['last_collected_at','DATETIME','','마지막 수집 시각 — 재수집 판단 기준']]},
+ cols:[['id','BIGINT','PK','식별자'],['job_name','VARCHAR(100)','UK','정규화된 직무명'],['job_category','VARCHAR(50)','','BACKEND / FRONTEND / DATA / DEVOPS / SECURITY / PM'],['is_popular','BOOLEAN','','사전 수집 대상 여부'],['last_collected_at','DATETIME','','마지막 수집 시각 — 재수집 판단 기준'],['requirement_version','INT','','JOB_REQUIRED_SKILL 목록이 실제로 바뀔 때마다 +1 (내용이 같으면 재수집해도 안 올림)']]},
 
 {n:'JOB_REQUIRED_SKILL',ko:'직무 요구 기술',g:'job',x:420,y:620,new:1,req:'TD-1 규칙기반 격차 분석',
  role:'"이 직무는 어떤 기술을 얼마나 요구하는가"를 한 줄에 하나씩 담은 기준 데이터. 격차 분석이 사용자 스킬과 맞대어 보는 상대편이다.',
@@ -231,7 +233,7 @@ const T = [
 {n:'GAP_ANALYSIS',ko:'격차 분석',g:'road',x:790,y:40,new:0,req:'FR-31 · 37 · 42',
  role:'"현재 나 vs 목표 직무"를 비교한 결과의 머리 부분. 언제 분석했고 전체 충족률이 얼마인지를 담는다. 상세 항목은 GAP_ANALYSIS_ITEM에 있다.',
  notes:['한 사용자가 여러 직무를 각각 진단할 수 있도록 1:N으로 확정했다. IT 계열 안에서 백엔드·데이터·DevOps를 저울질하는 건 자연스러운 행동이고, "어느 길로 갈지 비교한다"는 여정 컨셉과도 맞는다.','analyzed_at이 프로필 변경 시 재분석 트리거 기준이 된다(FR-37). 프로필이 이 시각 이후에 바뀌었으면 다시 분석한다.','match_rate는 대시보드 완성도 게이지(FR-41)의 재료로 그대로 쓰인다.'],
- cols:[['id','BIGINT','PK','식별자'],['user_id','BIGINT','FK','→ USERS'],['job_id','BIGINT','FK','→ JOB (목표 직무)'],['match_rate','DECIMAL(5,2)','','전체 충족률 — 완성도 게이지 재료'],['analyzed_at','DATETIME','','분석 시각 — 재분석 판단 기준']]},
+ cols:[['id','BIGINT','PK','식별자'],['user_id','BIGINT','FK','→ USERS'],['job_id','BIGINT','FK','→ JOB (목표 직무)'],['match_rate','DECIMAL(5,2)','','전체 충족률 — 완성도 게이지 재료'],['job_requirement_version','INT','','분석 시점 JOB.requirement_version 스냅샷. 나중에 JOB 쪽이 갱신되면 이 값과 비교해 로드맵이 낡았는지 판단(2026-09-30 팀 결정)'],['analyzed_at','DATETIME','','분석 시각 — 재분석 판단 기준']]},
 
 {n:'GAP_ANALYSIS_ITEM',ko:'격차 분석 항목',g:'road',x:790,y:290,new:1,req:'FR-42 · 48',
  role:'기술 하나하나에 대해 "충족했는지 부족한지"를 기록한 줄. 격차 비교표와 약점 히트맵이 전부 여기서 나온다.',
@@ -247,7 +249,7 @@ const T = [
 {n:'ROADMAP_STEP',ko:'로드맵 단계',g:'road',x:790,y:850,new:0,req:'FR-32 · 33 · 36 · 43(여정 지도)',
  role:'길 위의 한 걸음. ①자격증 → ②프로젝트 → ③스킬 순서로 "다음에 뭘 해야 하는지"를 알려준다. 여정 지도에 찍히는 점이 곧 이 테이블의 한 줄이다.',
  notes:['tier가 "끝없는 길" 구조를 담는 컬럼이다. ENTRY를 다 걸으면 CORE가, CORE를 마치면 ADVANCED가 열리는 식으로 로드맵이 계속 연장된다.','다만 한 번에 전 구간을 다 생성하면 신규 사용자에게 수십 단계가 쏟아져 오히려 이탈한다. 현재 tier + 다음 tier까지만 노출하고 나머지는 여정 지도에 흐리게 표시하기를 권한다.','certification_id로 자격증 마스터와 이어져 D-day가 자동 생성된다.','completed_at은 스코어 적립(SCORE_LOG)의 근거가 된다. 단계 완료당 +100점.','재분석으로 로드맵이 새 version으로 만들어질 때, 이전 version에서 완료한 단계는 승계해야 한다. 안 그러면 이미 딴 자격증을 다시 따라고 시킨다. CERT 단계는 USER_SPECS에 같은 자격증이 등록돼 있으면 생성 시점에 바로 완료 처리하는 편이 안전하다.'],
- cols:[['id','BIGINT','PK','식별자'],['roadmap_id','BIGINT','FK','→ ROADMAP'],['step_order','INT','','단계 순서'],['step_type','VARCHAR(20)','','CERT / PROJECT / SKILL'],['tier','VARCHAR(20)','','ENTRY / CORE / ADVANCED / EXPERT'],['certification_id','BIGINT','FK','→ CERTIFICATION (CERT 단계일 때)'],['related_skill_id','BIGINT','FK','→ SKILL (어떤 부족 역량을 메우는지)'],['reason','TEXT','','"왜 지금 이걸 해야 하는지" (FR-33)'],['is_completed','BOOLEAN','','완료 체크'],['completed_at','DATETIME','','완료 시각 — 점수 적립 근거']]},
+ cols:[['id','BIGINT','PK','식별자'],['roadmap_id','BIGINT','FK','→ ROADMAP'],['step_order','INT','','단계 순서'],['step_type','VARCHAR(20)','','CERT / PROJECT / SKILL / REVIEW (기술 복습)'],['tier','VARCHAR(20)','','ENTRY / CORE / ADVANCED / EXPERT / REVIEW'],['certification_id','BIGINT','FK','→ CERTIFICATION (CERT 단계일 때)'],['related_skill_id','BIGINT','FK','→ SKILL (어떤 부족 역량을 메우는지)'],['reason','TEXT','','"왜 지금 이걸 해야 하는지" (FR-33)'],['proof_type','VARCHAR(20)','','단계 증빙 방식 — NOTE(ENTRY 공부노트) / PROJECT_LINK(CORE·ADVANCED 프로젝트 등록·업그레이드) / TEACHING_POST(EXPERT 기술 설명 글) / CERT_DOCUMENT(CERT 자격증 증빙 서류). tier·타입으로 자동 결정되지만 기준이 바뀔 수 있어 명시적으로 저장'],['proof_content','TEXT','','NOTE·TEACHING_POST — 제출된 PDF에서 추출한 텍스트(규칙 판정용 원문 캐시). 원본 파일 자체는 DOCUMENTS(roadmap_step_id로 연결)에 저장'],['evidence_project_id','BIGINT','FK','→ USER_PROJECTS. PROJECT_LINK일 때 어느 프로젝트로 완료했는지'],['review_status','VARCHAR(20)','','PENDING / PASSED / NEEDS_REVISION — 규칙 기반 판정 결과'],['review_note','TEXT','','판정 근거·피드백 (어떤 기준을 못 채웠는지)'],['is_completed','BOOLEAN','','완료 체크'],['completed_at','DATETIME','','완료 시각 — 점수 적립 근거']]},
 
 {n:'JOB_RECOMMENDATION',ko:'추천 직무',g:'road',x:790,y:1290,new:0,req:'FR-34 · 35 · 38 · 39',
  role:'"아직 모르겠음"을 고른 사용자에게 제시하는 후보 직무 3~5개. 막다른 길을 만들지 않기 위한 장치.',
@@ -259,13 +261,13 @@ const T = [
 {n:'PROBLEM',ko:'문제 풀',g:'mission',x:1160,y:40,new:1,req:'FR-51 · 52 · TD-3',
  role:'코딩테스트 문제 창고. 모든 사용자가 공유하는 공용 풀이다.',
  notes:['초안에서는 문제 자체와 "누구에게 언제 배정됐는지"가 한 테이블에 섞여 있었다. 그러면 같은 문제를 여러 사용자에게 다른 날 배정할 수 없다. 그래서 둘로 쪼갰다.','세 종류 출처가 섞인다 — AI 생성(본문 보유), 링크 추천(백준 N번 링크만), 오픈 라이선스 문제셋. 저작권 크롤링은 금지다(TD-3).','answer_key는 AI 생성 문제에만 있다. 정답 검증 로직이 필요하기 때문.'],
- cols:[['id','BIGINT','PK','식별자'],['title','VARCHAR(200)','','문제 제목'],['description','TEXT','','본문 (AI 생성 문제만)'],['difficulty_level','INT','','내부 난이도 1~5 — 플랫폼 레벨과 매핑'],['source_type','VARCHAR(20)','','AI_GENERATED / EXTERNAL_LINK / OPEN_DATASET'],['external_url','VARCHAR(500)','','링크 추천형 — 콘텐츠 복제 금지'],['answer_key','TEXT','','AI 생성 문제 정답 검증용']]},
+ cols:[['id','BIGINT','PK','식별자'],['title','VARCHAR(200)','','문제 제목'],['description','TEXT','','본문 (AI 생성 문제만)'],['difficulty_level','INT','','내부 난이도 1~5 — 플랫폼 레벨과 매핑'],['category','VARCHAR(20)','','SQL / ALGORITHM (기본 ALGORITHM) — 목표 직무별 출제 비율 기준'],['source_type','VARCHAR(20)','','AI_GENERATED / EXTERNAL_LINK / OPEN_DATASET'],['external_url','VARCHAR(500)','','링크 추천형 — 콘텐츠 복제 금지'],['answer_key','TEXT','','AI 생성 문제 정답 검증용']]},
 
 {n:'USER_DAILY_MISSION',ko:'일일 미션 배정',g:'mission',x:1160,y:360,new:1,req:'FR-51 · 52 · 53',
  role:'"누가 언제 어떤 문제를 받았고 풀었는지". 여정을 매일 걷게 만드는 기록.',
  notes:['(user_id, assigned_date, problem_id) 복합 UK로 같은 날 같은 문제가 중복 배정되지 않게 막는다.','난이도는 사용자의 현재 등급(USER_SCORE_SUMMARY)에 맞춰 조정된다. 비기너에게는 Lv1, 실전러에게는 Lv2~3(TD-5 c).','스트릭은 여기 두지 않고 USER_SCORE_SUMMARY에서 관리한다. 매번 로그 전체를 훑어 연속 일수를 세는 건 대시보드 조회마다 부담이다.'],
  uk:'(user_id, assigned_date, problem_id) — 같은 날 같은 문제 중복 배정 방지',
- cols:[['id','BIGINT','PK','식별자'],['user_id','BIGINT','FK','→ USERS'],['problem_id','BIGINT','FK','→ PROBLEM'],['assigned_date','DATE','','배정일 (복합 UK)'],['is_completed','BOOLEAN','','완료 체크'],['completed_at','DATETIME','','완료 시각'],['is_correct','BOOLEAN','','정답 여부 — 점수 배점 기준']]},
+ cols:[['id','BIGINT','PK','식별자'],['user_id','BIGINT','FK','→ USERS'],['problem_id','BIGINT','FK','→ PROBLEM'],['assigned_date','DATE','','배정일 (복합 UK)'],['is_completed','BOOLEAN','','완료 체크'],['completed_at','DATETIME','','완료 시각'],['is_correct','BOOLEAN','','정답 여부 — 점수 배점 기준'],['submitted_code','MEDIUMTEXT','','"정답 입력하기"로 제출한 풀이 코드 — 컴파일(문법) 확인 통과분만 저장'],['submitted_language','VARCHAR(20)','','제출 언어 — JAVA / PYTHON / CPP / C / JAVASCRIPT / SQL'],['submitted_at','DATETIME','','마지막 제출 시각 (다시 제출하면 덮어씀)']]},
 
 {n:'SCORE_LOG',ko:'점수 적립 로그',g:'mission',x:1160,y:640,new:1,req:'TD-5 (a)',
  role:'점수가 쌓인 사건을 한 줄씩 남기는 장부. 언제 무엇으로 몇 점을 받았는지가 전부 여기 있다.',
@@ -312,9 +314,9 @@ const T = [
 {n:'SHARE_LINK',ko:'공유 링크',g:'eval',x:1900,y:40,new:0,req:'FR-85 · 86 · NFR-9',
  role:'지원자가 발급하는 비공개 열람 링크. 면접관은 로그인 없이 이 토큰으로만 이력을 읽는다.',
  notes:['scope_* 세 컬럼이 공개 범위를 통제한다. 토큰만 있으면 그 user_id의 모든 테이블을 읽을 수 있는 구조였는데, 부족 역량 히트맵·등급·코테 오답률·개인 서류가 전부 딸려 있어 지원자에게 불리하다. 애플리케이션 코드로만 막으면 화면 하나 추가하다 실수로 뚫린다.','NFR-4(민감 데이터는 본인 동의·본인 선택 공유만)를 스키마 차원에서 지키는 장치이기도 하다. FR-102의 AI 활용 기록은 아예 공유 대상에서 제외한다.','탈퇴(USERS.is_deleted = true) 시 이 사용자의 모든 SHARE_LINK을 is_active = false로 내려야 한다. 논리 삭제라 행은 남는데 토큰이 살아 있으면 면접관이 계속 열람할 수 있다.','토큰은 추측 불가능한 랜덤 문자열이어야 한다(NFR-9). 읽기 전용이고 만료·비활성화가 가능하다.','is_active를 지원자가 언제든 false로 바꿀 수 있어야 한다(FR-86). 공유를 중단할 권한은 지원자에게 있다.','면접관이 검색하거나 직접 조회하는 경로는 이번 범위에 없다. 링크를 받은 사람만 본다.'],
- cols:[['id','BIGINT','PK','식별자'],['user_id','BIGINT','FK','→ USERS (지원자 본인)'],['token','VARCHAR(64)','UK','추측 불가 랜덤 문자열'],['is_active','BOOLEAN','','지원자가 언제든 공유 중단 가능'],['expires_at','DATETIME','','만료 시각'],['scope_basic','BOOLEAN','','전공·자격증·프로젝트 타임라인 공개 (기본 true)'],['scope_skills','BOOLEAN','','보유 기술 스택 공개 — 적합도 스코어링에 필요'],['scope_growth','BOOLEAN','','성장 잠재력 지표 공개'],['label','VARCHAR(50)','','지원자용 메모 (예: "A회사 지원") — 링크 여러 개 구분']]},
+ cols:[['id','BIGINT','PK','식별자'],['user_id','BIGINT','FK','→ USERS (지원자 본인)'],['token','VARCHAR(64)','UK','추측 불가 랜덤 문자열'],['is_active','BOOLEAN','','지원자가 언제든 공유 중단 가능'],['expires_at','DATETIME','','만료 시각'],['scope_basic','BOOLEAN','','전공·자격증·프로젝트 타임라인 공개 (기본 true)'],['scope_skills','BOOLEAN','','보유 기술 스택 공개 — 적합도 스코어링에 필요'],['scope_growth','BOOLEAN','','성장 잠재력 지표 공개'],['scope_resume','BOOLEAN','','이력서 파일 공개 (기본 false)'],['scope_cover_letter','BOOLEAN','','자소서 파일(USERS.cover_letter_document_id) 공개 (기본 false)'],['label','VARCHAR(50)','','지원자용 메모 (예: "A회사 지원") — 링크 여러 개 구분']]},
 
-{n:'SHARE_LINK_VIEW_LOG',ko:'열람 기록',g:'eval',x:1900,y:290,new:1,req:'(요구사항 외 추가)',
+{n:'SHARE_LINK_VIEW_LOG',ko:'열람 기록',g:'eval',x:1900,y:315,new:1,req:'(요구사항 외 추가)',
  role:'공유 링크가 언제 누구에게 열렸는지 남기는 기록.',
  notes:['명세서에 없는 테이블이지만 두 가지 값이 있다. 지원자에게 "내 이력이 몇 번 열람됐는지" 보여줄 수 있고, 토큰이 유출됐을 때 비정상 접근을 확인할 근거가 된다.','우선순위는 낮다. 시간이 없으면 생략해도 나머지가 돌아간다.'],
  cols:[['id','BIGINT','PK','식별자'],['share_link_id','BIGINT','FK','→ SHARE_LINK'],['viewed_at','DATETIME','','열람 시각'],['viewer_ip','VARCHAR(45)','','접근 IP']]},
@@ -322,7 +324,7 @@ const T = [
 {n:'EVALUATION_SESSION',ko:'평가 세션',g:'eval',x:1900,y:510,new:1,req:'FR-82',
  role:'면접관이 여러 지원자를 담아두는 장바구니. 계정 없이도 비교 뷰를 만들 수 있게 해주는 그릇.',
  notes:['초안의 가장 큰 구멍이 여기였다. FR-82는 "여러 지원자를 나란히 비교"인데 면접관 계정이 없으니(FR-14), 면접관이 받은 여러 토큰을 묶어둘 곳이 필요하다.','면접관이 공유 링크를 하나씩 입력해 장바구니처럼 담는 방식으로 확정했다. session_token은 브라우저 세션 식별자다.','지원자 한 명만 볼 때는 이 테이블 없이 링크만으로 충분하다. 비교 기능이 필요해서 생긴 구조다.'],
- cols:[['id','BIGINT','PK','식별자'],['session_token','VARCHAR(64)','UK','면접관 브라우저 세션 식별자'],['company_name','VARCHAR(100)','','회사명'],['created_at','DATETIME','','생성 시각'],['expires_at','DATETIME','','세션 만료 — 없으면 익명 세션이 영구히 쌓인다']]},
+ cols:[['id','BIGINT','PK','식별자'],['user_id','BIGINT','FK','→ USERS (면접관 계정). NULL이면 익명 세션'],['session_token','VARCHAR(64)','UK','세션 식별자 — 수정·삭제 시 소유 확인'],['company_name','VARCHAR(100)','','회사명'],['created_at','DATETIME','','생성 시각'],['expires_at','DATETIME','','세션 만료 — 없으면 익명 세션이 영구히 쌓인다']]},
 
 {n:'EVALUATION_SESSION_ITEM',ko:'평가 대상',g:'eval',x:1900,y:730,new:1,req:'FR-82',
  role:'장바구니에 담긴 지원자 한 명. 세션과 공유 링크를 잇는다.',
@@ -340,7 +342,7 @@ const T = [
 {n:'DOCUMENTS',ko:'서류 보관함',g:'sys',x:1530,y:760,new:0,req:'FR-61~64 · NFR-7',
  role:'프로젝트 관련 서류를 업로드해 보관하는 곳.',
  notes:['original_name과 stored_name을 분리한 이유는 한글 파일명과 중복 파일명 때문이다. 원본명은 화면에 보여주고, 실제 저장은 충돌 없는 이름으로 한다.','file_size·mime_type·checksum이 NFR-7(용량·확장자 제한, 무결성 관리)의 근거가 된다.','FR-64(AI 챗봇이 서류를 읽어 답변)는 보류 항목이라 스키마만 준비하고 기능은 만들지 않는다.'],
- cols:[['id','BIGINT','PK','식별자'],['user_id','BIGINT','FK','→ USERS'],['project_id','BIGINT','FK','→ USER_PROJECTS (선택 연결)'],['original_name','VARCHAR(255)','','원본 파일명 — 화면 표시용'],['stored_name','VARCHAR(255)','','저장 파일명 — 중복 방지'],['file_path','VARCHAR(500)','','저장 경로'],['file_size','BIGINT','','용량 제한 검증'],['mime_type','VARCHAR(100)','','확장자 제한 검증'],['checksum','VARCHAR(64)','','무결성 관리'],['uploaded_at','DATETIME','','업로드 시각']]},
+ cols:[['id','BIGINT','PK','식별자'],['user_id','BIGINT','FK','→ USERS'],['project_id','BIGINT','FK','→ USER_PROJECTS (선택 연결)'],['roadmap_step_id','BIGINT','FK','→ ROADMAP_STEP (선택 연결). 공부노트·기술 설명 글(PDF)을 프로젝트 없이 바로 SKILL 단계에 붙일 때 사용'],['original_name','VARCHAR(255)','','원본 파일명 — 화면 표시용'],['stored_name','VARCHAR(255)','','저장 파일명 — 중복 방지'],['file_path','VARCHAR(500)','','저장 경로'],['file_size','BIGINT','','용량 제한 검증'],['mime_type','VARCHAR(100)','','확장자 제한 검증'],['checksum','VARCHAR(64)','','무결성 관리']]},
 
 {n:'DDAY_ALERT',ko:'D-day 알림',g:'sys',x:1530,y:1120,new:0,req:'FR-71 · 72 · 73',
  role:'자격증 접수일·공채 마감일 같은 일정을 D-day로 띄우는 곳.',
@@ -357,7 +359,70 @@ const T = [
 {n:'AI_USAGE_LOG',ko:'AI 활용 기록',g:'sys',x:1900,y:1120,new:0,req:'FR-101 · 102',
  role:'사용자가 직접 제출한 AI 사용 기록. AI 리터러시를 강점으로 보여주는 리포트 재료.',
  notes:['[선택] 항목이다. 여유 있을 때 붙인다.','민감 데이터이므로 공유 여부는 본인이 정한다(NFR-4). 긍정적 강점으로만 표현한다.'],
- cols:[['id','BIGINT','PK','식별자'],['user_id','BIGINT','FK','→ USERS'],['usage_record_json','TEXT','','사용자 제출 기록'],['is_shared','BOOLEAN','','공유 여부 — 본인 선택']]}
+ cols:[['id','BIGINT','PK','식별자'],['user_id','BIGINT','FK','→ USERS'],['usage_record_json','TEXT','','사용자 제출 기록'],['is_shared','BOOLEAN','','공유 여부 — 본인 선택']]},
+
+/* ===== 커뮤니티 · 프로젝트 문서 · 누락분 보강 (2026-10-01) ===== */
+{n:'TECH_ARTICLE',ko:'기술 글',g:'board',x:2270,y:40,new:1,req:'없음(신규 제안 — 회의 후 요구사항에 추가) · 개발일지 4-3',
+ role:'로드맵 EXPERT 단계의 "기술 설명 글"을 서비스 안에서 다른 사용자도 볼 수 있게 공개하는 글. 규칙 판정(글자 수·키워드·링크)을 통과하면 곧바로 공개되고, 문제가 있으면 팀이 나중에 내린다(자동 게시 + 사후 관리).',
+ notes:['개발일지의 컬럼 목록(id·roadmap_step_id·user_id·skill_id·title·content·status·published_at·view_count)을 그대로 지키고, 게시판에 필요한 것만 더했다: source_type, hidden_reason·hidden_at, like·comment·bookmark_count.','skill_id 하나가 "태그" 역할을 한다. 별도 태그 테이블 없이 기술별 글 목록(WHERE skill_id = ? AND status = \'PUBLISHED\')이 되고, 트렌드 사이드바·데이터 인사이트 화면에 "이 기술 관련 글"로 얹을 수 있다. 인덱스 (skill_id, status, published_at)가 이 조회를 받친다.','수동 승인을 먼저 거치는 안과 큐레이션(추천 글만 노출) 안은 완료 시점과 공개 시점이 갈려 사용자 경험이 나빠서 기각했다. 그래서 status는 승인 대기 값 없이 DRAFT/PUBLISHED/HIDDEN만 둔다.','글을 지우지 않고 HIDDEN으로 내린다. 물리 삭제 금지 규칙과 같은 맥락이고, 내린 이유를 작성자에게 보여줘야 해서 행이 남아 있어야 한다.','*_count 4개는 집계값이다. 목록·정렬마다 하트·댓글 행을 COUNT하면 글이 쌓일수록 느려지므로(USER_SCORE_SUMMARY와 같은 이유) 하트·댓글·북마크·조회가 일어나는 같은 트랜잭션에서 함께 올리고 내린다.','roadmap_step_id에 UNIQUE를 건다 — EXPERT 단계 하나에서 글 하나. 로드맵 단계를 "완료 취소 → 재완료"하면 같은 단계에서 글이 또 생기려 하므로, 이미 있는 글을 갱신·되살리는 쪽으로 처리해야 한다(새 행 INSERT 금지). NULL은 여러 개 허용되므로 자유 글에는 영향이 없다.'],
+ uk:'(roadmap_step_id) — EXPERT 단계 하나에서 글 하나 (NULL인 자유 글은 여러 개 가능)',
+ cols:[['id','BIGINT','PK','식별자'],['user_id','BIGINT','FK','→ USERS (작성자)'],['skill_id','BIGINT','FK','→ SKILL. 어떤 기술에 대한 글인지 — 다른 사용자가 이 기준으로 찾아본다'],['roadmap_step_id','BIGINT','FK','→ ROADMAP_STEP. EXPERT 단계에서 나온 글이면 그 단계, 자유 글이면 NULL. UNIQUE'],['source_type','VARCHAR(20)','','ROADMAP_EXPERT(로드맵 증빙으로 자동 게시) / FREE(자유 작성)'],['title','VARCHAR(200)','','제목'],['content','TEXT','','본문'],['status','VARCHAR(20)','','DRAFT(임시저장) / PUBLISHED(공개) / HIDDEN(운영자가 내림)'],['published_at','DATETIME','','공개된 시각. 최신순 정렬 기준'],['hidden_reason','VARCHAR(200)','','내린 이유 — 작성자에게 보여준다'],['hidden_at','DATETIME','','내린 시각'],['view_count','INT','','조회수 — 인기 글 정렬 기준'],['like_count','INT','','하트 수'],['comment_count','INT','','댓글 수'],['bookmark_count','INT','','북마크 수']]},
+
+{n:'TECH_ARTICLE_COMMENT',ko:'기술 글 댓글',g:'board',x:2270,y:420,new:1,req:'없음(신규 제안)',
+ role:'',
+ notes:['대댓글은 한 단계만 허용한다. 부모가 최상위 댓글인지는 애플리케이션이 확인한다(스키마로는 깊이를 막지 못한다). 끝없이 들여쓰는 게시판은 읽기 어렵고 구현도 재귀가 된다.','삭제는 is_deleted로 한다. 대댓글이 달린 댓글을 지우면 대댓글이 고아가 되므로 화면에는 "삭제된 댓글입니다"로 남기고, 대댓글만 보여준다.','목록 조회는 (article_id, created_at) 인덱스를 쓴다.'],
+ cols:[['id','BIGINT','PK','식별자'],['article_id','BIGINT','FK','→ TECH_ARTICLE'],['user_id','BIGINT','FK','→ USERS (작성자)'],['parent_comment_id','BIGINT','FK','→ TECH_ARTICLE_COMMENT(자기참조). 대댓글이면 부모 댓글, 최상위 댓글이면 NULL'],['content','VARCHAR(1000)','','댓글 내용']]},
+
+{n:'TECH_ARTICLE_LIKE',ko:'기술 글 하트',g:'board',x:2270,y:700,new:1,req:'없음(신규 제안)',
+ role:'',
+ notes:['복합 UNIQUE (article_id, user_id) — 한 사람이 한 글에 하트는 한 번. 애플리케이션 검사만으로는 더블클릭·동시 요청에서 중복이 생기므로 DB가 막는다.','취소는 is_deleted = TRUE, 다시 누르면 같은 행을 되살린다(EVALUATION_SESSION_ITEM의 restore와 같은 방식). 물리 삭제 금지 규칙을 지키면서 UNIQUE와 충돌하지 않는다. 하트를 누르고 취소할 때마다 TECH_ARTICLE.like_count를 같은 트랜잭션에서 ±1 한다.'],
+ uk:'(article_id, user_id) — 한 사람이 한 글에 하트는 한 번 (취소는 행 되살리기)',
+ cols:[['id','BIGINT','PK','식별자'],['article_id','BIGINT','FK','→ TECH_ARTICLE'],['user_id','BIGINT','FK','→ USERS (누른 사람)']]},
+
+{n:'TECH_ARTICLE_BOOKMARK',ko:'기술 글 북마크',g:'board',x:2270,y:930,new:1,req:'없음(신규 제안)',
+ role:'',
+ notes:['TECH_ARTICLE_LIKE와 구조·규칙이 같다(복합 UNIQUE, 취소·재등록은 행 되살리기, bookmark_count 동시 갱신). 하트는 "글 점수"이고 북마크는 "내 보관함"이라 쓰임이 달라서 한 테이블에 type 컬럼으로 합치지 않고 나눴다 — 내 북마크 목록은 (user_id, created_at) 인덱스로 바로 읽는다.'],
+ uk:'(article_id, user_id) — 한 사람이 한 글을 한 번만 북마크',
+ cols:[['id','BIGINT','PK','식별자'],['article_id','BIGINT','FK','→ TECH_ARTICLE'],['user_id','BIGINT','FK','→ USERS (저장한 사람)']]},
+
+{n:'TECH_ARTICLE_VIEW_LOG',ko:'기술 글 조회 이력',g:'board',x:2270,y:1160,new:1,req:'없음(신규 제안)',
+ role:'',
+ notes:['조회수를 새로고침마다 올리면 숫자가 의미가 없어진다. "사용자 1명 × 글 1개 × 하루 1회"만 세려고 복합 UNIQUE (article_id, viewer_user_id, viewed_date)를 건다. INSERT가 성공했을 때만 TECH_ARTICLE.view_count를 올린다.','작성자 본인의 조회는 세지 않는다(애플리케이션 규칙). 서비스 화면은 로그인이 필요해서 열람자는 항상 사용자다.','SHARE_LINK_VIEW_LOG(열람 이력)와 같은 역할의 테이블이다. 다만 그쪽은 IP를 남기는 append-only이고 이쪽은 "하루 1회" 판정이 목적이라 날짜 UNIQUE가 핵심이다.'],
+ uk:'(article_id, viewer_user_id, viewed_date) — 사용자 1명이 같은 글을 하루에 한 번만 조회수에 반영',
+ cols:[['id','BIGINT','PK','식별자'],['article_id','BIGINT','FK','→ TECH_ARTICLE'],['viewer_user_id','BIGINT','FK','→ USERS (열람한 사람)'],['viewed_date','DATE','','열람한 날']]},
+
+{n:'TECH_ARTICLE_REPORT',ko:'기술 글 신고',g:'board',x:2270,y:1390,new:1,req:'없음(신규 제안) · 개발일지 4-3("문제가 있으면 팀원이 나중에 내린다")',
+ role:'',
+ notes:['자동 게시 + 사후 관리 방식은 "문제 있는 글을 누가 어떻게 찾느냐"가 비어 있으면 성립하지 않는다. 팀이 일일이 훑는 대신, 사용자가 신고하고 팀은 OPEN 목록만 본다.','복합 UNIQUE (article_id, reporter_user_id) — 한 사람이 같은 글을 여러 번 신고해 건수를 부풀리지 못하게.','글을 내리면 TECH_ARTICLE.status = HIDDEN + hidden_reason을 채우고 이 행을 ACTION_TAKEN으로 바꾼다. 같은 글의 다른 OPEN 신고도 함께 처리한다.','처리자(관리자) 컬럼은 두지 않았다. 지금 서비스에는 관리자 역할이 없다(USERS.user_type은 APPLICANT/INTERVIEWER). 아래 "회의에서 정할 것" 참고.'],
+ uk:'(article_id, reporter_user_id) — 한 사람이 같은 글을 여러 번 신고하지 못하게',
+ cols:[['id','BIGINT','PK','식별자'],['article_id','BIGINT','FK','→ TECH_ARTICLE'],['reporter_user_id','BIGINT','FK','→ USERS (신고한 사람)'],['reason_type','VARCHAR(20)','','SPAM(광고) / ABUSE(비방) / COPYRIGHT(무단 복제) / INACCURATE(잘못된 내용) / OTHER'],['detail','VARCHAR(500)','','자세한 설명 (선택)'],['status','VARCHAR(20)','','OPEN(대기) / ACTION_TAKEN(글을 내림) / DISMISSED(문제 없음)'],['handled_at','DATETIME','','처리한 시각']]},
+
+{n:'PROJECT_TECH_NOTE',ko:'프로젝트 기술 활용 설명서',g:'user',x:-310,y:690,new:1,req:'FR-24 · NFR-4 · 개발일지 4-4',
+ role:'프로젝트에 등록한 기술마다 "어떻게 활용했는지"를 문장으로 받는 곳. USER_SKILLS.raw_input이 짧은 원문↔표준 스킬을 쌍으로 저장하는 것과 같은 발상이지만, 이건 문장 단위의 실사용 맥락이라 데이터가 훨씬 풍부하다.',
+ notes:['예: "Redis로 세션 캐싱"과 "Redis를 메시지 큐로 사용"은 같은 기술이지만 활용 맥락이 다르다. 이런 차이를 쌓아두면 나중에 임베딩 모델을 이 서비스 도메인에 맞게 보정할 실제 데이터가 된다.','명세서 NFR-4("민감 데이터는 본인 동의·본인 선택 공유만")를 지키려고 consent_for_training을 같이 받는다. 체크하지 않아도 회고·완료 처리에는 지장이 없고, 동의한 것만 나중에 학습 데이터로 뽑는다. 소급 동의를 구하는 건 훨씬 번거로워서 받을 때부터 같이 받기로 했다.','복합 UNIQUE (project_id, skill_id)를 걸었다 — 한 프로젝트에서 같은 기술의 설명서가 두 개 생기지 않게. (개발일지 4-4에는 UNIQUE 언급이 없어 이번에 추가한 판단이다. 같은 기술을 한 프로젝트에서 여러 용도로 썼다면 한 줄에 함께 적는 것으로 갈음한다.)'],
+ uk:'(project_id, skill_id) — 한 프로젝트에서 같은 기술의 설명서가 두 개 생기지 않게',
+ cols:[['id','BIGINT','PK','식별자'],['project_id','BIGINT','FK','→ USER_PROJECTS'],['skill_id','BIGINT','FK','→ SKILL'],['description','TEXT','','이 기술을 어떻게 활용했는지'],['consent_for_training','BOOLEAN','','학습 데이터 활용 동의, 기본 false']]},
+
+{n:'PROJECT_DOCUMENT_ITEM',ko:'프로젝트 문서 체크리스트',g:'user',x:-310,y:950,new:1,req:'FR-24 · FR-61~63 · 개발일지 4-4',
+ role:'README·실행 화면 캡처·기획서·설계 문서·API 명세서·테스트 결과서·발표자료를 종류별로 "제출" 또는 "해당 없음"으로 받는 곳. 실제 파일은 기존 DOCUMENTS를 그대로 재사용한다.',
+ notes:['전부 강제하면 없는 프로젝트도 억지로 빈 문서를 만들어 올리는 부작용이 생긴다. 그래서 문서 종류마다 "제출" 또는 "없음" 버튼을 두는 방식으로 확정했다.','필수는 README와 SCREENSHOT 둘뿐이다. 이 둘은 "없음"을 못 누른다(애플리케이션 규칙). 5분이 안 걸리면서 "이게 실제로 존재하고 동작한다"는 최소 증빙이 확실히 되고, 그 이상 늘리면 학습 로직 자체를 회피하게 될 위험이 있다.','완료 판정 규칙: doc_type이 README, SCREENSHOT인 두 행의 status가 둘 다 SUBMITTED여야 로드맵 PROJECT 단계를 완료 처리한다.','복합 UNIQUE (project_id, doc_type) — 같은 종류 문서를 중복 체크하지 않게.'],
+ uk:'(project_id, doc_type) — 같은 종류 문서를 중복 체크하지 않게',
+ cols:[['id','BIGINT','PK','식별자'],['project_id','BIGINT','FK','→ USER_PROJECTS'],['doc_type','VARCHAR(30)','','README / SCREENSHOT / PLANNING / DESIGN / API_SPEC / TEST_REPORT / PRESENTATION'],['status','VARCHAR(20)','','SUBMITTED(제출) / NOT_APPLICABLE(해당 없음)'],['document_id','BIGINT','FK','→ DOCUMENTS. SUBMITTED일 때만 채운다']]},
+{n:'PROJECT_LINK',ko:'프로젝트 기타 링크',g:'user',x:-310,y:1240,new:1,req:'FR-24 · FR-81',
+ role:'저장소(repo_url)·배포(deploy_url) 말고도 블로그 글, 발표 영상, 노션 등 프로젝트를 보여줄 링크를 이름 + 주소로 프로젝트당 최대 5개까지 받는 곳. 면접관 공유 타임라인에도 같이 보인다.',
+ notes:['링크가 늘어날 때마다 USER_PROJECTS에 컬럼을 더하지 않으려고 별도 테이블로 뒀다. 이름(label)은 비워도 되고, 비우면 화면에서 주소의 도메인을 대신 보여준다.','수정은 "프로젝트의 링크를 통째로 바꾸는" 한 동작이다 — 기존 줄을 is_deleted로 지우고 새로 넣는다. 그래서 UNIQUE를 두지 않았고 sort_order로 입력 순서를 지킨다.','주소는 http/https만 허용한다. 저장할 때와 면접관 화면에 내보낼 때 둘 다 확인해서 javascript: 같은 주소가 링크로 실행되지 않게 한다(NFR-4 취지).'],
+ cols:[['id','BIGINT','PK','식별자'],['project_id','BIGINT','FK','→ USER_PROJECTS'],['label','VARCHAR(50)','','링크 이름(예: 블로그 글). 비워도 된다'],['url','VARCHAR(500)','','http/https 주소'],['sort_order','INT','','입력 순서']]},
+
+
+{n:'SKILL_ALIAS',ko:'기술 별칭',g:'job',x:420,y:1990,new:1,req:'TD-1 임베딩 시맨틱 매칭 (임베딩 전 중간 단계)',
+ role:'JOB_ALIAS와 같은 발상 — 사용자가 표준 명칭(SKILL.skill_name, 대부분 영문) 대신 흔히 쓰는 한글 표기·줄임말을 미리 등록해둔 사전. FuzzyNameMatcher가 정확 일치 다음 순서로 참고한다.',
+ notes:['2026-09-30 팀 결정("시맨틱 매칭, 이름 일치라도 먼저")으로 신설. sql/10_seed_skill_alias.sql에 163개 SKILL 중 142개에 대해 확실히 널리 쓰이는 한글 표기·줄임말을 미리 채워뒀다. sql/11_seed_skill_alias_english.sql에서 영어권에서도 벤더/프로젝트 접두사를 빼고 부르는 표현(Postgres, Spark, Kafka, Azure 등 24개)을 추가로 보강했다 — 편집거리로는 원래 이름과 차이가 너무 커서 못 잡는 것들이다. 현재 총 187건.','애매하거나 이미 짧은 약어뿐인 기술(SQL, PHP, R, DNS, VPN, PKI, IAM, SIEM, TDD, OAuth 2.0 등 21개)은 잘못된 별칭을 심느니 비워뒀다 — 더 필요하면 이 테이블에 행만 추가하면 된다(스키마 변경 없음).','match_type/similarity_score는 JOB_ALIAS와 같은 이유로 존재한다 — 나중에 임베딩 유사도로 자동 채운 별칭과 수기 등록 별칭을 구분해 오매칭을 걸러낼 수 있게.'],
+ cols:[['id','BIGINT','PK','식별자'],['skill_id','BIGINT','FK','→ SKILL (표준 기술)'],['alias_name','VARCHAR(100)','UK','한글 표기·줄임말 (예: "파이썬", "JS", "쿠버네티스")'],['match_type','VARCHAR(20)','','MANUAL(수기) / EMBEDDING(유사도 매칭)'],['similarity_score','DECIMAL(5,4)','','임베딩 매칭 시 유사도']]},
+
+{n:'JOB_POSTING',ko:'채용공고',g:'job',x:790,y:1590,new:1,req:'FR-113 데이터 없는 직무 보완',
+ role:'원티드·고용24 등 여러 출처에서 수집한 개별 채용공고. On-demand 조회 결과 공고가 0건일 때 LLM이 일반화된 요구스펙으로 보완하는 근거 데이터이자, 향후 채용공고 원문 기반 기능(요약·추천 근거 제시 등)의 토대가 된다.',
+ notes:['최초 36개 테이블 스캐폴딩(2주차 이전) 당시엔 이 테이블이 없었다. 팀 확인 결과 채용공고 저장 담당이 비어 있었고(.env의 WORK24_JOB_POSTING_API_KEY만 미리 발급돼 있던 상태), 로드맵 담당이 맡기로 확정해 이번에 추가했다.','컬럼은 실제 수집 대시보드 샘플(docs/saved_resource.html — 원티드·고용24 등 10개 출처, 1,606건 집계 목록)을 보고 다시 확정했다. 처음엔 개별 공고 상세 7개 필드(명칭/요약/자격요건/우대사항/학력/급여/출처)만 생각했는데, 실제 목록 화면 기준으로 회사명·기술스택·경력·지역·마감·등록일과 "출처가 URL이 아니라 시스템명(원티드/고용24/...)"이라는 점이 추가로 드러나 반영했다. 지금은 "있는 데이터를 다 담아두는" 단계라 필드를 넉넉히 두고, 실제 화면에 뭘 보여줄지는 나중에 조회 쿼리·화면 쪽에서 추린다(팀 방침, 2026-09-29).','tech_stack은 공고 하나에 여러 기술이 딸린 다중값이라 원래는 SKILL과 N:M 연결 테이블(JOB_REQUIRED_SKILL과 같은 패턴)로 빼는 게 정석이다. 다만 원문 기술명이 SKILL 마스터(163개)와 표기가 다르거나 아직 없는 경우가 많아(예: Playwright, NestJS, Vite, gRPC 등) 지금 단계에서 무리하게 정규화하면 매칭 실패로 데이터가 누락된다. 우선 콤마 구분 원문 텍스트로 전부 보존하고, SKILL 매칭이 필요해지면 그때 연결 테이블로 승격한다 (CERTIFICATION.job_category를 단일 컬럼으로 시작한 것과 같은 판단 근거).','source(시스템명)와 source_url(원문 링크)을 분리했다 — 목록 화면에 "출처" 필터가 시스템명 기준으로 동작하고, "보기" 버튼은 별개로 원문 URL을 가리키기 때문에 하나의 컬럼으로 합칠 수 없었다.','deadline을 DATE가 아니라 VARCHAR로 둔 이유: 실제 데이터에 "상시"(마감 없음)가 굉장히 흔해서, DATE 컬럼이면 이 값을 못 담는다. posted_at(등록일)은 전부 실제 날짜라 DATE로 뒀다.','salary를 DECIMAL이 아니라 VARCHAR로 둔 이유: 고용24 원문 급여 표기가 "회사내규에 따름", "연봉 2,600만원~2,800만원", "시급 10,320원~10,320원" 등 텍스트로 오는 경우가 많아 숫자 하나로 정규화하면 정보 손실이 크다. 통계용 숫자 비교가 필요해지면 그때 별도 컬럼(min/max)을 추가한다.','source_url을 UNIQUE로 둔 이유는 TREND_TECH와 같다 — 같은 공고를 주기적으로 재수집해도 중복 저장을 막기 위함(재수집 시 existsBySourceUrl로 먼저 확인).','job_id는 NOT NULL이다 — 어느 직무 계열 조회로 수집된 공고인지 항상 알아야 격차 분석·인사이트에서 재사용할 수 있다.'],
+ cols:[['id','BIGINT','PK','식별자'],['job_id','BIGINT','FK','→ JOB'],['source','VARCHAR(50)','','출처 시스템명 (원티드/고용24/CSI/CJK/CAT/CIN/KOS/MIT/PRD/CWK 등)'],['source_url','VARCHAR(500)','UK','출처 원문 링크("보기")'],['title','VARCHAR(200)','','명칭(제목)'],['company_name','VARCHAR(150)','','회사명'],['summary','TEXT','','무슨 일을 하는지 요약 (상세 페이지 전용, 목록에는 없을 수 있음)'],['tech_stack','TEXT','','기술스택 원문 목록 — 콤마 구분 텍스트(정규화는 다음 단계)'],['qualifications','TEXT','','자격요건'],['preferred','TEXT','','우대사항'],['career_level','VARCHAR(50)','','경력 (예: 경력, 경력무관, 신입, 경력8년)'],['education_level','VARCHAR(50)','','학력 (예: 학력무관, 대졸(4년))'],['salary','VARCHAR(100)','','급여 (원문이 범위·텍스트 혼재라 문자열로 둠, 예: "회사내규에 따름")'],['region','VARCHAR(100)','','지역 (예: 서울 강남구, 지역무관)'],['deadline','VARCHAR(50)','','마감 — "상시"처럼 날짜가 아닌 값도 있어 DATE 대신 문자열로 둠'],['posted_at','DATE','','원문 사이트 등록일 (collected_at과 별개)'],['collected_at','DATETIME','','우리 배치가 이 행을 수집한 시각']]}
 ];
 
 const R = [
@@ -374,13 +439,17 @@ const R = [
  ['TREND_TECH','TREND_TECH_JOB','1:N','연관'],['JOB','TREND_TECH_JOB','1:N','연관'],['USERS','SHARE_LINK','1:N','발급'],
  ['SHARE_LINK','SHARE_LINK_VIEW_LOG','1:N','열람'],['EVALUATION_SESSION','EVALUATION_SESSION_ITEM','1:N','비교 대상'],
  ['SHARE_LINK','EVALUATION_SESSION_ITEM','1:N','포함'],['EVALUATION_SESSION','EVALUATION_CRITERIA','1:N','채점 기준'],
- ['USERS','DOCUMENTS','1:N','업로드'],['USER_PROJECTS','DOCUMENTS','1:N','연결'],['USERS','DDAY_ALERT','1:N','등록'],
+ ['USERS','DOCUMENTS','1:N','업로드 · 이력서/자소서 지정'],['USER_PROJECTS','DOCUMENTS','1:N','연결'],['USERS','DDAY_ALERT','1:N','등록'],
  ['USERS','AI_USAGE_LOG','1:N','제출'],['SKILL','EVALUATION_CRITERIA','1:N','요구 역량'],
  ['JOB','JOB_ALIAS','1:N','별칭'],
- ['USERS','ROADMAP','1:N','소유'],['SKILL','ROADMAP_STEP','1:N','목표 역량']
+ ['USERS','ROADMAP','1:N','소유'],['SKILL','ROADMAP_STEP','1:N','목표 역량'],
+ /* 2026-10-01 보강: 이미 DB에 있던 관계 + 게시판·프로젝트 문서 */
+ ['DOCUMENTS','PROJECT_DOCUMENT_ITEM','1:N','제출 파일'],['USER_PROJECTS','PROJECT_LINK','1:N','기타 링크'],['JOB','JOB_POSTING','1:N','채용공고'],['ROADMAP_STEP','DOCUMENTS','1:N','증빙 서류'],['ROADMAP_STEP','TECH_ARTICLE','1:1','EXPERT 증빙'],['SKILL','PROJECT_TECH_NOTE','1:N','기술'],['SKILL','SKILL_ALIAS','1:N','별칭'],['SKILL','TECH_ARTICLE','1:N','기술별 글'],['TECH_ARTICLE','TECH_ARTICLE_COMMENT','1:N','댓글'],['TECH_ARTICLE','TECH_ARTICLE_LIKE','1:N','하트'],['TECH_ARTICLE','TECH_ARTICLE_BOOKMARK','1:N','북마크'],['TECH_ARTICLE','TECH_ARTICLE_VIEW_LOG','1:N','조회'],['TECH_ARTICLE','TECH_ARTICLE_REPORT','1:N','신고'],['TECH_ARTICLE_COMMENT','TECH_ARTICLE_COMMENT','1:N','대댓글'],['USERS','EVALUATION_SESSION','1:1','면접관 비교 목록'],['USERS','TECH_ARTICLE','1:N','작성'],['USERS','TECH_ARTICLE_COMMENT','1:N','작성'],['USERS','TECH_ARTICLE_LIKE','1:N','누름'],['USERS','TECH_ARTICLE_BOOKMARK','1:N','저장'],['USERS','TECH_ARTICLE_VIEW_LOG','1:N','열람'],['USERS','TECH_ARTICLE_REPORT','1:N','신고함'],['USER_PROJECTS','PROJECT_TECH_NOTE','1:N','기술 활용 설명'],['USER_PROJECTS','PROJECT_DOCUMENT_ITEM','1:N','문서 체크리스트'],['USER_PROJECTS','ROADMAP_STEP','1:N','증빙 프로젝트'],['USER_PROJECTS','USER_PROJECTS','1:N','업그레이드 이력']
 ];
 
 const byName = {}; T.forEach(t=>byName[t.n]=t);
+/* 상단 제목의 숫자는 데이터에서 센다 — 테이블·관계를 고칠 때 손으로 맞추다 어긋나던 것(35개로 남아 있던 문제)을 막는다 */
+document.querySelector('#bar h1 span').textContent='팀 검수판 · '+T.length+'개 테이블 · 관계 '+R.length+'쌍';
 const world=document.getElementById('world'), svg=document.getElementById('wires'), stage=document.getElementById('stage');
 const NS='http://www.w3.org/2000/svg';
 const MAXROWS=8;
@@ -428,6 +497,11 @@ function box(n){const t=byName[n];return{x:parseFloat(t.el.style.left),y:parseFl
 function drawWires(){
   R.forEach(r=>{
     const a=box(r[0]),b=box(r[1]);
+    if(r[0]===r[1]){ /* 자기참조 — 카드 오른쪽에 작은 고리를 그린다 */
+      const lx=a.x+a.w, ly=a.y+34;
+      r.p.setAttribute('d','M'+lx+','+ly+'C'+(lx+54)+','+ly+' '+(lx+54)+','+(ly+46)+' '+lx+','+(ly+46));
+      r.t.setAttribute('x',lx+8); r.t.setAttribute('y',ly+62); return;
+    }
     const ac={x:a.x+a.w/2,y:a.y+a.h/2}, bc={x:b.x+b.w/2,y:b.y+b.h/2};
     let x1,y1,x2,y2;
     if(Math.abs(bc.x-ac.x)>Math.abs(bc.y-ac.y)){

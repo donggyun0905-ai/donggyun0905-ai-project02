@@ -23,6 +23,11 @@ import java.util.List;
  */
 public class UserSkillDao {
 
+    // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
+    private static final String COLUMNS =
+            "id, user_id, skill_id, raw_input, similarity_score, proficiency, created_at, " +
+            "updated_at, is_deleted";
+
     public Long insert(UserSkillDto skill) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return insert(conn, skill);
@@ -48,7 +53,7 @@ public class UserSkillDao {
     // 로드맵 SKILL 단계 완료 시 자동 반영용 — 이 경로는 skill_id가 항상 채워져 있어(로드맵이
     // SKILL 마스터를 참조해 생성됨) raw_input 매칭 없이 UNIQUE(user_id, skill_id)로 바로 조회할 수 있다.
     public UserSkillDto findByUserIdAndSkillId(Connection conn, Long userId, Long skillId) throws SQLException {
-        String sql = "SELECT * FROM USER_SKILLS WHERE user_id = ? AND skill_id = ? AND is_deleted = FALSE";
+        String sql = "SELECT " + COLUMNS + " FROM USER_SKILLS WHERE user_id = ? AND skill_id = ? AND is_deleted = FALSE";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);
             pstmt.setLong(2, skillId);
@@ -71,7 +76,7 @@ public class UserSkillDao {
     // 로드맵이 skill_id로 못 찾을 때(=사용자가 프로필에서 직접 수동 입력해 skill_id가 NULL인 행) 쓰는
     // 보조 조회 — raw_input 기준(대소문자·공백 무시)이라 existsActiveRawInput과 같은 방식으로 비교한다.
     public UserSkillDto findByUserIdAndRawInput(Connection conn, Long userId, String rawInput) throws SQLException {
-        String sql = "SELECT * FROM USER_SKILLS WHERE user_id = ? AND is_deleted = FALSE " +
+        String sql = "SELECT " + COLUMNS + " FROM USER_SKILLS WHERE user_id = ? AND is_deleted = FALSE " +
                 "AND LOWER(TRIM(raw_input)) = LOWER(TRIM(?))";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);
@@ -144,7 +149,7 @@ public class UserSkillDao {
     }
 
     public List<UserSkillDto> findByUserId(Long userId) throws SQLException {
-        String sql = "SELECT * FROM USER_SKILLS WHERE user_id = ? AND is_deleted = FALSE ORDER BY id";
+        String sql = "SELECT " + COLUMNS + " FROM USER_SKILLS WHERE user_id = ? AND is_deleted = FALSE ORDER BY id";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);

@@ -42,16 +42,20 @@ public class ProfileProjectServlet extends HttpServlet {
                     return;
                 }
                 project.setId(Long.valueOf(req.getParameter("projectId")));
-                profileService.updateProject(userId, project);
+                profileService.updateProject(userId, project, ProjectLinkForm.parse(req));
             } else {
                 UserProjectDto project = parseProject(req, resp);
                 if (project == null) {
                     return;
                 }
-                profileService.addProject(userId, project);
+                profileService.addProject(userId, project, ProjectLinkForm.parse(req));
             }
         } catch (NumberFormatException | DateTimeParseException e) {
             resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "잘못된 요청입니다.");
+            return;
+        } catch (IllegalArgumentException e) {
+            // 저장소·배포·기타 링크 형식 오류 — 어떤 값이 왜 안 되는지 그대로 알려준다
+            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
             return;
         } catch (SQLException e) {
             throw new ServletException("프로젝트 저장 중 오류가 발생했습니다.", e);
@@ -71,9 +75,15 @@ public class ProfileProjectServlet extends HttpServlet {
         project.setTitle(title);
         project.setDescription(req.getParameter("description"));
         project.setTechStack(req.getParameter("techStack"));
+        project.setRepoUrl(trimToNull(req.getParameter("repoUrl")));
+        project.setDeployUrl(trimToNull(req.getParameter("deployUrl")));
         project.setStartDate(parseDate(req.getParameter("startDate")));
         project.setEndDate(parseDate(req.getParameter("endDate")));
         return project;
+    }
+
+    private static String trimToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private LocalDate parseDate(String value) {

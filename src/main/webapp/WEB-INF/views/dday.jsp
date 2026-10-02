@@ -23,6 +23,7 @@
                 <p class="error-message"><c:out value="${errorMessage}" /></p>
             </c:if>
             <form method="post" action="${pageContext.request.contextPath}/dday" class="row" style="margin-top:10px; align-items:flex-end;">
+                <input type="hidden" name="_csrf" value="${csrfToken}">
                 <span style="flex:2;"><label for="title">제목</label><input type="text" id="title" name="title" maxlength="100" required placeholder="예) B사 인턴 서류 마감" value="<c:out value='${empty errorMessage ? null : param.title}' />"></span>
                 <span style="flex:1;"><label for="targetDate">날짜</label><input type="date" id="targetDate" name="targetDate" min="${today}" required value="<c:out value='${empty errorMessage ? null : param.targetDate}' />"></span>
                 <span style="flex:1;"><label for="alertType">종류</label>
@@ -62,6 +63,7 @@
                                     <details class="inline-form">
                                         <summary>수정</summary>
                                         <form method="post" action="${pageContext.request.contextPath}/dday">
+                                            <input type="hidden" name="_csrf" value="${csrfToken}">
                                             <input type="hidden" name="action" value="update">
                                             <input type="hidden" name="alertId" value="${item.id}">
                                             <p><input type="text" name="title" maxlength="100" required value="<c:out value='${item.title}' />"></p>
@@ -77,6 +79,7 @@
                                         </form>
                                     </details>
                                     <form method="post" action="${pageContext.request.contextPath}/dday" class="delete-item inline-form">
+                                        <input type="hidden" name="_csrf" value="${csrfToken}">
                                         <input type="hidden" name="action" value="delete">
                                         <input type="hidden" name="alertId" value="${item.id}">
                                         <button type="submit" class="link-button">삭제</button>
@@ -85,6 +88,8 @@
                             </li>
                         </c:forEach>
                     </ul>
+                    <c:set var="pagerPath" value="${pageContext.request.contextPath}/dday" />
+<%@ include file="/WEB-INF/views/common/pager.jspf" %>
                 </c:otherwise>
             </c:choose>
         </div>

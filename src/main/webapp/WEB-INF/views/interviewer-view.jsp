@@ -16,7 +16,19 @@
     <c:otherwise>
         <div class="spread" style="margin-bottom:16px;">
             <span class="pill">👁 읽기 전용 · 지원자가 공유한 이력</span>
-            <a class="btn secondary" href="${pageContext.request.contextPath}/share/compare">비교 목록에 담기</a>
+            <c:choose>
+                <c:when test="${interviewer}">
+                    <form method="post" action="${pageContext.request.contextPath}/interviewer/shared">
+                        <input type="hidden" name="_csrf" value="${csrfToken}">
+                        <input type="hidden" name="action" value="add">
+                        <input type="hidden" name="link" value="<c:out value='${token}' />">
+                        <button type="submit" class="secondary">비교 목록에 담기</button>
+                    </form>
+                </c:when>
+                <c:when test="${empty sessionScope.loginUser}">
+                    <a class="btn secondary" href="${pageContext.request.contextPath}/login">면접관 로그인 후 비교 목록에 담기</a>
+                </c:when>
+            </c:choose>
         </div>
         <h1>지원자 이력</h1>
         <p class="muted">지원자가 직접 발급한 링크로 열린 페이지입니다. 지원자가 고른 항목만 보이고, 지원자는 언제든 공유를 멈출 수 있습니다.</p>
@@ -25,6 +37,7 @@
             <c:if test="${view.scopeBasic}">
                 <h2>기본 정보</h2>
                 <div class="row" style="margin-top:10px;">
+                    <span style="flex:1;"><div class="muted" style="font-size:0.8rem;">이름</div><strong><c:out value="${view.name}" default="미입력" /></strong></span>
                     <span style="flex:1;"><div class="muted" style="font-size:0.8rem;">전공</div><strong><c:out value="${view.major}" default="미입력" /></strong></span>
                     <span style="flex:1;"><div class="muted" style="font-size:0.8rem;">학년</div><strong><c:out value="${view.grade}" default="미입력" /></strong></span>
                     <span style="flex:1;"><div class="muted" style="font-size:0.8rem;">희망 직무</div><strong><c:out value="${view.desiredJobName}" default="미정" /></strong></span>
@@ -35,8 +48,41 @@
                 <c:if test="${view.scopeBasic}"><span class="chip chip-teal">기본 이력</span></c:if>
                 <c:if test="${view.scopeSkills}"><span class="chip chip-teal">보유 기술 스택</span></c:if>
                 <c:if test="${view.scopeGrowth}"><span class="chip chip-teal">성장 잠재력</span></c:if>
+                <c:if test="${view.scopeResume}"><span class="chip chip-teal">이력서 파일</span></c:if>
+                <c:if test="${view.scopeCoverLetter}"><span class="chip chip-teal">자소서 파일</span></c:if>
             </p>
         </div>
+
+        <%-- 이력서·자소서는 한 카드에 모아서 한눈에 보고 바로 내려받게 한다 --%>
+        <c:if test="${view.scopeResume || view.scopeCoverLetter}">
+            <div class="card">
+                <h2>이력서 · 자소서</h2>
+                <c:if test="${view.scopeResume}">
+                    <c:choose>
+                        <c:when test="${empty view.resumeFileName}">
+                            <p class="muted" style="margin-top:10px; margin-bottom:0;">이력서 — 지원자가 아직 올리지 않았습니다.</p>
+                        </c:when>
+                        <c:otherwise>
+                            <p style="margin-top:10px; margin-bottom:0;">
+                                이력서 · <a href="${pageContext.request.contextPath}/share/${token}/resume">📎 <c:out value="${view.resumeFileName}" /> 내려받기</a>
+                            </p>
+                        </c:otherwise>
+                    </c:choose>
+                </c:if>
+                <c:if test="${view.scopeCoverLetter}">
+                    <c:choose>
+                        <c:when test="${empty view.coverLetterFileName}">
+                            <p class="muted" style="margin-top:10px; margin-bottom:0;">자소서 — 지원자가 아직 올리지 않았습니다.</p>
+                        </c:when>
+                        <c:otherwise>
+                            <p style="margin-top:10px; margin-bottom:0;">
+                                자소서 · <a href="${pageContext.request.contextPath}/share/${token}/cover-letter">📎 <c:out value="${view.coverLetterFileName}" /> 내려받기</a>
+                            </p>
+                        </c:otherwise>
+                    </c:choose>
+                </c:if>
+            </div>
+        </c:if>
 
         <%-- FR-81 이력 타임라인 --%>
         <c:if test="${view.scopeBasic}">
@@ -56,6 +102,11 @@
                                         <c:out value="${item.title}" />
                                         <c:if test="${not empty item.detail}">
                                             <br><span class="muted" style="font-size:0.84rem;"><c:out value="${item.detail}" /></span>
+                                        </c:if>
+                                        <c:if test="${not empty item.links}">
+                                            <br><span style="font-size:0.84rem;">🔗
+                                                <c:forEach var="link" items="${item.links}" varStatus="ls"><c:if test="${!ls.first}"> · </c:if><a href="<c:out value='${link.url}' />" target="_blank" rel="noopener noreferrer nofollow"><c:out value="${link.label}" /></a></c:forEach>
+                                            </span>
                                         </c:if>
                                         <c:if test="${not empty item.documentId}">
                                             <br><a href="${pageContext.request.contextPath}/share/documents/${token}/${item.documentId}" target="_blank" style="font-size:0.84rem;">증빙 서류 보기</a>

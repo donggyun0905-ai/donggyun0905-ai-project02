@@ -34,6 +34,21 @@
     <div class="nav-drawer-panel">
         <div class="drawer-head">목록 <label for="nav-toggle">✕</label></div>
 
+        <c:choose>
+        <%-- 면접관 계정은 공유받은 이력·지원자 비교·내 프로필만 쓴다 (RoleFilter) --%>
+        <c:when test="${sessionScope.loginUser.userType == 'INTERVIEWER'}">
+        <div class="nav-group-title">면접관</div>
+        <a href="${ctx}/interviewer/shared">📨 공유받은 이력</a>
+        <a href="${ctx}/interviewer/compare">⚖️ 지원자 비교</a>
+
+        <div class="nav-group-title">계정</div>
+        <a href="${ctx}/interviewer/profile">👤 내 프로필</a>
+        <form action="${ctx}/logout" method="post" class="logout-form">
+            <input type="hidden" name="_csrf" value="${csrfToken}">
+            <button type="submit">↩ 로그아웃</button>
+        </form>
+        </c:when>
+        <c:otherwise>
         <div class="nav-group-title">여정</div>
         <a href="${ctx}/dashboard" class="${path == '/dashboard' ? 'active' : ''}">📊 대시보드</a>
         <a href="${ctx}/roadmap" class="${path == '/roadmap' ? 'active' : ''}">🗺️ 내 로드맵</a>
@@ -47,10 +62,20 @@
         <a href="${ctx}/documents" class="${path == '/documents' ? 'active' : ''}">📁 서류 보관함</a>
         <a href="${ctx}/resume-feedback" class="${path == '/resume-feedback' ? 'active' : ''}">✏️ 자소서 첨삭</a>
 
+        <c:if test="${isAdmin}">
+        <div class="nav-group-title">관리</div>
+        <a href="${ctx}/admin" class="${path == '/admin' || path == '/admin/job-skill-trend' ? 'active' : ''}">🛠 관리자</a>
+        </c:if>
+
         <div class="nav-group-title">공유 · 계정</div>
         <a href="${ctx}/share-links" class="${path == '/share-links' ? 'active' : ''}">🔗 공유 링크</a>
         <a href="${ctx}/profile" class="${path == '/profile' ? 'active' : ''}">👤 내 프로필</a>
-        <a href="${ctx}/logout">↩ 로그아웃</a>
+        <form action="${ctx}/logout" method="post" class="logout-form">
+            <input type="hidden" name="_csrf" value="${csrfToken}">
+            <button type="submit">↩ 로그아웃</button>
+        </form>
+        </c:otherwise>
+        </c:choose>
     </div>
 </div>
 </c:if>

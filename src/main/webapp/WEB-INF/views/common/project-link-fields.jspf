@@ -1,0 +1,16 @@
+<%-- 프로젝트 기타 링크 입력칸 5줄(이름 선택 + 주소) — 로드맵 제출 폼과 프로필 프로젝트 수정 폼이 같이 쓴다.
+     쓰는 쪽이 페이지 변수 linkRows(이미 저장된 링크 목록, 없으면 비움)를 정해 두고 include한다.
+     폼을 다시 그릴 때(검증 실패)는 방금 입력한 값을 우선한다. 이름은 linkLabel_i / linkUrl_i. --%>
+<c:set var="linkSubmitted" value="${not empty paramValues['linkUrl_0']}" />
+<div class="project-links" style="margin:6px 0;">
+    <label>기타 링크 (선택, 최대 5개) <span class="muted" style="font-weight:normal; font-size:0.8rem;">블로그 글 · 발표 영상 · 노션 등</span></label>
+    <c:forEach var="i" begin="0" end="4">
+        <c:set var="labelKey" value="linkLabel_${i}" />
+        <c:set var="urlKey" value="linkUrl_${i}" />
+        <c:set var="saved" value="${(not empty linkRows and linkRows.size() > i) ? linkRows[i] : null}" />
+        <p class="row" style="margin:4px 0;">
+            <span style="flex:1;"><input type="text" name="linkLabel_${i}" maxlength="50" placeholder="이름 (예: 블로그 글)" value="<c:out value='${linkSubmitted ? param[labelKey] : saved.label}' />"></span>
+            <span style="flex:3;"><input type="url" name="linkUrl_${i}" maxlength="500" placeholder="https://..." value="<c:out value='${linkSubmitted ? param[urlKey] : saved.url}' />"></span>
+        </p>
+    </c:forEach>
+</div>
