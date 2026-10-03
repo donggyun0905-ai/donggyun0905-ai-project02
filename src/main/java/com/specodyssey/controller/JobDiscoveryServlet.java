@@ -1,5 +1,6 @@
 package com.specodyssey.controller;
 
+import com.specodyssey.dao.UserDao;
 import com.specodyssey.dto.SurveyQuestionDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.service.discovery.JobDiscoveryService;
@@ -61,6 +62,9 @@ public class JobDiscoveryServlet extends HttpServlet {
                     resp.sendError(HttpServletResponse.SC_NOT_FOUND, "추천 후보를 찾을 수 없습니다.");
                     return;
                 }
+                // 희망 직무가 DB에서 바뀌었으니 세션 사본도 맞춘다 — 안 하면 다시 로그인할 때까지 트렌드 위젯 등이
+                // 예전(비어 있던) 희망 직무로 동작한다(2026-10-03 발견).
+                refreshSessionUser(req, userId);
                 resp.sendRedirect(req.getContextPath() + "/gap-analysis?jobId=" + jobId);
                 return;
             }
@@ -80,6 +84,16 @@ public class JobDiscoveryServlet extends HttpServlet {
             resp.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
         } catch (SQLException e) {
             throw new ServletException("직무 추천 처리 중 오류가 발생했습니다.", e);
+        }
+    }
+
+    // 세션에 들고 있는 사본도 최신화 (비밀번호 해시는 세션에 두지 않는다) — ProfileServlet과 같은 방식
+    private void refreshSessionUser(HttpServletRequest req, Long userId) throws SQLException {
+        UserDto refreshed = new UserDao().findById(userId);
+        if (refreshed != null) {
+            refreshed.setPasswordHash(null);
+            refreshed.setRecoveryCodeHash(null);
+            req.getSession().setAttribute("loginUser", refreshed);
         }
     }
 
