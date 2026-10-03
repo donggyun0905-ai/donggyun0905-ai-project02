@@ -324,6 +324,7 @@ button, .btn {
     display: inline-block; background: var(--primary); color: #fff;
     border: none; border-radius: 6px; padding: 9px 22px;
     font-size: 0.9rem; font-weight: 600; cursor: pointer; font-family: inherit;
+    white-space: nowrap; flex-shrink: 0; /* 좁은 칸에서 "격차 분석 보/기"처럼 글자가 꺾이지 않게 */
 }
 button:hover, .btn:hover { background: var(--primary-hover); }
 button.secondary, .btn.secondary { background: #fff; color: var(--ink); border: 1px solid var(--border); }
@@ -476,3 +477,6 @@ a.file-link:hover { border-color: var(--primary); background: var(--card-bg); te
 .journey-marker .ic { width: 1.1em; height: 1.1em; vertical-align: middle; }
 h1 .ic, h2 .ic { color: var(--primary); }
 a.file-link + .inline-form { margin-left: 8px; }
+/* 대시보드 여정 지도의 티어 표시 — 작은 글자용 칩 그대로면 아이콘이 너무 작아 보여 원형으로 키운다 */
+.chip.tier-dot { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px;
+    padding: 0; margin: 0 auto; border-radius: 50%; font-size: 1.05rem; }

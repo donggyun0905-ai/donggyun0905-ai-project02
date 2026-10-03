@@ -322,15 +322,15 @@
 <section class="lp-section" id="tiers">
     <div class="lp-head reveal">
         <p class="lp-kicker">GROW</p>
-        <h2>뉴비 항해사에서 전설의 선장까지</h2>
+        <h2>첫걸음에서 오디세이아까지</h2>
         <p>미션을 수행할수록 점수가 쌓이고 등급이 오릅니다.</p>
     </div>
     <div class="lp-tiers">
-        <div class="lp-tier reveal"><img src="${ctx}/image/tier-1-beginner.png" alt=""><b>뉴비 항해사</b></div>
-        <div class="lp-tier reveal"><img src="${ctx}/image/tier-2-jobseeker.png" alt=""><b>견습 항해사</b></div>
-        <div class="lp-tier reveal"><img src="${ctx}/image/tier-3-practitioner.png" alt=""><b>정식 항해사</b></div>
-        <div class="lp-tier reveal"><img src="${ctx}/image/tier-4-almost.png" alt=""><b>선장</b></div>
-        <div class="lp-tier reveal"><img src="${ctx}/image/tier-5-legend.png" alt=""><b>전설의 선장</b></div>
+        <div class="lp-tier reveal"><img src="${ctx}/image/tier-1-beginner.png" alt=""><b>첫걸음</b></div>
+        <div class="lp-tier reveal"><img src="${ctx}/image/tier-2-jobseeker.png" alt=""><b>방랑자</b></div>
+        <div class="lp-tier reveal"><img src="${ctx}/image/tier-3-practitioner.png" alt=""><b>항해자</b></div>
+        <div class="lp-tier reveal"><img src="${ctx}/image/tier-4-almost.png" alt=""><b>개척자</b></div>
+        <div class="lp-tier reveal"><img src="${ctx}/image/tier-5-legend.png" alt=""><b>오디세이아</b></div>
     </div>
 </section>
 

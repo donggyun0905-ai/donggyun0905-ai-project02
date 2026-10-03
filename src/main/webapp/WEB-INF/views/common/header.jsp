@@ -20,7 +20,8 @@
     <a class="brand" href="${ctx}/"><img src="${ctx}/image/logo.png" alt="로고">스펙 오디세이</a>
     <span class="spacer"></span>
     <c:if test="${not empty sessionScope.loginUser}">
-        <c:if test="${not empty currentTier}">
+        <%-- 면접관 계정은 점수·등급이 없다 --%>
+        <c:if test="${not empty currentTier and sessionScope.loginUser.userType != 'INTERVIEWER'}">
             <span class="tier-badge">
                 <img src="${ctx}${tierLogoPath}" alt="${currentTier.tierName}">
                 <strong>${currentTier.tierName}</strong> · ${totalScore}점

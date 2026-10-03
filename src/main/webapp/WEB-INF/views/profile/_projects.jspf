@@ -3,7 +3,7 @@
     <c:forEach var="project" items="${projects}">
         <li>
             <strong><c:out value='${project.title}' /></strong>
-            <span class="muted">(${project.startDate} ~ ${project.endDate})</span><br>
+            <c:if test="${not empty project.startDate or not empty project.endDate}"><span class="muted">(${project.startDate} ~ ${project.endDate})</span></c:if><br>
             <c:out value='${project.description}' /><br>
             <c:if test="${not empty project.techStack}">기술스택: ${project.techStack}</c:if>
             <c:if test="${not empty project.repoUrl or not empty project.deployUrl or not empty projectLinks[project.id]}">

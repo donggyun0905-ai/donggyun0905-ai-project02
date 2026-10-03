@@ -2,7 +2,7 @@
 <ul class="item-list">
     <c:forEach var="skill" items="${skills}">
         <li class="spread">
-            <span><c:out value='${skill.rawInput}' /><c:if test="${not empty skill.proficiency}"> (${skill.proficiency})</c:if></span>
+            <span><c:out value='${skill.rawInput}' /><c:if test="${not empty skill.proficiency}"> <span class="muted">(${skill.proficiency == 'BEGINNER' ? '입문' : skill.proficiency == 'INTERMEDIATE' ? '중급' : skill.proficiency == 'ADVANCED' ? '고급' : '-'})</span></c:if></span>
             <span class="row" style="gap:8px;">
                 <details class="inline-form">
                     <summary>수정</summary>
