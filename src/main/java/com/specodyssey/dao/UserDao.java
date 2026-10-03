@@ -24,7 +24,7 @@ public class UserDao {
             "id, user_type, login_id, password_hash, name, age, career_status, email, " +
             "major, grade, interest_field, desired_job_id, desired_job_status, " +
             "resume_document_id, cover_letter_document_id, privacy_consent_at, recovery_code_hash, " +
-            "profile_updated_at, last_login_at, created_at, updated_at, is_deleted";
+            "profile_updated_at, last_login_at, withdraw_requested_at, created_at, updated_at, is_deleted";
 
     // FR-11~13 회원가입
     public Long insert(UserDto user) throws SQLException {
@@ -247,28 +247,99 @@ public class UserDao {
         }
     }
 
-    // 예전 방식으로 탈퇴해 아이디가 그대로 남은 계정(is_deleted = TRUE)의 아이디를 비운다 — 가입할 때 같은 아이디를 쓸 수 있게.
-    // 살아 있는 계정(is_deleted = FALSE)은 건드리지 않는다. 비운 계정 수를 돌려준다.
-    public int releaseDeletedLoginId(String loginId) throws SQLException {
+    // 탈퇴한 계정이 아직 아이디를 쥐고 있으면(UNIQUE) 가입이 막히므로 비운다. 대상은 유예가 없는 예전 탈퇴 계정
+    // (withdraw_requested_at IS NULL)과 유예(graceCutoff 이전 신청)가 끝났는데 정리 배치가 아직 안 돈 계정뿐이다 —
+    // 유예 중인 계정의 아이디는 탈퇴 취소를 위해 잡아 둔다. 비운 계정 수를 돌려준다.
+    public int releaseDeletedLoginId(String loginId, java.time.LocalDateTime graceCutoff) throws SQLException {
         String sql = "UPDATE USERS SET login_id = LEFT(CONCAT('del_', id, '_', login_id), 50) " +
-                "WHERE login_id = ? AND is_deleted = TRUE";
+                "WHERE login_id = ? AND is_deleted = TRUE " +
+                "AND (withdraw_requested_at IS NULL OR withdraw_requested_at < ?)";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, loginId);
+            pstmt.setTimestamp(2, toTimestamp(graceCutoff));
             return pstmt.executeUpdate();
         }
     }
 
-    // FR-13 회원 탈퇴 — 논리 삭제. login_id가 UNIQUE라서 탈퇴한 아이디가 그대로 남으면 같은 아이디로 다시 가입할 수 없다
-    // ("이미 사용 중"). 그래서 앞에 del_<id>_를 붙여 비워 준다(id가 앞에 있어 잘려도 겹치지 않는다). 탈퇴 계정은 로그인할 수 없다.
+    // FR-13 회원 탈퇴 — 논리 삭제 + 탈퇴 신청 시각 기록. 유예 기간 동안은 아이디를 바꾸지 않고 잡아 둔다(탈퇴 취소용).
+    // 아이디 비우기·개인정보 정리는 유예가 끝난 뒤 purgeExpiredWithdrawals가 한다. 탈퇴 계정은 일반 로그인으로 찾을 수 없다.
     public void softDelete(Long id) throws SQLException {
-        String sql = "UPDATE USERS SET is_deleted = TRUE, login_id = LEFT(CONCAT('del_', id, '_', login_id), 50) " +
-                "WHERE id = ? AND is_deleted = FALSE";
+        String sql = "UPDATE USERS SET is_deleted = TRUE, withdraw_requested_at = ? WHERE id = ? AND is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setLong(1, id);
+            pstmt.setTimestamp(1, toTimestamp(java.time.LocalDateTime.now()));
+            pstmt.setLong(2, id);
             pstmt.executeUpdate();
+        }
+    }
+
+    // 유예 중(graceCutoff 이후 신청)인 탈퇴 계정이 이 아이디를 잡고 있는지 — 가입 시 "이미 사용 중" 판단에 쓴다.
+    public boolean isLoginIdHeldByPendingWithdrawal(String loginId, java.time.LocalDateTime graceCutoff)
+            throws SQLException {
+        String sql = "SELECT 1 FROM USERS WHERE login_id = ? AND is_deleted = TRUE AND withdraw_requested_at >= ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, loginId);
+            pstmt.setTimestamp(2, toTimestamp(graceCutoff));
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
+    // 유예 중인 탈퇴 계정 조회 — 로그인 시 탈퇴 취소를 제안하거나 복구 코드로 비밀번호를 찾을 때 쓴다.
+    public UserDto findPendingWithdrawalByLoginId(String loginId, java.time.LocalDateTime graceCutoff)
+            throws SQLException {
+        String sql = "SELECT " + COLUMNS + " FROM USERS " +
+                "WHERE login_id = ? AND is_deleted = TRUE AND withdraw_requested_at >= ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, loginId);
+            pstmt.setTimestamp(2, toTimestamp(graceCutoff));
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        }
+    }
+
+    // 탈퇴 취소 — 유예 중인 계정만 되살린다. 아이디는 그동안 바꾸지 않았으므로 그대로 쓸 수 있다.
+    public boolean cancelWithdrawal(Long id, java.time.LocalDateTime graceCutoff) throws SQLException {
+        String sql = "UPDATE USERS SET is_deleted = FALSE, withdraw_requested_at = NULL " +
+                "WHERE id = ? AND is_deleted = TRUE AND withdraw_requested_at >= ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, id);
+            pstmt.setTimestamp(2, toTimestamp(graceCutoff));
+            return pstmt.executeUpdate() > 0;
+        }
+    }
+
+    // 유예 중인 탈퇴 계정의 비밀번호 찾기 — 계정은 탈퇴 상태 그대로 두고 비밀번호·복구 코드만 바꾼다(다음 로그인에서 탈퇴 취소).
+    public boolean resetPasswordAndRecoveryCodeOfPendingWithdrawal(Long userId, String passwordHash,
+            String recoveryCodeHash, java.time.LocalDateTime graceCutoff) throws SQLException {
+        String sql = "UPDATE USERS SET password_hash = ?, recovery_code_hash = ? " +
+                "WHERE id = ? AND is_deleted = TRUE AND withdraw_requested_at >= ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, passwordHash);
+            pstmt.setString(2, recoveryCodeHash);
+            pstmt.setLong(3, userId);
+            pstmt.setTimestamp(4, toTimestamp(graceCutoff));
+            return pstmt.executeUpdate() > 0;
+        }
+    }
+
+    // 유예가 끝난 탈퇴 계정 정리 — 아이디를 del_<id>_로 비우고(id가 앞에 있어 잘려도 겹치지 않는다) 개인정보를 지운다.
+    // 행 자체는 논리 삭제 원칙대로 남긴다. 이미 비운 행(del_로 시작)은 건너뛰어 여러 번 돌려도 안전하다. 정리한 수를 돌려준다.
+    public int purgeExpiredWithdrawals(java.time.LocalDateTime graceCutoff) throws SQLException {
+        String sql = "UPDATE USERS SET login_id = LEFT(CONCAT('del_', id, '_', login_id), 50), " +
+                "name = NULL, age = NULL, career_status = NULL, email = NULL, recovery_code_hash = NULL " +
+                "WHERE is_deleted = TRUE AND withdraw_requested_at < ? AND login_id NOT LIKE 'del\\_%'";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setTimestamp(1, toTimestamp(graceCutoff));
+            return pstmt.executeUpdate();
         }
     }
 
@@ -293,6 +364,7 @@ public class UserDao {
         user.setRecoveryCodeHash(rs.getString("recovery_code_hash"));
         user.setProfileUpdatedAt(toLocalDateTime(rs.getTimestamp("profile_updated_at")));
         user.setLastLoginAt(toLocalDateTime(rs.getTimestamp("last_login_at")));
+        user.setWithdrawRequestedAt(toLocalDateTime(rs.getTimestamp("withdraw_requested_at")));
         user.setCreatedAt(toLocalDateTime(rs.getTimestamp("created_at")));
         user.setUpdatedAt(toLocalDateTime(rs.getTimestamp("updated_at")));
         user.setDeleted(rs.getBoolean("is_deleted"));
