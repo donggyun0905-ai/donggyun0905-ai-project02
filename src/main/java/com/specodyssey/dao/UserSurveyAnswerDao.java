@@ -76,6 +76,25 @@ public class UserSurveyAnswerDao {
         }
     }
 
+    // 설문을 한 번이라도 한 사람이 아직 답하지 않은 살아 있는 직무 발굴 문항 수 — 문항이 늘거나 바뀌면 1 이상이 된다.
+    // 설문을 아예 안 한 사람은 0(안내 대상이 아니다 — 그 사람은 처음부터 설문으로 보내진다).
+    public int countUnansweredJobDiscoveryQuestions(Long userId) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM SURVEY_QUESTION q " +
+                "WHERE q.survey_type = 'JOB_DISCOVERY' AND q.is_deleted = FALSE " +
+                "AND EXISTS (SELECT 1 FROM USER_SURVEY_ANSWER a0 JOIN SURVEY_QUESTION q0 ON q0.id = a0.question_id " +
+                "            WHERE a0.user_id = ? AND a0.is_deleted = FALSE AND q0.survey_type = 'JOB_DISCOVERY') " +
+                "AND NOT EXISTS (SELECT 1 FROM USER_SURVEY_ANSWER a " +
+                "                WHERE a.user_id = ? AND a.question_id = q.id AND a.is_deleted = FALSE)";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            pstmt.setLong(2, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        }
+    }
+
     /**
      * 직무 발굴 설문 재응답(FR-38). 같은 (user_id, question_id)가 있으면 값만 덮어쓰고, 논리 삭제된 행도 되살린다.
      * JOB_DISCOVERY 문항 전용 — 자가진단(SELF_CHECK)은 초기 1회만 인정하는 정책이라 이 메서드를 쓰면 안 된다.

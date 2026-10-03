@@ -12,6 +12,13 @@
     </div>
 </c:if>
 
+<c:if test="${newQuestionCount > 0}">
+    <div class="banner">
+        <span><span class="ic ic-bell" aria-hidden="true"></span> 직무 찾기 설문에 새 문항이 <strong><c:out value="${newQuestionCount}" />개</strong> 생겼어요. 답하면 추천 직무가 더 정확해집니다.</span>
+        <a href="${pageContext.request.contextPath}/job-discovery">설문 다시 풀기</a>
+    </div>
+</c:if>
+
 <h1>대시보드</h1>
 <p class="muted">
     목표 직무 <strong><c:out value="${empty desiredJobName ? '미설정' : desiredJobName}" /></strong> ·
@@ -72,9 +79,10 @@
                         <c:forEach var="t" items="${journeyProgress.tiers}" varStatus="ts">
                             <c:set var="tierLabel" value="${t.tier == 'ENTRY' ? '입문 ENTRY' : t.tier == 'CORE' ? '핵심 CORE' : t.tier == 'ADVANCED' ? '심화 ADVANCED' : '전문가 EXPERT'}" />
                             <div style="text-align:center;">
-                                <div class="chip ${t.emptyTier ? 'chip-locked' : !t.unlocked ? 'chip-locked' : t.complete ? 'chip-teal' : 'chip-gold'}">
+                                <div class="chip tier-dot ${t.emptyTier ? 'chip-locked' : !t.unlocked ? 'chip-locked' : t.complete ? 'chip-teal' : 'chip-gold'}">
                                     <c:choose>
-                                        <c:when test="${t.emptyTier || !t.unlocked}">○</c:when>
+                                        <c:when test="${t.emptyTier}">–</c:when>
+                                        <c:when test="${!t.unlocked}"><span class="ic ic-lock" aria-hidden="true"></span></c:when>
                                         <c:when test="${t.complete}"><span class="ic ic-check" aria-hidden="true"></span></c:when>
                                         <c:otherwise><span class="ic ic-sailboat" aria-hidden="true"></span></c:otherwise>
                                     </c:choose>

@@ -42,6 +42,7 @@ public class JobDiscoveryServlet extends HttpServlet {
             req.setAttribute("questions", discoveryService.getQuestions());
             req.setAttribute("myAnswers", discoveryService.getMyAnswers(userId));
             req.setAttribute("recommendations", discoveryService.getRecommendations(userId));
+            req.setAttribute("newQuestionCount", discoveryService.countNewQuestions(userId));
         } catch (SQLException e) {
             throw new ServletException("직무 찾기 화면을 불러오는 중 오류가 발생했습니다.", e);
         }

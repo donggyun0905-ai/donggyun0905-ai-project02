@@ -26,6 +26,7 @@ import com.specodyssey.service.RoadmapProgress;
 import com.specodyssey.service.ScoreService;
 import com.specodyssey.service.SpecScoreService;
 import com.specodyssey.service.DailyMissionService;
+import com.specodyssey.service.discovery.JobDiscoveryService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -65,6 +66,7 @@ public class DashboardServlet extends HttpServlet {
     private final RoadmapService roadmapService = new RoadmapService();
     private final ScoreService scoreService = new ScoreService();
     private final SpecScoreService specScoreService = new SpecScoreService();
+    private final JobDiscoveryService jobDiscoveryService = new JobDiscoveryService();
     private final LevelTierDao levelTierDao = new LevelTierDao();
     private final DailyMissionService dailyMissionService = new DailyMissionService();
     private final DdayAlertDao ddayAlertDao = new DdayAlertDao();
@@ -85,6 +87,8 @@ public class DashboardServlet extends HttpServlet {
             loadDailyMissions(req, userId);
             loadUpcomingDdays(req, userId);
             loadGapAnalysis(req, userId);
+            // 설문 문항이 바뀌어 아직 답하지 않은 문항이 있으면 다시 풀어 보라고 알린다
+            req.setAttribute("newQuestionCount", jobDiscoveryService.countNewQuestions(userId));
         } catch (SQLException e) {
             throw new ServletException("대시보드를 불러오는 중 오류가 발생했습니다.", e);
         }
