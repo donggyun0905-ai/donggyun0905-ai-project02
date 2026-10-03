@@ -132,7 +132,7 @@ public class RoadmapReviewService {
                 SkillDto skill = skillDao.findById(skillId);
                 String name = skill == null ? "기술" : skill.getSkillName();
                 long days = java.time.Duration.between(lastDone.get(skillId), now).toDays();
-                String reason = "🔁 " + name + " 복습 — 마지막으로 익힌 지 " + days
+                String reason = name + " 복습 — 마지막으로 익힌 지 " + days
                         + "일이 지났어요. 핵심 개념을 다시 떠올려 짧게 정리해 보세요.";
                 order = stepWriter.insertStep(conn, primary.getId(), order, STEP_TYPE_REVIEW, TIER_REVIEW, null, skillId, reason);
             }

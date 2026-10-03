@@ -1,7 +1,7 @@
 <%-- 관리자 화면 위쪽 탭 — adminTab: rules / trend --%>
 <nav class="admin-tabs">
-    <a href="${pageContext.request.contextPath}/admin" class="${adminTab == 'rules' ? 'active' : ''}">⚙️ 점수·주기 규칙</a>
-    <a href="${pageContext.request.contextPath}/admin/job-skill-trend" class="${adminTab == 'trend' ? 'active' : ''}">📈 직무 기술 트렌드 재집계</a>
+    <a href="${pageContext.request.contextPath}/admin" class="${adminTab == 'rules' ? 'active' : ''}"><span class="ic ic-sliders" aria-hidden="true"></span> 점수·주기 규칙</a>
+    <a href="${pageContext.request.contextPath}/admin/job-skill-trend" class="${adminTab == 'trend' ? 'active' : ''}"><span class="ic ic-trending-up" aria-hidden="true"></span> 직무 기술 트렌드 재집계</a>
 </nav>
 <style>
     .admin-tabs { display: flex; gap: 8px; margin: 4px 0 18px; flex-wrap: wrap; }

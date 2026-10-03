@@ -5,7 +5,7 @@
 <c:set var="mainWide" value="true" scope="request" />
 <jsp:include page="/WEB-INF/views/common/header.jsp" />
 
-<h1>🛠 관리자</h1>
+<h1><span class="ic ic-wrench" aria-hidden="true"></span> 관리자</h1>
 <%@ include file="/WEB-INF/views/common/admin-tabs.jspf" %>
 <h2>직무 기술 트렌드(JOB_SKILL_TREND) 재집계</h2>
 <p class="muted">JOB_POSTING.tech_stack을 규칙 기반(LLM 없음)으로 다시 집계합니다. 관리자 계정(로그인 아이디가 ADMIN_LOGIN_ID)만 볼 수 있습니다.</p>

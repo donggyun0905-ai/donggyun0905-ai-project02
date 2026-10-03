@@ -58,6 +58,9 @@ public class RoadmapGenerator {
     // 프로젝트 추천 LLM이 실패해 고정 문구로 대체했을 때 다음 화면에 띄우는 안내 (FR-111)
     static final String PROJECT_FALLBACK_NOTICE =
             "AI 프로젝트 추천을 받지 못해 기본 안내로 대신했습니다. 로드맵을 다시 만들면 새로 추천받을 수 있어요.";
+    // AI 프로젝트 아이디어 단계의 reason 앞머리 — roadmap.jsp가 이걸로 "제목 — 설명"을 나눠 카드엔 제목만 보여준다.
+    // 예전에는 💡 이모지였다(2026-10-03 이모지 제거, 저장된 값은 sql/22로 바꿈).
+    public static final String PROJECT_IDEA_PREFIX = "아이디어: ";
 
     // 가장 최근 격차 분석을 기준으로 새 로드맵을 생성한다. 기존 대표 로드맵이 있으면 비활성화한다 (FR-37).
     public Long generate(Long userId) throws SQLException, NoGapAnalysisException {
@@ -286,7 +289,7 @@ public class RoadmapGenerator {
         try {
             ProjectIdeaService.ProjectIdea idea = projectIdeaService.suggest(
                     job == null || job.getJobName() == null ? "이 직무" : job.getJobName(), names);
-            return "💡 " + idea.title() + " — " + idea.description();
+            return PROJECT_IDEA_PREFIX + idea.title() + " — " + idea.description();
         } catch (Exception e) {
             // FR-111 — 조용히 넘기지 않고 다음 화면에 안내한다 (2026-10-02)
             AiNotices.add(PROJECT_FALLBACK_NOTICE);

@@ -70,7 +70,7 @@
                                 <td>${d.sizeLabel}</td>
                                 <td>${d.uploadedDate}</td>
                                 <td>
-                                    <a href="${pageContext.request.contextPath}/documents/${d.id}">내려받기</a> ·
+                                    <a href="${pageContext.request.contextPath}/documents/${d.id}" class="file-link"><span class="ic ic-download" aria-hidden="true"></span> 내려받기</a>
                                     <form action="${pageContext.request.contextPath}/documents" method="post" class="inline-form delete-doc"
                                           data-name="<c:out value='${d.originalName}' />" data-purpose="<c:out value='${d.purpose}' />">
                                         <input type="hidden" name="_csrf" value="${csrfToken}">

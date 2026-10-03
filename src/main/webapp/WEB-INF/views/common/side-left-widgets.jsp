@@ -38,7 +38,7 @@
             <c:otherwise>
                 <ul style="list-style:none; margin:10px 0 0; padding:0; font-size:0.85rem; display:flex; flex-direction:column; gap:6px;">
                     <c:forEach var="d" items="${recentDocuments}">
-                        <li><a href="${pageContext.request.contextPath}/documents/${d.id}"><c:out value="${d.originalName}" /></a></li>
+                        <li><a href="${pageContext.request.contextPath}/documents/${d.id}"><span class="ic ic-file-text" aria-hidden="true"></span> <c:out value="${d.originalName}" /></a></li>
                     </c:forEach>
                 </ul>
             </c:otherwise>

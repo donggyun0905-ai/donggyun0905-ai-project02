@@ -5,7 +5,7 @@
 <c:set var="adminTab" value="rules" />
 <jsp:include page="/WEB-INF/views/common/header.jsp" />
 
-<h1>🛠 관리자</h1>
+<h1><span class="ic ic-wrench" aria-hidden="true"></span> 관리자</h1>
 <%@ include file="/WEB-INF/views/common/admin-tabs.jspf" %>
 
 <p class="muted">로드맵·복습·일일 문제의 점수와 주기를 코드 수정 없이 바꿉니다. 저장하면 새로 받는 점수부터 적용되고, 이미 쌓인 점수는 그대로입니다.

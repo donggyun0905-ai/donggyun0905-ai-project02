@@ -64,13 +64,18 @@ public class SideWidgetFilter implements Filter {
 
     private void loadWidgets(HttpServletRequest req, UserDto user) {
         Long userId = user.getId();
-        if (user.getDesiredJobId() != null) {
-            try {
-                List<TrendTechDto> trends = trendDao.findTopByJobId(user.getDesiredJobId(), TREND_WIDGET_SIZE);
-                req.setAttribute("trendTechs", trends);
-            } catch (Exception e) {
-                LOG.log(Level.WARNING, "트렌드 위젯 조회 실패 — 빈 목록으로 표시합니다", e);
+        try {
+            List<TrendTechDto> trends = user.getDesiredJobId() == null
+                    ? List.of()
+                    : trendDao.findTopByJobId(user.getDesiredJobId(), TREND_WIDGET_SIZE);
+            // 목표 직무가 없거나(갓 가입) 그 직무에 연결된 트렌드가 없으면 직무와 상관없이 최근 트렌드라도 보여준다
+            if (trends.isEmpty()) {
+                trends = trendDao.findRecent(TREND_WIDGET_SIZE);
+                req.setAttribute("trendFallback", !trends.isEmpty());
             }
+            req.setAttribute("trendTechs", trends);
+        } catch (Exception e) {
+            LOG.log(Level.WARNING, "트렌드 위젯 조회 실패 — 빈 목록으로 표시합니다", e);
         }
         // 오늘의 미션 화면은 MissionProblemFilter가 같은 값을 실어 주므로 중복 조회하지 않는다
         if (!"/mission".equals(req.getServletPath())) {

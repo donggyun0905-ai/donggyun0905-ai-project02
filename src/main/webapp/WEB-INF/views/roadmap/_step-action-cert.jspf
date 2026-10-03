@@ -1,6 +1,6 @@
                                         <button type="button" class="open-step-dialog" data-dialog="stepDialog-${step.id}">증빙 서류 첨부하고 완료하기</button>
                                         <dialog id="stepDialog-${step.id}" class="step-dialog">
-                                        <div class="step-dialog-head"><h3>증빙 서류 첨부하고 완료하기</h3><button type="button" class="dialog-close link-button" aria-label="닫기">✕</button></div>
+                                        <div class="step-dialog-head"><h3>증빙 서류 첨부하고 완료하기</h3><button type="button" class="dialog-close link-button" aria-label="닫기"><span class="ic ic-x" aria-hidden="true"></span></button></div>
                                             <%-- 서류 내용은 검증하지 않고 첨부 자체를 신뢰하는 대신(팀 결정),
                                                  제출 전에 면접관 공유 화면에 그대로 노출된다는 걸 분명히 알린다
                                                  (2026-10-01 사용자 요청). --%>

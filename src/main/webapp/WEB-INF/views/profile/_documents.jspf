@@ -1,7 +1,7 @@
 <h2 style="margin-top:24px; margin-bottom:10px;">이력서 · 자소서 <span class="muted" style="font-weight:normal; font-size:0.85rem;">(선택)</span></h2>
 <%-- 팀 회의에서 정한 안내 문구(2026-10-01): 이력서·자소서를 선택으로 올려 두면 면접관이 한 화면에서 한눈에 볼 수 있다는 점을 알린다. --%>
 <div class="card" style="background:var(--card-bg, #fff); border-left:4px solid var(--teal, #2E7D6B);">
-    <p style="margin:0 0 6px;"><strong>💡 이력서와 자소서를 올려 두면 면접관이 한눈에 볼 수 있어 편해요</strong></p>
+    <p style="margin:0 0 6px;"><strong><span class="ic ic-bulb" aria-hidden="true"></span> 이력서와 자소서를 올려 두면 면접관이 한눈에 볼 수 있어 편해요</strong></p>
     <p class="muted" style="margin:0; font-size:0.88rem; line-height:1.6;">
         공유 링크를 만들 때 <strong>이력서 파일</strong>·<strong>자소서 파일</strong>을 함께 골라 두면, 면접관은 링크 하나로 내 기본 이력과 기술 스택부터 이력서·자소서까지
         한 화면에서 확인하고 바로 내려받을 수 있어요. 파일을 따로 주고받거나 여러 군데를 찾아다니지 않아도 되니 면접관에게도 훨씬 수월하고, 내 이야기가 빠짐없이 전해집니다.
@@ -16,7 +16,7 @@
     <c:choose>
         <c:when test="${not empty resume}">
             <p style="margin-top:0;">
-                <a href="${pageContext.request.contextPath}/documents/${resume.id}">📎 <c:out value="${resume.originalName}" /></a>
+                <a href="${pageContext.request.contextPath}/documents/${resume.id}" class="file-link"><span class="ic ic-paperclip" aria-hidden="true"></span> <c:out value="${resume.originalName}" /></a>
                 <span class="muted">· ${resume.createdAt.toLocalDate()}에 올림</span>
             </p>
         </c:when>
@@ -54,7 +54,7 @@
     <c:choose>
         <c:when test="${not empty coverLetter}">
             <p style="margin-top:0;">
-                <a href="${pageContext.request.contextPath}/documents/${coverLetter.id}">📎 <c:out value="${coverLetter.originalName}" /></a>
+                <a href="${pageContext.request.contextPath}/documents/${coverLetter.id}" class="file-link"><span class="ic ic-paperclip" aria-hidden="true"></span> <c:out value="${coverLetter.originalName}" /></a>
                 <span class="muted">· ${coverLetter.createdAt.toLocalDate()}에 올림</span>
             </p>
         </c:when>

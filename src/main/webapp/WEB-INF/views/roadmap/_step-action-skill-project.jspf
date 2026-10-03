@@ -17,7 +17,7 @@
                                             <c:otherwise>
                                                 <button type="button" class="open-step-dialog" data-dialog="stepDialog-${step.id}">프로젝트 등록/업그레이드하고 완료하기</button>
                                         <dialog id="stepDialog-${step.id}" class="step-dialog">
-                                        <div class="step-dialog-head"><h3>프로젝트 등록/업그레이드하고 완료하기</h3><button type="button" class="dialog-close link-button" aria-label="닫기">✕</button></div>
+                                        <div class="step-dialog-head"><h3>프로젝트 등록/업그레이드하고 완료하기</h3><button type="button" class="dialog-close link-button" aria-label="닫기"><span class="ic ic-x" aria-hidden="true"></span></button></div>
                                                     <form action="${pageContext.request.contextPath}/roadmap" method="post"
                                                           enctype="multipart/form-data" style="margin-top:10px;">
                                                         <input type="hidden" name="_csrf" value="${csrfToken}">

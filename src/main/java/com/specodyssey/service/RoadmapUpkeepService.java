@@ -52,7 +52,7 @@ public class RoadmapUpkeepService {
     static final int MAX_OPEN_TREND_STUDIES = 1;
     static final int NOTE_MIN_LENGTH = 20;
     static final int NOTE_MAX_LENGTH = 1000;
-    static final String TREND_REASON_PREFIX = "📈 트렌딩 학습 — ";
+    static final String TREND_REASON_PREFIX = "트렌딩 학습 — ";
     private static final String PROOF_UPKEEP_NOTE = "UPKEEP_NOTE";
     private static final int TREND_CANDIDATES = 10;
     private static final int TREND_SUMMARY_MAX = 200;
@@ -188,7 +188,7 @@ public class RoadmapUpkeepService {
             UserProjectDto project = (UserProjectDto) o[0];
             long days = Duration.between((LocalDateTime) o[1], now).toDays();
             out.add(new PlannedStep(STEP_TYPE_PROJECT_UPDATE, null, project.getId(),
-                    "🛠 " + project.getTitle() + " 프로젝트 업데이트 — 마지막으로 손본 지 " + days
+                    project.getTitle() + " 프로젝트 업데이트 — 마지막으로 손본 지 " + days
                             + "일이 지났어요. README·회고를 보강하거나 기능·리팩터링을 더하고, 무엇을 바꿨는지 적어 주세요."));
         }
     }
@@ -225,7 +225,7 @@ public class RoadmapUpkeepService {
             String name = skill == null ? "기술" : skill.getSkillName();
             long days = Duration.between(e.getValue(), now).toDays();
             out.add(new PlannedStep(STEP_TYPE_ARTICLE_UPDATE, e.getKey(), null,
-                    "📝 " + name + " 기술 글 업데이트 — 글을 낸 지 " + days
+                    name + " 기술 글 업데이트 — 글을 낸 지 " + days
                             + "일이 지났어요. 바뀐 내용·새로 알게 된 점을 보강한 글(PDF)을 다시 제출해 주세요."));
         }
     }

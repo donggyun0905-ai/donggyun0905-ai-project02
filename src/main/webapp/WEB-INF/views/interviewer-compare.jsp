@@ -26,7 +26,7 @@
                         <input type="hidden" name="_csrf" value="${csrfToken}">
                         <input type="hidden" name="action" value="removeCriterion">
                         <input type="hidden" name="criterionId" value="${criterion.id}">
-                        <button type="submit" class="link-button" title="역량 삭제">✕</button>
+                        <button type="submit" class="link-button" title="역량 삭제" aria-label="역량 삭제"><span class="ic ic-x" aria-hidden="true"></span></button>
                     </form>
                 </span>
             </div>
@@ -139,7 +139,7 @@
                             <c:when test="${not applicant.available}"><td class="muted">-</td></c:when>
                             <c:when test="${not applicant.view.scopeResume}"><td class="muted">지원자가 공개하지 않음</td></c:when>
                             <c:when test="${empty applicant.view.resumeFileName}"><td class="muted">올린 이력서 없음</td></c:when>
-                            <c:otherwise><td><a href="${pageContext.request.contextPath}/share/${applicant.token}/resume">📎 내려받기</a></td></c:otherwise>
+                            <c:otherwise><td><a href="${pageContext.request.contextPath}/share/${applicant.token}/resume" class="file-link"><span class="ic ic-download" aria-hidden="true"></span> 내려받기</a></td></c:otherwise>
                         </c:choose>
                     </c:forEach>
                 </tr>
@@ -150,7 +150,7 @@
                             <c:when test="${not applicant.available}"><td class="muted">-</td></c:when>
                             <c:when test="${not applicant.view.scopeCoverLetter}"><td class="muted">지원자가 공개하지 않음</td></c:when>
                             <c:when test="${empty applicant.view.coverLetterFileName}"><td class="muted">올린 자소서 없음</td></c:when>
-                            <c:otherwise><td><a href="${pageContext.request.contextPath}/share/${applicant.token}/cover-letter">📎 내려받기</a></td></c:otherwise>
+                            <c:otherwise><td><a href="${pageContext.request.contextPath}/share/${applicant.token}/cover-letter" class="file-link"><span class="ic ic-download" aria-hidden="true"></span> 내려받기</a></td></c:otherwise>
                         </c:choose>
                     </c:forEach>
                 </tr>

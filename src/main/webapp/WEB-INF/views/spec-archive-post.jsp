@@ -29,7 +29,7 @@
         <strong><c:out value="${post.authorName}" /></strong>
         <c:if test="${not empty post.authorTitle}"><span class="sa-tier"><c:out value="${post.authorTitle}" /></span></c:if>
         <span>${post.publishedAt.toLocalDate()}</span>
-        <span>👁 ${post.viewCount}</span>
+        <span><span class="ic ic-eye" aria-hidden="true"></span> ${post.viewCount}</span>
     </div>
 
     <%-- 본문과 사진·영상을 글쓴이가 놓은 순서대로 보여준다 (ArchiveContentCodec.decode).
@@ -82,14 +82,14 @@
         <form method="post" action="${ctx}/spec-archive/post">
             <input type="hidden" name="_csrf" value="${csrfToken}">
             <input type="hidden" name="id" value="${post.id}"><input type="hidden" name="action" value="like">
-            <button type="submit" class="sa-react ${detail.liked ? 'on' : ''}" aria-pressed="${detail.liked}">${detail.liked ? '❤️' : '🤍'} ${post.likeCount}</button>
+            <button type="submit" class="sa-react ${detail.liked ? 'on' : ''}" aria-pressed="${detail.liked}"><span class="ic ${detail.liked ? 'ic-heart-fill' : 'ic-heart'}" aria-hidden="true"></span> ${post.likeCount}</button>
         </form>
         <form method="post" action="${ctx}/spec-archive/post">
             <input type="hidden" name="_csrf" value="${csrfToken}">
             <input type="hidden" name="id" value="${post.id}"><input type="hidden" name="action" value="bookmark">
-            <button type="submit" class="sa-react bookmark ${detail.bookmarked ? 'on' : ''}" aria-pressed="${detail.bookmarked}">🔖 ${detail.bookmarked ? '북마크됨' : '북마크'} ${post.bookmarkCount}</button>
+            <button type="submit" class="sa-react bookmark ${detail.bookmarked ? 'on' : ''}" aria-pressed="${detail.bookmarked}"><span class="ic ${detail.bookmarked ? 'ic-bookmark-fill' : 'ic-bookmark'}" aria-hidden="true"></span> ${detail.bookmarked ? '북마크됨' : '북마크'} ${post.bookmarkCount}</button>
         </form>
-        <span class="muted">💬 ${post.commentCount}</span>
+        <span class="muted"><span class="ic ic-message" aria-hidden="true"></span> ${post.commentCount}</span>
         <c:if test="${detail.mine}">
             <form method="post" action="${ctx}/spec-archive/post" class="spacer" data-confirm="이 글을 지울까요? 지우면 되돌릴 수 없습니다.">
                 <input type="hidden" name="_csrf" value="${csrfToken}">

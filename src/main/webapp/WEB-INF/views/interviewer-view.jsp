@@ -7,7 +7,7 @@
     <%-- 6-4. 유효하지 않은 공유 링크 --%>
     <c:when test="${not valid}">
         <div class="card empty-state" style="max-width:460px; margin:60px auto;">
-            <div class="icon">🔗</div>
+            <div class="icon"><span class="ic ic-link" aria-hidden="true"></span></div>
             <h2>유효하지 않은 링크입니다</h2>
             <p class="muted">링크가 만료되었거나 지원자가 공유를 멈췄습니다. 이력을 보려면 지원자에게 새 링크를 요청해 주세요.</p>
             <a href="${pageContext.request.contextPath}/">스펙 오디세이 알아보기</a>
@@ -15,7 +15,7 @@
     </c:when>
     <c:otherwise>
         <div class="spread" style="margin-bottom:16px;">
-            <span class="pill">👁 읽기 전용 · 지원자가 공유한 이력</span>
+            <span class="pill"><span class="ic ic-eye" aria-hidden="true"></span> 읽기 전용 · 지원자가 공유한 이력</span>
             <c:choose>
                 <c:when test="${interviewer}">
                     <form method="post" action="${pageContext.request.contextPath}/interviewer/shared">
@@ -64,7 +64,7 @@
                         </c:when>
                         <c:otherwise>
                             <p style="margin-top:10px; margin-bottom:0;">
-                                이력서 · <a href="${pageContext.request.contextPath}/share/${token}/resume">📎 <c:out value="${view.resumeFileName}" /> 내려받기</a>
+                                이력서 · <a href="${pageContext.request.contextPath}/share/${token}/resume" class="file-link"><span class="ic ic-download" aria-hidden="true"></span> <c:out value="${view.resumeFileName}" /> 내려받기</a>
                             </p>
                         </c:otherwise>
                     </c:choose>
@@ -76,7 +76,7 @@
                         </c:when>
                         <c:otherwise>
                             <p style="margin-top:10px; margin-bottom:0;">
-                                자소서 · <a href="${pageContext.request.contextPath}/share/${token}/cover-letter">📎 <c:out value="${view.coverLetterFileName}" /> 내려받기</a>
+                                자소서 · <a href="${pageContext.request.contextPath}/share/${token}/cover-letter" class="file-link"><span class="ic ic-download" aria-hidden="true"></span> <c:out value="${view.coverLetterFileName}" /> 내려받기</a>
                             </p>
                         </c:otherwise>
                     </c:choose>
@@ -104,7 +104,7 @@
                                             <br><span class="muted" style="font-size:0.84rem;"><c:out value="${item.detail}" /></span>
                                         </c:if>
                                         <c:if test="${not empty item.links}">
-                                            <br><span style="font-size:0.84rem;">🔗
+                                            <br><span style="font-size:0.84rem;"><span class="ic ic-link" aria-hidden="true"></span>
                                                 <c:forEach var="link" items="${item.links}" varStatus="ls"><c:if test="${!ls.first}"> · </c:if><a href="<c:out value='${link.url}' />" target="_blank" rel="noopener noreferrer nofollow"><c:out value="${link.label}" /></a></c:forEach>
                                             </span>
                                         </c:if>

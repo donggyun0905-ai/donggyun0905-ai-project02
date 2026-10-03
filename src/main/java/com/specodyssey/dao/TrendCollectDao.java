@@ -98,4 +98,29 @@ public class TrendCollectDao {
             }
         }
     }
+
+    // 사이드바 대체 목록 — 목표 직무가 아직 없거나 그 직무에 연결된 트렌드가 하나도 없을 때, 직무와 상관없이
+    // 가장 최근에 모은 트렌드를 보여준다(빈 위젯 대신 이전 트렌드라도 보이게, 2026-10-03 사용자 요청).
+    public List<TrendTechDto> findRecent(int limit) throws SQLException {
+        String sql = "SELECT id, tech_name, summary, source_url, published_at FROM TREND_TECH " +
+                "WHERE is_deleted = FALSE ORDER BY created_at DESC, published_at DESC LIMIT ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, limit);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                List<TrendTechDto> items = new ArrayList<>();
+                while (rs.next()) {
+                    TrendTechDto tech = new TrendTechDto();
+                    tech.setId(rs.getLong("id"));
+                    tech.setTechName(rs.getString("tech_name"));
+                    tech.setSummary(rs.getString("summary"));
+                    tech.setSourceUrl(rs.getString("source_url"));
+                    Timestamp published = rs.getTimestamp("published_at");
+                    tech.setPublishedAt(published == null ? null : published.toLocalDateTime());
+                    items.add(tech);
+                }
+                return items;
+            }
+        }
+    }
 }

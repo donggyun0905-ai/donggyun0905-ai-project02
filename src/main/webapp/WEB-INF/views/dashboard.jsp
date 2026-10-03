@@ -7,7 +7,7 @@
 <c:if test="${not empty upcomingDdays}">
     <c:set var="soonest" value="${upcomingDdays[0]}" />
     <div class="banner">
-        <span>⏱️ 마감 임박 <strong>D-<c:out value="${soonest.daysLeft}" /></strong> <c:out value="${soonest.title}" /></span>
+        <span><span class="ic ic-clock" aria-hidden="true"></span> 마감 임박 <strong>D-<c:out value="${soonest.daysLeft}" /></strong> <c:out value="${soonest.title}" /></span>
         <a href="${pageContext.request.contextPath}/dday">일정 보기</a>
     </div>
 </c:if>
@@ -75,8 +75,8 @@
                                 <div class="chip ${t.emptyTier ? 'chip-locked' : !t.unlocked ? 'chip-locked' : t.complete ? 'chip-teal' : 'chip-gold'}">
                                     <c:choose>
                                         <c:when test="${t.emptyTier || !t.unlocked}">○</c:when>
-                                        <c:when test="${t.complete}">✔</c:when>
-                                        <c:otherwise>⛵</c:otherwise>
+                                        <c:when test="${t.complete}"><span class="ic ic-check" aria-hidden="true"></span></c:when>
+                                        <c:otherwise><span class="ic ic-sailboat" aria-hidden="true"></span></c:otherwise>
                                     </c:choose>
                                 </div>
                                 <div style="margin-top:6px; font-weight:600;"><c:out value="${tierLabel}" /></div>

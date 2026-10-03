@@ -169,7 +169,10 @@
     }
 
     function removeButton(block) {
-        var b = el('button', 'ed-remove', '✕');
+        var b = el('button', 'ed-remove');
+        var icon = el('span', 'ic ic-x');
+        icon.setAttribute('aria-hidden', 'true');
+        b.appendChild(icon);
         b.type = 'button';
         b.title = '빼기 (Ctrl+Z로 되돌릴 수 있어요)';
         b.setAttribute('aria-label', '빼기');
