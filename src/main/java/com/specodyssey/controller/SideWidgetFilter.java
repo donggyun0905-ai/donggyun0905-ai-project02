@@ -1,12 +1,12 @@
 package com.specodyssey.controller;
 
 import com.specodyssey.dao.DocumentDao;
-import com.specodyssey.dao.TrendCollectDao;
+import com.specodyssey.dao.UserDao;
 import com.specodyssey.dto.DocumentDto;
-import com.specodyssey.dto.TrendTechDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.service.DailyMissionService;
 import com.specodyssey.service.NoteService;
+import com.specodyssey.service.TrendWidgetService;
 import com.specodyssey.util.AdminAccess;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
@@ -40,7 +40,8 @@ public class SideWidgetFilter implements Filter {
     private static final int TREND_WIDGET_SIZE = 3;
     private static final int RECENT_DOCUMENT_COUNT = 5;
 
-    private final TrendCollectDao trendDao = new TrendCollectDao();
+    private final TrendWidgetService trendWidgetService = new TrendWidgetService();
+    private final UserDao userDao = new UserDao();
     private final DocumentDao documentDao = new DocumentDao();
     private final DailyMissionService missionService = new DailyMissionService();
     private final NoteService noteService = new NoteService();
@@ -65,15 +66,11 @@ public class SideWidgetFilter implements Filter {
     private void loadWidgets(HttpServletRequest req, UserDto user) {
         Long userId = user.getId();
         try {
-            List<TrendTechDto> trends = user.getDesiredJobId() == null
-                    ? List.of()
-                    : trendDao.findTopByJobId(user.getDesiredJobId(), TREND_WIDGET_SIZE);
-            // 목표 직무가 없거나(갓 가입) 그 직무에 연결된 트렌드가 없으면 직무와 상관없이 최근 트렌드라도 보여준다
-            if (trends.isEmpty()) {
-                trends = trendDao.findRecent(TREND_WIDGET_SIZE);
-                req.setAttribute("trendFallback", !trends.isEmpty());
-            }
-            req.setAttribute("trendTechs", trends);
+            // 희망 직무는 세션 사본이 아니라 DB에서 읽는다 — 직무를 바꾼 직후에도 바로 그 직무 트렌드가 보이게
+            Long desiredJobId = userDao.findDesiredJobId(userId);
+            TrendWidgetService.TrendWidget widget = trendWidgetService.forJob(desiredJobId, TREND_WIDGET_SIZE);
+            req.setAttribute("trendTechs", widget.items());
+            req.setAttribute("trendSource", widget.source().name());
         } catch (Exception e) {
             LOG.log(Level.WARNING, "트렌드 위젯 조회 실패 — 빈 목록으로 표시합니다", e);
         }

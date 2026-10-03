@@ -100,6 +100,18 @@ public class UserDao {
         }
     }
 
+    // 사이드 위젯 전용 — 세션 사본은 희망 직무를 바꿔도 늦게 갱신될 수 있어 매 요청 DB에서 이 값만 가볍게 읽는다
+    public Long findDesiredJobId(Long userId) throws SQLException {
+        String sql = "SELECT desired_job_id FROM USERS WHERE id = ? AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? rs.getObject("desired_job_id", Long.class) : null;
+            }
+        }
+    }
+
     // 세션 기반 본인 프로필 조회
     public UserDto findById(Long id) throws SQLException {
         String sql = "SELECT " + COLUMNS + " FROM USERS WHERE id = ? AND is_deleted = FALSE";
