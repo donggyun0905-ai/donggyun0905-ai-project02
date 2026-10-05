@@ -5,6 +5,7 @@ import com.specodyssey.dao.UserDao;
 import com.specodyssey.dto.DocumentDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.service.DailyMissionService;
+import com.specodyssey.service.GlanceService;
 import com.specodyssey.service.NoteService;
 import com.specodyssey.service.TrendWidgetService;
 import com.specodyssey.util.AdminAccess;
@@ -45,6 +46,7 @@ public class SideWidgetFilter implements Filter {
     private final DocumentDao documentDao = new DocumentDao();
     private final DailyMissionService missionService = new DailyMissionService();
     private final NoteService noteService = new NoteService();
+    private final GlanceService glanceService = new GlanceService();
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
@@ -89,6 +91,11 @@ public class SideWidgetFilter implements Filter {
             req.setAttribute("recentDocuments", documents);
         } catch (Exception e) {
             LOG.log(Level.WARNING, "최근 서류 위젯 조회 실패 — 빈 목록으로 표시합니다", e);
+        }
+        try {
+            req.setAttribute("glance", glanceService.load(userId));
+        } catch (Exception e) {
+            LOG.log(Level.WARNING, "한눈에 보기 위젯 조회 실패 — 위젯을 숨깁니다", e);
         }
         try {
             req.setAttribute("noteText", noteService.load(userId));

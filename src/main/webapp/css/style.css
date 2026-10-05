@@ -480,3 +480,17 @@ a.file-link + .inline-form { margin-left: 8px; }
 /* 대시보드 여정 지도의 티어 표시 — 작은 글자용 칩 그대로면 아이콘이 너무 작아 보여 원형으로 키운다 */
 .chip.tier-dot { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px;
     padding: 0; margin: 0 auto; border-radius: 50%; font-size: 1.05rem; }
+/* 왼쪽 위젯 "한눈에 보기" — D-day · 지금 할 일 · 나의 등급 */
+.glance-row { padding: 12px 0; border-top: 1px solid var(--border); }
+.glance-row:first-of-type { margin-top: 10px; }
+.glance-label { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 700; color: var(--ink-soft); margin-bottom: 6px; }
+.glance-label .ic { color: var(--primary); }
+.glance-empty { margin: 4px 0 0; font-size: 0.82rem; }
+.glance-ddays { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.84rem; }
+.glance-ddays li { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.glance-ddays .chip { flex-shrink: 0; margin-right: 0; }
+.glance-ddays-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.glance-step { margin: 0; font-size: 0.85rem; line-height: 1.5; }
+.glance-step .chip { margin-right: 6px; }
+.glance-tier { margin: 0; font-size: 0.86rem; }
+.glance-link { display: inline-block; margin-top: 6px; font-size: 0.8rem; }

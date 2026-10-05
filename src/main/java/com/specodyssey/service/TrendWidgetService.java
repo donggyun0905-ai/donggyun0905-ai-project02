@@ -20,8 +20,9 @@ import java.util.Set;
  */
 public class TrendWidgetService {
 
-    // LLM이 매긴 직무 관련도(0~1). 0.6~0.7대에는 "API 개발자 ↔ Git SHA-256"처럼 억지로 이은 것이 섞여 있어 잘라낸다.
-    static final double MIN_RELEVANCE = 0.8;
+    // LLM이 매긴 직무 관련도(0~1). 0.8 이하에는 "API 개발자 ↔ Git SHA-256", "프론트엔드 개발자 ↔ C++·Python"(둘 다 0.80)처럼
+    // 억지로 이은 것이 섞여 있어 잘라낸다(2026-10-05 화면 점검에서 확인 후 0.8 → 0.85).
+    static final double MIN_RELEVANCE = 0.85;
 
     public enum Source { JOB, JOB_AND_CATEGORY, CATEGORY, NONE, GENERAL }
 

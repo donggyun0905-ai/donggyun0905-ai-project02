@@ -116,7 +116,7 @@ public class DashboardServlet extends HttpServlet {
             steps.stream()
                     .filter(s -> currentTier.getTier().equals(s.getTier()) && !s.isCompleted())
                     .findFirst()
-                    .ifPresent(step -> req.setAttribute("nextStepReason", step.getReason()));
+                    .ifPresent(step -> req.setAttribute("nextStepReason", displayReason(step.getReason())));
         }
     }
 
@@ -241,6 +241,16 @@ public class DashboardServlet extends HttpServlet {
         req.setAttribute("missingSkillNames", missingNames);
         req.setAttribute("gapMetCount", metCount);
         req.setAttribute("gapTotalCount", items.size());
+    }
+
+    // AI 프로젝트 아이디어 단계("아이디어: 제목 — 긴 설명")는 대시보드 한 줄에 제목만 보여준다
+    private static String displayReason(String reason) {
+        if (reason == null || !reason.startsWith(com.specodyssey.service.RoadmapGenerator.PROJECT_IDEA_PREFIX)) {
+            return reason;
+        }
+        String rest = reason.substring(com.specodyssey.service.RoadmapGenerator.PROJECT_IDEA_PREFIX.length());
+        int dash = rest.indexOf(" — ");
+        return "프로젝트 — " + (dash > 0 ? rest.substring(0, dash) : rest);
     }
 
     private Long currentUserId(HttpServletRequest req) {
