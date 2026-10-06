@@ -15,6 +15,10 @@
 <c:if test="${newQuestionCount > 0}">
     <div class="banner"><span><span class="ic ic-bell" aria-hidden="true"></span> 설문 문항이 <strong><c:out value="${newQuestionCount}" />개</strong> 새로 생겼어요. 새 문항에 답하고 다시 제출하면 추천 직무가 더 정확해집니다.</span></div>
 </c:if>
+<%-- FR-37 추천을 받은 뒤 프로필(전공·기술 등)이 바뀌었을 때 — 다시 제출하면 바뀐 프로필로 추천한다 --%>
+<c:if test="${hasResults && profileChanged}">
+    <div class="banner"><span><span class="ic ic-bell" aria-hidden="true"></span> 추천을 받은 뒤 프로필(전공·기술 등)이 바뀌었어요. 설문을 다시 제출하면 바뀐 프로필로 추천 직무를 새로 받을 수 있습니다.</span></div>
+</c:if>
 <p class="muted">희망 직무가 아직 정해지지 않았다면, 간단한 설문과 지금까지 쌓은 전공·스펙을 함께 보고 어울리는 직무를 찾아드립니다.</p>
 
 <div class="two-col" style="margin-top:16px;">

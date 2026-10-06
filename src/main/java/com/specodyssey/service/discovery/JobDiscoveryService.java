@@ -91,6 +91,21 @@ public class JobDiscoveryService {
     }
 
     /** 다시 풀 때 이전 응답을 미리 체크해 두려고 쓴다. key = question_id */
+    /**
+     * FR-37 추천을 받은 뒤 프로필(전공·기술·프로젝트 등)이 바뀌었는지 — 다시 제출하라는 안내에 쓴다.
+     * 추천에 어떤 전공이 쓰였는지는 저장하지 않으므로 USERS.profile_updated_at(팀 공통 재분석 기준)과
+     * 마지막 설문 제출 시각을 비교한다. 이름·이메일만 바꿔도 안내가 뜨지만, 다시 제출해도 손해가 없어 감수한다.
+     */
+    public boolean isProfileChangedSinceSurvey(Long userId) throws SQLException {
+        UserDto user = userDao.findById(userId);
+        return user != null
+                && changedAfter(user.getProfileUpdatedAt(), answerDao.findLastJobDiscoveryAnsweredAt(userId));
+    }
+
+    static boolean changedAfter(LocalDateTime profileUpdatedAt, LocalDateTime lastSubmittedAt) {
+        return profileUpdatedAt != null && lastSubmittedAt != null && profileUpdatedAt.isAfter(lastSubmittedAt);
+    }
+
     /** 설문 문항이 바뀌어 아직 답하지 않은 문항 수(설문을 한 적 없는 사람은 0) — 다시 풀어 보라는 안내에 쓴다. */
     public int countNewQuestions(Long userId) throws SQLException {
         return answerDao.countUnansweredJobDiscoveryQuestions(userId);
