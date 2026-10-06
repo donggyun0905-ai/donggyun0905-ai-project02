@@ -14,20 +14,46 @@ public class RoadmapProgressCalculator {
     // "전체 대비 %"는 분모가 계속 바뀌어 의미가 없다 — 그래서 티어별로 계산하고, 앞 티어를 다
     // 끝내야(또는 그 티어에 단계가 아예 없으면) 다음 티어가 풀리는 계단식 잠금으로 표현한다
     // (팀 합의, 2026-09-23 / ADVANCED·EXPERT 확장 2026-09-29). ENTRY는 항상 열려 있다.
-    // 매번 steps 원본에서 새로 계산하기 때문에, 완료 취소로 이전 티어가 다시 미완료가 되면
-    // 이후 티어도 그 즉시 다시 잠긴다 — 잠기기 전에 이미 완료한 단계 자체는 그대로 완료로 남는다.
+    //
+    // 한 번 열린 티어는 나중에 앞 티어에 단계가 덧붙어도 다시 잠기지 않는다(사용자 결정, 2026-10-06).
+    // 다음 라운드 기술을 이어 붙이면 입문에 미완료가 새로 생기는데, 그때마다 걷고 있던 핵심·심화가
+    // 통째로 잠기면 진도가 뒤로 가는 느낌이라 로드맵을 더 못 늘리고 있었다. 그래서 "앞 티어를 다
+    // 끝냈는지"를 볼 때 이 티어보다 나중에 만들어진 앞 티어 단계는 빼고 본다 — 단계 id는 만든
+    // 순서대로 커지므로 이 티어에서 가장 먼저 만들어진 단계의 id가 그 기준이 된다.
+    // 한 라운드로 통째로 만든 로드맵에서는 앞 티어 id가 모두 더 작아서 예전과 똑같이 동작한다.
     public RoadmapProgress computeProgress(List<RoadmapStepDto> steps) {
         List<TierProgress> tiers = new ArrayList<>();
-        boolean unlocked = true;
-        for (String tier : SKILL_TIER_ORDER) {
+        for (int i = 0; i < SKILL_TIER_ORDER.size(); i++) {
+            String tier = SKILL_TIER_ORDER.get(i);
             long total = steps.stream().filter(s -> tier.equals(s.getTier())).count();
             long done = steps.stream().filter(s -> tier.equals(s.getTier()) && s.isCompleted()).count();
             int percent = total == 0 ? 0 : (int) Math.round(done * 100.0 / total);
-            tiers.add(new TierProgress(tier, (int) total, (int) done, percent, unlocked));
-            boolean cleared = total == 0 || done == total;
-            unlocked = unlocked && cleared;
+            tiers.add(new TierProgress(tier, (int) total, (int) done, percent, isUnlocked(steps, i)));
         }
         return new RoadmapProgress(tiers);
+    }
+
+    private boolean isUnlocked(List<RoadmapStepDto> steps, int tierIndex) {
+        if (tierIndex == 0) {
+            return true; // 입문은 항상 열려 있다
+        }
+        String tier = SKILL_TIER_ORDER.get(tierIndex);
+        List<String> earlierTiers = SKILL_TIER_ORDER.subList(0, tierIndex);
+        Long oldestInTier = steps.stream()
+                .filter(s -> tier.equals(s.getTier()) && s.getId() != null)
+                .map(RoadmapStepDto::getId)
+                .min(Long::compare)
+                .orElse(null);
+        for (RoadmapStepDto step : steps) {
+            if (step.isCompleted() || !earlierTiers.contains(step.getTier())) {
+                continue;
+            }
+            // 이 티어가 생기기 전에 이미 있던 앞 티어 단계가 안 끝났으면 아직 잠겨 있다
+            if (oldestInTier == null || step.getId() == null || step.getId() < oldestInTier) {
+                return false;
+            }
+        }
+        return true;
     }
 
     // 티어 돌파 환영 모달용(2026-10-01) — 이번 작업 전(before)엔 미완료였던 티어가 작업 후(after)에

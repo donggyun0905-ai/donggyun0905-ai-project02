@@ -1709,4 +1709,67 @@ class RoadmapServiceTest {
             }
         }
     }
+
+    @Test
+    void 길_더_만들기는_아직_담지_않은_기술을_각_티어_맨_뒤에_이어_붙이고_끝낸_단계는_그대로_둔다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        // 입문 단계 하나를 끝내 둔다 — 이어 붙인 뒤에도 자리가 그대로여야 한다
+        List<RoadmapStepDto> before = roadmapService.getSteps(roadmapId);
+        RoadmapStepDto doneStep = before.stream()
+                .filter(s -> RoadmapConstants.TIER_ENTRY.equals(s.getTier()) && "CERT".equals(s.getStepType()))
+                .findFirst().orElseThrow();
+        roadmapService.completeStep(userId, doneStep.getId(), true);
+        int doneOrderBefore = roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> s.getId().equals(doneStep.getId())).findFirst().orElseThrow().getStepOrder();
+
+        // 로드맵에 아직 없는 부족 기술을 같은 분석에 하나 더 넣는다
+        Long extraSkillId;
+        Long extraRequirementId;
+        Long extraItemId;
+        try (Connection conn = DBUtil.getConnection()) {
+            extraSkillId = TestFixtures.insertSkill(conn, "테스트추가스킬_" + System.nanoTime());
+            JobRequiredSkillDto req = new JobRequiredSkillDto();
+            req.setJobId(jobId);
+            req.setSkillId(extraSkillId);
+            req.setImportance("REQUIRED");
+            req.setSource("MANUAL");
+            req.setEstimated(false);
+            extraRequirementId = jobRequiredSkillDao.insert(conn, req);
+
+            GapAnalysisItemDto item = new GapAnalysisItemDto();
+            item.setGapAnalysisId(gapAnalysisId);
+            item.setSkillId(extraSkillId);
+            item.setStatus("MISSING");
+            extraItemId = gapAnalysisItemDao.insert(conn, item);
+        }
+
+        try {
+            int added = roadmapService.appendNextRound(userId);
+            assertTrue(added > 0, "아직 담지 않은 기술이 있으면 이어 붙인다");
+
+            List<RoadmapStepDto> after = roadmapService.getSteps(roadmapId);
+            assertEquals(doneOrderBefore, after.stream().filter(s -> s.getId().equals(doneStep.getId()))
+                    .findFirst().orElseThrow().getStepOrder(), "끝낸 단계의 자리는 바뀌지 않는다");
+
+            // 새 기술 단계는 자기 티어의 맨 뒤에 있다
+            for (String tier : RoadmapConstants.SKILL_TIER_ORDER) {
+                List<RoadmapStepDto> inTier = after.stream().filter(s -> tier.equals(s.getTier())).toList();
+                if (inTier.isEmpty()) {
+                    continue;
+                }
+                RoadmapStepDto last = inTier.get(inTier.size() - 1);
+                assertEquals(extraSkillId, last.getRelatedSkillId(), tier + " 티어의 마지막이 새 기술이어야 한다");
+            }
+
+            // 같은 기술을 또 넣지는 않는다
+            assertEquals(0, roadmapService.appendNextRound(userId), "더 넣을 기술이 없으면 0");
+        } finally {
+            try (Connection conn = DBUtil.getConnection()) {
+                TestFixtures.hardDeleteByColumn(conn, "ROADMAP_STEP", "related_skill_id", extraSkillId);
+                TestFixtures.hardDelete(conn, "GAP_ANALYSIS_ITEM", extraItemId);
+                TestFixtures.hardDelete(conn, "JOB_REQUIRED_SKILL", extraRequirementId);
+                TestFixtures.hardDelete(conn, "SKILL", extraSkillId);
+            }
+        }
+    }
 }

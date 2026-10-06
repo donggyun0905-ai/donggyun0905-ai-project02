@@ -245,6 +245,8 @@
                     </c:if>
                 </c:forEach>
             </div>
+            <%-- 맨 밑 감지용 — 이 표식이 보이면 길을 더 만든다(아래 스크립트) --%>
+            <div id="journeyEnd" aria-hidden="true" style="height:1px;"></div>
             </div>
         </div>
 
@@ -264,5 +266,81 @@
 <%@ include file="/WEB-INF/views/roadmap/_scripts.jspf" %>
 
 <%@ include file="/WEB-INF/views/roadmap/_path.jspf" %>
+
+<%-- 길 더 만들기 — 로드맵 맨 밑까지 내려가면 아직 담지 않은 부족 기술을 자동으로 이어 붙인다
+     (사용자 요청 2026-10-06). 새로고침하면 깜빡이므로, 서버에서 새 화면을 받아 길 부분만 갈아 끼우고
+     스크롤 위치를 그대로 둔다. LLM이 필요한 프로젝트 단계는 넣지 않는다(기술 단계만) — 그건
+     "바뀐 부분만 다시 만들기" 버튼이 맡는다. --%>
+<script>
+(function () {
+    var sentinel = document.getElementById('journeyEnd');
+    var scroller = document.getElementById('journeyScroll');
+    if (!sentinel || !scroller || !window.IntersectionObserver) { return; }
+    var ctx = '${pageContext.request.contextPath}';
+    var busy = false;
+    var exhausted = false; // 더 넣을 기술이 없다고 서버가 알려주면 그만 묻는다
+
+    var observer = new IntersectionObserver(function (entries) {
+        if (!entries[0].isIntersecting || busy || exhausted) { return; }
+        extend();
+    }, { root: scroller, rootMargin: '120px' });
+
+    function extend() {
+        busy = true;
+        var body = new URLSearchParams();
+        body.set('action', 'extend');
+        body.set('_csrf', '${csrfToken}');
+        fetch(ctx + '/roadmap', {
+            method: 'POST',
+            headers: { 'X-CSRF-Token': '${csrfToken}', 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString()
+        }).then(function (res) {
+            return res.ok ? res.json() : null;
+        }).then(function (data) {
+            if (!data || !data.added) {
+                exhausted = true;
+                observer.disconnect();
+                busy = false;
+                return;
+            }
+            return swapJourney();
+        }).catch(function () {
+            // 실패하면 조용히 둔다 — 지금 보이는 길은 그대로 쓸 수 있다
+            exhausted = true;
+            observer.disconnect();
+            busy = false;
+        });
+    }
+
+    // 새 화면을 받아 길 부분만 바꿔 끼운다 — 페이지를 다시 불러오지 않아 화면이 깜빡이지 않는다
+    function swapJourney() {
+        var keepScroll = scroller.scrollTop;
+        return fetch(ctx + '/roadmap', { headers: { 'Accept': 'text/html' } })
+            .then(function (res) { return res.ok ? res.text() : null; })
+            .then(function (html) {
+                if (!html) { busy = false; return; }
+                var fresh = new DOMParser().parseFromString(html, 'text/html').querySelector('#journeyScroll');
+                if (!fresh) { busy = false; return; }
+                scroller.replaceWith(fresh);
+                scroller = fresh;
+                scroller.scrollTop = keepScroll;
+                if (window.journeyPathInit) { window.journeyPathInit(); }
+                // 새로 끼운 길의 끝을 다시 지켜본다
+                sentinel = document.getElementById('journeyEnd');
+                observer.disconnect();
+                if (sentinel) {
+                    observer = new IntersectionObserver(function (entries) {
+                        if (!entries[0].isIntersecting || busy || exhausted) { return; }
+                        extend();
+                    }, { root: scroller, rootMargin: '120px' });
+                    observer.observe(sentinel);
+                }
+                busy = false;
+            });
+    }
+
+    observer.observe(sentinel);
+})();
+</script>
 
 <jsp:include page="/WEB-INF/views/common/footer.jsp" />

@@ -46,6 +46,8 @@ import static com.specodyssey.controller.RoadmapSubmissionForm.trimToNull;
 )
 public class RoadmapServlet extends HttpServlet {
 
+    private static final com.google.gson.Gson GSON = new com.google.gson.Gson();
+
     private final RoadmapService roadmapService = new RoadmapService();
     private final GapAnalysisService gapAnalysisService = new GapAnalysisService();
     private final UserDao userDao = new UserDao();
@@ -164,7 +166,13 @@ public class RoadmapServlet extends HttpServlet {
 
         try {
             scoreTierBefore = mayCompleteStep ? tierCelebration.currentScoreTierId(userId) : null;
-            if ("generate".equals(action)) {
+            // "길 더 만들기" — 맨 밑까지 스크롤하면 화면이 자동으로 부른다. 화면을 다시 그리지 않고
+        // 몇 개 붙었는지만 JSON으로 돌려주고, 화면은 그 결과로 길 부분만 갈아 끼운다.
+        if ("extend".equals(action)) {
+            writeExtendResult(req, resp, userId);
+            return;
+        }
+        if ("generate".equals(action)) {
                 ReviewCheckGate.reset(req.getSession(false));
                 noticeRefresh(req, roadmapService.refresh(userId));
             } else if ("complete".equals(action)) {
@@ -248,6 +256,22 @@ public class RoadmapServlet extends HttpServlet {
             }
         }
         resp.sendRedirect(req.getContextPath() + "/roadmap");
+    }
+
+    private void writeExtendResult(HttpServletRequest req, HttpServletResponse resp, Long userId)
+            throws ServletException, IOException {
+        int added;
+        try {
+            added = roadmapService.appendNextRound(userId);
+        } catch (SQLException e) {
+            throw new ServletException("로드맵을 더 만드는 중 오류가 발생했습니다.", e);
+        }
+        if (added > 0) {
+            ReviewCheckGate.reset(req.getSession(false));
+        }
+        resp.setContentType("application/json;charset=UTF-8");
+        resp.setHeader("Cache-Control", "no-store");
+        resp.getWriter().write(GSON.toJson(java.util.Map.of("added", added)));
     }
 
     // 바뀐 부분만 반영한 결과를 다음 화면에 한 번 알려준다. 통째로 새로 만든 경우(처음 만들기 등)는 따로 알리지 않는다.

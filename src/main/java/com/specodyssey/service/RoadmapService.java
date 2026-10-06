@@ -169,6 +169,11 @@ public class RoadmapService {
         return refresher.refresh(userId);
     }
 
+    /** 로드맵 맨 밑까지 내려갔을 때 "길 더 만들기" — 아직 담지 않은 부족 기술을 한 라운드 이어 붙인다. */
+    public int appendNextRound(Long userId) throws SQLException {
+        return refresher.appendNextRound(userId);
+    }
+
     // 로드맵 생성 → RoadmapGenerator
     public Long generate(Long userId) throws SQLException, NoGapAnalysisException {
         return generator.generate(userId);
