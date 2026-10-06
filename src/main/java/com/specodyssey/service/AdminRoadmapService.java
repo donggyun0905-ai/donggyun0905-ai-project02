@@ -26,7 +26,7 @@ public class AdminRoadmapService {
     private final RoadmapStepDao roadmapStepDao = new RoadmapStepDao();
 
     public UserDto findUser(Long userId) throws SQLException {
-        return userDao.findByIdForAdmin(userId);
+        return userDao.findByIdIncludingDeleted(userId);
     }
 
     public RoadmapDto findPrimaryRoadmap(Long userId) throws SQLException {

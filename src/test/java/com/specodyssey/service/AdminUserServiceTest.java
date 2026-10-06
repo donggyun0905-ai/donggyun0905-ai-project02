@@ -58,7 +58,7 @@ class AdminUserServiceTest {
     void 프로필을_수정할_수_있다() throws Exception {
         service.updateProfile(userId, "새이름", 25, "STUDENT", "new@test.com", "컴공", "3학년", "백엔드", null, "UNSET");
 
-        UserDto reloaded = userDao.findByIdForAdmin(userId);
+        UserDto reloaded = userDao.findByIdIncludingDeleted(userId);
         assertEquals("새이름", reloaded.getName());
         assertEquals(25, reloaded.getAge());
         assertEquals("new@test.com", reloaded.getEmail());
@@ -68,7 +68,7 @@ class AdminUserServiceTest {
     void 비밀번호를_재설정하면_새_비밀번호로_인증된다() throws Exception {
         service.resetPassword(userId, "newPassword123");
 
-        UserDto reloaded = userDao.findByIdForAdmin(userId);
+        UserDto reloaded = userDao.findByIdIncludingDeleted(userId);
         assertTrue(PasswordUtil.verify("newPassword123", reloaded.getPasswordHash()));
     }
 
@@ -80,6 +80,6 @@ class AdminUserServiceTest {
     @Test
     void 탈퇴_처리하면_is_deleted가_true가_된다() throws Exception {
         service.softDelete(userId);
-        assertTrue(userDao.findByIdForAdmin(userId).isDeleted());
+        assertTrue(userDao.findByIdIncludingDeleted(userId).isDeleted());
     }
 }

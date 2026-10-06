@@ -27,11 +27,13 @@ public class UserService {
     public static class PendingWithdrawalException extends Exception {
         private final Long userId;
         private final LocalDateTime purgeAt;
+        private final boolean recoveryCodeRequired;
 
-        public PendingWithdrawalException(Long userId, LocalDateTime purgeAt) {
+        public PendingWithdrawalException(Long userId, LocalDateTime purgeAt, boolean recoveryCodeRequired) {
             super("탈퇴 신청한 계정입니다.");
             this.userId = userId;
             this.purgeAt = purgeAt;
+            this.recoveryCodeRequired = recoveryCodeRequired;
         }
 
         public Long getUserId() {
@@ -41,6 +43,11 @@ public class UserService {
         /** 이 시각이 지나면 탈퇴가 확정돼 복구할 수 없다. */
         public LocalDateTime getPurgeAt() {
             return purgeAt;
+        }
+
+        /** 복구 코드를 받아 둔 계정이면 탈퇴 취소에도 그 코드를 받는다(복구 코드가 없는 옛 계정은 못 받는다). */
+        public boolean isRecoveryCodeRequired() {
+            return recoveryCodeRequired;
         }
     }
 
@@ -92,6 +99,13 @@ public class UserService {
 
     public static class InvalidInputException extends Exception {
         public InvalidInputException(String message) {
+            super(message);
+        }
+    }
+
+    /** 되살리려는 사이에 유예 기간이 끝났다 — 복구 코드를 다시 받아도 소용없으므로 재시도 화면을 띄우지 않는다. */
+    public static class WithdrawalGraceExpiredException extends Exception {
+        public WithdrawalGraceExpiredException(String message) {
             super(message);
         }
     }
@@ -186,7 +200,8 @@ public class UserService {
             UserDto pending = loginId == null ? null : userDao.findPendingWithdrawalByLoginId(loginId, graceCutoff());
             if (pending != null && rawPassword != null && PasswordUtil.verify(rawPassword, pending.getPasswordHash())) {
                 throw new PendingWithdrawalException(pending.getId(),
-                        pending.getWithdrawRequestedAt().plusDays(WITHDRAWAL_GRACE_DAYS));
+                        pending.getWithdrawRequestedAt().plusDays(WITHDRAWAL_GRACE_DAYS),
+                        pending.getRecoveryCodeHash() != null);
             }
             throw new InvalidCredentialException("아이디 또는 비밀번호가 올바르지 않습니다.");
         }
@@ -208,12 +223,30 @@ public class UserService {
 
     /**
      * 탈퇴 취소 — 로그인에서 비밀번호를 확인한(PendingWithdrawalException) 계정만 호출한다.
+     *
+     * 비밀번호만으로 되살리면 비밀번호가 새어 나간 계정을 남이 되살려 기록을 다 볼 수 있어서, 복구 코드를
+     * 받아 둔 계정은 그 코드까지 맞아야 되살린다(사용자 요청, 2026-10-06). 복구 코드를 발급받기 전에
+     * 만들어진 계정(recovery_code_hash가 비어 있음)은 받을 코드가 없으므로 비밀번호 확인만으로 되살린다 —
+     * 그렇지 않으면 그 계정은 유예가 끝날 때까지 복구할 길이 아예 없다.
+     *
+     * @param recoveryCode 복구 코드를 받아 둔 계정이면 필수, 아니면 무시한다
      * @return 되살린 계정(로그인 처리에 쓴다)
-     * @throws InvalidCredentialException 그사이 유예 기간이 끝났거나 이미 취소된 경우
+     * @throws InvalidCredentialException 복구 코드가 틀린 경우
+     * @throws WithdrawalGraceExpiredException 그사이 유예 기간이 끝났거나 이미 취소된 경우
      */
-    public UserDto cancelWithdrawal(Long userId) throws SQLException, InvalidCredentialException {
+    public UserDto cancelWithdrawal(Long userId, String recoveryCode)
+            throws SQLException, InvalidCredentialException, WithdrawalGraceExpiredException {
+        UserDto pending = userDao.findByIdIncludingDeleted(userId);
+        String stored = pending == null ? null : pending.getRecoveryCodeHash();
+        if (stored != null) {
+            // 코드가 틀렸을 때도 맞을 때와 같은 횟수의 PBKDF2를 돌린다(응답 시간으로 짐작하지 못하게)
+            boolean matches = PasswordUtil.verify(RecoveryCode.forHash(recoveryCode), stored);
+            if (!RecoveryCode.looksValid(recoveryCode) || !matches) {
+                throw new InvalidCredentialException("복구 코드가 올바르지 않습니다.");
+            }
+        }
         if (!userDao.cancelWithdrawal(userId, graceCutoff())) {
-            throw new InvalidCredentialException("탈퇴를 취소할 수 있는 기간이 지났습니다. 다시 가입해주세요.");
+            throw new WithdrawalGraceExpiredException("탈퇴를 취소할 수 있는 기간이 지났습니다. 다시 가입해주세요.");
         }
         userDao.updateLastLogin(userId);
         return userDao.findById(userId);

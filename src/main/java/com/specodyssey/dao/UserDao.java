@@ -60,7 +60,6 @@ public class UserDao {
         }
     }
 
-    // SpecScoreScheduler의 일 1회 전체 스냅샷 배치용
     // 관리자 회원 검색(2026-10-06) — 아이디·이름·이메일 부분 일치. 탈퇴(is_deleted)해도 보여야
     // 유예 기간 중인 사람을 찾을 수 있어서 삭제 여부로 거르지 않는다.
     public List<UserDto> searchForAdmin(String keyword, int limit) throws SQLException {
@@ -84,8 +83,9 @@ public class UserDao {
         }
     }
 
-    // 관리자가 탈퇴한 계정도 볼 수 있어야 하므로 findById(is_deleted=FALSE 조건)와 분리했다.
-    public UserDto findByIdForAdmin(Long id) throws SQLException {
+    // 논리 삭제된 계정까지 찾는다 — findById는 is_deleted = FALSE만 본다. 관리자 화면이 탈퇴 계정을
+    // 보여줄 때와, 탈퇴 유예 중인 계정의 복구 코드를 확인할 때 쓴다.
+    public UserDto findByIdIncludingDeleted(Long id) throws SQLException {
         String sql = "SELECT " + COLUMNS + " FROM USERS WHERE id = ?";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -96,6 +96,7 @@ public class UserDao {
         }
     }
 
+    // SpecScoreScheduler의 일 1회 전체 스냅샷 배치용
     public List<UserDto> findAll() throws SQLException {
         String sql = "SELECT " + COLUMNS + " FROM USERS WHERE is_deleted = FALSE";
         try (Connection conn = DBUtil.getConnection();

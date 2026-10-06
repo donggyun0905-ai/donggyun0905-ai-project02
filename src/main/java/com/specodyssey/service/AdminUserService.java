@@ -26,14 +26,14 @@ public class AdminUserService {
     }
 
     public UserDto find(Long userId) throws SQLException {
-        return userDao.findByIdForAdmin(userId);
+        return userDao.findByIdIncludingDeleted(userId);
     }
 
     // FR-21·22와 같은 컬럼만 바꾼다 — 로그인 아이디·비밀번호·user_type은 여기서 안 건드린다.
     public void updateProfile(Long userId, String name, Integer age, String careerStatus, String email,
             String major, String grade, String interestField, Long desiredJobId, String desiredJobStatus)
             throws SQLException {
-        UserDto user = userDao.findByIdForAdmin(userId);
+        UserDto user = userDao.findByIdIncludingDeleted(userId);
         if (user == null) {
             throw new IllegalArgumentException("사용자를 찾을 수 없습니다.");
         }

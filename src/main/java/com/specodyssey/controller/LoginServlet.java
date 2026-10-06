@@ -26,6 +26,8 @@ public class LoginServlet extends HttpServlet {
     // 비밀번호를 확인한 탈퇴 유예 계정 — 탈퇴 취소 버튼을 누를 때까지만 세션(로그인 전)에 잠깐 들고 있는다
     private static final String PENDING_WITHDRAWAL_USER_ID = "pendingWithdrawalUserId";
     private static final String PENDING_WITHDRAWAL_CHECKED_AT = "pendingWithdrawalCheckedAt";
+    // 복구 코드를 틀렸을 때 같은 화면을 다시 그리려면 확정 예정일이 필요하다
+    private static final String PENDING_WITHDRAWAL_PURGE_DATE = "pendingWithdrawalPurgeDate";
     private static final long PENDING_WITHDRAWAL_TTL_MILLIS = 10 * 60 * 1000L;
     private static final DateTimeFormatter PURGE_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
@@ -75,7 +77,9 @@ public class LoginServlet extends HttpServlet {
             HttpSession session = req.getSession();
             session.setAttribute(PENDING_WITHDRAWAL_USER_ID, e.getUserId());
             session.setAttribute(PENDING_WITHDRAWAL_CHECKED_AT, System.currentTimeMillis());
+            session.setAttribute(PENDING_WITHDRAWAL_PURGE_DATE, e.getPurgeAt().format(PURGE_DATE_FORMAT));
             req.setAttribute("purgeDate", e.getPurgeAt().format(PURGE_DATE_FORMAT));
+            req.setAttribute("recoveryCodeRequired", e.isRecoveryCodeRequired());
             req.getRequestDispatcher("/WEB-INF/views/withdrawal-cancel.jsp").forward(req, resp);
         } catch (UserService.InvalidCredentialException e) {
             THROTTLE.recordFailure(throttleKey, now);
@@ -87,28 +91,45 @@ public class LoginServlet extends HttpServlet {
     }
 
     // 탈퇴 취소 — 방금 이 세션에서 비밀번호를 확인한 계정만 되살린다(아이디·비밀번호를 다시 받지 않는다).
+    // 복구 코드를 받아 둔 계정은 그 코드까지 맞아야 한다 — 틀리면 같은 화면에서 다시 받는다.
     private void cancelWithdrawal(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
         HttpSession session = req.getSession(false);
         Long userId = session == null ? null : (Long) session.getAttribute(PENDING_WITHDRAWAL_USER_ID);
         Long checkedAt = session == null ? null : (Long) session.getAttribute(PENDING_WITHDRAWAL_CHECKED_AT);
-        if (session != null) {
-            session.removeAttribute(PENDING_WITHDRAWAL_USER_ID);
-            session.removeAttribute(PENDING_WITHDRAWAL_CHECKED_AT);
-        }
+        String purgeDate = session == null ? null : (String) session.getAttribute(PENDING_WITHDRAWAL_PURGE_DATE);
         if (userId == null || checkedAt == null
                 || System.currentTimeMillis() - checkedAt > PENDING_WITHDRAWAL_TTL_MILLIS) {
+            clearPendingWithdrawal(session);
             req.setAttribute("errorMessage", "시간이 지나 다시 로그인해야 합니다.");
             req.getRequestDispatcher("/WEB-INF/views/login.jsp").forward(req, resp);
             return;
         }
         try {
-            completeLogin(req, resp, userService.cancelWithdrawal(userId));
+            UserDto restored = userService.cancelWithdrawal(userId, req.getParameter("recoveryCode"));
+            clearPendingWithdrawal(session);
+            completeLogin(req, resp, restored);
         } catch (UserService.InvalidCredentialException e) {
+            // 복구 코드만 틀린 경우에는 처음부터 로그인하게 하지 않고 같은 화면에서 다시 받는다.
+            // 비밀번호를 확인한 사실(세션)은 그대로 두고, 시간 제한도 처음 확인 시각 기준으로 유지한다.
+            req.setAttribute("errorMessage", e.getMessage());
+            req.setAttribute("purgeDate", purgeDate);
+            req.setAttribute("recoveryCodeRequired", true);
+            req.getRequestDispatcher("/WEB-INF/views/withdrawal-cancel.jsp").forward(req, resp);
+        } catch (UserService.WithdrawalGraceExpiredException e) {
+            clearPendingWithdrawal(session);
             req.setAttribute("errorMessage", e.getMessage());
             req.getRequestDispatcher("/WEB-INF/views/login.jsp").forward(req, resp);
         } catch (SQLException e) {
             throw new ServletException("탈퇴 취소 처리 중 오류가 발생했습니다.", e);
+        }
+    }
+
+    private static void clearPendingWithdrawal(HttpSession session) {
+        if (session != null) {
+            session.removeAttribute(PENDING_WITHDRAWAL_USER_ID);
+            session.removeAttribute(PENDING_WITHDRAWAL_CHECKED_AT);
+            session.removeAttribute(PENDING_WITHDRAWAL_PURGE_DATE);
         }
     }
 

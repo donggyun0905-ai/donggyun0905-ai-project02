@@ -84,7 +84,8 @@ class UserWithdrawTest {
         assertThrows(UserService.DuplicateLoginIdException.class, () -> register(loginId),
                 "탈퇴 취소를 위해 유예 중에는 아이디를 잡아 둔다");
 
-        assertEquals(id, userService.cancelWithdrawal(id).getId());
+        // 복구 코드를 발급받지 않은 계정은 비밀번호 확인만으로 되살린다
+        assertEquals(id, userService.cancelWithdrawal(id, null).getId());
         assertEquals(id, userService.login(loginId, PASSWORD).getId());
     }
 
@@ -96,7 +97,7 @@ class UserWithdrawTest {
         ageWithdrawal(old, UserService.WITHDRAWAL_GRACE_DAYS + 1);
 
         assertThrows(UserService.InvalidCredentialException.class, () -> userService.login(loginId, PASSWORD));
-        assertThrows(UserService.InvalidCredentialException.class, () -> userService.cancelWithdrawal(old));
+        assertThrows(UserService.WithdrawalGraceExpiredException.class, () -> userService.cancelWithdrawal(old, null));
 
         Long again = register(loginId); // 정리 배치가 아직 안 돌았어도 가입 시 아이디를 비워 준다
         assertNotEquals(old, again);
@@ -167,6 +168,42 @@ class UserWithdrawTest {
 
         assertThrows(UserService.PendingWithdrawalException.class, () -> userService.login(loginId, "NewPassw0rd!z"),
                 "비밀번호만 바뀌고 계정은 탈퇴 상태 그대로 — 다음 로그인에서 취소를 제안한다");
+    }
+
+    @Test
+    void 복구_코드를_받아_둔_계정은_코드가_맞아야_탈퇴가_취소된다() throws Exception {
+        String loginId = "test_wd_rcc_" + System.nanoTime();
+        Long id = register(loginId);
+        String code = userService.issueRecoveryCode(id);
+        userService.withdraw(id, PASSWORD);
+
+        assertThrows(UserService.InvalidCredentialException.class,
+                () -> userService.cancelWithdrawal(id, null), "코드를 안 내면 안 된다");
+        assertThrows(UserService.InvalidCredentialException.class,
+                () -> userService.cancelWithdrawal(id, "AAAA-BBBB-CCCC"), "틀린 코드도 안 된다");
+        assertThrows(UserService.PendingWithdrawalException.class, () -> userService.login(loginId, PASSWORD),
+                "실패해도 계정은 탈퇴 상태 그대로다");
+
+        assertEquals(id, userService.cancelWithdrawal(id, code).getId());
+        assertEquals(id, userService.login(loginId, PASSWORD).getId());
+    }
+
+    @Test
+    void 로그인은_복구_코드가_필요한_계정인지_알려_준다() throws Exception {
+        String withCode = "test_wd_need_" + System.nanoTime();
+        Long needs = register(withCode);
+        userService.issueRecoveryCode(needs);
+        userService.withdraw(needs, PASSWORD);
+        UserService.PendingWithdrawalException needsCode = assertThrows(
+                UserService.PendingWithdrawalException.class, () -> userService.login(withCode, PASSWORD));
+        assertTrue(needsCode.isRecoveryCodeRequired());
+
+        String noCode = "test_wd_nocode_" + System.nanoTime();
+        Long plain = register(noCode);
+        userService.withdraw(plain, PASSWORD);
+        UserService.PendingWithdrawalException noCodeNeeded = assertThrows(
+                UserService.PendingWithdrawalException.class, () -> userService.login(noCode, PASSWORD));
+        assertFalse(noCodeNeeded.isRecoveryCodeRequired());
     }
 
     @Test
