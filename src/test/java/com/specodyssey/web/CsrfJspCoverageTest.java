@@ -24,6 +24,12 @@ class CsrfJspCoverageTest {
     private static final Path WEBAPP = Paths.get("src/main/webapp");
     private static final String TOKEN_INPUT = "name=\"_csrf\" value=\"${csrfToken}\"";
 
+    // 상태를 바꾸는 자바스크립트 호출 — method를 POST/PUT/PATCH/DELETE로 적었거나 XHR을 그렇게 열었을 때
+    private static final Pattern MUTATING_JS_CALL = Pattern.compile(
+            "(method\\s*:\\s*['\"](POST|PUT|PATCH|DELETE)['\"])"
+                    + "|(\\.open\\s*\\(\\s*['\"](POST|PUT|PATCH|DELETE)['\"])",
+            Pattern.CASE_INSENSITIVE);
+
     private static List<Path> jsps() throws IOException {
         try (Stream<Path> files = Files.walk(WEBAPP)) {
             List<Path> result = new ArrayList<>();
@@ -72,8 +78,10 @@ class CsrfJspCoverageTest {
                 if (tag.contains("_csrf") || tag.contains("<input")) {
                     problems.add(jsp.getFileName() + " : 토큰/입력이 폼 태그 속성 안에 끼어 있다 " + oneLine);
                 }
+                // GET 폼(검색·필터처럼 부작용 없는 조회)은 CSRF 토큰이 필요 없다 — 다른 사이트가 위조해서
+                // 보내도 그냥 같은 조회만 될 뿐 상태가 안 바뀐다. method="post"가 아니면 이 폼으로 간주한다.
                 if (!tag.toLowerCase().contains("method=\"post\"")) {
-                    problems.add(jsp.getFileName() + " : GET 폼이 생겼다면 이 검사를 GET 예외로 바꿔야 한다 " + oneLine);
+                    continue;
                 }
                 String after = text.substring(end + 1, Math.min(text.length(), end + 1 + 120)).stripLeading();
                 if (!after.startsWith("<input type=\"hidden\" " + TOKEN_INPUT)) {
@@ -89,10 +97,16 @@ class CsrfJspCoverageTest {
     void 자바스크립트로_보내는_POST는_토큰_헤더를_함께_보낸다() throws IOException {
         for (Path jsp : jsps()) {
             String text = Files.readString(jsp);
-            if (text.contains("fetch(") || text.contains("XMLHttpRequest")) {
-                assertTrue(text.contains("X-CSRF-Token") && text.contains("${csrfToken}"),
-                        jsp + " — fetch/XHR POST에 X-CSRF-Token 헤더가 없다");
+            if (!text.contains("fetch(") && !text.contains("XMLHttpRequest")) {
+                continue;
             }
+            // fetch의 기본 메서드는 GET이라 상태를 바꾸는 호출은 반드시 method를 직접 적는다.
+            // 읽기만 하는 GET 호출(예: 가입 화면의 아이디 중복 확인)에는 CSRF 토큰이 필요 없다.
+            if (!MUTATING_JS_CALL.matcher(text).find()) {
+                continue;
+            }
+            assertTrue(text.contains("X-CSRF-Token") && text.contains("${csrfToken}"),
+                    jsp + " — fetch/XHR POST에 X-CSRF-Token 헤더가 없다");
         }
     }
 }

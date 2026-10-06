@@ -60,6 +60,42 @@ public class UserDao {
         }
     }
 
+    // 관리자 회원 검색(2026-10-06) — 아이디·이름·이메일 부분 일치. 탈퇴(is_deleted)해도 보여야
+    // 유예 기간 중인 사람을 찾을 수 있어서 삭제 여부로 거르지 않는다.
+    public List<UserDto> searchForAdmin(String keyword, int limit) throws SQLException {
+        String sql = "SELECT " + COLUMNS + " FROM USERS " +
+                "WHERE login_id LIKE ? OR name LIKE ? OR email LIKE ? " +
+                "ORDER BY id DESC LIMIT ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            String like = "%" + keyword + "%";
+            pstmt.setString(1, like);
+            pstmt.setString(2, like);
+            pstmt.setString(3, like);
+            pstmt.setInt(4, limit);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                List<UserDto> users = new ArrayList<>();
+                while (rs.next()) {
+                    users.add(mapRow(rs));
+                }
+                return users;
+            }
+        }
+    }
+
+    // 논리 삭제된 계정까지 찾는다 — findById는 is_deleted = FALSE만 본다. 관리자 화면이 탈퇴 계정을
+    // 보여줄 때와, 탈퇴 유예 중인 계정의 복구 코드를 확인할 때 쓴다.
+    public UserDto findByIdIncludingDeleted(Long id) throws SQLException {
+        String sql = "SELECT " + COLUMNS + " FROM USERS WHERE id = ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, id);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        }
+    }
+
     // SpecScoreScheduler의 일 1회 전체 스냅샷 배치용
     public List<UserDto> findAll() throws SQLException {
         String sql = "SELECT " + COLUMNS + " FROM USERS WHERE is_deleted = FALSE";
@@ -286,21 +322,8 @@ public class UserDao {
         }
     }
 
-    // 유예 중(graceCutoff 이후 신청)인 탈퇴 계정이 이 아이디를 잡고 있는지 — 가입 시 "이미 사용 중" 판단에 쓴다.
-    public boolean isLoginIdHeldByPendingWithdrawal(String loginId, java.time.LocalDateTime graceCutoff)
-            throws SQLException {
-        String sql = "SELECT 1 FROM USERS WHERE login_id = ? AND is_deleted = TRUE AND withdraw_requested_at >= ?";
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, loginId);
-            pstmt.setTimestamp(2, toTimestamp(graceCutoff));
-            try (ResultSet rs = pstmt.executeQuery()) {
-                return rs.next();
-            }
-        }
-    }
-
-    // 유예 중인 탈퇴 계정 조회 — 로그인 시 탈퇴 취소를 제안하거나 복구 코드로 비밀번호를 찾을 때 쓴다.
+    // 유예 중인 탈퇴 계정 조회 — 로그인 시 탈퇴 취소를 제안하거나, 복구 코드로 비밀번호를 찾을 때,
+    // 가입 아이디 중복 확인에서 "누가 이 아이디를 언제까지 잡고 있는지" 알려 줄 때 쓴다.
     public UserDto findPendingWithdrawalByLoginId(String loginId, java.time.LocalDateTime graceCutoff)
             throws SQLException {
         String sql = "SELECT " + COLUMNS + " FROM USERS " +

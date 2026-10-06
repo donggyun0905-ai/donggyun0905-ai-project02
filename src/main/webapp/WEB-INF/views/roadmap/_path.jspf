@@ -6,9 +6,15 @@
      브라우저에 기억해 두고, 새로고침 뒤에는 그 자리에서 새 위치까지만(보통 한 칸) 움직인다. 처음 방문(기억 없음)에만 처음부터 달린다.
      기억해 둔 단계가 지금 화면에 없거나(다른 로드맵·접힌 기록) 위치가 그대로이거나 뒤로 갔으면(완료 취소) 움직이지 않고 제자리에 둔다. --%>
 <script>
+// 길 그림은 .journey-track의 지금 내용(마커 위치)으로 그린다 — "길 더 만들기"로 길 부분을 갈아 끼운 뒤에는
+// window.journeyPathInit()을 다시 불러 새 마커까지 다시 그린다.
+window.journeyPathInit = function () {
 (function () {
     var track = document.querySelector('.journey-track');
     if (!track) { return; }
+    // 다시 그릴 때 이전 길 그림이 남아 겹치지 않게 지운다
+    var stale = track.querySelector('svg.journey-path');
+    if (stale) { stale.remove(); }
     var NS = 'http://www.w3.org/2000/svg';
     var svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('class', 'journey-path');
@@ -150,4 +156,6 @@
         timer = setTimeout(draw, 120);
     });
 })();
+};
+window.journeyPathInit();
 </script>

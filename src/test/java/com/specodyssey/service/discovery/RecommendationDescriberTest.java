@@ -57,7 +57,10 @@ class RecommendationDescriberTest {
 
         new RecommendationDescriber(StubLlmClient.failing(503)).describe(List.of(rec(1, "백엔드 개발자", "기본1")));
 
-        assertEquals(List.of(RecommendationDescriber.UNAVAILABLE_NOTICE + " 잠시 후 다시 시도해 주세요."), AiNotices.drain());
+        List<AiNotices.Notice> notices = AiNotices.drain();
+        assertEquals(1, notices.size());
+        assertEquals(RecommendationDescriber.UNAVAILABLE_NOTICE + " 잠시 후 다시 시도해 주세요.", notices.get(0).getMessage());
+        assertEquals("DISCOVERY", notices.get(0).getRetryTarget(), "일시적 실패면 다시 시도 버튼을 띄운다");
     }
 
     @Test
@@ -66,7 +69,10 @@ class RecommendationDescriberTest {
 
         new RecommendationDescriber(StubLlmClient.failing(401)).describe(List.of(rec(1, "백엔드 개발자", "기본1")));
 
-        assertEquals(List.of(RecommendationDescriber.UNAVAILABLE_NOTICE), AiNotices.drain());
+        List<AiNotices.Notice> notices = AiNotices.drain();
+        assertEquals(1, notices.size());
+        assertEquals(RecommendationDescriber.UNAVAILABLE_NOTICE, notices.get(0).getMessage());
+        assertFalse(notices.get(0).isRetryable(), "키 오류처럼 다시 해도 안 되는 실패는 버튼을 띄우지 않는다");
     }
 
     @Test

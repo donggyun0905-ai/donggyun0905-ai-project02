@@ -10,6 +10,8 @@
     <title>${empty pageTitle ? '스펙 오디세이' : pageTitle}</title>
     <link rel="stylesheet" href="${ctx}/css/style.css">
     <link rel="stylesheet" href="${ctx}/css/icons.css">
+    <link rel="stylesheet" href="${ctx}/css/notification.css">
+    <c:if test="${simTester}"><link rel="stylesheet" href="${ctx}/css/simulation.css"></c:if>
 </head>
 <body class="${sideWidgets ? 'has-side' : ''}">
 <input type="checkbox" id="nav-toggle">
@@ -20,12 +22,46 @@
     <a class="brand" href="${ctx}/"><img src="${ctx}/image/logo.png" alt="로고">스펙 오디세이</a>
     <span class="spacer"></span>
     <c:if test="${not empty sessionScope.loginUser}">
+        <%-- 알림 버튼 — 등급 배지 왼쪽 (내용은 notification-bell.jsp) --%>
+        <jsp:include page="/WEB-INF/views/common/notification-bell.jsp" />
         <%-- 면접관 계정은 점수·등급이 없다 --%>
         <c:if test="${not empty currentTier and sessionScope.loginUser.userType != 'INTERVIEWER'}">
             <span class="tier-badge">
                 <img src="${ctx}${tierLogoPath}" alt="${currentTier.tierName}">
                 <strong>${currentTier.tierName}</strong> · ${totalScore}점
             </span>
+        </c:if>
+        <%-- 테스트 계정(USERS.is_test)에만 — 지난 70일 시뮬레이션 / 일시정지 / 초기화 (SimulationPanelFilter, SimulationServlet) --%>
+        <c:if test="${simTester}">
+            <div class="sim-panel" id="simPanel" data-endpoint="${ctx}/simulation" data-csrf="${csrfToken}">
+                <span class="sim-title">시뮬레이션</span>
+                <span class="sim-track" aria-hidden="true"><span class="sim-fill" id="simFill"></span></span>
+                <span class="sim-text" id="simText" role="status" aria-live="polite">불러오는 중…</span>
+                <%-- 성향 — 고르지 않으면 무작위. 판마다 결과도 무작위로 달라진다 --%>
+                <select class="sim-persona" id="simPersona" aria-label="시뮬레이션 성향">
+                    <option value="">성향: 무작위</option>
+                    <option value="DILIGENT">성실형</option>
+                    <option value="STEADY">보통형</option>
+                    <option value="ON_OFF">작심삼일형</option>
+                </select>
+                <%-- 목표 점수 — 직접 넣거나 등급으로 바로 채운다. 이 점수에 닿을 때까지 하루씩 진행 --%>
+                <input type="number" class="sim-target" id="simTarget" min="1" max="100000" step="50"
+                       placeholder="목표 점수" aria-label="목표 점수" autocomplete="off">
+                <select class="sim-tier" id="simTierPick" aria-label="등급으로 목표 점수 정하기">
+                    <option value="">등급</option>
+                    <c:forEach var="t" items="${simTiers}">
+                        <c:if test="${t.minScore > 0}"><option value="${t.minScore}"><c:out value="${t.tierName}" /> ${t.minScore}</option></c:if>
+                    </c:forEach>
+                </select>
+                <button type="button" class="sim-btn" data-action="start">시작</button>
+                <button type="button" class="sim-btn" data-action="pause">일시정지</button>
+                <button type="button" class="sim-btn sim-danger" data-action="reset">초기화</button>
+                <button type="button" class="sim-btn sim-follow" data-action="follow" aria-pressed="false"
+                        title="켜면 방금 바뀐 화면(대시보드·로드맵)으로 따라가며 천천히 진행합니다">화면 따라가기</button>
+                <span class="sim-day" id="simDay" hidden></span>
+                <span class="sim-msg" id="simMsg" hidden></span>
+            </div>
+            <script src="${ctx}/js/simulation.js" defer></script>
         </c:if>
     </c:if>
 </header>
@@ -67,7 +103,7 @@
 
         <c:if test="${isAdmin}">
         <div class="nav-group-title">관리</div>
-        <a href="${ctx}/admin" class="${path == '/admin' || path == '/admin/job-skill-trend' ? 'active' : ''}"><span class="ic ic-wrench" aria-hidden="true"></span> 관리자</a>
+        <a href="${ctx}/admin" class="${path.startsWith('/admin') ? 'active' : ''}"><span class="ic ic-wrench" aria-hidden="true"></span> 관리자</a>
         </c:if>
 
         <div class="nav-group-title">공유 · 계정</div>
@@ -83,11 +119,22 @@
 </div>
 </c:if>
 
-<main class="${mainWide ? 'wide' : ''}">
+<main class="${mainWide ? 'wide' : ''}${mainFull ? ' full' : ''}">
 <%-- FR-111 AI 응답을 받지 못해 대체했을 때의 안내 — AiNoticeFilter가 세션에 담고, 한 번 보여준 뒤 지운다 (2026-10-02, E) --%>
 <c:if test="${not empty sessionScope.aiNotice}">
+    <c:forEach var="aiMsg" items="${sessionScope.aiNotice}">
     <div class="banner ai-notice" role="status">
-        <span><c:forEach var="aiMsg" items="${sessionScope.aiNotice}" varStatus="s"><c:if test="${!s.first}"><br></c:if><c:out value="${aiMsg}" /></c:forEach></span>
+        <span><c:out value="${aiMsg.message}" /></span>
+        <%-- 시간이 지나면 풀리는 실패일 때만 "다시 시도" (AiRetryServlet). 누르면 응답이 올 때까지 버튼을 잠근다 (NFR-5) --%>
+        <c:if test="${aiMsg.retryable}">
+        <form action="${pageContext.request.contextPath}/ai-retry" method="post" style="margin:0;"
+              onsubmit="var b=this.querySelector('button');b.disabled=true;b.textContent='다시 시도하는 중…';">
+            <input type="hidden" name="_csrf" value="${csrfToken}">
+            <input type="hidden" name="target" value="${aiMsg.retryTarget}">
+            <button type="submit" class="secondary" style="white-space:nowrap;">다시 시도</button>
+        </form>
+        </c:if>
     </div>
+    </c:forEach>
     <c:remove var="aiNotice" scope="session" />
 </c:if>

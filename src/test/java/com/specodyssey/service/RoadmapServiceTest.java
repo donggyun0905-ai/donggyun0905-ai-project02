@@ -83,10 +83,6 @@ class RoadmapServiceTest {
     private Long requiredSkillId;
     private Long preferredSkillId;
     private Long gapAnalysisId;
-    private Long jobRequiredSkillId1;
-    private Long jobRequiredSkillId2;
-    private Long gapItemId1;
-    private Long gapItemId2;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -118,7 +114,7 @@ class RoadmapServiceTest {
             req.setImportance("REQUIRED");
             req.setSource("MANUAL");
             req.setEstimated(false);
-            jobRequiredSkillId1 = jobRequiredSkillDao.insert(conn, req);
+            jobRequiredSkillDao.insert(conn, req);
 
             JobRequiredSkillDto pref = new JobRequiredSkillDto();
             pref.setJobId(jobId);
@@ -126,7 +122,7 @@ class RoadmapServiceTest {
             pref.setImportance("PREFERRED");
             pref.setSource("MANUAL");
             pref.setEstimated(false);
-            jobRequiredSkillId2 = jobRequiredSkillDao.insert(conn, pref);
+            jobRequiredSkillDao.insert(conn, pref);
 
             GapAnalysisDto analysis = new GapAnalysisDto();
             analysis.setUserId(userId);
@@ -141,13 +137,13 @@ class RoadmapServiceTest {
             preferredItem.setGapAnalysisId(gapAnalysisId);
             preferredItem.setSkillId(preferredSkillId);
             preferredItem.setStatus("MISSING");
-            gapItemId2 = gapAnalysisItemDao.insert(conn, preferredItem);
+            gapAnalysisItemDao.insert(conn, preferredItem);
 
             GapAnalysisItemDto requiredItem = new GapAnalysisItemDto();
             requiredItem.setGapAnalysisId(gapAnalysisId);
             requiredItem.setSkillId(requiredSkillId);
             requiredItem.setStatus("MISSING");
-            gapItemId1 = gapAnalysisItemDao.insert(conn, requiredItem);
+            gapAnalysisItemDao.insert(conn, requiredItem);
         }
     }
 
@@ -169,13 +165,16 @@ class RoadmapServiceTest {
                 TestFixtures.hardDeleteByColumn(conn, "PROJECT_LINK", "project_id", project.getId());
             }
             TestFixtures.hardDeleteByColumn(conn, "DOCUMENTS", "user_id", userId);
-            for (RoadmapDto roadmap : roadmapDao.findByUserId(userId)) {
-                for (RoadmapStepDto step : roadmapStepDao.findByRoadmapId(roadmap.getId())) {
-                    TestFixtures.hardDelete(conn, "ROADMAP_STEP", step.getId());
-                }
-                TestFixtures.hardDelete(conn, "ROADMAP", roadmap.getId());
+            // DAO 조회는 어느 단계에서든 is_deleted = FALSE만 돌려준다 — 업그레이드·복습 주기나
+            // 재생성이 논리 삭제한 ROADMAP·ROADMAP_STEP은 거기 안 걸려 그대로 남고, SKILL·USERS를
+            // 하드 삭제할 때 FK로 막는다. 정리는 소프트 삭제 여부와 상관없이 FK 컬럼으로 전부 지운다.
+            for (Long roadmapId : TestFixtures.findIdsByColumn(conn, "ROADMAP", "user_id", userId)) {
+                TestFixtures.hardDeleteByColumn(conn, "ROADMAP_STEP", "roadmap_id", roadmapId);
             }
+            TestFixtures.hardDeleteByColumn(conn, "ROADMAP", "user_id", userId);
             TestFixtures.hardDeleteByColumn(conn, "SCORE_LOG", "user_id", userId);
+            // 공유 DB라 다른 실행(대시보드·자정 스케줄러)이 테스트 사용자에게 점수 기록을 남길 수 있다 — 안 지우면 USERS 삭제가 FK에 막힌다
+            TestFixtures.hardDeleteByColumn(conn, "SPEC_SCORE_HISTORY", "user_id", userId);
             TestFixtures.hardDeleteByColumn(conn, "USER_SCORE_SUMMARY", "user_id", userId);
             TestFixtures.hardDeleteByColumn(conn, "USER_SKILLS", "user_id", userId);
             TestFixtures.hardDeleteByColumn(conn, "USER_SPECS", "user_id", userId);
@@ -188,13 +187,26 @@ class RoadmapServiceTest {
                 pstmt.executeUpdate();
             }
             TestFixtures.hardDeleteByColumn(conn, "USER_PROJECTS", "user_id", userId);
-            TestFixtures.hardDelete(conn, "GAP_ANALYSIS_ITEM", gapItemId1);
-            TestFixtures.hardDelete(conn, "GAP_ANALYSIS_ITEM", gapItemId2);
-            TestFixtures.hardDelete(conn, "GAP_ANALYSIS", gapAnalysisId);
-            TestFixtures.hardDelete(conn, "JOB_REQUIRED_SKILL", jobRequiredSkillId1);
-            TestFixtures.hardDelete(conn, "JOB_REQUIRED_SKILL", jobRequiredSkillId2);
-            TestFixtures.hardDelete(conn, "SKILL", requiredSkillId);
-            TestFixtures.hardDelete(conn, "SKILL", preferredSkillId);
+            // 재분석은 GAP_ANALYSIS를 새로 만든다 — setUp이 만든 하나만 지우면 나머지가 남아
+            // SKILL 하드 삭제를 막으므로, 이 사용자의 분석을 전부 지운다.
+            for (Long analysisId : TestFixtures.findIdsByColumn(conn, "GAP_ANALYSIS", "user_id", userId)) {
+                TestFixtures.hardDeleteByColumn(conn, "GAP_ANALYSIS_ITEM", "gap_analysis_id", analysisId);
+            }
+            TestFixtures.hardDeleteByColumn(conn, "GAP_ANALYSIS", "user_id", userId);
+            // 이 테스트 기술을 팀 공용 BACKEND 직무의 요구 기술로 끼워 넣기 때문에, 그 사이에 분석을
+            // 돌린 다른 테스트 사용자의 GAP_ANALYSIS_ITEM·ROADMAP_STEP도 이 기술을 물고 있을 수 있다.
+            // 내가 만든 기술은 반드시 지워지도록 소유자와 상관없이 이 기술을 가리키는 행을 모두 끊는다.
+            for (Long skillId : List.of(requiredSkillId, preferredSkillId)) {
+                TestFixtures.hardDeleteByColumn(conn, "GAP_ANALYSIS_ITEM", "skill_id", skillId);
+                TestFixtures.hardDeleteByColumn(conn, "ROADMAP_STEP", "related_skill_id", skillId);
+                TestFixtures.hardDeleteByColumn(conn, "USER_SKILLS", "skill_id", skillId);
+                TestFixtures.hardDeleteByColumn(conn, "SKILL_ALIAS", "skill_id", skillId);
+                TestFixtures.hardDeleteByColumn(conn, "JOB_REQUIRED_SKILL", "skill_id", skillId);
+                TestFixtures.hardDelete(conn, "SKILL", skillId);
+            }
+            // SpecScoreScheduler는 웹앱이 뜨는 순간 전체 사용자에게 스냅샷을 남긴다 — 누가 같은 공유 DB로
+            // 서버를 띄워 두면 테스트가 방금 만든 사용자 몫까지 생긴다. USERS 바로 앞에서 지워 그 창을 줄인다.
+            TestFixtures.hardDeleteByColumn(conn, "SPEC_SCORE_HISTORY", "user_id", userId);
             TestFixtures.hardDelete(conn, "USERS", userId);
         }
     }
@@ -1627,6 +1639,31 @@ class RoadmapServiceTest {
         }
     }
 
+    // FR-111 재시도 버튼 (2026-10-06, E 추가) — 기본 문구로 대체된 프로젝트 단계만 다시 받고, 나머지 단계는 그대로 둔다
+    @Test
+    void 프로젝트_추천을_다시_시도하면_기본_문구였던_단계만_AI_추천으로_바뀐다() throws Exception {
+        RoadmapService down = new RoadmapService(new ProjectIdeaService(StubLlmClient.failing(503)));
+        Long roadmapId = down.generate(userId);
+        List<RoadmapStepDto> before = roadmapService.getSteps(roadmapId);
+        RoadmapStepDto project = before.stream().filter(s -> "PROJECT".equals(s.getStepType())).findFirst().orElseThrow();
+        assertTrue(project.getReason().startsWith(RoadmapGenerator.PROJECT_FALLBACK_PREFIX), project.getReason());
+
+        assertEquals(0, down.retryProjectIdea(userId), "또 실패하면 아무것도 바꾸지 않는다");
+        assertEquals(1, roadmapService.retryProjectIdea(userId));
+
+        List<RoadmapStepDto> after = roadmapService.getSteps(roadmapId);
+        RoadmapStepDto retried = after.stream().filter(s -> s.getId().equals(project.getId())).findFirst().orElseThrow();
+        assertFalse(retried.getReason().startsWith(RoadmapGenerator.PROJECT_FALLBACK_PREFIX), retried.getReason());
+        assertEquals(before.size(), after.size(), "단계를 더하거나 빼지 않는다");
+        for (RoadmapStepDto step : after) {
+            if (!step.getId().equals(project.getId())) {
+                RoadmapStepDto old = before.stream().filter(s -> s.getId().equals(step.getId())).findFirst().orElseThrow();
+                assertEquals(old.getReason(), step.getReason(), "다른 단계의 문구는 그대로");
+            }
+        }
+        assertEquals(0, roadmapService.retryProjectIdea(userId), "이미 AI 추천이 들어간 단계는 다시 부르지 않는다");
+    }
+
     @Test
     void LLM이_실패해도_중요도_순으로_보충해_로드맵이_만들어진다() throws Exception {
         RoadmapService failingLlm = new RoadmapService(
@@ -1696,6 +1733,69 @@ class RoadmapServiceTest {
                 }
                 TestFixtures.hardDeleteByColumn(conn, "GAP_ANALYSIS_ITEM", "gap_analysis_id", secondGapAnalysisId);
                 TestFixtures.hardDelete(conn, "GAP_ANALYSIS", secondGapAnalysisId);
+            }
+        }
+    }
+
+    @Test
+    void 길_더_만들기는_아직_담지_않은_기술을_각_티어_맨_뒤에_이어_붙이고_끝낸_단계는_그대로_둔다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        // 입문 단계 하나를 끝내 둔다 — 이어 붙인 뒤에도 자리가 그대로여야 한다
+        List<RoadmapStepDto> before = roadmapService.getSteps(roadmapId);
+        RoadmapStepDto doneStep = before.stream()
+                .filter(s -> RoadmapConstants.TIER_ENTRY.equals(s.getTier()) && "CERT".equals(s.getStepType()))
+                .findFirst().orElseThrow();
+        roadmapService.completeStep(userId, doneStep.getId(), true);
+        int doneOrderBefore = roadmapService.getSteps(roadmapId).stream()
+                .filter(s -> s.getId().equals(doneStep.getId())).findFirst().orElseThrow().getStepOrder();
+
+        // 로드맵에 아직 없는 부족 기술을 같은 분석에 하나 더 넣는다
+        Long extraSkillId;
+        Long extraRequirementId;
+        Long extraItemId;
+        try (Connection conn = DBUtil.getConnection()) {
+            extraSkillId = TestFixtures.insertSkill(conn, "테스트추가스킬_" + System.nanoTime());
+            JobRequiredSkillDto req = new JobRequiredSkillDto();
+            req.setJobId(jobId);
+            req.setSkillId(extraSkillId);
+            req.setImportance("REQUIRED");
+            req.setSource("MANUAL");
+            req.setEstimated(false);
+            extraRequirementId = jobRequiredSkillDao.insert(conn, req);
+
+            GapAnalysisItemDto item = new GapAnalysisItemDto();
+            item.setGapAnalysisId(gapAnalysisId);
+            item.setSkillId(extraSkillId);
+            item.setStatus("MISSING");
+            extraItemId = gapAnalysisItemDao.insert(conn, item);
+        }
+
+        try {
+            int added = roadmapService.appendNextRound(userId);
+            assertTrue(added > 0, "아직 담지 않은 기술이 있으면 이어 붙인다");
+
+            List<RoadmapStepDto> after = roadmapService.getSteps(roadmapId);
+            assertEquals(doneOrderBefore, after.stream().filter(s -> s.getId().equals(doneStep.getId()))
+                    .findFirst().orElseThrow().getStepOrder(), "끝낸 단계의 자리는 바뀌지 않는다");
+
+            // 새 기술 단계는 자기 티어의 맨 뒤에 있다
+            for (String tier : RoadmapConstants.SKILL_TIER_ORDER) {
+                List<RoadmapStepDto> inTier = after.stream().filter(s -> tier.equals(s.getTier())).toList();
+                if (inTier.isEmpty()) {
+                    continue;
+                }
+                RoadmapStepDto last = inTier.get(inTier.size() - 1);
+                assertEquals(extraSkillId, last.getRelatedSkillId(), tier + " 티어의 마지막이 새 기술이어야 한다");
+            }
+
+            // 같은 기술을 또 넣지는 않는다
+            assertEquals(0, roadmapService.appendNextRound(userId), "더 넣을 기술이 없으면 0");
+        } finally {
+            try (Connection conn = DBUtil.getConnection()) {
+                TestFixtures.hardDeleteByColumn(conn, "ROADMAP_STEP", "related_skill_id", extraSkillId);
+                TestFixtures.hardDelete(conn, "GAP_ANALYSIS_ITEM", extraItemId);
+                TestFixtures.hardDelete(conn, "JOB_REQUIRED_SKILL", extraRequirementId);
+                TestFixtures.hardDelete(conn, "SKILL", extraSkillId);
             }
         }
     }

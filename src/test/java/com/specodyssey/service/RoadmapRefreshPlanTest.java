@@ -116,7 +116,7 @@ class RoadmapRefreshPlanTest {
     }
 
     @Test
-    void 새_자격증과_프로젝트는_입문_티어의_기술_앞에_들어간다() {
+    void 새_자격증과_프로젝트는_입문_티어의_맨_뒤에_붙는다() {
         List<RoadmapStepDto> steps = new ArrayList<>();
         steps.add(step("SKILL", RoadmapConstants.TIER_ENTRY, 10L, false));
         steps.add(step("SKILL", RoadmapConstants.TIER_CORE, 10L, false));
@@ -126,10 +126,34 @@ class RoadmapRefreshPlanTest {
         assertFalse(plan.hasUnfinishedCert());
         assertTrue(plan.hasUnfinishedEntryStep());
         List<RoadmapRefreshPlan.Slot> slots = plan.orderedSlots(true, true);
-        assertEquals(RoadmapRefreshPlan.NEW_CERT, slots.get(0).newType());
-        assertEquals(RoadmapRefreshPlan.NEW_PROJECT, slots.get(1).newType());
-        assertEquals(1L, slots.get(2).existing().getId());
+        // 입문: 있던 기술 → 새 자격증 → 새 프로젝트, 그 뒤에 핵심의 있던 기술
+        assertEquals(1L, slots.get(0).existing().getId());
+        assertEquals(RoadmapRefreshPlan.NEW_CERT, slots.get(1).newType());
+        assertEquals(RoadmapRefreshPlan.NEW_PROJECT, slots.get(2).newType());
+        assertEquals(2L, slots.get(3).existing().getId());
         assertEquals(4, slots.size());
+    }
+
+    @Test
+    void 끝낸_단계는_새_단계가_들어와도_자리와_순서가_그대로다() {
+        List<RoadmapStepDto> steps = new ArrayList<>();
+        RoadmapStepDto doneCert = step("CERT", RoadmapConstants.TIER_ENTRY, null, true);
+        RoadmapStepDto doneSkill = step("SKILL", RoadmapConstants.TIER_ENTRY, 10L, true);
+        RoadmapStepDto openProject = step("PROJECT", RoadmapConstants.TIER_ENTRY, null, false);
+        steps.add(doneCert);
+        steps.add(doneSkill);
+        steps.add(openProject);
+        // 11번 기술이 이번에 새로 부족해졌다
+        RoadmapRefreshPlan plan = RoadmapRefreshPlan.of(steps, Set.of(10L, 11L), List.of(11L, 10L), Set.of(10L), 5);
+
+        assertEquals(List.of(11L), plan.getAddedSkillIds());
+        List<RoadmapRefreshPlan.Slot> slots = plan.orderedSlots(false, false);
+        // 있던 세 단계가 원래 순서 그대로 앞에 오고, 새 기술은 그 뒤
+        assertEquals(doneCert.getId(), slots.get(0).existing().getId());
+        assertEquals(doneSkill.getId(), slots.get(1).existing().getId());
+        assertEquals(openProject.getId(), slots.get(2).existing().getId());
+        assertEquals(RoadmapRefreshPlan.NEW_SKILL, slots.get(3).newType());
+        assertEquals(11L, slots.get(3).skillId());
     }
 
     @Test

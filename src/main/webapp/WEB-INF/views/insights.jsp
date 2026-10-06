@@ -134,8 +134,17 @@
             <c:choose>
                 <c:when test="${empty insight.benchmark}">
                     <div class="insight-empty">
-                        <div class="icon">🧭</div>
-                        <p class="muted">이 직무의 합격자 참고 루트를 준비 중입니다. 그동안은 로드맵에서 단계별 목표를 확인해 보세요.</p>
+                        <c:choose>
+                            <%-- FR-111 AI 생성 실패 — 잠시 뒤 다시 열면 다시 만든다 (youngjun 2026-10-06) --%>
+                            <c:when test="${benchmarkUnavailable}">
+                                <div class="icon">⏳</div>
+                                <p class="muted">AI 참고 루트를 지금 만들 수 없습니다. 잠시 후 다시 열어 주세요.</p>
+                            </c:when>
+                            <c:otherwise>
+                                <div class="icon">🧭</div>
+                                <p class="muted">이 직무의 합격자 참고 루트를 준비 중입니다. 그동안은 로드맵에서 단계별 목표를 확인해 보세요.</p>
+                            </c:otherwise>
+                        </c:choose>
                         <a class="btn secondary" href="${ctx}/roadmap">로드맵 보기</a>
                     </div>
                 </c:when>
@@ -144,7 +153,7 @@
                     <table style="margin-top:10px;">
                         <c:forEach var="t" items="${insight.benchmark}">
                             <tr>
-                                <td style="width:140px;"><strong>${t.label}</strong><br><span class="muted" style="font-size:0.78rem;">${t.tier}</span></td>
+                                <td style="width:140px;"><strong><c:out value="${t.label}" /></strong><br><span class="muted" style="font-size:0.78rem;"><c:out value="${t.tier}" /></span></td>
                                 <td><c:forEach var="item" items="${t.items}" varStatus="st"><c:out value="${item}" /><c:if test="${!st.last}"> · </c:if></c:forEach></td>
                             </tr>
                         </c:forEach>

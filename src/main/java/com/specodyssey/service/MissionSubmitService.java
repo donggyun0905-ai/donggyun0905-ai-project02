@@ -1,12 +1,12 @@
 package com.specodyssey.service;
 
-import com.specodyssey.dao.LevelTierDao;
 import com.specodyssey.dao.MissionDao;
 import com.specodyssey.dto.DailyMissionViewDto;
 import com.specodyssey.dto.LevelTierDto;
 import com.specodyssey.dto.UserScoreSummaryDto;
 import com.specodyssey.service.CodeCompileService.CompileCheck;
 import com.specodyssey.service.CodeCompileService.Language;
+import com.specodyssey.util.AppClock;
 import com.specodyssey.util.DBUtil;
 import com.specodyssey.util.ExternalApiClient.ExternalApiException;
 import com.specodyssey.util.TransactionUtil;
@@ -57,7 +57,6 @@ public class MissionSubmitService {
     private final MissionDao missionDao = new MissionDao();
     private final CodeCompileService compileService = new CodeCompileService();
     private final ScoreService scoreService = new ScoreService();
-    private final LevelTierDao levelTierDao = new LevelTierDao();
     private final MissionStreakService streakService = new MissionStreakService();
 
     /** 본인 미션이 아니거나 없으면 null. */
@@ -80,7 +79,7 @@ public class MissionSubmitService {
     public boolean markFailed(Long userId, Long missionId) throws SQLException {
         final int[] streakNow = {0};
         boolean marked = TransactionUtil.runInTransaction(conn -> {
-            if (missionDao.markFailed(conn, userId, missionId, LocalDateTime.now(ZONE)) != 1) {
+            if (missionDao.markFailed(conn, userId, missionId, AppClock.now()) != 1) {
                 return false;
             }
             // 실패로 끝낸 문제도 "끝낸 문제"로 쳐서 스트릭에 반영한다 (점수는 없음)
@@ -120,13 +119,21 @@ public class MissionSubmitService {
         if (!check.passed()) {
             return new SubmitResult(Status.COMPILE_ERROR, check.message());
         }
+        return saveCheckedSubmission(userId, missionId, language, code);
+    }
 
+    /**
+     * 컴파일 확인을 통과한 풀이를 저장하고 점수·연속 기록을 반영한다. submit이 확인 뒤에 부르고,
+     * 테스트 계정 시뮬레이션(service.simulation)은 외부 컴파일 API 없이 이 단계만 그날 날짜(AppClock)로 부른다.
+     */
+    public SubmitResult saveCheckedSubmission(Long userId, Long missionId, Language language, String code)
+            throws SQLException {
         // 코드 저장과 점수 적립은 한 트랜잭션 — 둘 중 하나만 반영되지 않게 한다
         int points = pointsForCurrentTier(userId);
         final int[] streakNow = {0};
         boolean saved = TransactionUtil.runInTransaction(conn -> {
             if (missionDao.saveSubmission(conn, userId, missionId, language.name(), code,
-                    LocalDateTime.now(ZONE)) != 1) {
+                    AppClock.now()) != 1) {
                 return false;
             }
             // (user, PROBLEM, 미션 id)로 한 번만 적립된다 — 다시 제출해도 점수는 그대로
@@ -160,7 +167,7 @@ public class MissionSubmitService {
     public CurrentTier currentTier(Long userId) throws SQLException {
         UserScoreSummaryDto summary = scoreService.getSummary(userId);
         int total = summary == null || summary.getTotalScore() == null ? 0 : summary.getTotalScore();
-        List<LevelTierDto> tiers = levelTierDao.findAll();
+        List<LevelTierDto> tiers = LevelTiers.all();
         for (int i = 0; i < tiers.size(); i++) {
             LevelTierDto tier = tiers.get(i);
             if (total >= tier.getMinScore() && (tier.getMaxScore() == null || total <= tier.getMaxScore())) {

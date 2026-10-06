@@ -1,0 +1,99 @@
+/* 헤더 알림 버튼과 드롭다운 (common/notification-bell.jsp), 알림 목록 화면 (notifications.jsp).
+   공통 style.css의 색 변수(--danger, --card-bg 등)를 그대로 쓴다. */
+
+.noti-bell { position: relative; }
+.noti-bell > summary {
+    list-style: none;
+    cursor: pointer;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px; height: 38px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.25);
+}
+.noti-bell > summary::-webkit-details-marker { display: none; }
+.noti-bell > summary:hover,
+.noti-bell[open] > summary { background: rgba(255,255,255,0.22); }
+.noti-icon { font-size: 1.1rem; line-height: 1; }
+
+/* 안 읽은 알림 수 — 빨간 동그라미 */
+.noti-count {
+    position: absolute;
+    top: -5px; right: -6px;
+    min-width: 19px; height: 19px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--danger);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 19px;
+    text-align: center;
+    box-shadow: 0 0 0 2px var(--header-bg);
+}
+
+.noti-panel {
+    position: absolute;
+    right: 0; top: calc(100% + 10px);
+    width: 340px;
+    max-width: calc(100vw - 32px);
+    background: var(--card-bg);
+    color: var(--ink);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    z-index: 70;
+    overflow: hidden;
+}
+.noti-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+}
+.noti-head form { margin: 0; }
+.noti-link-btn {
+    background: none; border: none; padding: 0;
+    color: var(--primary); font-size: 0.8rem; cursor: pointer;
+}
+.noti-link-btn:hover { text-decoration: underline; background: none; }
+.noti-empty { margin: 0; padding: 22px 14px; text-align: center; color: var(--ink-soft); font-size: 0.85rem; }
+
+.noti-list { list-style: none; margin: 0; padding: 0; max-height: 360px; overflow-y: auto; }
+.noti-list li + li { border-top: 1px solid var(--border); }
+.noti-list form { margin: 0; }
+.noti-item {
+    display: block; width: 100%;
+    text-align: left;
+    background: none; border: none; border-radius: 0;
+    padding: 11px 14px 11px 26px;
+    color: var(--ink);
+    font-size: 0.85rem;
+    cursor: pointer;
+    position: relative;
+}
+.noti-item:hover { background: rgba(201,162,75,0.12); }
+.noti-item.unread { font-weight: 600; }
+.noti-item.unread::before {
+    content: "";
+    position: absolute; left: 11px; top: 16px;
+    width: 7px; height: 7px; border-radius: 999px;
+    background: var(--danger);
+}
+.noti-msg { display: block; line-height: 1.4; word-break: keep-all; overflow-wrap: anywhere; }
+.noti-time { display: block; margin-top: 3px; color: var(--ink-soft); font-size: 0.75rem; font-weight: 400; }
+.noti-all {
+    display: block; padding: 10px 14px;
+    border-top: 1px solid var(--border);
+    text-align: center; font-size: 0.82rem;
+}
+
+/* 알림 목록 화면 */
+.noti-page-list { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--card-bg); }
+.noti-page-list .noti-list { max-height: none; }
+
+/* 읽은 알림 — 전체 알림 화면에서 회색으로 (드롭다운에는 안 읽은 것만 나온다) */
+.noti-item.read .noti-msg { color: var(--ink-soft); font-weight: 400; }
+.noti-item.read .noti-time { color: var(--locked); }

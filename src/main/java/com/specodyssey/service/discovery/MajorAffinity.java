@@ -1,6 +1,7 @@
 package com.specodyssey.service.discovery;
 
 import com.specodyssey.service.discovery.JobDiscoveryScorer.MajorFit;
+import com.specodyssey.service.EmbeddingMatcher;
 import com.specodyssey.util.LocalEmbedder;
 
 import java.util.HashMap;
@@ -34,8 +35,7 @@ import java.util.logging.Logger;
  *   직무명만 쓰면 경영학과 → 기획처럼 약한 연결을 못 잡아서, 계열마다 직무명 + 하는 일 문장을 두고
  *   벡터 평균을 계열 벡터로 쓴다. 계열 벡터는 처음 한 번만 계산해 메모리에 둔다.
  *
- * 모델은 EmbeddingMatcher와 따로 로드한다(약 440MB 추가) — 남의 파일을 건드리지 않기 위한 선택.
- * EmbeddingMatcher가 모델을 공유하도록 바뀌면 그쪽 인스턴스를 쓰도록 합치면 된다.
+ * 모델은 EmbeddingMatcher의 공용 인스턴스를 함께 쓴다(2026-10-06 병합) — 하나가 약 440MB라 따로 로드하지 않는다.
  * 모델이 없거나 전공이 비었거나 계산이 실패하면 {@link MajorFit#none()} — 전공 없이 기존대로 추천한다(FR-111).
  */
 public class MajorAffinity {
@@ -68,7 +68,6 @@ public class MajorAffinity {
     }
 
     // 모델 로딩이 수 초 걸려서 프로세스당 한 번만 시도한다. 실패하면 다시 시도하지 않는다.
-    private static volatile LocalEmbedder sharedEmbedder;
     private static volatile boolean embedderUnavailable;
     private static volatile Map<String, float[]> categoryVectors;
     private static final Map<String, float[]> MAJOR_VECTORS = new ConcurrentHashMap<>();
@@ -161,29 +160,14 @@ public class MajorAffinity {
         }
     }
 
+    // 모델은 EmbeddingMatcher가 들고 있는 공용 인스턴스를 그대로 쓴다 — 하나가 약 440MB라
+    // 기능마다 따로 로드하면 서버 메모리가 그만큼 더 든다(youngjun 쪽 방식을 가져옴, 2026-10-06).
     private static LocalEmbedder embedder() {
-        if (embedderUnavailable) {
-            return null;
+        LocalEmbedder shared = EmbeddingMatcher.embedder();
+        if (shared == null && !embedderUnavailable) {
+            embedderUnavailable = true;
+            LOG.log(Level.INFO, "임베딩 모델이 없어 전공 역산을 건너뜁니다 — 설문·보유 기술만으로 추천합니다.");
         }
-        LocalEmbedder existing = sharedEmbedder;
-        if (existing != null) {
-            return existing;
-        }
-        synchronized (MajorAffinity.class) {
-            if (embedderUnavailable) {
-                return null;
-            }
-            if (sharedEmbedder == null) {
-                try {
-                    sharedEmbedder = LocalEmbedder.fromConfig();
-                } catch (Exception | LinkageError e) {
-                    LOG.log(Level.INFO, "임베딩 모델을 불러오지 못해 전공 역산을 건너뜁니다 — "
-                            + "설문·보유 기술만으로 추천합니다.", e);
-                    embedderUnavailable = true;
-                    return null;
-                }
-            }
-            return sharedEmbedder;
-        }
+        return shared;
     }
 }

@@ -1,8 +1,10 @@
 package com.specodyssey.service;
 
+import com.specodyssey.util.AppClock;
 import com.specodyssey.dao.GapAnalysisDao;
 import com.specodyssey.dao.GapAnalysisItemDao;
 import com.specodyssey.dao.JobDao;
+import com.specodyssey.dao.JobPostingDao;
 import com.specodyssey.dao.JobRequiredSkillDao;
 import com.specodyssey.dao.UserSkillDao;
 import com.specodyssey.dto.GapAnalysisDto;
@@ -41,6 +43,7 @@ public class GapAnalysisService {
     private final JobRequiredSkillDao jobRequiredSkillDao = new JobRequiredSkillDao();
     private final UserSkillDao userSkillDao = new UserSkillDao();
     private final JobDao jobDao = new JobDao();
+    private final JobPostingDao jobPostingDao = new JobPostingDao();
     private final SkillMatcher skillMatcher;
 
     public GapAnalysisService() {
@@ -102,7 +105,7 @@ public class GapAnalysisService {
             analysis.setJobId(jobId);
             analysis.setMatchRate(matchRate);
             analysis.setJobRequirementVersion(jobRequirementVersion);
-            analysis.setAnalyzedAt(LocalDateTime.now());
+            analysis.setAnalyzedAt(AppClock.now());
             Long analysisId = gapAnalysisDao.insert(conn, analysis);
 
             for (int i = 0; i < required.size(); i++) {
@@ -125,5 +128,47 @@ public class GapAnalysisService {
 
     public List<GapAnalysisItemDto> getItems(Long gapAnalysisId) throws SQLException {
         return gapAnalysisItemDao.findByGapAnalysisId(gapAnalysisId);
+    }
+
+    // ================= FR-113 · TD-2 "예시적 추정" 표시 (2026-10-06, E 추가) =================
+
+    /** 이 공고 수보다 적으면 "실제 공고가 적어 일반적인 요구 역량 기반 추정" 안내를 띄운다 */
+    public static final int FEW_POSTINGS_THRESHOLD = 5;
+
+    /** 직무 요구 기술이 어디서 왔는지 — 추정치(is_estimated)인 기술과 그 직무의 실제 공고 수 */
+    public static final class RequirementSource {
+        private final Set<Long> estimatedSkillIds;
+        private final int postingCount;
+
+        public RequirementSource(Set<Long> estimatedSkillIds, int postingCount) {
+            this.estimatedSkillIds = Set.copyOf(estimatedSkillIds);
+            this.postingCount = postingCount;
+        }
+
+        public boolean isEstimated(Long skillId) {
+            return skillId != null && estimatedSkillIds.contains(skillId);
+        }
+
+        public boolean isAnyEstimated() {
+            return !estimatedSkillIds.isEmpty();
+        }
+
+        public int getPostingCount() {
+            return postingCount;
+        }
+
+        public boolean isFewPostings() {
+            return postingCount < FEW_POSTINGS_THRESHOLD;
+        }
+    }
+
+    public RequirementSource getRequirementSource(Long jobId) throws SQLException {
+        Set<Long> estimated = new HashSet<>();
+        for (JobRequiredSkillDto required : jobRequiredSkillDao.findByJobId(jobId)) {
+            if (required.isEstimated()) {
+                estimated.add(required.getSkillId());
+            }
+        }
+        return new RequirementSource(estimated, jobPostingDao.countByJobId(jobId));
     }
 }

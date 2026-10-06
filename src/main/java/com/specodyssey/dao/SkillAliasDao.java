@@ -7,6 +7,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -45,6 +46,29 @@ public class SkillAliasDao {
             try (ResultSet rs = pstmt.executeQuery()) {
                 return rs.next() ? mapRow(rs) : null;
             }
+        }
+    }
+
+    // 관리자 기준 데이터 관리(2026-10-06) — 수동으로 등록하는 별칭은 MANUAL·유사도 1.0으로 고정한다.
+    public Long insert(Long skillId, String aliasName) throws SQLException {
+        String sql = "INSERT INTO SKILL_ALIAS (skill_id, alias_name, match_type, similarity_score) VALUES (?, ?, 'MANUAL', 1.0000)";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            pstmt.setLong(1, skillId);
+            pstmt.setString(2, aliasName);
+            pstmt.executeUpdate();
+            try (ResultSet keys = pstmt.getGeneratedKeys()) {
+                return keys.next() ? keys.getLong(1) : null;
+            }
+        }
+    }
+
+    public void softDelete(Long id) throws SQLException {
+        String sql = "UPDATE SKILL_ALIAS SET is_deleted = TRUE WHERE id = ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, id);
+            pstmt.executeUpdate();
         }
     }
 

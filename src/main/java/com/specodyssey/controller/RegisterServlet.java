@@ -1,5 +1,6 @@
 package com.specodyssey.controller;
 
+import com.google.gson.Gson;
 import com.specodyssey.service.PersonalInfo;
 import com.specodyssey.service.UserService;
 
@@ -11,6 +12,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.Map;
 
 /**
  * 회원가입.
@@ -19,11 +21,34 @@ import java.sql.SQLException;
 @WebServlet("/register")
 public class RegisterServlet extends HttpServlet {
 
+    private static final Gson GSON = new Gson();
+
     private final UserService userService = new UserService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        // FR-14 아이디 중복 확인 — 가입 화면이 아이디 칸을 벗어날 때 물어본다. 가입 화면과 같은 공개 경로(/register)에
+        // 두어 SessionFilter의 공개 경로 목록(보안 경계)을 건드리지 않는다.
+        String checkLoginId = req.getParameter("checkLoginId");
+        if (checkLoginId != null) {
+            writeLoginIdCheck(resp, checkLoginId);
+            return;
+        }
         req.getRequestDispatcher("/WEB-INF/views/signup.jsp").forward(req, resp);
+    }
+
+    private void writeLoginIdCheck(HttpServletResponse resp, String loginId) throws ServletException, IOException {
+        UserService.LoginIdCheck check;
+        try {
+            check = userService.checkLoginId(loginId);
+        } catch (SQLException e) {
+            throw new ServletException("아이디 확인 중 오류가 발생했습니다.", e);
+        }
+        resp.setContentType("application/json;charset=UTF-8");
+        // 확인 결과는 입력한 아이디마다 달라지고 저장할 가치가 없다
+        resp.setHeader("Cache-Control", "no-store");
+        resp.getWriter().write(GSON.toJson(Map.of(
+                "available", check.available(), "message", check.message())));
     }
 
     @Override

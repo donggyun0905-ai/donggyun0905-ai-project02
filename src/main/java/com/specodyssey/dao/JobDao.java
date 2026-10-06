@@ -7,6 +7,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -67,6 +68,33 @@ public class JobDao {
         String sql = "UPDATE JOB SET requirement_version = requirement_version + 1 WHERE id = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, jobId);
+            pstmt.executeUpdate();
+        }
+    }
+
+    // 관리자 기준 데이터 관리(2026-10-06) — 요구 기술·재수집 이력 없이 이름·분야·인기 여부만 새로 만든다.
+    public Long insert(JobDto job) throws SQLException {
+        String sql = "INSERT INTO JOB (job_name, job_category, is_popular) VALUES (?, ?, ?)";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            pstmt.setString(1, job.getJobName());
+            pstmt.setString(2, job.getJobCategory());
+            pstmt.setBoolean(3, job.isPopular());
+            pstmt.executeUpdate();
+            try (ResultSet keys = pstmt.getGeneratedKeys()) {
+                return keys.next() ? keys.getLong(1) : null;
+            }
+        }
+    }
+
+    public void update(Long id, String jobName, String jobCategory, boolean popular) throws SQLException {
+        String sql = "UPDATE JOB SET job_name = ?, job_category = ?, is_popular = ? WHERE id = ? AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, jobName);
+            pstmt.setString(2, jobCategory);
+            pstmt.setBoolean(3, popular);
+            pstmt.setLong(4, id);
             pstmt.executeUpdate();
         }
     }

@@ -12,10 +12,10 @@ import com.specodyssey.dto.JobDto;
 import com.specodyssey.dto.JobRecommendationDto;
 import com.specodyssey.dto.JobRequiredSkillDto;
 import com.specodyssey.dto.SurveyQuestionDto;
-import com.specodyssey.dto.UserDto;
 import com.specodyssey.dto.UserProjectDto;
 import com.specodyssey.dto.UserSkillDto;
 import com.specodyssey.dto.UserSurveyAnswerDto;
+import com.specodyssey.dto.UserDto;
 import com.specodyssey.service.EmbeddingMatcher;
 import com.specodyssey.service.SkillMatcher;
 import com.specodyssey.service.discovery.JobDiscoveryScorer.JobCandidate;
@@ -36,8 +36,7 @@ import java.util.Map;
 
 /**
  * 직무 발굴. 관련 요구사항: FR-34 · 38 · 39
- * 설문 응답 + 보유 스펙(기술·프로젝트 기술 스택) + 전공(임베딩 역산, FR-38 ②)으로 후보 직무 3~5개를 추천하고,
- * 고른 직무를 격차 분석으로 넘긴다.
+ * 설문 응답 + 보유 스펙(기술·프로젝트 기술 스택)으로 후보 직무 3~5개를 추천하고, 고른 직무를 격차 분석으로 넘긴다.
  *
  * 재응답 정책: 직무 발굴 설문은 다시 풀 수 있다. 관심이 바뀌거나 스펙이 늘면 추천도 달라져야 하기 때문이다.
  * 다시 풀면 응답은 덮어쓰고(upsert), 이전 추천은 논리 삭제한 뒤 새 추천을 저장한다 — 한 트랜잭션.
@@ -60,6 +59,7 @@ public class JobDiscoveryService {
     private final SkillMatcher skillMatcher;
     private final RecommendationDescriber describer;
     private final JobDiscoveryScorer scorer = new JobDiscoveryScorer();
+    // FR-38 ② 전공 ↔ 직무 계열 (임베딩, kangdain 2026-10-06)
     private final MajorAffinity majorAffinity = new MajorAffinity();
 
     public JobDiscoveryService() {

@@ -1,5 +1,6 @@
 package com.specodyssey.service;
 
+import com.specodyssey.dto.InsightViewDto;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
@@ -17,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 반대로 Tomcat 11의 RecordELResolver는 getX()가 아니라 x()만 찾는다(구성요소가 아닌 파생 값은
  * 별도의 x() 메서드가 있어야 한다). record 접근자 x()는 자동으로 생기므로, 여기서는 getter 쪽만 확인한다.
  *
- * JSP에서 쓰는 service 계층 record를 새로 만들면 아래 목록에 넣는다.
+ * JSP에서 쓰는 record(service 계층·화면용 DTO)를 새로 만들면 아래 목록에 넣는다.
  */
 class RecordElAccessTest {
 
@@ -35,7 +36,15 @@ class RecordElAccessTest {
             MissionStreakService.DayView.class,
             MissionSubmitService.CurrentTier.class,
             MissionSubmitService.SubmitResult.class,
-            CodeCompileService.CompileCheck.class);
+            CodeCompileService.CompileCheck.class,
+            InsightViewDto.PeerView.class,
+            InsightViewDto.TrendView.class,
+            InsightViewDto.TrendSkill.class,
+            InsightViewDto.BenchmarkTier.class,
+            InsightViewDto.HeatmapView.class,
+            InsightViewDto.HeatRow.class,
+            InsightViewDto.HeatCell.class,
+            InsightViewDto.Notice.class);
 
     @Test
     void 화면에_쓰는_record는_구성요소마다_getter가_있다() {
@@ -59,6 +68,9 @@ class RecordElAccessTest {
         assertTrue(hasPublicGetter(MissionStreakService.StreakView.class, "nextStreak"));
         assertTrue(hasPublicGetter(ResumeFeedbackService.Feedback.class, "isAnyEstimated"));
         assertTrue(hasPublicGetter(ResumeFeedbackService.Feedback.class, "anyEstimated"));
+        // insights.jsp가 ${peer.comparable}로 읽는다 — x() 형태가 없어 Tomcat 11에서만 500이 났다(2026-10-06)
+        assertTrue(hasPublicGetter(InsightViewDto.PeerView.class, "isComparable"));
+        assertTrue(hasPublicGetter(InsightViewDto.PeerView.class, "comparable"));
     }
 
     private static boolean hasPublicGetter(Class<?> type, String methodName) {

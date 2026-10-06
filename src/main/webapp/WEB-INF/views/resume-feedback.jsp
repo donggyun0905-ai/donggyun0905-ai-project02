@@ -1,7 +1,7 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <c:set var="pageTitle" value="자소서·이력서 첨삭 - 스펙 오디세이" scope="request" />
-<c:set var="mainWide" value="true" scope="request" />
+<c:set var="mainFull" value="true" scope="request" />
 <jsp:include page="/WEB-INF/views/common/header.jsp" />
 
 <%-- FR-91 · 92 · 112

@@ -21,6 +21,10 @@
     .wizard-step h2 { margin: 0 0 4px; font-size: 1.05rem; }
     .wizard-step > .muted { margin: 0 0 10px; font-size: 0.84rem; }
     .wizard-step p { margin: 10px 0; }
+    /* 아이디 중복·비밀번호 확인 결과를 입력칸 바로 아래에 보여 준다 */
+    .field-note { display: none; margin-top: 4px; font-size: 0.8rem; }
+    .field-note.bad { display: block; color: var(--danger); }
+    .field-note.good { display: block; color: var(--teal); }
     @media (prefers-reduced-motion: reduce) { .wizard-viewport, .wizard-track { transition: none; } }
 
     .signup-type { display: flex; gap: 10px; }
@@ -73,9 +77,11 @@
                             <label><input type="radio" name="userType" value="APPLICANT" ${param.userType == 'INTERVIEWER' ? '' : 'checked'}> 지원자</label>
                             <label><input type="radio" name="userType" value="INTERVIEWER" ${param.userType == 'INTERVIEWER' ? 'checked' : ''}> 면접관</label>
                         </div>
-                        <p><label>아이디</label><input type="text" name="loginId" maxlength="50" required autocomplete="username" value="<c:out value='${param.loginId}' />"></p>
+                        <p><label>아이디</label><input type="text" name="loginId" id="loginId" maxlength="50" required autocomplete="username" value="<c:out value='${param.loginId}' />">
+                            <span class="field-note" id="loginIdNote" aria-live="polite"></span></p>
                         <p><label>비밀번호</label><input type="password" name="password" id="password" minlength="8" maxlength="100" required autocomplete="new-password" placeholder="8자 이상"></p>
-                        <p><label>비밀번호 확인</label><input type="password" name="passwordConfirm" id="passwordConfirm" required autocomplete="new-password" placeholder="한 번 더 입력"></p>
+                        <p><label>비밀번호 확인</label><input type="password" name="passwordConfirm" id="passwordConfirm" required autocomplete="new-password" placeholder="한 번 더 입력">
+                            <span class="field-note" id="passwordConfirmNote" aria-live="polite"></span></p>
                         <p><label>이름</label><input type="text" name="name" maxlength="50" required value="<c:out value='${param.name}' />"></p>
                         <p><label>이메일 (선택)</label><input type="email" name="email" value="<c:out value='${param.email}' />"></p>
                         <div class="wizard-nav">
@@ -153,6 +159,12 @@
         var careerStatus = document.getElementById('careerStatus');
         var password = document.getElementById('password');
         var passwordConfirm = document.getElementById('passwordConfirm');
+        var loginId = document.getElementById('loginId');
+        var loginIdNote = document.getElementById('loginIdNote');
+        var passwordConfirmNote = document.getElementById('passwordConfirmNote');
+        var ctx = '${pageContext.request.contextPath}';
+        var lastCheckedId = null;
+        var checkSeq = 0;
         var current = 0;
 
         // 가입 유형과 구분에 맞는 입력칸만 보여주고, 숨긴 칸은 검사·제출에서도 뺀다
@@ -189,6 +201,8 @@
         function firstInvalid(index) {
             passwordConfirm.setCustomValidity(passwordConfirm.value && passwordConfirm.value !== password.value
                 ? '비밀번호가 서로 다릅니다.' : '');
+            // 중복으로 확인된 아이디면 다음 단계로 못 넘어가게 한다 (서버도 가입할 때 다시 막는다)
+            loginId.setCustomValidity(loginIdNote.classList.contains('bad') ? loginIdNote.textContent : '');
             var fields = steps[index].querySelectorAll('input:not([disabled]), select:not([disabled])');
             for (var i = 0; i < fields.length; i++) {
                 if (!fields[i].checkValidity()) { return fields[i]; }
@@ -220,8 +234,47 @@
             }
         });
 
-        password.addEventListener('input', function () { passwordConfirm.setCustomValidity(''); });
-        passwordConfirm.addEventListener('input', function () { passwordConfirm.setCustomValidity(''); });
+        password.addEventListener('input', function () { passwordConfirm.setCustomValidity(''); showConfirmNote(); });
+        passwordConfirm.addEventListener('input', function () { passwordConfirm.setCustomValidity(''); showConfirmNote(); });
+        passwordConfirm.addEventListener('blur', showConfirmNote);
+
+        // 비밀번호 확인 — 입력하는 동안 바로 맞는지 보여 준다
+        function showConfirmNote() {
+            if (!passwordConfirm.value) { setNote(passwordConfirmNote, '', null); return; }
+            var same = passwordConfirm.value === password.value;
+            setNote(passwordConfirmNote, same ? '비밀번호가 일치합니다.' : '비밀번호가 서로 다릅니다.', same);
+        }
+
+        // 아이디 — 칸을 벗어날 때 서버에 중복인지 물어본다(가입할 때와 같은 기준으로 판단한다)
+        function checkLoginId() {
+            var value = loginId.value.trim();
+            if (!value) { setNote(loginIdNote, '', null); return; }
+            if (value === lastCheckedId) { return; }
+            lastCheckedId = value;
+            var requestId = ++checkSeq;
+            fetch(ctx + '/register?checkLoginId=' + encodeURIComponent(value), { headers: { 'Accept': 'application/json' } })
+                .then(function (res) { return res.ok ? res.json() : null; })
+                .then(function (data) {
+                    // 늦게 온 응답이 최신 결과를 덮어쓰지 않게 한다
+                    if (!data || requestId !== checkSeq) { return; }
+                    setNote(loginIdNote, data.message, data.available);
+                })
+                .catch(function () { setNote(loginIdNote, '', null); });
+        }
+
+        function setNote(note, message, good) {
+            note.textContent = message || '';
+            note.classList.toggle('bad', !!message && good === false);
+            note.classList.toggle('good', !!message && good === true);
+            fitHeight();
+        }
+
+        loginId.addEventListener('blur', checkLoginId);
+        // 아이디를 고치면 이전 결과를 지운다 — 고친 값으로 다시 확인하기 전까지 틀린 안내가 남지 않게
+        loginId.addEventListener('input', function () {
+            loginId.setCustomValidity('');
+            if (loginId.value.trim() !== lastCheckedId) { setNote(loginIdNote, '', null); }
+        });
         document.querySelectorAll('input[name="userType"]').forEach(function (r) { r.addEventListener('change', toggleFields); });
         careerStatus.addEventListener('change', toggleFields);
         window.addEventListener('resize', fitHeight);

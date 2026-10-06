@@ -25,6 +25,9 @@ public class GroqLlmClient implements LlmClient {
     // gpt-oss는 답하기 전에 추론에 시간을 쓴다 — 워크넷 기본 10초로는 부족하다 (docs/spec-odyssey-dao-guide.html 특이사항 ④)
     private static final Duration TIMEOUT = Duration.ofSeconds(60);
 
+    private static final double DEFAULT_TEMPERATURE = 0.3;
+    private static final int DEFAULT_MAX_COMPLETION_TOKENS = 2000;
+
     private static final String SYSTEM_PROMPT = "반드시 JSON 객체 하나만 출력한다. 설명 문장이나 코드 블록 없이 JSON만 쓴다.";
 
     private final String endpoint;
@@ -32,13 +35,35 @@ public class GroqLlmClient implements LlmClient {
     private final String model;
     private final Duration timeout;
     private final LlmRetryPolicy retryPolicy;
+    private final double temperature;
+    private final int maxCompletionTokens;
 
     GroqLlmClient(String endpoint, String apiKey, String model, Duration timeout, LlmRetryPolicy retryPolicy) {
+        this(endpoint, apiKey, model, timeout, retryPolicy, DEFAULT_TEMPERATURE, DEFAULT_MAX_COMPLETION_TOKENS);
+    }
+
+    private GroqLlmClient(String endpoint, String apiKey, String model, Duration timeout, LlmRetryPolicy retryPolicy,
+            double temperature, int maxCompletionTokens) {
         this.endpoint = endpoint;
         this.apiKey = apiKey;
         this.model = model == null ? DEFAULT_MODEL : model;
         this.timeout = timeout;
         this.retryPolicy = retryPolicy;
+        this.temperature = temperature;
+        this.maxCompletionTokens = maxCompletionTokens;
+    }
+
+    /**
+     * 생성 설정을 바꾼 사본 (2026-10-06, TrendLlmService·JobBenchmarkSpecService를 이 클라이언트로 옮기면서).
+     * 예: 트렌드 정리는 후보 80건을 한 번에 보내 출력이 길어서 토큰 한도를 8000으로 넉넉히 둔다.
+     */
+    public GroqLlmClient withSettings(double temperature, int maxCompletionTokens) {
+        return new GroqLlmClient(endpoint, apiKey, model, timeout, retryPolicy, temperature, maxCompletionTokens);
+    }
+
+    /** 재시도 규칙을 바꾼 사본 — 화면 요청은 DEFAULT(짧게), 스케줄러 배치는 BATCH(429에 오래 기다림) */
+    public GroqLlmClient withRetryPolicy(LlmRetryPolicy policy) {
+        return new GroqLlmClient(endpoint, apiKey, model, timeout, policy, temperature, maxCompletionTokens);
     }
 
     /** .env(또는 환경변수)의 GROQ_API_KEY·GROQ_MODEL로 만든다. 키가 없어도 만들어지고, 호출할 때 401로 실패한다. */
@@ -69,9 +94,9 @@ public class GroqLlmClient implements LlmClient {
         }
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", model);
-        body.put("temperature", 0.3);
+        body.put("temperature", temperature);
         body.put("reasoning_effort", "low");
-        body.put("max_completion_tokens", 2000);
+        body.put("max_completion_tokens", maxCompletionTokens);
         body.put("response_format", Map.of("type", "json_object"));
         body.put("messages", List.of(
                 Map.of("role", "system", "content", SYSTEM_PROMPT),

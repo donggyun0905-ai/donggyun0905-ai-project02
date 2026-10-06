@@ -47,6 +47,14 @@ final class RoadmapRefreshPlan {
     }
 
     /**
+     * "길 더 만들기" 전용 — 빼는 것 없이 주어진 기술만 각 티어 맨 뒤에 이어 붙인다.
+     * 기존 단계는 하나도 건드리지 않으므로 kept에 그대로 담는다.
+     */
+    static RoadmapRefreshPlan appendOnly(List<RoadmapStepDto> steps, List<Long> addedSkillIds) {
+        return new RoadmapRefreshPlan(new ArrayList<>(steps), List.of(), new ArrayList<>(addedSkillIds));
+    }
+
+    /**
      * @param steps                 지금 로드맵의 단계 (step_order 순)
      * @param requiredSkillIds      목표 직무가 지금 요구하는 기술
      * @param rankedMissingSkillIds 새 분석에서 부족한 기술 (우선순위 높은 순)
@@ -132,22 +140,21 @@ final class RoadmapRefreshPlan {
     List<Slot> orderedSlots(boolean addCert, boolean addProject) {
         List<Slot> slots = new ArrayList<>();
         for (String tier : SKILL_TIER_ORDER) {
+            // 그대로 두는 단계는 지금 순서(kept가 step_order 순)를 그대로 유지한다 — 종류별로 모으면
+            // 끝낸 단계가 자리를 옮겨 이미 걸어온 길이 뒤바뀐다(사용자 확인, 2026-10-06).
             for (RoadmapStepDto step : kept) {
-                if (isLadder(step) && tier.equals(step.getTier()) && !NEW_SKILL.equals(step.getStepType())) {
+                if (isLadder(step) && tier.equals(step.getTier())) {
                     slots.add(new Slot(step, null, tier, null));
                 }
             }
+            // 새 단계는 그 티어의 맨 뒤에 붙인다 — 앞에 끼워 넣으면 뒤 단계 번호가 전부 밀린다.
+            // 새로 넣는 것끼리는 처음 만들 때와 같은 순서(자격증 → 프로젝트 → 기술)로 둔다.
             if (TIER_ENTRY.equals(tier)) {
                 if (addCert) {
                     slots.add(new Slot(null, NEW_CERT, tier, null));
                 }
                 if (addProject) {
                     slots.add(new Slot(null, NEW_PROJECT, tier, null));
-                }
-            }
-            for (RoadmapStepDto step : kept) {
-                if (isLadder(step) && tier.equals(step.getTier()) && NEW_SKILL.equals(step.getStepType())) {
-                    slots.add(new Slot(step, null, tier, null));
                 }
             }
             for (Long skillId : addedSkillIds) {

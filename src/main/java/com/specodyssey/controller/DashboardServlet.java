@@ -2,7 +2,6 @@ package com.specodyssey.controller;
 
 import com.specodyssey.dao.DdayAlertDao;
 import com.specodyssey.dao.JobDao;
-import com.specodyssey.dao.LevelTierDao;
 import com.specodyssey.dao.SkillDao;
 import com.specodyssey.dao.UserDao;
 import com.specodyssey.dao.UserProjectDao;
@@ -14,7 +13,6 @@ import com.specodyssey.dto.GapAnalysisDto;
 import com.specodyssey.dto.GapAnalysisItemDto;
 import com.specodyssey.dto.JobDto;
 import com.specodyssey.dto.LevelTierDto;
-import com.specodyssey.dto.RoadmapDto;
 import com.specodyssey.dto.RoadmapStepDto;
 import com.specodyssey.dto.SkillDto;
 import com.specodyssey.dto.UserDto;
@@ -67,7 +65,6 @@ public class DashboardServlet extends HttpServlet {
     private final ScoreService scoreService = new ScoreService();
     private final SpecScoreService specScoreService = new SpecScoreService();
     private final JobDiscoveryService jobDiscoveryService = new JobDiscoveryService();
-    private final LevelTierDao levelTierDao = new LevelTierDao();
     private final DailyMissionService dailyMissionService = new DailyMissionService();
     private final DdayAlertDao ddayAlertDao = new DdayAlertDao();
     private final GapAnalysisService gapAnalysisService = new GapAnalysisService();
@@ -102,12 +99,13 @@ public class DashboardServlet extends HttpServlet {
             req.setAttribute("desiredJobName", job == null ? null : job.getJobName());
         }
 
-        RoadmapDto roadmap = roadmapService.getPrimaryRoadmap(user.getId());
-        if (roadmap == null) {
+        // 위젯 필터(SideWidgetFilter)가 이미 읽었으면 그것을 그대로 쓴다 — 같은 요청에서 두 번 읽지 않도록
+        RoadmapRequestCache.Snapshot snapshot = RoadmapRequestCache.of(req, user.getId(), roadmapService);
+        if (snapshot.roadmap() == null) {
             return;
         }
-        List<RoadmapStepDto> steps = roadmapService.getSteps(roadmap.getId());
-        RoadmapProgress progress = roadmapService.computeProgress(steps);
+        List<RoadmapStepDto> steps = snapshot.steps();
+        RoadmapProgress progress = snapshot.progress();
         req.setAttribute("journeyProgress", progress);
 
         TierProgress currentTier = progress.getCurrentTier();
@@ -154,7 +152,7 @@ public class DashboardServlet extends HttpServlet {
         req.setAttribute("currentScoreTier", currentTier);
         req.setAttribute("tierLogoPath", scoreService.getTierLogoPath(currentTier == null ? null : currentTier.getId()));
 
-        List<LevelTierDto> allTiers = levelTierDao.findAll().stream()
+        List<LevelTierDto> allTiers = scoreService.getAllTiers().stream()
                 .sorted(Comparator.comparing(LevelTierDto::getMinScore))
                 .collect(Collectors.toList());
         LevelTierDto nextTier = null;

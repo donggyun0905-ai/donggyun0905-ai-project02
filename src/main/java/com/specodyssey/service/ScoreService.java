@@ -1,11 +1,11 @@
 package com.specodyssey.service;
 
-import com.specodyssey.dao.LevelTierDao;
 import com.specodyssey.dao.ScoreLogDao;
 import com.specodyssey.dao.UserScoreSummaryDao;
 import com.specodyssey.dto.LevelTierDto;
 import com.specodyssey.dto.ScoreLogDto;
 import com.specodyssey.dto.UserScoreSummaryDto;
+import com.specodyssey.util.AppClock;
 import com.specodyssey.util.TransactionUtil;
 
 import java.sql.Connection;
@@ -39,7 +39,6 @@ public class ScoreService {
 
     private final ScoreLogDao scoreLogDao = new ScoreLogDao();
     private final UserScoreSummaryDao userScoreSummaryDao = new UserScoreSummaryDao();
-    private final LevelTierDao levelTierDao = new LevelTierDao();
 
     // 단독 호출용 — 자체 트랜잭션을 새로 연다.
     public void award(Long userId, String signalType, Long refId, int points) throws SQLException {
@@ -62,7 +61,7 @@ public class ScoreService {
         log.setSignalType(signalType);
         log.setRefId(refId);
         log.setPoints(points);
-        log.setEarnedAt(LocalDateTime.now());
+        log.setEarnedAt(AppClock.now());
         scoreLogDao.insert(conn, log);
 
         UserScoreSummaryDto summary = userScoreSummaryDao.findByUserId(conn, userId, true);
@@ -85,11 +84,16 @@ public class ScoreService {
         return userScoreSummaryDao.findByUserId(userId);
     }
 
+    /** 등급 구간 전체(min_score 오름차순). 짧게 캐시된 목록이라 수정하지 말 것. */
+    public List<LevelTierDto> getAllTiers() throws SQLException {
+        return LevelTiers.all();
+    }
+
     public LevelTierDto getTier(Long tierId) throws SQLException {
         if (tierId == null) {
             return null;
         }
-        return levelTierDao.findAll().stream()
+        return getAllTiers().stream()
                 .filter(t -> t.getId().equals(tierId))
                 .findFirst()
                 .orElse(null);
@@ -98,7 +102,7 @@ public class ScoreService {
     // 헤더·프로필 등 화면 표시용 — 적립 이력이 아예 없는 사용자(요약행 없음)도 0점 기준으로
     // 현재 등급을 그대로 보여줄 수 있게 조회 전용으로 분리했다.
     public LevelTierDto getTierForScore(int totalScore) throws SQLException {
-        List<LevelTierDto> tiers = levelTierDao.findAll();
+        List<LevelTierDto> tiers = getAllTiers();
         for (LevelTierDto tier : tiers) {
             boolean aboveMin = totalScore >= tier.getMinScore();
             boolean belowMax = tier.getMaxScore() == null || totalScore <= tier.getMaxScore();
@@ -114,7 +118,7 @@ public class ScoreService {
         if (tierId == null) {
             return null;
         }
-        List<LevelTierDto> tiers = levelTierDao.findAll();
+        List<LevelTierDto> tiers = getAllTiers();
         for (int i = 0; i < tiers.size(); i++) {
             if (tiers.get(i).getId().equals(tierId)) {
                 return i < TIER_LOGO_FILES.length ? "/image/" + TIER_LOGO_FILES[i] : null;

@@ -63,6 +63,32 @@ class GroqLlmClientTest {
                 .get("content").getAsString());
     }
 
+    // 2026-10-06 — 트렌드·참고 루트가 공용 클라이언트로 옮겨오면서 기능별 생성 설정을 넘긴다
+    @Test
+    void withSettings로_바꾼_temperature와_토큰_한도가_요청에_들어간다() throws Exception {
+        respond(200, chat("{\"reason\":\"ok\"}"));
+        respond(200, chat("{\"reason\":\"ok\"}"));
+        GroqLlmClient base = client("k");
+
+        base.withSettings(0.2, 8000).completeJson("p", Reason.class);
+        JsonObject tuned = JsonParser.parseString(lastRequest.get()).getAsJsonObject();
+        base.completeJson("p", Reason.class);
+        JsonObject original = JsonParser.parseString(lastRequest.get()).getAsJsonObject();
+
+        assertEquals(0.2, tuned.get("temperature").getAsDouble());
+        assertEquals(8000, tuned.get("max_completion_tokens").getAsInt());
+        assertEquals(0.3, original.get("temperature").getAsDouble(), "원래 객체는 바뀌지 않는다");
+        assertEquals(2000, original.get("max_completion_tokens").getAsInt());
+    }
+
+    @Test
+    void 배치용_재시도_규칙은_429에_더_오래_더_많이_기다린다() {
+        assertTrue(LlmRetryPolicy.BATCH.shouldRetry(429, 3, Duration.ofMinutes(2)));
+        assertFalse(LlmRetryPolicy.DEFAULT.shouldRetry(429, 3, Duration.ofSeconds(10)));
+        assertEquals(20_000, LlmRetryPolicy.BATCH.backoffMillis(1));
+        assertFalse(LlmRetryPolicy.BATCH.shouldRetry(400, 2, Duration.ZERO), "400은 배치에서도 한 번만 다시 시도한다");
+    }
+
     @Test
     void 일시적_실패_429와_5xx는_재시도해서_성공한다() throws Exception {
         respond(429, "{}");

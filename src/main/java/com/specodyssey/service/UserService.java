@@ -27,11 +27,13 @@ public class UserService {
     public static class PendingWithdrawalException extends Exception {
         private final Long userId;
         private final LocalDateTime purgeAt;
+        private final boolean recoveryCodeRequired;
 
-        public PendingWithdrawalException(Long userId, LocalDateTime purgeAt) {
+        public PendingWithdrawalException(Long userId, LocalDateTime purgeAt, boolean recoveryCodeRequired) {
             super("탈퇴 신청한 계정입니다.");
             this.userId = userId;
             this.purgeAt = purgeAt;
+            this.recoveryCodeRequired = recoveryCodeRequired;
         }
 
         public Long getUserId() {
@@ -42,10 +44,45 @@ public class UserService {
         public LocalDateTime getPurgeAt() {
             return purgeAt;
         }
+
+        /** 복구 코드를 받아 둔 계정이면 탈퇴 취소에도 그 코드를 받는다(복구 코드가 없는 옛 계정은 못 받는다). */
+        public boolean isRecoveryCodeRequired() {
+            return recoveryCodeRequired;
+        }
     }
 
     private static LocalDateTime graceCutoff() {
         return LocalDateTime.now().minusDays(WITHDRAWAL_GRACE_DAYS);
+    }
+
+    /** FR-14 아이디 실시간 확인 결과. available이 false면 message를 입력칸 아래에 그대로 보여 준다. */
+    public record LoginIdCheck(boolean available, String message) {
+    }
+
+    /**
+     * FR-14 아이디를 쓸 수 있는지 — 가입 화면이 입력칸을 벗어날 때마다 물어본다.
+     * 가입할 때(newUser)와 같은 기준으로 판단해서 두 곳의 안내 문구가 어긋나지 않게 한다.
+     */
+    public LoginIdCheck checkLoginId(String loginId) throws SQLException {
+        String trimmed = loginId == null ? "" : loginId.trim();
+        if (trimmed.isEmpty() || trimmed.length() > LOGIN_ID_MAX_LENGTH) {
+            return new LoginIdCheck(false, "아이디는 1~" + LOGIN_ID_MAX_LENGTH + "자로 입력해주세요.");
+        }
+        if (userDao.existsByLoginId(trimmed)) {
+            return new LoginIdCheck(false, "이미 사용 중인 아이디입니다.");
+        }
+        UserDto pending = userDao.findPendingWithdrawalByLoginId(trimmed, graceCutoff());
+        if (pending != null) {
+            return new LoginIdCheck(false, pendingWithdrawalMessage(pending));
+        }
+        return new LoginIdCheck(true, "사용할 수 있는 아이디입니다.");
+    }
+
+    // 유예가 끝나면 아이디가 자동으로 풀리므로, 막혔다는 말만 하지 않고 언제 쓸 수 있는지 같이 알려 준다
+    private static String pendingWithdrawalMessage(UserDto pending) {
+        LocalDateTime freeAt = pending.getWithdrawRequestedAt().plusDays(WITHDRAWAL_GRACE_DAYS);
+        long days = java.time.temporal.ChronoUnit.DAYS.between(LocalDateTime.now(), freeAt);
+        return "탈퇴 유예 중인 계정이 쓰고 있는 아이디입니다. " + Math.max(1, days) + "일 뒤에 쓸 수 있어요.";
     }
 
     public static class DuplicateLoginIdException extends Exception {
@@ -62,6 +99,13 @@ public class UserService {
 
     public static class InvalidInputException extends Exception {
         public InvalidInputException(String message) {
+            super(message);
+        }
+    }
+
+    /** 되살리려는 사이에 유예 기간이 끝났다 — 복구 코드를 다시 받아도 소용없으므로 재시도 화면을 띄우지 않는다. */
+    public static class WithdrawalGraceExpiredException extends Exception {
+        public WithdrawalGraceExpiredException(String message) {
             super(message);
         }
     }
@@ -107,10 +151,14 @@ public class UserService {
         requirePasswordRule(rawPassword);
 
         LocalDateTime cutoff = graceCutoff();
-        // 유예 중인 탈퇴 계정의 아이디도 "사용 중" — 그 사람이 탈퇴를 취소하면 원래 아이디로 돌아와야 한다
-        if (userDao.existsByLoginId(trimmedLoginId)
-                || userDao.isLoginIdHeldByPendingWithdrawal(trimmedLoginId, cutoff)) {
+        if (userDao.existsByLoginId(trimmedLoginId)) {
             throw new DuplicateLoginIdException("이미 사용 중인 아이디입니다.");
+        }
+        // 유예 중인 탈퇴 계정의 아이디도 "사용 중" — 그 사람이 탈퇴를 취소하면 원래 아이디로 돌아와야 한다.
+        // 그냥 "사용 중"이라고만 하면 왜 막혔는지 알 수 없어서, 언제 풀리는지까지 알려 준다.
+        UserDto pendingHolder = userDao.findPendingWithdrawalByLoginId(trimmedLoginId, cutoff);
+        if (pendingHolder != null) {
+            throw new DuplicateLoginIdException(pendingWithdrawalMessage(pendingHolder));
         }
         // 유예가 없는 예전 탈퇴 계정이나 유예가 끝난 계정이 아이디를 쥐고 있으면(UNIQUE) 가입이 막히므로 여기서 비워 준다
         userDao.releaseDeletedLoginId(trimmedLoginId, cutoff);
@@ -152,7 +200,8 @@ public class UserService {
             UserDto pending = loginId == null ? null : userDao.findPendingWithdrawalByLoginId(loginId, graceCutoff());
             if (pending != null && rawPassword != null && PasswordUtil.verify(rawPassword, pending.getPasswordHash())) {
                 throw new PendingWithdrawalException(pending.getId(),
-                        pending.getWithdrawRequestedAt().plusDays(WITHDRAWAL_GRACE_DAYS));
+                        pending.getWithdrawRequestedAt().plusDays(WITHDRAWAL_GRACE_DAYS),
+                        pending.getRecoveryCodeHash() != null);
             }
             throw new InvalidCredentialException("아이디 또는 비밀번호가 올바르지 않습니다.");
         }
@@ -174,12 +223,30 @@ public class UserService {
 
     /**
      * 탈퇴 취소 — 로그인에서 비밀번호를 확인한(PendingWithdrawalException) 계정만 호출한다.
+     *
+     * 비밀번호만으로 되살리면 비밀번호가 새어 나간 계정을 남이 되살려 기록을 다 볼 수 있어서, 복구 코드를
+     * 받아 둔 계정은 그 코드까지 맞아야 되살린다(사용자 요청, 2026-10-06). 복구 코드를 발급받기 전에
+     * 만들어진 계정(recovery_code_hash가 비어 있음)은 받을 코드가 없으므로 비밀번호 확인만으로 되살린다 —
+     * 그렇지 않으면 그 계정은 유예가 끝날 때까지 복구할 길이 아예 없다.
+     *
+     * @param recoveryCode 복구 코드를 받아 둔 계정이면 필수, 아니면 무시한다
      * @return 되살린 계정(로그인 처리에 쓴다)
-     * @throws InvalidCredentialException 그사이 유예 기간이 끝났거나 이미 취소된 경우
+     * @throws InvalidCredentialException 복구 코드가 틀린 경우
+     * @throws WithdrawalGraceExpiredException 그사이 유예 기간이 끝났거나 이미 취소된 경우
      */
-    public UserDto cancelWithdrawal(Long userId) throws SQLException, InvalidCredentialException {
+    public UserDto cancelWithdrawal(Long userId, String recoveryCode)
+            throws SQLException, InvalidCredentialException, WithdrawalGraceExpiredException {
+        UserDto pending = userDao.findByIdIncludingDeleted(userId);
+        String stored = pending == null ? null : pending.getRecoveryCodeHash();
+        if (stored != null) {
+            // 코드가 틀렸을 때도 맞을 때와 같은 횟수의 PBKDF2를 돌린다(응답 시간으로 짐작하지 못하게)
+            boolean matches = PasswordUtil.verify(RecoveryCode.forHash(recoveryCode), stored);
+            if (!RecoveryCode.looksValid(recoveryCode) || !matches) {
+                throw new InvalidCredentialException("복구 코드가 올바르지 않습니다.");
+            }
+        }
         if (!userDao.cancelWithdrawal(userId, graceCutoff())) {
-            throw new InvalidCredentialException("탈퇴를 취소할 수 있는 기간이 지났습니다. 다시 가입해주세요.");
+            throw new WithdrawalGraceExpiredException("탈퇴를 취소할 수 있는 기간이 지났습니다. 다시 가입해주세요.");
         }
         userDao.updateLastLogin(userId);
         return userDao.findById(userId);

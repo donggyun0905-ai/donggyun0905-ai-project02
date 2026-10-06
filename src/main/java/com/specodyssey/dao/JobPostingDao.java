@@ -75,6 +75,18 @@ public class JobPostingDao {
         }
     }
 
+    // FR-113 격차 분석 화면 — 공고가 적은 직무에 "실제 공고가 적어 추정 데이터" 안내를 띄울지 (2026-10-06, E 추가)
+    public int countByJobId(Long jobId) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM JOB_POSTING WHERE job_id = ? AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, jobId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        }
+    }
+
     // JOB_SKILL_TREND 월별 집계용 — tech_stack이 있는 공고 전체를 훑어서 직무·월별로 묶어야 한다.
     public List<JobPostingDto> findAll() throws SQLException {
         String sql = "SELECT " + COLUMNS + " FROM JOB_POSTING WHERE is_deleted = FALSE";

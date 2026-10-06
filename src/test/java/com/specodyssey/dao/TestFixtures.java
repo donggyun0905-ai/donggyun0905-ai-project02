@@ -5,6 +5,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * DAO 통합테스트 공용 픽스처 헬퍼.
@@ -53,6 +55,28 @@ public final class TestFixtures {
         try (PreparedStatement p = conn.prepareStatement("DELETE FROM " + table + " WHERE " + column + " = ?")) {
             p.setLong(1, value);
             p.executeUpdate();
+        }
+    }
+
+    /**
+     * 논리 삭제된 행까지 포함해 FK 컬럼으로 id를 모은다.
+     *
+     * 테스트 정리에서 DAO의 findByXxx를 쓰면 안 된다 — DAO는 is_deleted = FALSE만 돌려주므로 서비스가
+     * 논리 삭제한 행(로드맵 재생성·재분석 등)을 놓치고, 남은 그 행이 FK로 부모 하드 삭제를 막는다.
+     * 공유 DB에 고아 행이 쌓여 다른 사람 테스트까지 깨지던 원인이었다(2026-10-06).
+     */
+    public static List<Long> findIdsByColumn(Connection conn, String table, String column, long value)
+            throws SQLException {
+        try (PreparedStatement p = conn.prepareStatement(
+                "SELECT id FROM " + table + " WHERE " + column + " = ?")) {
+            p.setLong(1, value);
+            try (ResultSet rs = p.executeQuery()) {
+                List<Long> ids = new ArrayList<>();
+                while (rs.next()) {
+                    ids.add(rs.getLong(1));
+                }
+                return ids;
+            }
         }
     }
 }

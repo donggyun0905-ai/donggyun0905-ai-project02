@@ -70,6 +70,7 @@ CREATE TABLE CERTIFICATION (
 CREATE TABLE USERS (
     id                    BIGINT       NOT NULL AUTO_INCREMENT,
     user_type             VARCHAR(15)  NOT NULL DEFAULT 'APPLICANT', -- APPLICANT(지원자) / INTERVIEWER(면접관) — TD-4
+    is_test               BOOLEAN      NOT NULL DEFAULT FALSE, -- 테스트 계정 — 시뮬레이션 버튼 표시, 초기화 시 물리 삭제 허용 (sql/24)
     login_id              VARCHAR(50)  NOT NULL,
     password_hash         VARCHAR(255) NOT NULL,
     name                  VARCHAR(50)  NULL, -- 가입 시 필수 입력. 컬럼 추가 전 가입자는 NULL

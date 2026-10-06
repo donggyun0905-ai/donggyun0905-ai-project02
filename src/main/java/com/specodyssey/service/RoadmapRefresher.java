@@ -158,6 +158,81 @@ public class RoadmapRefresher {
         return new Result(primary.getId(), false, added, removed);
     }
 
+    /**
+     * "길 더 만들기" (FR-37 확장, 사용자 요청 2026-10-06) — 로드맵 맨 밑까지 내려가면 아직 담지 않은
+     * 부족 기술을 한 라운드만큼 이어 붙인다. 재분석도, 통째 재생성도 하지 않는다.
+     *
+     * LLM은 부르지 않는다(사용자 결정) — 프로젝트 단계 아이디어 생성이 LLM을 쓰므로 기술 단계만 넣는다.
+     * 프로젝트 단계가 필요하면 "바뀐 부분만 다시 만들기" 버튼으로 만든다.
+     *
+     * @return 이어 붙인 단계 수 (더 넣을 기술이 없으면 0)
+     */
+    public int appendNextRound(Long userId) throws SQLException {
+        RoadmapDto primary = roadmapDao.findPrimaryByUserId(userId);
+        if (primary == null || primary.getGapAnalysisId() == null) {
+            return 0; // 로드맵이 아직 없으면 "더 만들기"가 아니라 처음 만들기다
+        }
+        GapAnalysisDto analysis = gapAnalysisDao.findById(primary.getGapAnalysisId());
+        if (analysis == null) {
+            return 0;
+        }
+        List<RoadmapStepDto> steps = roadmapStepDao.findByRoadmapId(primary.getId());
+        Set<Long> alreadyInRoadmap = new HashSet<>();
+        for (RoadmapStepDto step : steps) {
+            if (step.getRelatedSkillId() != null) {
+                alreadyInRoadmap.add(step.getRelatedSkillId());
+            }
+        }
+        Map<Long, String> importanceBySkillId = generator.importanceMap(analysis.getJobId());
+        List<Long> next = new ArrayList<>();
+        int roundSize = ScoringRules.get(ScoringRules.ROUND_SKILL_COUNT);
+        for (GapAnalysisItemDto item : generator.rankMissingSkills(analysis)) {
+            if (next.size() >= roundSize) {
+                break;
+            }
+            if (!alreadyInRoadmap.contains(item.getSkillId())) {
+                next.add(item.getSkillId());
+            }
+        }
+        if (next.isEmpty()) {
+            return 0;
+        }
+
+        RoadmapRefreshPlan plan = RoadmapRefreshPlan.appendOnly(steps, next);
+        List<RoadmapRefreshPlan.Slot> slots = plan.orderedSlots(false, false);
+        // 안내 문구는 트랜잭션을 열기 전에 만들어 둔다(SkillDao 조회)
+        List<String> reasons = new ArrayList<>();
+        for (RoadmapRefreshPlan.Slot slot : slots) {
+            reasons.add(slot.isNew()
+                    ? generator.buildSkillReason(slot.skillId(), importanceBySkillId.get(slot.skillId()), slot.tier())
+                    : null);
+        }
+        int version = nextVersion(userId);
+
+        TransactionUtil.runInTransaction(conn -> {
+            int order = 1;
+            for (int i = 0; i < slots.size(); i++) {
+                RoadmapRefreshPlan.Slot slot = slots.get(i);
+                if (!slot.isNew()) {
+                    RoadmapStepDto step = slot.existing();
+                    if (step.getStepOrder() == null || step.getStepOrder() != order) {
+                        roadmapStepDao.updateStepOrder(conn, step.getId(), userId, order);
+                    }
+                    order++;
+                    continue;
+                }
+                // 같은 기술의 같은 단계를 예전에 이미 끝냈으면 완료로 승계한다(점수는 다시 안 줌) — 생성과 같은 규칙
+                boolean alreadyLearned = roadmapStepDao.countCompletedByUserSkillAndTier(
+                        conn, userId, slot.skillId(), slot.tier()) > 0;
+                order = stepWriter.insertStep(conn, primary.getId(), order, "SKILL", slot.tier(), null, slot.skillId(),
+                        reasons.get(i), alreadyLearned);
+            }
+            roadmapDao.updateGapAnalysisAndVersion(conn, primary.getId(), userId, analysis.getId(), version);
+            return null;
+        });
+        return (int) slots.stream().filter(RoadmapRefreshPlan.Slot::isNew).count();
+    }
+
     private Result rebuild(Long userId) throws SQLException, NoGapAnalysisException {
         return new Result(generator.generate(userId), true, 0, 0);
     }
