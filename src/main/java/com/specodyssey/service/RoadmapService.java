@@ -174,6 +174,11 @@ public class RoadmapService {
         return generator.generate(userId);
     }
 
+    // AI 프로젝트 추천 다시 시도(FR-111 재시도 버튼) → ProjectIdeaRetryService (2026-10-06, E 추가)
+    public int retryProjectIdea(Long userId) throws SQLException {
+        return new ProjectIdeaRetryService(generator).retry(userId);
+    }
+
     // 테스트가 순수 계산을 직접 확인하는 용도 — 실제 규칙은 RoadmapReviewService에 있다
     static int reviewIntervalDays(String highestTier) {
         return RoadmapReviewService.reviewIntervalDays(highestTier);

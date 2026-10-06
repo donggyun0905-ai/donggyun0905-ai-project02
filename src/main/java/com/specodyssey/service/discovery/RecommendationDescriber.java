@@ -50,12 +50,13 @@ public class RecommendationDescriber {
             AiNotices.add(UNAVAILABLE_NOTICE);
             return;
         }
-        // FR-111 — 대체했으면 다음 화면에 안내한다
+        // FR-111 — 대체했으면 다음 화면에 안내한다. 시간이 지나면 풀리는 실패면 "다시 시도" 버튼도 단다
+        AiNotices.RetryTarget retry = result.isRetryable() ? AiNotices.RetryTarget.DISCOVERY : null;
         if (result.isFallback()) {
-            AiNotices.add("AI 응답을 받지 못해 " + result.getCachedAtText() + "에 만든 직전 추천 이유를 보여드립니다.");
+            AiNotices.add("AI 응답을 받지 못해 " + result.getCachedAtText() + "에 만든 직전 추천 이유를 보여드립니다.", retry);
         } else if (result.isUnavailable()) {
             LOG.log(Level.WARNING, "추천 이유 LLM 생성 실패 — 기본 문장을 유지합니다");
-            AiNotices.add(result.isRetryable() ? UNAVAILABLE_NOTICE + " 잠시 후 다시 시도해 주세요." : UNAVAILABLE_NOTICE);
+            AiNotices.add(retry != null ? UNAVAILABLE_NOTICE + " 잠시 후 다시 시도해 주세요." : UNAVAILABLE_NOTICE, retry);
             return;
         }
         Response response = result.getValue();

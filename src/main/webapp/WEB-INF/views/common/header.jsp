@@ -86,8 +86,19 @@
 <main class="${mainWide ? 'wide' : ''}">
 <%-- FR-111 AI 응답을 받지 못해 대체했을 때의 안내 — AiNoticeFilter가 세션에 담고, 한 번 보여준 뒤 지운다 (2026-10-02, E) --%>
 <c:if test="${not empty sessionScope.aiNotice}">
+    <c:forEach var="aiMsg" items="${sessionScope.aiNotice}">
     <div class="banner ai-notice" role="status">
-        <span><c:forEach var="aiMsg" items="${sessionScope.aiNotice}" varStatus="s"><c:if test="${!s.first}"><br></c:if><c:out value="${aiMsg}" /></c:forEach></span>
+        <span><c:out value="${aiMsg.message}" /></span>
+        <%-- 시간이 지나면 풀리는 실패일 때만 "다시 시도" (AiRetryServlet). 누르면 응답이 올 때까지 버튼을 잠근다 (NFR-5) --%>
+        <c:if test="${aiMsg.retryable}">
+        <form action="${pageContext.request.contextPath}/ai-retry" method="post" style="margin:0;"
+              onsubmit="var b=this.querySelector('button');b.disabled=true;b.textContent='다시 시도하는 중…';">
+            <input type="hidden" name="_csrf" value="${csrfToken}">
+            <input type="hidden" name="target" value="${aiMsg.retryTarget}">
+            <button type="submit" class="secondary" style="white-space:nowrap;">다시 시도</button>
+        </form>
+        </c:if>
     </div>
+    </c:forEach>
     <c:remove var="aiNotice" scope="session" />
 </c:if>

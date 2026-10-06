@@ -131,6 +131,20 @@ public class RoadmapStepDao {
         }
     }
 
+    // FR-111 AI 프로젝트 추천 다시 시도 — 기본 문구로 대체됐던 단계의 안내 문구만 바꾼다(2026-10-06, E 추가).
+    // 다른 단계처럼 ROADMAP 조인으로 소유자를 확인하고, 이미 끝낸 단계는 기록이라 바꾸지 않는다.
+    public int updateReason(Connection conn, Long stepId, Long userId, String reason) throws SQLException {
+        String sql = "UPDATE ROADMAP_STEP rs JOIN ROADMAP r ON rs.roadmap_id = r.id " +
+                "SET rs.reason = ? " +
+                "WHERE rs.id = ? AND r.user_id = ? AND rs.is_completed = FALSE AND rs.is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, reason);
+            pstmt.setLong(2, stepId);
+            pstmt.setLong(3, userId);
+            return pstmt.executeUpdate();
+        }
+    }
+
     // 직무 요구에서 빠진 기술의 아직 안 끝낸 단계를 논리 삭제한다. 끝낸 단계는 기록이라 지우지 않는다(is_completed = FALSE 조건).
     public int softDeleteIncomplete(Connection conn, Long stepId, Long userId) throws SQLException {
         String sql = "UPDATE ROADMAP_STEP rs JOIN ROADMAP r ON rs.roadmap_id = r.id " +
