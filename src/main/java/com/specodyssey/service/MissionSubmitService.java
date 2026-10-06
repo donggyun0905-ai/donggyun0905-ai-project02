@@ -1,6 +1,5 @@
 package com.specodyssey.service;
 
-import com.specodyssey.dao.LevelTierDao;
 import com.specodyssey.dao.MissionDao;
 import com.specodyssey.dto.DailyMissionViewDto;
 import com.specodyssey.dto.LevelTierDto;
@@ -57,7 +56,6 @@ public class MissionSubmitService {
     private final MissionDao missionDao = new MissionDao();
     private final CodeCompileService compileService = new CodeCompileService();
     private final ScoreService scoreService = new ScoreService();
-    private final LevelTierDao levelTierDao = new LevelTierDao();
     private final MissionStreakService streakService = new MissionStreakService();
 
     /** 본인 미션이 아니거나 없으면 null. */
@@ -160,7 +158,7 @@ public class MissionSubmitService {
     public CurrentTier currentTier(Long userId) throws SQLException {
         UserScoreSummaryDto summary = scoreService.getSummary(userId);
         int total = summary == null || summary.getTotalScore() == null ? 0 : summary.getTotalScore();
-        List<LevelTierDto> tiers = levelTierDao.findAll();
+        List<LevelTierDto> tiers = LevelTiers.all();
         for (int i = 0; i < tiers.size(); i++) {
             LevelTierDto tier = tiers.get(i);
             if (total >= tier.getMinScore() && (tier.getMaxScore() == null || total <= tier.getMaxScore())) {

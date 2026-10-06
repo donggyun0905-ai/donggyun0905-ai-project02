@@ -11,7 +11,6 @@ import com.specodyssey.service.ProjectSubmission;
 import com.specodyssey.service.ProjectSubmissionService;
 import com.specodyssey.service.RoadmapService;
 import com.specodyssey.service.RoadmapHistory;
-import com.specodyssey.service.RoadmapProgress;
 import com.specodyssey.util.FileStorageUtil;
 import com.specodyssey.util.PdfTextUtil;
 import jakarta.servlet.ServletException;
@@ -26,7 +25,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.SQLException;
-import java.util.Collections;
 import java.util.List;
 import static com.specodyssey.controller.RoadmapSubmissionForm.buildSubmission;
 import static com.specodyssey.controller.RoadmapSubmissionForm.deleteNewFiles;
@@ -94,12 +92,14 @@ public class RoadmapServlet extends HttpServlet {
                     ReviewCheckGate.reset(req.getSession(false)); // 실패했으면 다음에 다시 시도한다
                     getServletContext().log("복습 단계 생성 실패", e);
                 }
+                // 단계가 늘었을 수 있다 — 위젯 필터가 먼저 읽어 둔 것은 버리고 다시 읽는다
+                RoadmapRequestCache.invalidate(req);
             }
-            RoadmapDto roadmap = roadmapService.getPrimaryRoadmap(userId);
+            // 위젯 필터(SideWidgetFilter)가 이미 읽었으면 그것을 그대로 쓴다
+            RoadmapRequestCache.Snapshot snapshot = RoadmapRequestCache.of(req, userId, roadmapService);
+            RoadmapDto roadmap = snapshot.roadmap();
             req.setAttribute("roadmap", roadmap);
-            List<RoadmapStepDto> steps = roadmap == null
-                    ? Collections.emptyList()
-                    : roadmapService.getSteps(roadmap.getId());
+            List<RoadmapStepDto> steps = snapshot.steps();
             // 진행도는 전체 단계로 계산하고, 화면에는 끝낸 단계를 최근 것만 보여준다(복습이 계속 붙어 길어지므로).
             boolean showAllHistory = "all".equals(req.getParameter("history"));
             RoadmapHistory history = RoadmapHistory.of(steps, RoadmapHistory.DEFAULT_KEEP_COMPLETED, showAllHistory);
@@ -107,7 +107,7 @@ public class RoadmapServlet extends HttpServlet {
             req.setAttribute("hiddenCompletedCount", history.getHiddenCompleted());
             req.setAttribute("historyAll", showAllHistory);
             req.setAttribute("historyCollapsible", history.isCollapsible(RoadmapHistory.DEFAULT_KEEP_COMPLETED));
-            req.setAttribute("progress", roadmapService.computeProgress(steps));
+            req.setAttribute("progress", snapshot.progress());
             // 티어 돌파 환영 모달 — 완료 처리 직후 한 번만 뜨도록 세션에 잠깐 실어둔 신호를 꺼내 쓰고 지운다
             // (새로고침하면 이미 지워져 있어서 다시 안 뜬다).
             tierCelebration.consumeTierCelebration(req);
@@ -461,11 +461,6 @@ public class RoadmapServlet extends HttpServlet {
         req.setAttribute("errorMessage", message);
         doGet(req, resp);
         return false;
-    }
-
-    private RoadmapProgress currentProgress(Long userId) throws SQLException {
-        RoadmapDto roadmap = roadmapService.getPrimaryRoadmap(userId);
-        return roadmap == null ? null : roadmapService.computeProgress(roadmapService.getSteps(roadmap.getId()));
     }
 
     private Long currentUserId(HttpServletRequest req) {

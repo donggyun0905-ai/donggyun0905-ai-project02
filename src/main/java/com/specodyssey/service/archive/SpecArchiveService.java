@@ -1,6 +1,5 @@
 package com.specodyssey.service.archive;
 
-import com.specodyssey.dao.LevelTierDao;
 import com.specodyssey.dao.TechArticleAttachmentDao;
 import com.specodyssey.dao.TechArticleCommentDao;
 import com.specodyssey.dao.TechArticleDao;
@@ -13,6 +12,7 @@ import com.specodyssey.dto.TechArticleAttachmentDto;
 import com.specodyssey.dto.TechArticleCommentDto;
 import com.specodyssey.dto.TechArticleDto;
 import com.specodyssey.dto.UserScoreSummaryDto;
+import com.specodyssey.service.ScoreService;
 import com.specodyssey.util.TransactionUtil;
 
 import java.sql.SQLException;
@@ -42,7 +42,7 @@ public class SpecArchiveService {
     private final TechArticleAttachmentDao attachmentDao = new TechArticleAttachmentDao();
     private final TechArticleReactionDao reactionDao = new TechArticleReactionDao();
     private final UserScoreSummaryDao summaryDao = new UserScoreSummaryDao();
-    private final LevelTierDao tierDao = new LevelTierDao();
+    private final ScoreService scoreService = new ScoreService();
 
     // ---------------------------------------------------------------- 화면용 값 (JSP EL은 getter로 읽는다)
 
@@ -91,7 +91,7 @@ public class SpecArchiveService {
     public boolean canWrite(Long userId) throws SQLException {
         UserScoreSummaryDto summary = summaryDao.findByUserId(userId);
         int score = summary == null || summary.getTotalScore() == null ? 0 : summary.getTotalScore();
-        List<LevelTierDto> tiers = tierDao.findAll(); // min_score 오름차순
+        List<LevelTierDto> tiers = scoreService.getAllTiers(); // min_score 오름차순
         LevelTierDto tier = tierForScore(tiers, score);
         return tier != null && topTiers(tiers).stream().anyMatch(t -> t.getId().equals(tier.getId()));
     }
@@ -112,7 +112,7 @@ public class SpecArchiveService {
     }
 
     private List<LevelTierDto> writerTiers() throws SQLException {
-        return topTiers(tierDao.findAll());
+        return topTiers(scoreService.getAllTiers());
     }
 
     /** min_score 오름차순 티어 목록에서 위의 2개 */

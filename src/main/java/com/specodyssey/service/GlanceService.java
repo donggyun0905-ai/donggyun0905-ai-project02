@@ -2,12 +2,10 @@ package com.specodyssey.service;
 
 import com.specodyssey.dao.CertificationDao;
 import com.specodyssey.dao.DdayAlertDao;
-import com.specodyssey.dao.LevelTierDao;
 import com.specodyssey.dao.SkillDao;
 import com.specodyssey.dto.CertificationDto;
 import com.specodyssey.dto.DdayAlertDto;
 import com.specodyssey.dto.LevelTierDto;
-import com.specodyssey.dto.RoadmapDto;
 import com.specodyssey.dto.RoadmapStepDto;
 import com.specodyssey.dto.SkillDto;
 import com.specodyssey.dto.UserScoreSummaryDto;
@@ -50,13 +48,16 @@ public class GlanceService {
     }
 
     private final DdayAlertDao ddayAlertDao = new DdayAlertDao();
-    private final LevelTierDao levelTierDao = new LevelTierDao();
-    private final RoadmapService roadmapService = new RoadmapService();
     private final ScoreService scoreService = new ScoreService();
     private final CertificationDao certificationDao = new CertificationDao();
     private final SkillDao skillDao = new SkillDao();
 
-    public Glance load(Long userId) throws SQLException {
+    /**
+     * 로드맵 단계·진행도는 호출하는 쪽(RoadmapRequestCache)이 이미 읽어 둔 것을 받는다 — 같은 요청에서
+     * 서블릿도 같은 것을 쓰므로 여기서 다시 읽으면 요청마다 조회가 두 번씩 돈다(2026-10-06 성능 점검).
+     * 로드맵이 없으면 steps에 빈 목록을 준다.
+     */
+    public Glance load(Long userId, List<RoadmapStepDto> steps, RoadmapProgress progress) throws SQLException {
         LocalDate today = LocalDate.now();
         List<UpcomingDday> ddays = ddayAlertDao.findByUserId(userId).stream()
                 .filter(a -> a.getTargetDate() != null && !a.getTargetDate().isBefore(today))
@@ -65,12 +66,12 @@ public class GlanceService {
                 .map(a -> new UpcomingDday(a.getTitle(), ChronoUnit.DAYS.between(today, a.getTargetDate())))
                 .toList();
 
-        RoadmapStepDto next = nextStep(userId);
+        RoadmapStepDto next = nextStep(steps, progress);
 
         UserScoreSummaryDto summary = scoreService.getSummary(userId);
         int totalScore = summary == null || summary.getTotalScore() == null ? 0 : summary.getTotalScore();
         LevelTierDto tier = scoreService.getTierForScore(totalScore);
-        LevelTierDto nextTier = tier == null ? null : levelTierDao.findAll().stream()
+        LevelTierDto nextTier = tier == null ? null : scoreService.getAllTiers().stream()
                 .filter(t -> t.getMinScore() > tier.getMinScore())
                 .min(Comparator.comparing(LevelTierDto::getMinScore))
                 .orElse(null);
@@ -90,13 +91,8 @@ public class GlanceService {
     }
 
     // 대시보드 "지금 할 일"과 같은 기준 — 지금 열린 티어에서 아직 안 끝낸 첫 단계
-    private RoadmapStepDto nextStep(Long userId) throws SQLException {
-        RoadmapDto roadmap = roadmapService.getPrimaryRoadmap(userId);
-        if (roadmap == null) {
-            return null;
-        }
-        List<RoadmapStepDto> steps = roadmapService.getSteps(roadmap.getId());
-        TierProgress current = roadmapService.computeProgress(steps).getCurrentTier();
+    private RoadmapStepDto nextStep(List<RoadmapStepDto> steps, RoadmapProgress progress) {
+        TierProgress current = progress == null ? null : progress.getCurrentTier();
         if (current == null) {
             return null;
         }
