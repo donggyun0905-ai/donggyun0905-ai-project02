@@ -1,6 +1,6 @@
                                         <button type="button" class="open-step-dialog" data-dialog="stepDialog-${step.id}">복습 기록하고 완료하기</button>
                                         <dialog id="stepDialog-${step.id}" class="step-dialog">
-                                        <div class="step-dialog-head"><h3>복습 기록하고 완료하기</h3><button type="button" class="dialog-close link-button" aria-label="닫기">✕</button></div>
+                                        <div class="step-dialog-head"><h3>복습 기록하고 완료하기</h3><button type="button" class="dialog-close link-button" aria-label="닫기"><span class="ic ic-x" aria-hidden="true"></span></button></div>
                                             <p class="muted" style="line-height:1.6;"><c:out value="${step.reason}" /></p>
                                             <form action="${pageContext.request.contextPath}/roadmap" method="post" style="margin-top:10px;">
                                                 <input type="hidden" name="_csrf" value="${csrfToken}">

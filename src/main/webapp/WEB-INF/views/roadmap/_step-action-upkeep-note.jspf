@@ -1,7 +1,7 @@
                                         <c:set var="upkeepTitle" value="${step.stepType == 'PROJECT_UPDATE' ? '프로젝트 업데이트 기록하고 완료하기' : '배운 내용 기록하고 완료하기'}" />
                                         <button type="button" class="open-step-dialog" data-dialog="stepDialog-${step.id}"><c:out value="${upkeepTitle}" /></button>
                                         <dialog id="stepDialog-${step.id}" class="step-dialog">
-                                        <div class="step-dialog-head"><h3><c:out value="${upkeepTitle}" /></h3><button type="button" class="dialog-close link-button" aria-label="닫기">✕</button></div>
+                                        <div class="step-dialog-head"><h3><c:out value="${upkeepTitle}" /></h3><button type="button" class="dialog-close link-button" aria-label="닫기"><span class="ic ic-x" aria-hidden="true"></span></button></div>
                                             <p class="muted" style="line-height:1.6;"><c:out value="${step.reason}" /></p>
                                             <form action="${pageContext.request.contextPath}/roadmap" method="post" style="margin-top:10px;">
                                                 <input type="hidden" name="_csrf" value="${csrfToken}">

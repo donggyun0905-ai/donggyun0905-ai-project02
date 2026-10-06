@@ -19,12 +19,13 @@
 
 ## 현재 구현된 기능
 
-- **회원**: 가입(개인정보 동의·면접관 노출 안내) / 로그인 / 로그아웃(POST) / 비밀번호 변경 / **복구 코드로 비밀번호 재설정** / 회원 탈퇴(같은 아이디로 재가입 가능)
+- **회원**: 3단계 가입(기본 정보 → 추가 정보 → 동의) / 로그인 / 로그아웃(POST) / 비밀번호 변경 / **복구 코드로 비밀번호 재설정** / 회원 탈퇴(**30일 유예** — 그 안에 다시 로그인하면 탈퇴 취소, 지나면 개인정보 정리 후 같은 아이디로 재가입 가능)
 - **프로필**: 기본정보·보유 스펙·프로젝트(저장소·배포·회고·기타 링크)·기술 스택·이력서·자소서·AI 활용 기록
 - **직무 찾기(설문)** → **격차 분석** → **로드맵**: 기술별 사다리(입문→핵심→심화→전문가), 복습·프로젝트/글 업데이트·트렌딩 학습이 이어 붙는 "끝없는 로드맵", 점수는 직무 사다리 총점 기준으로 정규화
 - **일일 미션**(코드 제출 컴파일 확인, 연속 풀이 보너스) / **점수·등급** / **대시보드** / **데이터 인사이트** / **D-day** / **서류 보관함** / **공유 링크(면접관 열람)** / **자소서 첨삭** / **스펙 아카이브**(상위 티어 팁 게시판)
 - **관리자 화면**(`/admin`): 점수·복습 주기 규칙 편집, 직무 기술 트렌드 재집계
-- 처음 설문을 하기 전에는 **설문과 프로필만** 열립니다. 자소서 첨삭·프로필을 뺀 지원자 화면에는 일일 미션·트렌드 기술·서류·연습장 **좌우 고정 위젯**이 붙습니다.
+- 처음 설문을 하기 전에는 **설문과 프로필만** 열립니다. 자소서 첨삭·프로필을 뺀 지원자 화면에는 **좌우 고정 위젯**(왼쪽: 일일 미션·최근 서류·한눈에 보기(D-day·지금 할 일·나의 등급), 오른쪽: 목표 직무에 맞춘 트렌드 기술·연습장)이 붙습니다.
+- 화면 아이콘은 이모지가 아니라 `css/icons.css`의 선 아이콘(`<span class="ic ic-이름">`)을 씁니다.
 
 개발 과정·결정 사항은 [`개발일지/`](개발일지/)에 날짜별로 정리돼 있습니다.
 
@@ -48,7 +49,8 @@ docs/
 sql/
   ├── 01~03    스키마 (03 = 확장 스키마, 점수 규칙·게시판 테이블 포함)
   ├── 04~11    시드 데이터 (직무·기술·자격증·설문·기술 별칭·점수 규칙 기본값)
-  ├── 12~19    이미 만든 DB에 덧붙이는 변경(ALTER 등) — 아래 "이미 DB가 있다면" 참고
+  ├── 12~23    이미 만든 DB에 덧붙이는 변경(ALTER·데이터 보정) — 아래 "이미 DB가 있다면" 참고
+  │            (19_seed_skill_alias_more·23_seed_certification_common은 새 DB에도 필요한 시드)
   └── do-not-run/   ⚠ 실행 금지(모든 데이터를 지우는 스냅샷, 약한 비밀번호의 테스트 계정 시드)
 ```
 
@@ -68,18 +70,24 @@ CREATE DATABASE spec_odyssey CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
 **새 DB라면** 아래 순서로 한 번씩만 실행합니다. 한글이 깨지지 않게 **`--default-character-set=utf8mb4`를 꼭 붙이세요.**
-(이 순서로 만든 DB는 현재 개발 DB와 테이블·컬럼이 같고, 설문 문항 12개·직무 18개·기술 163개 등 기본 데이터가 들어갑니다.)
+(이 순서로 만든 DB는 현재 개발 DB와 테이블·컬럼이 같고, 설문 문항 18개·직무 18개·기술 163개·자격증(어학 포함) 등 기본 데이터가 들어갑니다.
+`21`처럼 01~03에 이미 반영된 변경은 새 DB에서는 돌리지 않습니다.)
 
 ```bash
 for f in 01_schema 02_seed 03_schema_extended 04_seed_extended 04_seed_skills \
-         05_seed_survey 09_schema_skill_alias 10_seed_skill_alias 11_seed_skill_alias_english; do
+         05_seed_survey 09_schema_skill_alias 10_seed_skill_alias 11_seed_skill_alias_english \
+         19_seed_skill_alias_more 23_seed_certification_common; do
   mysql -u <user> -p --default-character-set=utf8mb4 spec_odyssey < sql/$f.sql
 done
 ```
 
 **이미 DB가 있다면** 아직 안 돌린 변경만 번호 순서대로 실행합니다(대부분 한 번만 실행해야 하는 `ALTER`라서, 이미 적용했는지 파일 맨 위 설명을 먼저 읽으세요).
 최근 것: `15_schema_project_link`(프로젝트 기타 링크) · `16_alter_users_recovery_code`(**없으면 로그인부터 `Unknown column 'recovery_code_hash'` 오류**) ·
-`17_schema_scoring_rule`(점수·주기 규칙, 없어도 기본값으로 동작) · `18_fix_withdrawn_login_id`(여러 번 실행해도 안전) · `19_alter_tech_article_spec_archive`(스펙 아카이브).
+`17_schema_scoring_rule`(점수·주기 규칙, 없어도 기본값으로 동작) · `18_fix_withdrawn_login_id`(**21을 적용한 뒤에는 실행 금지** — 탈퇴 유예 중인 아이디까지 비움) · `19_alter_tech_article_spec_archive`(스펙 아카이브) ·
+`19_seed_skill_alias_more`(기술 별칭 보강, 여러 번 실행해도 안전) · `20_alter_attachment_file_data`(스펙 아카이브 사진을 DB에) ·
+`21_alter_users_withdraw_requested_at`(탈퇴 30일 유예, **없으면 로그인부터 `Unknown column 'withdraw_requested_at'` 오류**) ·
+`22_strip_emoji_from_roadmap_reason`(로드맵 단계 설명의 이모지 앞머리 정리, 여러 번 실행해도 안전) · `23_seed_certification_common`(TOEIC·TOEIC Speaking·OPIc·웹디자인개발기능사, 여러 번 실행해도 안전).
+`05_seed_survey`도 다시 실행하면 새 문항(18문항 중 없는 것)만 추가됩니다(같은 문구는 건너뜀).
 
 > ⚠ **`sql/do-not-run/`의 파일은 데이터가 든 DB에서 실행하지 마세요.** 스냅샷은 모든 테이블을 지우고 빈 테이블로 다시 만듭니다.
 

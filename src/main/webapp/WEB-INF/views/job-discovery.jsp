@@ -11,6 +11,10 @@
 <c:if test="${not empty onboardingNotice}">
     <div class="banner"><span><c:out value="${onboardingNotice}" /></span></div>
 </c:if>
+<%-- 설문 문항이 바뀌어 아직 답하지 않은 문항이 있을 때 — 새 문항에는 "새 문항" 표시가 붙는다 --%>
+<c:if test="${newQuestionCount > 0}">
+    <div class="banner"><span><span class="ic ic-bell" aria-hidden="true"></span> 설문 문항이 <strong><c:out value="${newQuestionCount}" />개</strong> 새로 생겼어요. 새 문항에 답하고 다시 제출하면 추천 직무가 더 정확해집니다.</span></div>
+</c:if>
 <p class="muted">희망 직무가 아직 정해지지 않았다면, 간단한 설문과 지금까지 쌓은 전공·스펙을 함께 보고 어울리는 직무를 찾아드립니다.</p>
 
 <div class="two-col" style="margin-top:16px;">
@@ -38,7 +42,8 @@
                         <input type="hidden" name="action" value="survey">
                         <c:forEach var="q" items="${questions}" varStatus="qs">
                             <div style="margin-top:14px;">
-                                <p><strong>${qs.count}. <c:out value="${q.content}" /></strong></p>
+                                <p><strong>${qs.count}. <c:out value="${q.content}" /></strong>
+                                    <c:if test="${not empty myAnswers && empty myAnswers[q.id]}"> <span class="chip chip-gold" style="margin-left:6px;">새 문항</span></c:if></p>
                                 <div class="row">
                                     <c:forTokens var="label" items="전혀 아니다,아니다,보통,그렇다,매우 그렇다" delims="," varStatus="os">
                                         <label style="display:inline; width:auto;">

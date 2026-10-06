@@ -11,7 +11,7 @@
          희망 직무를 모르면 직무 찾기(설문 추천)로, 이미 알고 있으면 프로필에서 바로 정할 수 있게 둘 다 안내한다. --%>
     <c:when test="${noTargetJob}">
         <div class="card empty-state" style="max-width:460px; margin:40px auto;">
-            <div class="icon">🗺️</div>
+            <div class="icon"><span class="ic ic-map" aria-hidden="true"></span></div>
             <h2>희망 직무를 먼저 정해주세요</h2>
             <p class="muted">로드맵은 목표 직무가 있어야 만들 수 있습니다. 아직 정하지 못했다면 직무 찾기에서 추천을 받아보고, 이미 알고 있다면 프로필에서 바로 선택해주세요.</p>
             <div class="row" style="justify-content:center; gap:10px; margin-top:10px;">
@@ -21,7 +21,7 @@
         </div>
     </c:when>
     <c:otherwise>
-        <h1>🗺️ 내 로드맵</h1>
+        <h1><span class="ic ic-map" aria-hidden="true"></span> 내 로드맵</h1>
 
         <c:if test="${not empty roadmapNotice}">
             <p style="background:var(--teal-bg); color:var(--teal); border-radius:6px; padding:10px 14px;"><c:out value="${roadmapNotice}" /></p>
@@ -35,7 +35,7 @@
              직접 눌러야만 재분석(비용 발생)이 일어난다. --%>
         <c:if test="${requirementOutdated}">
             <div class="banner">
-                🔔 목표 직무의 요구 기술이 바뀌었어요. 반영하면 로드맵이 새로 갱신됩니다.
+                <span class="ic ic-bell" aria-hidden="true"></span> 목표 직무의 요구 기술이 바뀌었어요. 반영하면 로드맵이 새로 갱신됩니다.
                 <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form" style="margin-top:6px;">
                     <input type="hidden" name="_csrf" value="${csrfToken}">
                     <input type="hidden" name="action" value="reanalyzeAndRegenerate">
@@ -68,7 +68,7 @@
                 <span class="chip ${t.emptyTier ? 'chip-locked' : !t.unlocked ? 'chip-locked' : t.complete ? 'chip-teal' : 'chip-gold'}">
                     <c:choose>
                         <c:when test="${t.emptyTier}">${tierLabel} · 해당 없음 (남은 부족 기술 없음)</c:when>
-                        <c:when test="${!t.unlocked}">🔒 ${tierLabel}</c:when>
+                        <c:when test="${!t.unlocked}"><span class="ic ic-lock" aria-hidden="true"></span> ${tierLabel}</c:when>
                         <c:otherwise>${tierLabel} ${t.done}/${t.total} (${t.percent}%)</c:otherwise>
                     </c:choose>
                 </span>
@@ -76,7 +76,7 @@
         </div>
 
         <c:if test="${progress.journeyComplete}">
-            <div class="banner">🎉 지금까지 분석된 부족 기술을 모두 채웠습니다! 새로 재분석하면 다음 목표가 이어집니다.</div>
+            <div class="banner"><span class="ic ic-sparkles" aria-hidden="true"></span> 지금까지 분석된 부족 기술을 모두 채웠습니다! 새로 재분석하면 다음 목표가 이어집니다.</div>
         </c:if>
 
         <%-- 상자 하나(.journey-map) 안에 완료한 것(위쪽, 흐리게)과 지금 할 일(아래쪽, 선명하게)을
@@ -88,8 +88,8 @@
         <div class="journey-map">
             <h2 style="margin-bottom:2px;">
                 <c:choose>
-                    <c:when test="${progress.journeyComplete}">🧭 여정 기록</c:when>
-                    <c:otherwise>🧭 여정 · 지금 할 일 (${currentTierLabel})</c:otherwise>
+                    <c:when test="${progress.journeyComplete}"><span class="ic ic-compass" aria-hidden="true"></span> 여정 기록</c:when>
+                    <c:otherwise><span class="ic ic-compass" aria-hidden="true"></span> 여정 · 지금 할 일 (<c:out value="${currentTierLabel}" />)</c:otherwise>
                 </c:choose>
             </h2>
             <c:if test="${not progress.journeyComplete}">
@@ -126,23 +126,23 @@
                         <c:choose>
                             <c:when test="${step.completed}">
                                 <c:set var="markerClass" value="completed is-past" />
-                                <c:set var="markerIcon" value="✓" />
+                                <c:set var="markerIcon" value="check" />
                                 <c:set var="cardClass" value="is-past" />
                             </c:when>
                             <%-- 복습·업데이트·트렌딩 학습은 시간이 지나 생기는 단계라 잠그지 않고 바로 할 수 있게 둔다(끝없는 로드맵) --%>
                             <c:when test="${step.upkeep}">
                                 <c:set var="markerClass" value="remaining" />
-                                <c:set var="markerIcon" value="${step.stepType == 'REVIEW' ? '🔁' : step.stepType == 'PROJECT_UPDATE' ? '🛠' : step.stepType == 'ARTICLE_UPDATE' ? '📝' : '📈'}" />
+                                <c:set var="markerIcon" value="${step.stepType == 'REVIEW' ? 'repeat' : step.stepType == 'PROJECT_UPDATE' ? 'wrench' : step.stepType == 'ARTICLE_UPDATE' ? 'file-text' : 'trending-up'}" />
                                 <c:set var="cardClass" value="" />
                             </c:when>
                             <c:when test="${not empty nextLockedTier && step.tier == nextLockedTier.tier}">
                                 <c:set var="markerClass" value="locked" />
-                                <c:set var="markerIcon" value="🔒" />
+                                <c:set var="markerIcon" value="lock" />
                                 <c:set var="cardClass" value="is-locked" />
                             </c:when>
                             <c:when test="${!foundCurrent}">
                                 <c:set var="markerClass" value="current" />
-                                <c:set var="markerIcon" value="⚓" />
+                                <c:set var="markerIcon" value="anchor" />
                                 <c:set var="cardClass" value="" />
                                 <c:set var="foundCurrent" value="true" scope="page" />
                             </c:when>
@@ -159,7 +159,7 @@
                              단계(복습·새 기술)는 앞 단계와 같은 쪽에 놓일 수 있다. --%>
                         <c:set var="cardLeft" value="${step.id % 2 == 1}" scope="page" />
                         <div class="journey-row ${cardLeft ? 'card-left' : 'card-right'}" data-step-id="${step.id}">
-                            <div class="journey-marker ${markerClass}">${markerIcon}</div>
+                            <div class="journey-marker ${markerClass}"><c:if test="${not empty markerIcon}"><span class="ic ic-${markerIcon}" aria-hidden="true"></span></c:if></div>
                             <div class="journey-card ${cardClass}" style="grid-column: ${cardLeft ? 1 : 3};">
                                 <div class="row" style="margin-bottom:6px;">
                                     <span class="chip chip-teal">
@@ -173,15 +173,17 @@
                                             <c:otherwise>기술</c:otherwise>
                                         </c:choose>
                                     </span>
-                                    <c:if test="${step.completed}"><span style="color:var(--teal); font-weight:bold; font-size:0.85rem;">✔ 완료</span></c:if>
+                                    <c:if test="${step.completed}"><span style="color:var(--teal); font-weight:bold; font-size:0.85rem;"><span class="ic ic-check" aria-hidden="true"></span> 완료</span></c:if>
                                 </div>
-                                <%-- "💡 제목 — 긴 설명" 형태의 프로젝트 아이디어는 카드에 제목만 두고, 설명은 박스를 눌렀을 때 뜨는 창에 보여준다. --%>
-                                <c:set var="ideaSplit" value="${fn:startsWith(step.reason, '💡') && fn:contains(step.reason, ' — ')}" scope="page" />
+                                <%-- "아이디어: 제목 — 긴 설명" 형태의 프로젝트 아이디어는 카드에 제목만 두고, 설명은 박스를 눌렀을 때 뜨는 창에 보여준다.
+                                     예전 코드(아직 이 변경을 안 받은 팀원 서버)는 앞머리를 이모지(U+1F4A1 + 공백)로 저장하므로 둘 다 알아본다. --%>
+                                <c:set var="ideaPrefix" value="${fn:startsWith(step.reason, '아이디어: ') ? '아이디어: ' : fn:startsWith(step.reason, '💡 ') ? '💡 ' : ''}" scope="page" />
+                                <c:set var="ideaSplit" value="${not empty ideaPrefix && fn:contains(step.reason, ' — ')}" scope="page" />
                                 <c:choose>
                                     <c:when test="${ideaSplit}">
-                                        <c:set var="ideaTitle" value="${fn:substringBefore(step.reason, ' — ')}" scope="page" />
+                                        <c:set var="ideaTitle" value="${fn:substringAfter(fn:substringBefore(step.reason, ' — '), ideaPrefix)}" scope="page" />
                                         <c:set var="ideaDesc" value="${fn:substringAfter(step.reason, ' — ')}" scope="page" />
-                                        <p><c:out value='${ideaTitle}' /></p>
+                                        <p><span class="ic ic-bulb" aria-hidden="true"></span> <c:out value='${ideaTitle}' /></p>
                                     </c:when>
                                     <c:otherwise>
                                         <c:set var="ideaDesc" value="" scope="page" />

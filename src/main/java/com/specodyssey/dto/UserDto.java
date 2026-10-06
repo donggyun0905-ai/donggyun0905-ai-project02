@@ -23,6 +23,7 @@ public class UserDto {
     private String recoveryCodeHash; // 복구 코드의 해시 — 원문은 저장하지 않는다
     private LocalDateTime profileUpdatedAt;
     private LocalDateTime lastLoginAt;
+    private LocalDateTime withdrawRequestedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private boolean deleted;
@@ -177,6 +178,14 @@ public class UserDto {
 
     public void setLastLoginAt(LocalDateTime lastLoginAt) {
         this.lastLoginAt = lastLoginAt;
+    }
+
+    public LocalDateTime getWithdrawRequestedAt() {
+        return withdrawRequestedAt;
+    }
+
+    public void setWithdrawRequestedAt(LocalDateTime withdrawRequestedAt) {
+        this.withdrawRequestedAt = withdrawRequestedAt;
     }
 
     public LocalDateTime getCreatedAt() {

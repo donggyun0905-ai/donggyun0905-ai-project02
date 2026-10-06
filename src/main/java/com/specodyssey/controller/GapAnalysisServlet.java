@@ -86,6 +86,9 @@ public class GapAnalysisServlet extends HttpServlet {
 
             req.setAttribute("job", job);
             req.setAttribute("analysis", analysis);
+            // 화면에는 "2026-10-03T22:05:20" 대신 "2026-10-03 22:05"로 보여준다(JSP는 출력만 — 서식은 여기서)
+            req.setAttribute("analyzedAtText", analysis.getAnalyzedAt() == null ? ""
+                    : analysis.getAnalyzedAt().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
             req.setAttribute("items", itemViews);
             req.setAttribute("metCount", metCount);
             req.setAttribute("totalCount", items.size());

@@ -26,6 +26,7 @@ import com.specodyssey.service.RoadmapProgress;
 import com.specodyssey.service.ScoreService;
 import com.specodyssey.service.SpecScoreService;
 import com.specodyssey.service.DailyMissionService;
+import com.specodyssey.service.discovery.JobDiscoveryService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -65,6 +66,7 @@ public class DashboardServlet extends HttpServlet {
     private final RoadmapService roadmapService = new RoadmapService();
     private final ScoreService scoreService = new ScoreService();
     private final SpecScoreService specScoreService = new SpecScoreService();
+    private final JobDiscoveryService jobDiscoveryService = new JobDiscoveryService();
     private final LevelTierDao levelTierDao = new LevelTierDao();
     private final DailyMissionService dailyMissionService = new DailyMissionService();
     private final DdayAlertDao ddayAlertDao = new DdayAlertDao();
@@ -85,6 +87,8 @@ public class DashboardServlet extends HttpServlet {
             loadDailyMissions(req, userId);
             loadUpcomingDdays(req, userId);
             loadGapAnalysis(req, userId);
+            // 설문 문항이 바뀌어 아직 답하지 않은 문항이 있으면 다시 풀어 보라고 알린다
+            req.setAttribute("newQuestionCount", jobDiscoveryService.countNewQuestions(userId));
         } catch (SQLException e) {
             throw new ServletException("대시보드를 불러오는 중 오류가 발생했습니다.", e);
         }
@@ -112,7 +116,7 @@ public class DashboardServlet extends HttpServlet {
             steps.stream()
                     .filter(s -> currentTier.getTier().equals(s.getTier()) && !s.isCompleted())
                     .findFirst()
-                    .ifPresent(step -> req.setAttribute("nextStepReason", step.getReason()));
+                    .ifPresent(step -> req.setAttribute("nextStepReason", displayReason(step.getReason())));
         }
     }
 
@@ -237,6 +241,16 @@ public class DashboardServlet extends HttpServlet {
         req.setAttribute("missingSkillNames", missingNames);
         req.setAttribute("gapMetCount", metCount);
         req.setAttribute("gapTotalCount", items.size());
+    }
+
+    // AI 프로젝트 아이디어 단계("아이디어: 제목 — 긴 설명")는 대시보드 한 줄에 제목만 보여준다
+    private static String displayReason(String reason) {
+        if (reason == null || !reason.startsWith(com.specodyssey.service.RoadmapGenerator.PROJECT_IDEA_PREFIX)) {
+            return reason;
+        }
+        String rest = reason.substring(com.specodyssey.service.RoadmapGenerator.PROJECT_IDEA_PREFIX.length());
+        int dash = rest.indexOf(" — ");
+        return "프로젝트 — " + (dash > 0 ? rest.substring(0, dash) : rest);
     }
 
     private Long currentUserId(HttpServletRequest req) {

@@ -11,6 +11,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>스펙 오디세이 — 목표 직무까지, 다음에 뭘 할지 알려주는 여정</title>
     <meta name="description" content="IT 취업 준비생의 스펙을 진단하고 목표 직무까지 가는 순서 있는 로드맵을 제시합니다.">
+    <link rel="stylesheet" href="${ctx}/css/icons.css">
     <link rel="stylesheet" href="${ctx}/css/landing.css">
 </head>
 <body>
@@ -42,7 +43,7 @@
 <section class="lp-hero">
     <canvas id="lpStars" aria-hidden="true"></canvas>
     <div class="lp-hero-inner">
-        <p class="lp-eyebrow">🧭 IT 취업 준비생을 위한 스펙 항해 지도</p>
+        <p class="lp-eyebrow"><span class="ic ic-compass" aria-hidden="true"></span> IT 취업 준비생을 위한 스펙 항해 지도</p>
         <h1>
             목표는 <span class="lp-type" id="lpType" data-words="백엔드 개발자,프론트엔드 개발자,데이터 엔지니어,DevOps 엔지니어,보안 엔지니어,PM">백엔드 개발자</span><span class="lp-caret" aria-hidden="true"></span><br>
             <em>다음에 뭘 할지</em> 알려드립니다
@@ -158,7 +159,7 @@
                 <div class="lp-screen">
                     <div class="lp-screen-bar"><i></i><i></i><i></i><span>예시 화면 · 격차 분석</span></div>
                     <div class="lp-screen-view">
-                        <div class="lp-m-head"><span>☰ 목록</span>스펙 오디세이</div>
+                        <div class="lp-m-head"><span><span class="ic ic-menu" aria-hidden="true"></span> 목록</span>스펙 오디세이</div>
                         <div class="lp-m-body">
                             <div class="lp-m-title">격차 분석</div>
                             <div class="lp-m-card">
@@ -169,11 +170,11 @@
                             <div class="lp-m-card">
                                 <h4>충족·부족 목록</h4>
                                 <ul class="lp-m-rows lp-stag">
-                                    <li>Java<span class="ok">✓ 충족</span></li>
-                                    <li>SQL<span class="no">✗ 부족</span></li>
-                                    <li>Spring Boot<span class="no">✗ 부족</span></li>
-                                    <li>MySQL<span class="ok">✓ 충족</span></li>
-                                    <li>Docker<span class="no">✗ 부족</span></li>
+                                    <li>Java<span class="ok"><span class="ic ic-check" aria-hidden="true"></span> 충족</span></li>
+                                    <li>SQL<span class="no"><span class="ic ic-x" aria-hidden="true"></span> 부족</span></li>
+                                    <li>Spring Boot<span class="no"><span class="ic ic-x" aria-hidden="true"></span> 부족</span></li>
+                                    <li>MySQL<span class="ok"><span class="ic ic-check" aria-hidden="true"></span> 충족</span></li>
+                                    <li>Docker<span class="no"><span class="ic ic-x" aria-hidden="true"></span> 부족</span></li>
                                 </ul>
                             </div>
                         </div>
@@ -186,14 +187,14 @@
                 <div class="lp-screen">
                     <div class="lp-screen-bar"><i></i><i></i><i></i><span>예시 화면 · 내 로드맵</span></div>
                     <div class="lp-screen-view">
-                        <div class="lp-m-head"><span>☰ 목록</span>스펙 오디세이</div>
+                        <div class="lp-m-head"><span><span class="ic ic-menu" aria-hidden="true"></span> 목록</span>스펙 오디세이</div>
                         <div class="lp-m-body">
                             <div class="lp-m-title">내 로드맵</div>
                             <div class="lp-m-chips"><span class="on">입문 1/7</span><span>핵심</span><span>심화</span><span>전문가</span></div>
                             <div class="lp-m-card">
                                 <h4>여정 · 지금 할 일 (입문)</h4>
                                 <div class="lp-m-path lp-stag">
-                                    <div class="l done"><em>자격증</em>직무에서 자주 요구되는 자격증을 취득합니다.<i>✓</i></div>
+                                    <div class="l done"><em>자격증</em>직무에서 자주 요구되는 자격증을 취득합니다.<i><span class="ic ic-check" aria-hidden="true"></span></i></div>
                                     <div class="r now"><em>프로젝트</em>부족한 기술을 다뤄볼 프로젝트를 진행합니다.<i></i></div>
                                     <div class="l"><em>기술</em>필수로 요구되는 SQL을 채웁니다.<i></i></div>
                                 </div>
@@ -208,7 +209,7 @@
                 <div class="lp-screen">
                     <div class="lp-screen-bar"><i></i><i></i><i></i><span>예시 화면 · 오늘의 미션</span></div>
                     <div class="lp-screen-view">
-                        <div class="lp-m-head"><span>☰ 목록</span>스펙 오디세이</div>
+                        <div class="lp-m-head"><span><span class="ic ic-menu" aria-hidden="true"></span> 목록</span>스펙 오디세이</div>
                         <div class="lp-m-body">
                             <div class="lp-m-title">오늘의 미션</div>
                             <div class="lp-m-grid">
@@ -239,7 +240,7 @@
                 <div class="lp-screen">
                     <div class="lp-screen-bar"><i></i><i></i><i></i><span>예시 화면 · 데이터 인사이트</span></div>
                     <div class="lp-screen-view">
-                        <div class="lp-m-head"><span>☰ 목록</span>스펙 오디세이</div>
+                        <div class="lp-m-head"><span><span class="ic ic-menu" aria-hidden="true"></span> 목록</span>스펙 오디세이</div>
                         <div class="lp-m-body">
                             <div class="lp-m-title">데이터 인사이트</div>
                             <div class="lp-m-card">
@@ -265,7 +266,7 @@
                 <div class="lp-screen">
                     <div class="lp-screen-bar"><i></i><i></i><i></i><span>예시 화면 · 자소서 첨삭</span></div>
                     <div class="lp-screen-view">
-                        <div class="lp-m-head"><span>☰ 목록</span>스펙 오디세이</div>
+                        <div class="lp-m-head"><span><span class="ic ic-menu" aria-hidden="true"></span> 목록</span>스펙 오디세이</div>
                         <div class="lp-m-body">
                             <div class="lp-m-title">자소서·이력서 첨삭</div>
                             <div class="lp-m-card">
@@ -289,7 +290,7 @@
                 <div class="lp-screen">
                     <div class="lp-screen-bar"><i></i><i></i><i></i><span>예시 화면 · D-day 알림</span></div>
                     <div class="lp-screen-view">
-                        <div class="lp-m-head"><span>☰ 목록</span>스펙 오디세이</div>
+                        <div class="lp-m-head"><span><span class="ic ic-menu" aria-hidden="true"></span> 목록</span>스펙 오디세이</div>
                         <div class="lp-m-body">
                             <div class="lp-m-title">D-day 알림</div>
                             <div class="lp-m-card lp-m-banner"><b class="no">D-3</b>신입 공채 서류 마감<small>공채</small></div>
@@ -321,15 +322,15 @@
 <section class="lp-section" id="tiers">
     <div class="lp-head reveal">
         <p class="lp-kicker">GROW</p>
-        <h2>뉴비 항해사에서 전설의 선장까지</h2>
+        <h2>첫걸음에서 오디세이아까지</h2>
         <p>미션을 수행할수록 점수가 쌓이고 등급이 오릅니다.</p>
     </div>
     <div class="lp-tiers">
-        <div class="lp-tier reveal"><img src="${ctx}/image/tier-1-beginner.png" alt=""><b>뉴비 항해사</b></div>
-        <div class="lp-tier reveal"><img src="${ctx}/image/tier-2-jobseeker.png" alt=""><b>견습 항해사</b></div>
-        <div class="lp-tier reveal"><img src="${ctx}/image/tier-3-practitioner.png" alt=""><b>정식 항해사</b></div>
-        <div class="lp-tier reveal"><img src="${ctx}/image/tier-4-almost.png" alt=""><b>선장</b></div>
-        <div class="lp-tier reveal"><img src="${ctx}/image/tier-5-legend.png" alt=""><b>전설의 선장</b></div>
+        <div class="lp-tier reveal"><img src="${ctx}/image/tier-1-beginner.png" alt=""><b>첫걸음</b></div>
+        <div class="lp-tier reveal"><img src="${ctx}/image/tier-2-jobseeker.png" alt=""><b>방랑자</b></div>
+        <div class="lp-tier reveal"><img src="${ctx}/image/tier-3-practitioner.png" alt=""><b>항해자</b></div>
+        <div class="lp-tier reveal"><img src="${ctx}/image/tier-4-almost.png" alt=""><b>개척자</b></div>
+        <div class="lp-tier reveal"><img src="${ctx}/image/tier-5-legend.png" alt=""><b>오디세이아</b></div>
     </div>
 </section>
 
@@ -347,7 +348,7 @@
             </ul>
         </div>
         <div class="lp-share reveal" aria-hidden="true">
-            <div class="lp-share-url">🔗 <span>/share/</span><span id="lpToken">••••••••••••</span></div>
+            <div class="lp-share-url"><span class="ic ic-link" aria-hidden="true"></span> <span>/share/</span><span id="lpToken">••••••••••••</span></div>
             <div class="lp-share-row"><span class="lp-pill on">공개 중</span><span class="lp-pill">읽기 전용</span></div>
             <div class="lp-share-card"><u></u><u class="short"></u><u></u></div>
         </div>
@@ -396,7 +397,7 @@
     </div>
 </section>
 
-<footer class="lp-footer">🧭 스펙 오디세이 — 당신의 취업 항해를 돕습니다</footer>
+<footer class="lp-footer"><span class="ic ic-compass" aria-hidden="true"></span> 스펙 오디세이 — 당신의 취업 항해를 돕습니다</footer>
 
 <script src="${ctx}/js/landing.js"></script>
 </body>

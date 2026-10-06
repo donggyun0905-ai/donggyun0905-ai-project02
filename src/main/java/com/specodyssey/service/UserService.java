@@ -18,8 +18,35 @@ public class UserService {
     private static final int LOGIN_ID_MAX_LENGTH = 50; // USERS.login_id VARCHAR(50)
     private static final int PASSWORD_MIN_LENGTH = 8;
     private static final int PASSWORD_MAX_LENGTH = 100; // 과도하게 긴 입력으로 PBKDF2 반복 비용을 늘리는 것을 방지
+    // 탈퇴 유예 기간(팀 확인 2026-10-03) — 이 기간에는 아이디를 잡아 두고, 다시 로그인하면 탈퇴를 취소할 수 있다
+    public static final int WITHDRAWAL_GRACE_DAYS = 30;
 
     private final UserDao userDao = new UserDao();
+
+    /** 비밀번호는 맞지만 유예 중인 탈퇴 계정 — 화면에서 탈퇴 취소를 제안한다. */
+    public static class PendingWithdrawalException extends Exception {
+        private final Long userId;
+        private final LocalDateTime purgeAt;
+
+        public PendingWithdrawalException(Long userId, LocalDateTime purgeAt) {
+            super("탈퇴 신청한 계정입니다.");
+            this.userId = userId;
+            this.purgeAt = purgeAt;
+        }
+
+        public Long getUserId() {
+            return userId;
+        }
+
+        /** 이 시각이 지나면 탈퇴가 확정돼 복구할 수 없다. */
+        public LocalDateTime getPurgeAt() {
+            return purgeAt;
+        }
+    }
+
+    private static LocalDateTime graceCutoff() {
+        return LocalDateTime.now().minusDays(WITHDRAWAL_GRACE_DAYS);
+    }
 
     public static class DuplicateLoginIdException extends Exception {
         public DuplicateLoginIdException(String message) {
@@ -79,11 +106,14 @@ public class UserService {
         }
         requirePasswordRule(rawPassword);
 
-        if (userDao.existsByLoginId(trimmedLoginId)) {
+        LocalDateTime cutoff = graceCutoff();
+        // 유예 중인 탈퇴 계정의 아이디도 "사용 중" — 그 사람이 탈퇴를 취소하면 원래 아이디로 돌아와야 한다
+        if (userDao.existsByLoginId(trimmedLoginId)
+                || userDao.isLoginIdHeldByPendingWithdrawal(trimmedLoginId, cutoff)) {
             throw new DuplicateLoginIdException("이미 사용 중인 아이디입니다.");
         }
-        // 탈퇴한 계정이 아이디를 쥐고 있으면(UNIQUE) 새로 가입이 막힌다 — 예전에 탈퇴한 계정의 아이디도 여기서 비워 준다
-        userDao.releaseDeletedLoginId(trimmedLoginId);
+        // 유예가 없는 예전 탈퇴 계정이나 유예가 끝난 계정이 아이디를 쥐고 있으면(UNIQUE) 가입이 막히므로 여기서 비워 준다
+        userDao.releaseDeletedLoginId(trimmedLoginId, cutoff);
 
         UserDto user = new UserDto();
         user.setUserType(userType);
@@ -115,22 +145,49 @@ public class UserService {
 
     // FR-12 로그인
     public UserDto login(String loginId, String rawPassword)
-            throws SQLException, InvalidCredentialException {
+            throws SQLException, InvalidCredentialException, PendingWithdrawalException {
         UserDto user = userDao.findByLoginId(loginId);
-        if (user == null || !PasswordUtil.verify(rawPassword, user.getPasswordHash())) {
+        if (user == null) {
+            // 탈퇴 유예 중인 계정이면, 비밀번호가 맞을 때만 탈퇴 취소를 제안한다(틀리면 일반 실패와 구분하지 않는다)
+            UserDto pending = loginId == null ? null : userDao.findPendingWithdrawalByLoginId(loginId, graceCutoff());
+            if (pending != null && rawPassword != null && PasswordUtil.verify(rawPassword, pending.getPasswordHash())) {
+                throw new PendingWithdrawalException(pending.getId(),
+                        pending.getWithdrawRequestedAt().plusDays(WITHDRAWAL_GRACE_DAYS));
+            }
+            throw new InvalidCredentialException("아이디 또는 비밀번호가 올바르지 않습니다.");
+        }
+        if (!PasswordUtil.verify(rawPassword, user.getPasswordHash())) {
             throw new InvalidCredentialException("아이디 또는 비밀번호가 올바르지 않습니다.");
         }
         userDao.updateLastLogin(user.getId());
         return user;
     }
 
-    // FR-13 회원 탈퇴 — 비밀번호 재확인 후 논리 삭제
+    // FR-13 회원 탈퇴 — 비밀번호 재확인 후 논리 삭제. 유예 기간 동안은 다시 로그인해 취소할 수 있다.
     public void withdraw(Long userId, String rawPassword) throws SQLException, InvalidCredentialException {
         UserDto user = userDao.findById(userId);
         if (user == null || !PasswordUtil.verify(rawPassword, user.getPasswordHash())) {
             throw new InvalidCredentialException("비밀번호가 올바르지 않습니다.");
         }
         userDao.softDelete(userId);
+    }
+
+    /**
+     * 탈퇴 취소 — 로그인에서 비밀번호를 확인한(PendingWithdrawalException) 계정만 호출한다.
+     * @return 되살린 계정(로그인 처리에 쓴다)
+     * @throws InvalidCredentialException 그사이 유예 기간이 끝났거나 이미 취소된 경우
+     */
+    public UserDto cancelWithdrawal(Long userId) throws SQLException, InvalidCredentialException {
+        if (!userDao.cancelWithdrawal(userId, graceCutoff())) {
+            throw new InvalidCredentialException("탈퇴를 취소할 수 있는 기간이 지났습니다. 다시 가입해주세요.");
+        }
+        userDao.updateLastLogin(userId);
+        return userDao.findById(userId);
+    }
+
+    /** WithdrawalPurgeScheduler 전용 — 유예가 끝난 탈퇴 계정의 아이디를 비우고 개인정보를 지운다. */
+    public int purgeExpiredWithdrawals() throws SQLException {
+        return userDao.purgeExpiredWithdrawals(graceCutoff());
     }
 
     /**
@@ -185,6 +242,12 @@ public class UserService {
             throws SQLException, InvalidCredentialException, InvalidInputException {
         requirePasswordRule(newPassword);
         UserDto user = loginId == null ? null : userDao.findByLoginId(loginId.trim());
+        // 탈퇴 유예 중인 계정도 비밀번호를 찾을 수 있어야 로그인해서 탈퇴를 취소할 수 있다
+        boolean pendingWithdrawal = false;
+        if (user == null && loginId != null) {
+            user = userDao.findPendingWithdrawalByLoginId(loginId.trim(), graceCutoff());
+            pendingWithdrawal = user != null;
+        }
         String stored = user == null ? null : user.getRecoveryCodeHash();
         boolean formatOk = RecoveryCode.looksValid(recoveryCode);
         // 어떤 경우든 같은 횟수의 PBKDF2를 돌려 응답 시간으로 계정 상태를 짐작하지 못하게 한다
@@ -193,8 +256,14 @@ public class UserService {
             throw new InvalidCredentialException("아이디 또는 복구 코드가 올바르지 않습니다.");
         }
         String newCode = RecoveryCode.generate();
-        userDao.resetPasswordAndRecoveryCode(user.getId(), PasswordUtil.hash(newPassword),
-                PasswordUtil.hash(RecoveryCode.forHash(newCode)));
+        String newPasswordHash = PasswordUtil.hash(newPassword);
+        String newCodeHash = PasswordUtil.hash(RecoveryCode.forHash(newCode));
+        if (pendingWithdrawal) {
+            userDao.resetPasswordAndRecoveryCodeOfPendingWithdrawal(user.getId(), newPasswordHash, newCodeHash,
+                    graceCutoff());
+        } else {
+            userDao.resetPasswordAndRecoveryCode(user.getId(), newPasswordHash, newCodeHash);
+        }
         return newCode;
     }
 }

@@ -4,7 +4,7 @@
 <jsp:include page="/WEB-INF/views/common/header.jsp" />
 
 <div class="center-box">
-    <h1>🧭 항해 중 문제가 생겼습니다</h1>
+    <h1><span class="ic ic-compass" aria-hidden="true"></span> 항해 중 문제가 생겼습니다</h1>
     <div class="card">
         <c:set var="errorStatus" value="${requestScope['jakarta.servlet.error.status_code']}" />
         <c:choose>

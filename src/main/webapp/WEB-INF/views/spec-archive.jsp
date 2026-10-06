@@ -13,8 +13,8 @@
         <p class="muted">${writerTitles} 티어 선배들이 남긴 취업 준비 팁 모음입니다. 하트로 응원하고, 북마크로 모아 두세요.</p>
     </div>
     <c:choose>
-        <c:when test="${canWrite}"><a class="btn" href="${ctx}/spec-archive/write">✍️ 팁 쓰기</a></c:when>
-        <c:otherwise><div class="sa-lock">🔒 글쓰기는 <strong>${writerTitles}</strong> 티어부터 열립니다. 읽기·댓글·하트·북마크는 누구나 할 수 있어요.</div></c:otherwise>
+        <c:when test="${canWrite}"><a class="btn" href="${ctx}/spec-archive/write"><span class="ic ic-pencil" aria-hidden="true"></span> 팁 쓰기</a></c:when>
+        <c:otherwise><div class="sa-lock"><span class="ic ic-lock" aria-hidden="true"></span> 글쓰기는 <strong>${writerTitles}</strong> 티어부터 열립니다. 읽기·댓글·하트·북마크는 누구나 할 수 있어요.</div></c:otherwise>
     </c:choose>
 </div>
 
@@ -27,7 +27,7 @@
 <div class="sa-toolbar">
     <nav class="sa-tabs" aria-label="보기">
         <a href="${ctx}/spec-archive" class="${view == 'all' ? 'active' : ''}">전체</a>
-        <a href="${ctx}/spec-archive?view=bookmarks" class="${view == 'bookmarks' ? 'active' : ''}">🔖 내 북마크</a>
+        <a href="${ctx}/spec-archive?view=bookmarks" class="${view == 'bookmarks' ? 'active' : ''}"><span class="ic ic-bookmark" aria-hidden="true"></span> 내 북마크</a>
     </nav>
     <c:if test="${view == 'all'}">
         <nav class="sa-sort" aria-label="정렬">
@@ -41,7 +41,7 @@
     <c:when test="${empty listPage.posts}">
         <div class="card sa-empty">
             <c:choose>
-                <c:when test="${view == 'bookmarks'}">아직 북마크한 글이 없습니다. 마음에 드는 팁에서 🔖를 눌러 보세요.</c:when>
+                <c:when test="${view == 'bookmarks'}">아직 북마크한 글이 없습니다. 마음에 드는 팁에서 북마크를 눌러 보세요.</c:when>
                 <c:otherwise>아직 올라온 팁이 없습니다.<c:if test="${canWrite}"> 첫 번째 팁을 남겨 주세요!</c:if></c:otherwise>
             </c:choose>
         </div>
@@ -57,10 +57,10 @@
                         <c:if test="${not empty post.authorTitle}"><span class="sa-tier"><c:out value="${post.authorTitle}" /></span></c:if>
                         <span>${post.publishedAt.toLocalDate()}</span>
                         <span class="sa-stats">
-                            <span title="하트">❤️ ${post.likeCount}</span>
-                            <span title="댓글">💬 ${post.commentCount}</span>
-                            <span title="북마크">🔖 ${post.bookmarkCount}</span>
-                            <span title="조회">👁 ${post.viewCount}</span>
+                            <span title="하트"><span class="ic ic-heart" aria-hidden="true"></span> ${post.likeCount}</span>
+                            <span title="댓글"><span class="ic ic-message" aria-hidden="true"></span> ${post.commentCount}</span>
+                            <span title="북마크"><span class="ic ic-bookmark" aria-hidden="true"></span> ${post.bookmarkCount}</span>
+                            <span title="조회"><span class="ic ic-eye" aria-hidden="true"></span> ${post.viewCount}</span>
                         </span>
                     </div>
                 </a>

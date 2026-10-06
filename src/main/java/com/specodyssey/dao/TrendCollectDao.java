@@ -98,4 +98,82 @@ public class TrendCollectDao {
             }
         }
     }
+
+    // 사이드바 — 이 직무에 연결된 트렌드 중 관련도가 기준 이상인 것만. 최근 수집분 먼저, 같은 날 안에서는 관련도 순.
+    // (날짜로 자르지 않아 오늘 수집이 비어도 직전 수집분이 보인다)
+    public List<TrendTechDto> findRelevantByJobId(Long jobId, double minRelevance, int limit) throws SQLException {
+        String sql = "SELECT t.id, t.tech_name, t.summary, t.source_url, t.published_at FROM TREND_TECH t " +
+                "JOIN TREND_TECH_JOB j ON j.trend_tech_id = t.id " +
+                "WHERE j.job_id = ? AND j.relevance_score >= ? AND j.is_deleted = FALSE AND t.is_deleted = FALSE " +
+                "ORDER BY DATE(t.created_at) DESC, j.relevance_score DESC, t.published_at DESC LIMIT ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, jobId);
+            pstmt.setDouble(2, minRelevance);
+            pstmt.setInt(3, limit);
+            return readTrends(pstmt);
+        }
+    }
+
+    // 사이드바 보충 — 같은 직무 계열(JOB.job_category)의 다른 직무에 연결된 트렌드. 여러 직무에 함께 연결된 기술은
+    // 한 번만 나오도록 가장 높은 관련도로 묶는다. 예) 웹퍼블리셔 ← 프론트엔드 개발자·UI 개발자의 트렌드
+    public List<TrendTechDto> findRelevantBySiblingJobs(Long jobId, double minRelevance, int limit) throws SQLException {
+        String sql = "SELECT t.id, t.tech_name, t.summary, t.source_url, t.published_at FROM TREND_TECH t " +
+                "JOIN TREND_TECH_JOB j ON j.trend_tech_id = t.id " +
+                "JOIN JOB jb ON jb.id = j.job_id " +
+                "WHERE jb.job_category = (SELECT job_category FROM JOB WHERE id = ?) AND j.job_id <> ? " +
+                "AND j.relevance_score >= ? AND j.is_deleted = FALSE AND t.is_deleted = FALSE AND jb.is_deleted = FALSE " +
+                "GROUP BY t.id, t.tech_name, t.summary, t.source_url, t.published_at, t.created_at " +
+                "ORDER BY DATE(t.created_at) DESC, MAX(j.relevance_score) DESC, t.published_at DESC LIMIT ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, jobId);
+            pstmt.setLong(2, jobId);
+            pstmt.setDouble(3, minRelevance);
+            pstmt.setInt(4, limit);
+            return readTrends(pstmt);
+        }
+    }
+
+    private List<TrendTechDto> readTrends(PreparedStatement pstmt) throws SQLException {
+        try (ResultSet rs = pstmt.executeQuery()) {
+            List<TrendTechDto> items = new ArrayList<>();
+            while (rs.next()) {
+                TrendTechDto tech = new TrendTechDto();
+                tech.setId(rs.getLong("id"));
+                tech.setTechName(rs.getString("tech_name"));
+                tech.setSummary(rs.getString("summary"));
+                tech.setSourceUrl(rs.getString("source_url"));
+                Timestamp published = rs.getTimestamp("published_at");
+                tech.setPublishedAt(published == null ? null : published.toLocalDateTime());
+                items.add(tech);
+            }
+            return items;
+        }
+    }
+
+    // 사이드바 대체 목록 — 목표 직무가 아직 없거나 그 직무에 연결된 트렌드가 하나도 없을 때, 직무와 상관없이
+    // 가장 최근에 모은 트렌드를 보여준다(빈 위젯 대신 이전 트렌드라도 보이게, 2026-10-03 사용자 요청).
+    public List<TrendTechDto> findRecent(int limit) throws SQLException {
+        String sql = "SELECT id, tech_name, summary, source_url, published_at FROM TREND_TECH " +
+                "WHERE is_deleted = FALSE ORDER BY created_at DESC, published_at DESC LIMIT ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, limit);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                List<TrendTechDto> items = new ArrayList<>();
+                while (rs.next()) {
+                    TrendTechDto tech = new TrendTechDto();
+                    tech.setId(rs.getLong("id"));
+                    tech.setTechName(rs.getString("tech_name"));
+                    tech.setSummary(rs.getString("summary"));
+                    tech.setSourceUrl(rs.getString("source_url"));
+                    Timestamp published = rs.getTimestamp("published_at");
+                    tech.setPublishedAt(published == null ? null : published.toLocalDateTime());
+                    items.add(tech);
+                }
+                return items;
+            }
+        }
+    }
 }

@@ -87,6 +87,7 @@ CREATE TABLE USERS (
     recovery_code_hash    VARCHAR(255) NULL, -- 비밀번호 찾기용 복구 코드의 해시(원문은 저장 안 함). NULL이면 코드가 없는 계정
     profile_updated_at    DATETIME     NULL,
     last_login_at         DATETIME     NULL,
+    withdraw_requested_at DATETIME     NULL, -- 탈퇴 신청 시각. 30일 유예 동안 아이디를 잡아 두고 로그인 시 탈퇴 취소 가능
     created_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     is_deleted            BOOLEAN      NOT NULL DEFAULT FALSE,

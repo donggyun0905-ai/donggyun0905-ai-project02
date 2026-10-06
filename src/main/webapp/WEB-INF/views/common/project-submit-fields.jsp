@@ -37,7 +37,7 @@
         <p style="margin:6px 0;">
             <label><c:out value="${type.value}" /><c:if test="${required}"> <span style="color:var(--danger);">(필수)</span></c:if></label>
             <c:if test="${not empty old and old.submitted}">
-                <span class="muted" style="font-size:0.82rem;">✔ 제출됨: <c:out value="${old.documentName}" /> — 새 파일을 올리면 이 파일도 보관함에 남고 새 파일이 체크리스트에 올라갑니다</span>
+                <span class="muted" style="font-size:0.82rem;"><span class="ic ic-check" aria-hidden="true"></span> 제출됨: <c:out value="${old.documentName}" /> — 새 파일을 올리면 이 파일도 보관함에 남고 새 파일이 체크리스트에 올라갑니다</span>
             </c:if>
             <input type="file" name="doc_${type.key}" ${required and not (not empty old and old.submitted) ? 'required' : ''}>
             <c:if test="${not required}">

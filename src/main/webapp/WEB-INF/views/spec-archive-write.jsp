@@ -13,7 +13,7 @@
 <c:choose>
     <c:when test="${not canWrite}">
         <div class="card sa-empty" style="margin-top:16px;">
-            🔒 글쓰기는 <strong>${writerTitles}</strong> 티어부터 할 수 있습니다.<br>
+            <span class="ic ic-lock" aria-hidden="true"></span> 글쓰기는 <strong>${writerTitles}</strong> 티어부터 할 수 있습니다.<br>
             미션과 로드맵으로 점수를 쌓아 티어를 올려 보세요. 읽기·댓글·하트·북마크는 지금도 할 수 있어요.
         </div>
     </c:when>
@@ -31,7 +31,7 @@
                 <div class="sa-count" data-count-for="title" data-max="${titleMax}"></div>
 
                 <div class="ed-toolbar">
-                    <button type="button" class="secondary" id="pickImages">📷 사진 넣기</button>
+                    <button type="button" class="secondary" id="pickImages"><span class="ic ic-camera" aria-hidden="true"></span> 사진 넣기</button>
                     <button type="button" class="secondary" id="insertCode">&lt;/&gt; 코드</button>
                     <input type="file" id="imagePicker" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden>
                     <span class="muted ed-hint">사진은 <strong>Ctrl+V</strong>·끌어다 놓기 · 유튜브·이미지 링크는 한 줄에 붙여넣으면 바로 영상·사진 ·
