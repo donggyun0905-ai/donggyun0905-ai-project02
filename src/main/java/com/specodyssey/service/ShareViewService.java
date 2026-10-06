@@ -168,6 +168,7 @@ public class ShareViewService {
         view.setScopeGrowth(link.isScopeGrowth());
         view.setScopeResume(link.isScopeResume());
         view.setScopeCoverLetter(link.isScopeCoverLetter());
+        view.setScopeAge(link.isScopeAge());
 
         if (link.isScopeBasic()) {
             view.setName(user.getName());
@@ -178,6 +179,10 @@ public class ShareViewService {
                 view.setDesiredJobName(job == null ? null : job.getJobName());
             }
             fillTimeline(view, user.getId());
+        }
+        // 나이는 기본 이력과 따로 고른 링크에서만 (면접관 비교 화면의 나이순 정렬용, NFR-4)
+        if (link.isScopeAge()) {
+            view.setAge(user.getAge());
         }
         if (link.isScopeSkills()) {
             fillSkills(view, user.getId());

@@ -14,6 +14,7 @@ public class ShareLinkDto {
     private boolean scopeGrowth;
     private boolean scopeResume;
     private boolean scopeCoverLetter;
+    private boolean scopeAge; // 나이 공개 — 지원자가 링크마다 고른다(기본 비공개)
     private String label;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -97,6 +98,14 @@ public class ShareLinkDto {
 
     public void setScopeCoverLetter(boolean scopeCoverLetter) {
         this.scopeCoverLetter = scopeCoverLetter;
+    }
+
+    public boolean isScopeAge() {
+        return scopeAge;
+    }
+
+    public void setScopeAge(boolean scopeAge) {
+        this.scopeAge = scopeAge;
     }
 
     public String getLabel() {

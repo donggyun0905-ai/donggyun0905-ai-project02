@@ -17,9 +17,11 @@ public class ShareViewDto {
     private boolean scopeGrowth;
     private boolean scopeResume;
     private boolean scopeCoverLetter;
+    private boolean scopeAge;
 
     // scope_basic
     private String name;
+    private Integer age; // scopeAge일 때만. 미입력이면 null
     private String major;
     private String grade;
     private String desiredJobName;
@@ -155,6 +157,22 @@ public class ShareViewDto {
 
     public void setScopeCoverLetter(boolean scopeCoverLetter) {
         this.scopeCoverLetter = scopeCoverLetter;
+    }
+
+    public boolean isScopeAge() {
+        return scopeAge;
+    }
+
+    public void setScopeAge(boolean scopeAge) {
+        this.scopeAge = scopeAge;
+    }
+
+    public Integer getAge() {
+        return age;
+    }
+
+    public void setAge(Integer age) {
+        this.age = age;
     }
 
     public String getResumeFileName() {
