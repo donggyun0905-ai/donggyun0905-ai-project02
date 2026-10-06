@@ -1,5 +1,6 @@
 package com.specodyssey.service;
 
+import com.specodyssey.util.AppClock;
 import com.specodyssey.dao.SpecScoreHistoryDao;
 import com.specodyssey.dao.UserDao;
 import com.specodyssey.dao.UserProjectDao;
@@ -100,7 +101,7 @@ public class SpecScoreService {
 
     /** 오늘 아직 기록하지 않았으면 스냅샷을 하나 남긴다. 기록했으면 false. */
     public boolean snapshotIfNotYetToday(Long userId) throws SQLException {
-        LocalDate today = LocalDate.now(ZONE);
+        LocalDate today = AppClock.today();
         try (Connection conn = DBUtil.getConnection()) {
             if (specScoreHistoryDao.existsForUserOnDate(conn, userId, today)) {
                 return false;

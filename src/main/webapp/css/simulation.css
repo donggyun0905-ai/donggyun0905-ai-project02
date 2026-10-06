@@ -1,0 +1,151 @@
+/* 테스트 계정 시뮬레이션 패널 — 헤더 오른쪽 위 (common/header.jsp). 테스트 계정에만 불러온다. */
+
+/* 페이지를 옮길 때 하얀 화면 없이 부드럽게 넘어간다 (화면 따라가기 · 직접 메뉴 이동 모두).
+   크롬·엣지 126+ — 지원하지 않는 브라우저는 평소처럼 넘어간다. 이 CSS는 테스트 계정에만 불러오므로 일반 사용자 화면과 무관하다. */
+@view-transition { navigation: auto; }
+/* 패널은 전환 효과에서 빼서 페이지가 바뀌어도 제자리에 그대로 있는 것처럼 보이게 */
+.sim-panel { view-transition-name: sim-panel; }
+::view-transition-old(sim-panel), ::view-transition-new(sim-panel) { animation: none; }
+
+.sim-panel {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.18);
+    border: 1px dashed rgba(201, 162, 75, 0.8);
+    border-radius: 8px;
+    padding: 4px 6px 4px 10px;
+    font-size: 0.78rem;
+    color: #f3ead9;
+    white-space: nowrap;
+}
+
+.sim-title {
+    font-weight: 700;
+    color: var(--gold);
+}
+
+.sim-track {
+    flex: 0 0 70px;
+    width: 70px;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.sim-fill {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: var(--gold);
+    transition: width 0.4s ease;
+}
+
+.sim-text {
+    min-width: 92px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* 목표 점수 입력 + 등급 바로가기 — 공용 입력칸 규칙(input[type=number], select: width 100%)보다 앞서도록 .sim-panel로 한정 */
+.sim-panel input.sim-target, .sim-panel select.sim-tier, .sim-panel select.sim-persona {
+    height: 24px;
+    margin: 0;
+    padding: 0 6px;
+    font-size: 0.75rem;
+    color: var(--ink);
+    background: var(--card-bg);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 6px;
+}
+.sim-panel input.sim-target { width: 84px; flex: 0 0 84px; }
+.sim-panel select.sim-tier { width: 76px; flex: 0 0 76px; padding-right: 2px; }
+.sim-panel select.sim-persona { width: 104px; flex: 0 0 104px; padding-right: 2px; }
+.sim-panel select.sim-persona:disabled, .sim-panel select.sim-tier:disabled { opacity: 0.55; }
+.sim-target:disabled, .sim-tier:disabled { opacity: 0.55; }
+
+.sim-btn {
+    background: rgba(255, 255, 255, 0.12);
+    color: #f3ead9;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    margin: 0;
+}
+.sim-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.24); }
+.sim-btn:disabled { opacity: 0.4; cursor: default; }
+.sim-btn.sim-danger { border-color: rgba(240, 140, 120, 0.7); }
+.sim-btn.sim-confirm { background: var(--danger); border-color: var(--danger); color: #fff; }
+.sim-btn.sim-follow[aria-pressed="true"] { background: var(--gold); border-color: var(--gold); color: var(--ink); font-weight: 700; }
+
+/* 방금 돌린 하루 요약 — 패널 바로 아래 한 줄 */
+.sim-day {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    background: rgba(58, 47, 36, 0.92);
+    color: #f3ead9;
+    border: 1px solid rgba(201, 162, 75, 0.6);
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* 버튼 결과 안내 */
+.sim-msg {
+    position: absolute;
+    top: calc(100% + 32px);
+    right: 0;
+    max-width: 320px;
+    white-space: normal;
+    background: var(--card-bg);
+    color: var(--ink);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    padding: 8px 10px;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    z-index: 60;
+}
+
+/* 실시간으로 바뀐 글자·숫자 — 잠깐 금색으로 비쳤다가 사라진다 */
+.sim-flash { animation: sim-flash 1.4s ease-out; }
+@keyframes sim-flash {
+    0%   { background-color: rgba(201, 162, 75, 0.55); box-shadow: 0 0 0 3px rgba(201, 162, 75, 0.35); }
+    100% { background-color: transparent; box-shadow: 0 0 0 0 transparent; }
+}
+/* 화면 따라가기로 찾아간 로드맵 단계 */
+.sim-focus { outline: 3px solid var(--gold); outline-offset: 4px; border-radius: var(--radius); transition: outline-color 1.5s; }
+
+@media (prefers-reduced-motion: reduce) {
+    .sim-flash { animation: none; }
+    .sim-fill { transition: none; }
+}
+
+/* 헤더에 패널이 다 들어가지 않는 폭(1360px 이하) — 로고·등급 배지를 밀어내지 않게 헤더 바로 아래 오른쪽에 띄운다.
+   스크롤해도 같은 자리(fixed)라 항상 보인다. 하루 요약·안내는 패널 아래로 이어진다. */
+@media (max-width: 1360px) {
+    .sim-panel {
+        position: fixed;
+        top: calc(var(--header-h) + 6px);
+        right: 8px;
+        z-index: 55;
+        background: var(--header-bg);
+        box-shadow: var(--shadow);
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        max-width: calc(100vw - 16px);
+    }
+}
+
+/* 좁은 화면 — 제목·막대를 빼서 짧게 */
+@media (max-width: 900px) {
+    .sim-panel { white-space: normal; }
+    .sim-title, .sim-track { display: none; }
+    .sim-text { min-width: 0; }
+}

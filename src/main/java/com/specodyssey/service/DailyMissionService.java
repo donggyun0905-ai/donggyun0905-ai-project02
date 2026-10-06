@@ -1,5 +1,6 @@
 package com.specodyssey.service;
 
+import com.specodyssey.util.AppClock;
 import com.specodyssey.dao.MissionDao;
 import com.specodyssey.dao.MissionDao.TargetJob;
 import com.specodyssey.dao.UserDailyMissionDao;
@@ -105,7 +106,7 @@ public class DailyMissionService {
 
     /** 오늘 배정분이 모자라면 채워서 돌려준다. 문제 풀이 비어 있으면 있는 만큼만 돌려준다. */
     public TodayMissions getOrAssignToday(Long userId) throws SQLException {
-        LocalDate today = LocalDate.now(ZONE);
+        LocalDate today = AppClock.today(); // 시뮬레이션 중이면 그날 날짜
         // 등급 표시·점수는 제출 적립과 같은 기준(MissionSubmitService.currentTier)으로 계산한다
         MissionSubmitService.CurrentTier tier = missionSubmitService.currentTier(userId);
         synchronized (USER_LOCKS.computeIfAbsent(userId, id -> new Object())) {

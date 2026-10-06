@@ -1,5 +1,6 @@
 package com.specodyssey.service;
 
+import com.specodyssey.util.AppClock;
 import com.specodyssey.dao.RoadmapDao;
 import com.specodyssey.dao.RoadmapStepDao;
 import com.specodyssey.dao.SkillDao;
@@ -316,7 +317,7 @@ public class RoadmapUpkeepService {
             }
             int points = pointsFor(type, prior);
             roadmapStepDao.updateProof(conn, stepId, userId, PROOF_UPKEEP_NOTE, trimmed, step.getEvidenceProjectId(),
-                    SkillProofGrader.PASSED, "기록 제출", true, LocalDateTime.now());
+                    SkillProofGrader.PASSED, "기록 제출", true, AppClock.now());
             scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId, points);
             return points;
         });
@@ -346,7 +347,7 @@ public class RoadmapUpkeepService {
 
             boolean passed = result.passed();
             roadmapStepDao.updateProof(conn, stepId, userId, PROOF_TEACHING_POST, extractedText, null,
-                    result.status(), result.note(), passed, passed ? LocalDateTime.now() : null);
+                    result.status(), result.note(), passed, passed ? AppClock.now() : null);
 
             proofFile.setUserId(userId);
             proofFile.setRoadmapStepId(stepId);

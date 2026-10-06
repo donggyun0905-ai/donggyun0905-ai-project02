@@ -1,5 +1,6 @@
 package com.specodyssey.service;
 
+import com.specodyssey.util.AppClock;
 import com.specodyssey.dao.MissionDao;
 import com.specodyssey.dao.MissionDao.StreakRow;
 import com.specodyssey.util.DBUtil;
@@ -94,7 +95,7 @@ public class MissionStreakService {
      * 오늘 배정분이 모두 끝났으면 스트릭을 갱신한다. 점수 적립(ScoreService)과 같은 트랜잭션이면 적립 뒤에 불러야 한다.
      */
     public int recordIfDayComplete(Connection conn, Long userId, Long missionId) throws SQLException {
-        LocalDate today = LocalDate.now(ZONE);
+        LocalDate today = AppClock.today();
         if (!today.equals(missionDao.findAssignedDate(conn, userId, missionId))) {
             return 0;
         }
@@ -123,7 +124,7 @@ public class MissionStreakService {
             return 0;
         }
         try {
-            LocalDate today = LocalDate.now(ZONE);
+            LocalDate today = AppClock.today();
             int bonus = bonusFor(streak);
             if (bonus <= 0) {
                 return 0;
@@ -159,7 +160,7 @@ public class MissionStreakService {
     }
 
     public StreakView getStreakView(Long userId) throws SQLException {
-        LocalDate today = LocalDate.now(ZONE);
+        LocalDate today = AppClock.today();
         LocalDate from = today.minusDays(WEEK_DAYS - 1);
         try (Connection conn = DBUtil.getConnection()) {
             StreakRow row = missionDao.findStreak(conn, userId);
