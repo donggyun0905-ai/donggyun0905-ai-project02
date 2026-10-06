@@ -3,6 +3,7 @@
 <c:set var="pageTitle" value="지원자 비교 - 스펙 오디세이" scope="request" />
 <c:set var="mainWide" value="true" scope="request" />
 <jsp:include page="/WEB-INF/views/common/header.jsp" />
+<link rel="stylesheet" href="${pageContext.request.contextPath}/css/interviewer-compare.css">
 
 <div class="spread" style="margin-bottom:16px;">
     <h1 style="margin:0;">지원자 비교</h1>
@@ -59,20 +60,40 @@
 </div>
 
 <div class="card">
-    <h2>나란히 보기</h2>
+    <div class="row spread">
+        <h2>나란히 보기</h2>
+        <%-- 정렬 기준 — 고르면 바로 다시 불러온다. 공개하지 않은 값이 있는 지원자는 맨 뒤로 간다 --%>
+        <c:if test="${not empty compare.applicants}">
+            <div class="row" style="gap:8px;">
+            <form method="get" action="${pageContext.request.contextPath}/interviewer/compare" class="row" style="gap:6px;">
+                <label for="sort" style="margin:0; width:auto;" class="muted">정렬</label>
+                <select id="sort" name="sort" onchange="this.form.submit()" style="width:auto;">
+                    <c:forEach var="option" items="${sortOptions}">
+                        <option value="${option.key}" ${option.key == currentSort ? 'selected' : ''}><c:out value="${option.label}" /></option>
+                    </c:forEach>
+                </select>
+                <noscript><button type="submit" class="secondary">정렬</button></noscript>
+            </form>
+            <%-- 담은 지원자 스펙을 엑셀(.xlsx)로 — 지금 고른 정렬 순서 그대로, 지원자가 공개한 값만 --%>
+            <a class="btn secondary" href="${pageContext.request.contextPath}/interviewer/compare/export">📥 엑셀로 받기</a>
+            </div>
+        </c:if>
+    </div>
     <c:choose>
         <c:when test="${empty compare.applicants}">
             <p class="muted" style="margin-top:10px;">아직 담은 지원자가 없습니다. <a href="${pageContext.request.contextPath}/interviewer/shared">공유받은 이력</a>에서 받은 링크를 담아 주세요.</p>
         </c:when>
         <c:otherwise>
-            <table style="margin-top:10px;">
+            <%-- 칸 크기 고정 + 지원자가 많으면 표 안에서 가로 스크롤 (css/interviewer-compare.css) --%>
+            <div class="compare-scroll">
+            <table class="compare-table">
                 <tr>
                     <th>항목</th>
                     <c:forEach var="applicant" items="${compare.applicants}">
                         <th>
-                            <c:out value="${applicant.label}" />
+                            <span class="compare-name" title="<c:out value='${applicant.label}' />"><c:out value="${applicant.label}" /></span>
                             <c:if test="${applicant.available}">
-                                <a href="${pageContext.request.contextPath}/share/${applicant.token}" style="margin-left:6px;">이력 보기</a>
+                                <a class="compare-link" href="${pageContext.request.contextPath}/share/${applicant.token}">이력 보기</a>
                             </c:if>
                         </th>
                     </c:forEach>
@@ -83,7 +104,19 @@
                         <c:choose>
                             <c:when test="${not applicant.available}"><td class="muted">공유 중단됨</td></c:when>
                             <c:when test="${not applicant.view.scopeBasic}"><td class="muted">지원자가 공개하지 않음</td></c:when>
-                            <c:otherwise><td><c:out value="${applicant.view.major}" default="미입력" /> <c:out value="${applicant.view.grade}" /></td></c:otherwise>
+                            <c:otherwise><td title="<c:out value='${applicant.view.major} ${applicant.view.grade}' />"><c:out value="${applicant.view.major}" default="미입력" /> <c:out value="${applicant.view.grade}" /></td></c:otherwise>
+                        </c:choose>
+                    </c:forEach>
+                </tr>
+                <%-- 나이는 지원자가 링크에서 "나이"를 따로 공개했을 때만 --%>
+                <tr>
+                    <td>나이</td>
+                    <c:forEach var="applicant" items="${compare.applicants}">
+                        <c:choose>
+                            <c:when test="${not applicant.available}"><td class="muted">-</td></c:when>
+                            <c:when test="${not applicant.view.scopeAge}"><td class="muted">지원자가 공개하지 않음</td></c:when>
+                            <c:when test="${empty applicant.view.age}"><td class="muted">미입력</td></c:when>
+                            <c:otherwise><td>${applicant.view.age}세</td></c:otherwise>
                         </c:choose>
                     </c:forEach>
                 </tr>
@@ -93,7 +126,7 @@
                         <c:choose>
                             <c:when test="${not applicant.available}"><td class="muted">-</td></c:when>
                             <c:when test="${not applicant.view.scopeBasic}"><td class="muted">지원자가 공개하지 않음</td></c:when>
-                            <c:otherwise><td><c:out value="${applicant.certText}" /></td></c:otherwise>
+                            <c:otherwise><td title="<c:out value='${applicant.certFullText}' />"><c:out value="${applicant.certText}" /></td></c:otherwise>
                         </c:choose>
                     </c:forEach>
                 </tr>
@@ -110,7 +143,7 @@
                 <%-- FR-83 요구 역량별 보유 여부 --%>
                 <c:forEach var="criterion" items="${compare.criteria}" varStatus="row">
                     <tr>
-                        <td><c:out value="${criterion.skillName}" /> · 가중치 ${criterion.weight}</td>
+                        <td title="<c:out value='${criterion.skillName}' /> · 가중치 ${criterion.weight}"><c:out value="${criterion.skillName}" /> · 가중치 ${criterion.weight}</td>
                         <c:forEach var="applicant" items="${compare.applicants}">
                             <c:choose>
                                 <c:when test="${not applicant.available}"><td class="muted">-</td></c:when>
@@ -160,11 +193,12 @@
                         <c:choose>
                             <c:when test="${not applicant.available}"><td class="muted">-</td></c:when>
                             <c:when test="${empty applicant.growthText}"><td class="muted">지원자가 공개하지 않음</td></c:when>
-                            <c:otherwise><td><c:out value="${applicant.growthText}" /></td></c:otherwise>
+                            <c:otherwise><td title="<c:out value='${applicant.growthText}' />"><c:out value="${applicant.growthText}" /></td></c:otherwise>
                         </c:choose>
                     </c:forEach>
                 </tr>
             </table>
+            </div>
             <c:if test="${not empty compare.criteria}">
                 <p class="muted" style="font-size:0.78rem; margin-top:10px; margin-bottom:0;">적합도 = 맞춘 역량의 가중치 합 ÷ 전체 가중치 합(${compare.totalWeight}) × 100. 지원자가 기술 스택을 공개하지 않으면 계산하지 않습니다.</p>
             </c:if>

@@ -91,8 +91,10 @@ done
 `22_strip_emoji_from_roadmap_reason`(로드맵 단계 설명의 이모지 앞머리 정리, 여러 번 실행해도 안전) · `23_seed_certification_common`(TOEIC·TOEIC Speaking·OPIc·웹디자인개발기능사, 여러 번 실행해도 안전) ·
 `24_schema_notification`(헤더 알림 — 새 DB도 실행. 없으면 알림 버튼만 안 보이고 나머지는 동작) ·
 `26_alter_users_is_test_simulation`(테스트 계정 표시 + 시뮬레이션 진행 상태 — 01·03에도 반영돼 새 DB에서는 불필요. 맨 아래 UPDATE가 테스트용 아이디들을 `is_test = TRUE`로 표시하는데, 그 계정은 시뮬레이션 초기화로 **물리 삭제**될 수 있으니 실제로 쓰는 계정이 섞였는지 먼저 확인) ·
-`27_alter_simulation_target_score`(시뮬레이션을 "70일 고정"에서 "목표 점수에 닿을 때까지"로).
+`27_alter_simulation_target_score`(시뮬레이션을 "70일 고정"에서 "목표 점수에 닿을 때까지"로) ·
+`28_alter_share_link_scope_age`(공유 링크 나이 공개 — **없으면 공유 링크·면접관 화면이 `Unknown column 'scope_age'` 오류**).
 > 25번은 없습니다 — 알림(seongwon)과 시뮬레이션(donghyeon)의 번호가 24로 겹쳐 시뮬레이션 쪽을 26·27로 옮겼습니다.
+> 나이 공개(seongwon)도 원래 22번이었는데 로드맵 이모지 정리와 겹쳐 28번으로 옮겼습니다.
 `05_seed_survey`도 다시 실행하면 새 문항(18문항 중 없는 것)만 추가됩니다(같은 문구는 건너뜀).
 
 > ⚠ **`sql/do-not-run/`의 파일은 데이터가 든 DB에서 실행하지 마세요.** 스냅샷은 모든 테이블을 지우고 빈 테이블로 다시 만듭니다.
