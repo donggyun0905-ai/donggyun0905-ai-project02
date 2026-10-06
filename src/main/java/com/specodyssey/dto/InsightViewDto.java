@@ -1,0 +1,219 @@
+package com.specodyssey.dto;
+
+import java.util.List;
+
+/**
+ * 데이터 인사이트 화면(/insights) 출력용 묶음. 관련 요구사항: FR-45~48
+ * 카드마다 데이터가 없을 수 있으므로 각 카드 객체는 null이 아니다. 비었는지는 JSP에서 목록에
+ * `empty`를 걸어 판단한다 — `empty`가 EL 예약어라 `${x.empty}`처럼 isEmpty()를 부를 수 없다.
+ * (Tomcat 10.1의 EL은 record 접근자를 못 읽어서 getter를 직접 둔다.)
+ */
+public class InsightViewDto {
+
+    private String jobName;
+    private PeerView peer;
+    private TrendView trend;
+    private List<BenchmarkTier> benchmark;
+    private HeatmapView heatmap;
+    private List<Notice> notices;
+
+    /** FR-45 또래 비교. myScore/peerAverage는 데이터가 없으면 null. */
+    public record PeerView(String major, String grade, Integer myScore, Integer peerAverage, int peerCount,
+                           String message) {
+        public String getMajor() {
+            return major;
+        }
+
+        public String getGrade() {
+            return grade;
+        }
+
+        public Integer getMyScore() {
+            return myScore;
+        }
+
+        public Integer getPeerAverage() {
+            return peerAverage;
+        }
+
+        public int getPeerCount() {
+            return peerCount;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public boolean isComparable() {
+            return myScore != null && peerAverage != null;
+        }
+    }
+
+    /** FR-47 기술별 월별 언급 비율. months와 skills[].ratios의 순서가 같다. */
+    public record TrendView(List<String> months, List<TrendSkill> skills) {
+        public List<String> getMonths() {
+            return months;
+        }
+
+        public List<TrendSkill> getSkills() {
+            return skills;
+        }
+
+        public boolean isEmpty() {
+            return skills.isEmpty();
+        }
+    }
+
+    /** ratios: 달마다 0~100 정수, 그 달에 언급이 없으면 null. change: 직전 달 대비 증감(%p), 비교 불가면 null. */
+    public record TrendSkill(String skillName, List<Integer> ratios, Integer change) {
+        public String getSkillName() {
+            return skillName;
+        }
+
+        public List<Integer> getRatios() {
+            return ratios;
+        }
+
+        public Integer getChange() {
+            return change;
+        }
+    }
+
+    /** FR-46 합격자 참고 루트의 한 단계. */
+    public record BenchmarkTier(String tier, String label, List<String> items) {
+        public String getTier() {
+            return tier;
+        }
+
+        public String getLabel() {
+            return label;
+        }
+
+        public List<String> getItems() {
+            return items;
+        }
+    }
+
+    /**
+     * FR-48 분야(행) × 요구 수준(열) 약점 히트맵. weakest는 가장 많이 부족한 칸 설명(없으면 null).
+     * noOwnedSkills: 보유 기술이 하나도 없어 전부 "부족"으로 나오는 상태 — 표 대신 안내를 보여준다.
+     */
+    public record HeatmapView(List<String> levels, List<HeatRow> rows, int missingTotal, String weakest,
+                              boolean noOwnedSkills) {
+        public List<String> getLevels() {
+            return levels;
+        }
+
+        public List<HeatRow> getRows() {
+            return rows;
+        }
+
+        public int getMissingTotal() {
+            return missingTotal;
+        }
+
+        public String getWeakest() {
+            return weakest;
+        }
+
+        public boolean isNoOwnedSkills() {
+            return noOwnedSkills;
+        }
+
+        public HeatmapView withNoOwnedSkills(boolean value) {
+            return new HeatmapView(levels, rows, missingTotal, weakest, value);
+        }
+
+        public boolean isEmpty() {
+            return rows.isEmpty();
+        }
+    }
+
+    public record HeatRow(String category, List<HeatCell> cells) {
+        public String getCategory() {
+            return category;
+        }
+
+        public List<HeatCell> getCells() {
+            return cells;
+        }
+    }
+
+    /** shade: 0(부족 없음) ~ 3(가장 많이 부족). total이 0이면 그 직무가 요구하지 않는 칸. */
+    public record HeatCell(int missing, int total, int shade) {
+        public int getMissing() {
+            return missing;
+        }
+
+        public int getTotal() {
+            return total;
+        }
+
+        public int getShade() {
+            return shade;
+        }
+    }
+
+    /** 화면 상단 "먼저 해 볼 일" 안내 한 줄. path는 컨텍스트 경로를 뺀 링크(JSP에서 붙인다). */
+    public record Notice(String text, String path, String linkLabel) {
+        public String getText() {
+            return text;
+        }
+
+        public String getPath() {
+            return path;
+        }
+
+        public String getLinkLabel() {
+            return linkLabel;
+        }
+    }
+
+    public String getJobName() {
+        return jobName;
+    }
+
+    public void setJobName(String jobName) {
+        this.jobName = jobName;
+    }
+
+    public PeerView getPeer() {
+        return peer;
+    }
+
+    public void setPeer(PeerView peer) {
+        this.peer = peer;
+    }
+
+    public TrendView getTrend() {
+        return trend;
+    }
+
+    public void setTrend(TrendView trend) {
+        this.trend = trend;
+    }
+
+    public List<BenchmarkTier> getBenchmark() {
+        return benchmark;
+    }
+
+    public void setBenchmark(List<BenchmarkTier> benchmark) {
+        this.benchmark = benchmark;
+    }
+
+    public HeatmapView getHeatmap() {
+        return heatmap;
+    }
+
+    public void setHeatmap(HeatmapView heatmap) {
+        this.heatmap = heatmap;
+    }
+
+    public List<Notice> getNotices() {
+        return notices;
+    }
+
+    public void setNotices(List<Notice> notices) {
+        this.notices = notices;
+    }
+}
