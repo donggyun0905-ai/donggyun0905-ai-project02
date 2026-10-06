@@ -321,21 +321,8 @@ public class UserDao {
         }
     }
 
-    // 유예 중(graceCutoff 이후 신청)인 탈퇴 계정이 이 아이디를 잡고 있는지 — 가입 시 "이미 사용 중" 판단에 쓴다.
-    public boolean isLoginIdHeldByPendingWithdrawal(String loginId, java.time.LocalDateTime graceCutoff)
-            throws SQLException {
-        String sql = "SELECT 1 FROM USERS WHERE login_id = ? AND is_deleted = TRUE AND withdraw_requested_at >= ?";
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, loginId);
-            pstmt.setTimestamp(2, toTimestamp(graceCutoff));
-            try (ResultSet rs = pstmt.executeQuery()) {
-                return rs.next();
-            }
-        }
-    }
-
-    // 유예 중인 탈퇴 계정 조회 — 로그인 시 탈퇴 취소를 제안하거나 복구 코드로 비밀번호를 찾을 때 쓴다.
+    // 유예 중인 탈퇴 계정 조회 — 로그인 시 탈퇴 취소를 제안하거나, 복구 코드로 비밀번호를 찾을 때,
+    // 가입 아이디 중복 확인에서 "누가 이 아이디를 언제까지 잡고 있는지" 알려 줄 때 쓴다.
     public UserDto findPendingWithdrawalByLoginId(String loginId, java.time.LocalDateTime graceCutoff)
             throws SQLException {
         String sql = "SELECT " + COLUMNS + " FROM USERS " +

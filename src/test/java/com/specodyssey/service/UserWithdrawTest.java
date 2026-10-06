@@ -168,4 +168,38 @@ class UserWithdrawTest {
         assertThrows(UserService.PendingWithdrawalException.class, () -> userService.login(loginId, "NewPassw0rd!z"),
                 "비밀번호만 바뀌고 계정은 탈퇴 상태 그대로 — 다음 로그인에서 취소를 제안한다");
     }
+
+    @Test
+    void 아이디_확인은_살아_있는_계정과_유예_중인_탈퇴_계정을_구분해_알려_준다() throws Exception {
+        String loginId = "test_wd_chk_" + System.nanoTime();
+
+        assertTrue(userService.checkLoginId(loginId).available(), "아무도 안 쓰는 아이디");
+        assertFalse(userService.checkLoginId("  ").available(), "빈 아이디는 쓸 수 없다");
+
+        Long id = register(loginId);
+        UserService.LoginIdCheck taken = userService.checkLoginId(loginId);
+        assertFalse(taken.available());
+        assertEquals("이미 사용 중인 아이디입니다.", taken.message());
+
+        userService.withdraw(id, PASSWORD);
+        UserService.LoginIdCheck held = userService.checkLoginId(loginId);
+        assertFalse(held.available(), "유예 중에는 아직 못 쓴다");
+        assertTrue(held.message().contains("탈퇴 유예"), held.message());
+        assertTrue(held.message().contains("일 뒤"), "언제 쓸 수 있는지 알려 준다: " + held.message());
+
+        ageWithdrawal(id, UserService.WITHDRAWAL_GRACE_DAYS + 1);
+        assertTrue(userService.checkLoginId(loginId).available(), "유예가 끝나면 다시 쓸 수 있다");
+    }
+
+    @Test
+    void 아이디_확인과_가입이_같은_판단을_한다() throws Exception {
+        String loginId = "test_wd_same_" + System.nanoTime();
+        Long id = register(loginId);
+        userService.withdraw(id, PASSWORD);
+
+        UserService.LoginIdCheck check = userService.checkLoginId(loginId);
+        UserService.DuplicateLoginIdException thrown =
+                assertThrows(UserService.DuplicateLoginIdException.class, () -> register(loginId));
+        assertEquals(check.message(), thrown.getMessage(), "화면 안내와 가입 실패 문구가 같아야 한다");
+    }
 }

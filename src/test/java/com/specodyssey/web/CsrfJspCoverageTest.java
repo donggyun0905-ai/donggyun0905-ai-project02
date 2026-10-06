@@ -24,6 +24,12 @@ class CsrfJspCoverageTest {
     private static final Path WEBAPP = Paths.get("src/main/webapp");
     private static final String TOKEN_INPUT = "name=\"_csrf\" value=\"${csrfToken}\"";
 
+    // 상태를 바꾸는 자바스크립트 호출 — method를 POST/PUT/PATCH/DELETE로 적었거나 XHR을 그렇게 열었을 때
+    private static final Pattern MUTATING_JS_CALL = Pattern.compile(
+            "(method\\s*:\\s*['\"](POST|PUT|PATCH|DELETE)['\"])"
+                    + "|(\\.open\\s*\\(\\s*['\"](POST|PUT|PATCH|DELETE)['\"])",
+            Pattern.CASE_INSENSITIVE);
+
     private static List<Path> jsps() throws IOException {
         try (Stream<Path> files = Files.walk(WEBAPP)) {
             List<Path> result = new ArrayList<>();
@@ -91,10 +97,16 @@ class CsrfJspCoverageTest {
     void 자바스크립트로_보내는_POST는_토큰_헤더를_함께_보낸다() throws IOException {
         for (Path jsp : jsps()) {
             String text = Files.readString(jsp);
-            if (text.contains("fetch(") || text.contains("XMLHttpRequest")) {
-                assertTrue(text.contains("X-CSRF-Token") && text.contains("${csrfToken}"),
-                        jsp + " — fetch/XHR POST에 X-CSRF-Token 헤더가 없다");
+            if (!text.contains("fetch(") && !text.contains("XMLHttpRequest")) {
+                continue;
             }
+            // fetch의 기본 메서드는 GET이라 상태를 바꾸는 호출은 반드시 method를 직접 적는다.
+            // 읽기만 하는 GET 호출(예: 가입 화면의 아이디 중복 확인)에는 CSRF 토큰이 필요 없다.
+            if (!MUTATING_JS_CALL.matcher(text).find()) {
+                continue;
+            }
+            assertTrue(text.contains("X-CSRF-Token") && text.contains("${csrfToken}"),
+                    jsp + " — fetch/XHR POST에 X-CSRF-Token 헤더가 없다");
         }
     }
 }

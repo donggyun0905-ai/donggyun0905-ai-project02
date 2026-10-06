@@ -48,6 +48,36 @@ public class UserService {
         return LocalDateTime.now().minusDays(WITHDRAWAL_GRACE_DAYS);
     }
 
+    /** FR-14 아이디 실시간 확인 결과. available이 false면 message를 입력칸 아래에 그대로 보여 준다. */
+    public record LoginIdCheck(boolean available, String message) {
+    }
+
+    /**
+     * FR-14 아이디를 쓸 수 있는지 — 가입 화면이 입력칸을 벗어날 때마다 물어본다.
+     * 가입할 때(newUser)와 같은 기준으로 판단해서 두 곳의 안내 문구가 어긋나지 않게 한다.
+     */
+    public LoginIdCheck checkLoginId(String loginId) throws SQLException {
+        String trimmed = loginId == null ? "" : loginId.trim();
+        if (trimmed.isEmpty() || trimmed.length() > LOGIN_ID_MAX_LENGTH) {
+            return new LoginIdCheck(false, "아이디는 1~" + LOGIN_ID_MAX_LENGTH + "자로 입력해주세요.");
+        }
+        if (userDao.existsByLoginId(trimmed)) {
+            return new LoginIdCheck(false, "이미 사용 중인 아이디입니다.");
+        }
+        UserDto pending = userDao.findPendingWithdrawalByLoginId(trimmed, graceCutoff());
+        if (pending != null) {
+            return new LoginIdCheck(false, pendingWithdrawalMessage(pending));
+        }
+        return new LoginIdCheck(true, "사용할 수 있는 아이디입니다.");
+    }
+
+    // 유예가 끝나면 아이디가 자동으로 풀리므로, 막혔다는 말만 하지 않고 언제 쓸 수 있는지 같이 알려 준다
+    private static String pendingWithdrawalMessage(UserDto pending) {
+        LocalDateTime freeAt = pending.getWithdrawRequestedAt().plusDays(WITHDRAWAL_GRACE_DAYS);
+        long days = java.time.temporal.ChronoUnit.DAYS.between(LocalDateTime.now(), freeAt);
+        return "탈퇴 유예 중인 계정이 쓰고 있는 아이디입니다. " + Math.max(1, days) + "일 뒤에 쓸 수 있어요.";
+    }
+
     public static class DuplicateLoginIdException extends Exception {
         public DuplicateLoginIdException(String message) {
             super(message);
@@ -107,10 +137,14 @@ public class UserService {
         requirePasswordRule(rawPassword);
 
         LocalDateTime cutoff = graceCutoff();
-        // 유예 중인 탈퇴 계정의 아이디도 "사용 중" — 그 사람이 탈퇴를 취소하면 원래 아이디로 돌아와야 한다
-        if (userDao.existsByLoginId(trimmedLoginId)
-                || userDao.isLoginIdHeldByPendingWithdrawal(trimmedLoginId, cutoff)) {
+        if (userDao.existsByLoginId(trimmedLoginId)) {
             throw new DuplicateLoginIdException("이미 사용 중인 아이디입니다.");
+        }
+        // 유예 중인 탈퇴 계정의 아이디도 "사용 중" — 그 사람이 탈퇴를 취소하면 원래 아이디로 돌아와야 한다.
+        // 그냥 "사용 중"이라고만 하면 왜 막혔는지 알 수 없어서, 언제 풀리는지까지 알려 준다.
+        UserDto pendingHolder = userDao.findPendingWithdrawalByLoginId(trimmedLoginId, cutoff);
+        if (pendingHolder != null) {
+            throw new DuplicateLoginIdException(pendingWithdrawalMessage(pendingHolder));
         }
         // 유예가 없는 예전 탈퇴 계정이나 유예가 끝난 계정이 아이디를 쥐고 있으면(UNIQUE) 가입이 막히므로 여기서 비워 준다
         userDao.releaseDeletedLoginId(trimmedLoginId, cutoff);
