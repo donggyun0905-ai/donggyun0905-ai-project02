@@ -86,7 +86,8 @@ done
 `17_schema_scoring_rule`(점수·주기 규칙, 없어도 기본값으로 동작) · `18_fix_withdrawn_login_id`(**21을 적용한 뒤에는 실행 금지** — 탈퇴 유예 중인 아이디까지 비움) · `19_alter_tech_article_spec_archive`(스펙 아카이브) ·
 `19_seed_skill_alias_more`(기술 별칭 보강, 여러 번 실행해도 안전) · `20_alter_attachment_file_data`(스펙 아카이브 사진을 DB에) ·
 `21_alter_users_withdraw_requested_at`(탈퇴 30일 유예, **없으면 로그인부터 `Unknown column 'withdraw_requested_at'` 오류**) ·
-`22_strip_emoji_from_roadmap_reason`(로드맵 단계 설명의 이모지 앞머리 정리, 여러 번 실행해도 안전) · `23_seed_certification_common`(TOEIC·TOEIC Speaking·OPIc·웹디자인개발기능사, 여러 번 실행해도 안전).
+`22_strip_emoji_from_roadmap_reason`(로드맵 단계 설명의 이모지 앞머리 정리, 여러 번 실행해도 안전) · `23_seed_certification_common`(TOEIC·TOEIC Speaking·OPIc·웹디자인개발기능사, 여러 번 실행해도 안전) ·
+`24_schema_notification`(헤더 알림 — 새 DB도 실행. 없으면 알림 버튼만 안 보이고 나머지는 동작).
 `05_seed_survey`도 다시 실행하면 새 문항(18문항 중 없는 것)만 추가됩니다(같은 문구는 건너뜀).
 
 > ⚠ **`sql/do-not-run/`의 파일은 데이터가 든 DB에서 실행하지 마세요.** 스냅샷은 모든 테이블을 지우고 빈 테이블로 다시 만듭니다.

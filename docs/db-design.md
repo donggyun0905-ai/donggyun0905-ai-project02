@@ -85,6 +85,7 @@ erDiagram
     USERS ||--o{ DOCUMENTS : "업로드"
     USER_PROJECTS ||--o{ DOCUMENTS : "연결"
     USERS ||--o{ DDAY_ALERT : "등록"
+    USERS ||--o{ NOTIFICATION : "받음"
     USERS ||--o{ AI_USAGE_LOG : "제출"
     SKILL ||--o{ EVALUATION_CRITERIA : "요구 역량"
     JOB ||--o{ JOB_ALIAS : "별칭"
@@ -1216,7 +1217,7 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | 글 공개 범위(비공개·링크 공유)가 필요한가? | status에 값 추가 또는 visibility 컬럼 |
 | 본문에 이미지를 넣을 수 있게 할까? | DOCUMENTS 연결 컬럼 또는 별도 첨부 테이블 |
 | 댓글에도 하트를 달까? | TECH_ARTICLE_COMMENT_LIKE 신설 |
-| 새 댓글·하트 **알림**이 필요한가? | 알림 테이블 신설 (지금 서비스에 알림 테이블 없음) |
+| 새 댓글·하트 **알림**이 필요한가? | 댓글·답글 알림은 NOTIFICATION으로 반영(2026-10-06). 하트 알림은 아직 없음 |
 | 인기 글 정렬 기준은 조회수? 하트? 둘의 가중 합? | 인덱스·집계 쿼리 |
 
 ### 부가·시스템
@@ -1270,6 +1271,32 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 
 - cert_schedule_id가 있으면 자격증 마스터에서 일정을 끌어와 자동 생성된다. 없으면 사용자가 직접 입력한 커스텀 일정이다.
 - is_notified는 이메일 발송 여부(FR-73, [선택]). USERS.email이 있어야 동작한다.
+
+#### NOTIFICATION (알림) — 신설
+
+관련 요구사항: FR-71 · 72 (D-day), 스펙 아카이브 댓글, 공유 링크 열람 · 2026-10-06 추가 (`sql/24_schema_notification.sql`)
+
+헤더 알림 버튼(빨간 표시·안 읽은 개수)과 알림 목록이 읽는 곳. 받는 사람 기준으로 한 줄씩 쌓는다.
+
+| 컬럼 | 타입 | 키 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK | 식별자 |
+| `user_id` | BIGINT | FK | → USERS (받는 사람) |
+| `noti_type` | VARCHAR(30) |  | COMMENT(내 글에 댓글) / REPLY(내 댓글에 답글) / SHARE_VIEW(면접관 열람) / DDAY(D-day 하루 전·당일) / MISSION(미션 마감 1시간 전) |
+| `message` | VARCHAR(200) |  | 화면에 보여줄 문구 (만들 때 완성해서 저장) |
+| `link_url` | VARCHAR(300) |  | 누르면 이동할 앱 안 경로 (컨텍스트 경로 제외, '/'로 시작) |
+| `ref_key` | VARCHAR(100) |  | 중복 방지 키 — comment:<댓글 id> / view:<열람 기록 id> / dday:<D-day id>:<목표일>(하루 전) / dday-today:<D-day id>:<목표일>(당일) / mission:<날짜> |
+| `is_read` | BOOLEAN |  | 읽음 여부 — 안 읽은 개수가 헤더 숫자 |
+
+**복합 UNIQUE**: (user_id, noti_type, ref_key) — 스케줄러가 재기동으로 두 번 돌아도 같은 알림이 한 번만 쌓이게
+
+설계 판단:
+
+- 알림을 그때그때 다른 테이블에서 계산하지 않고 저장하는 이유: "읽음"을 기록할 곳이 있어야 확인한 알림의 빨간 표시가 사라진다.
+- 댓글·열람 알림은 그 동작이 끝난 뒤 바로 넣고(실패해도 댓글·열람은 그대로), D-day 하루 전·당일(09:00)과 미션(23:00)은 `NotificationScheduler`가 INSERT … SELECT 한 번으로 넣는다.
+- 미션 알림의 "안 푼 사람"은 오늘 배정된 미션 중 미완료가 있거나, 아직 배정이 없는(오늘 접속 안 한) 지원자다. 미션은 접속할 때 배정되기 때문이다.
+- 면접관 열람은 열 때마다 알린다(열람 기록 id가 ref_key). 지원자 본인이 미리보기로 연 것은 열람 기록도 알림도 남기지 않는다.
+- message를 저장해 두는 이유: 글 제목·링크 이름이 나중에 바뀌어도 알림을 받은 그때의 문구를 그대로 보여준다.
 
 #### EXTERNAL_API_CACHE (외부 API 캐시) — 신설
 
@@ -1334,6 +1361,7 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | EVALUATION_SESSION_ITEM | (session_id, share_link_id) — 같은 지원자를 장바구니에 두 번 담지 못하게 |
 | EVALUATION_CRITERIA | (session_id, skill_id) — 같은 역량에 가중치가 두 개 생기지 않게 |
 | DDAY_ALERT | (user_id, cert_schedule_id) — 같은 시험 일정 D-day 중복 등록 방지 |
+| NOTIFICATION | (user_id, noti_type, ref_key) — 같은 이벤트·같은 날 알림이 두 번 쌓이지 않게 |
 | EXTERNAL_API_CACHE | (api_type, request_key) — 단독 UNIQUE는 버그, 서로 다른 API의 같은 요청이 덮어써짐 |
 | PROJECT_TECH_NOTE | (project_id, skill_id) — 한 프로젝트에서 같은 기술의 설명서가 두 개 생기지 않게 |
 | PROJECT_DOCUMENT_ITEM | (project_id, doc_type) — 같은 종류 문서를 중복 체크하지 않게 |

@@ -71,6 +71,7 @@ public class ShareViewService {
     private final CertificationDao certificationDao = new CertificationDao();
     private final RoadmapDao roadmapDao = new RoadmapDao();
     private final RoadmapStepDao roadmapStepDao = new RoadmapStepDao();
+    private final NotificationService notificationService = new NotificationService();
 
     /**
      * @param viewerUserId 로그인한 사람이 열었으면 그 사용자 id, 아니면 null
@@ -84,7 +85,11 @@ public class ShareViewService {
         ShareViewDto view = buildView(link);
         // 지원자 본인이 미리보기로 연 것은 열람 횟수에 넣지 않는다
         if (view != null && !link.getUserId().equals(viewerUserId)) {
-            recordView(link.getId(), viewerIp);
+            Long viewLogId = recordView(link.getId(), viewerIp);
+            // 지원자에게 "면접관이 열람했다" 알림 — 열 때마다 하나씩 (열람 기록이 남았을 때만)
+            if (viewLogId != null) {
+                notificationService.notifyShareView(link.getUserId(), link.getLabel(), viewLogId);
+            }
         }
         return view;
     }
@@ -284,15 +289,16 @@ public class ShareViewService {
     }
 
     // NFR-9 열람 기록. 기록에 실패했다고 면접관 화면까지 막지는 않는다.
-    private void recordView(Long shareLinkId, String viewerIp) {
+    private Long recordView(Long shareLinkId, String viewerIp) {
         ShareLinkViewLogDto log = new ShareLinkViewLogDto();
         log.setShareLinkId(shareLinkId);
         log.setViewedAt(LocalDateTime.now());
         log.setViewerIp(viewerIp);
         try {
-            viewLogDao.insert(log);
+            return viewLogDao.insert(log);
         } catch (SQLException e) {
             LOG.log(Level.WARNING, "공유 링크 열람 기록 저장 실패", e);
+            return null;
         }
     }
 

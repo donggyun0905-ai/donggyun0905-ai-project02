@@ -48,6 +48,8 @@ class ShareLinkServiceTest {
     static void tearDown() throws Exception {
         try (Connection conn = DBUtil.getConnection()) {
             TestFixtures.hardDeleteByColumn(conn, "SHARE_LINK", "user_id", userId);
+            // 공유 링크 열람은 알림을 남긴다 — NOTIFICATION이 USERS를 RESTRICT로 잡는다
+            TestFixtures.hardDeleteByColumn(conn, "NOTIFICATION", "user_id", userId);
             TestFixtures.hardDelete(conn, "USERS", userId);
         }
     }

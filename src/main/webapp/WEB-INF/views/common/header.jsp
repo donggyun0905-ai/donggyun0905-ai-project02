@@ -10,6 +10,7 @@
     <title>${empty pageTitle ? '스펙 오디세이' : pageTitle}</title>
     <link rel="stylesheet" href="${ctx}/css/style.css">
     <link rel="stylesheet" href="${ctx}/css/icons.css">
+    <link rel="stylesheet" href="${ctx}/css/notification.css">
 </head>
 <body class="${sideWidgets ? 'has-side' : ''}">
 <input type="checkbox" id="nav-toggle">
@@ -20,6 +21,8 @@
     <a class="brand" href="${ctx}/"><img src="${ctx}/image/logo.png" alt="로고">스펙 오디세이</a>
     <span class="spacer"></span>
     <c:if test="${not empty sessionScope.loginUser}">
+        <%-- 알림 버튼 — 등급 배지 왼쪽 (내용은 notification-bell.jsp) --%>
+        <jsp:include page="/WEB-INF/views/common/notification-bell.jsp" />
         <%-- 면접관 계정은 점수·등급이 없다 --%>
         <c:if test="${not empty currentTier and sessionScope.loginUser.userType != 'INTERVIEWER'}">
             <span class="tier-badge">

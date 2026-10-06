@@ -88,6 +88,8 @@ class ShareViewServiceTest {
             TestFixtures.hardDeleteByColumn(conn, "USER_SKILLS", "user_id", userId);
             TestFixtures.hardDeleteByColumn(conn, "USER_SPECS", "user_id", userId);
             TestFixtures.hardDeleteByColumn(conn, "USER_PROJECTS", "user_id", userId);
+            // 공유 링크 열람은 알림을 남긴다 — NOTIFICATION이 USERS를 RESTRICT로 잡는다
+            TestFixtures.hardDeleteByColumn(conn, "NOTIFICATION", "user_id", userId);
             TestFixtures.hardDelete(conn, "USERS", userId);
         }
     }
