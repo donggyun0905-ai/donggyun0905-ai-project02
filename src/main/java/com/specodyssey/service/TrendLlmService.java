@@ -1,24 +1,20 @@
 package com.specodyssey.service;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.google.gson.annotations.SerializedName;
 import com.specodyssey.dto.JobDto;
-import com.specodyssey.util.AppConfig;
-import com.specodyssey.util.GroqRetryAfterClient;
 import com.specodyssey.util.ExternalApiClient.ExternalApiException;
+import com.specodyssey.util.GroqLlmClient;
+import com.specodyssey.util.LlmClient;
+import com.specodyssey.util.LlmRetryPolicy;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.Duration;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -27,26 +23,24 @@ import java.util.stream.Collectors;
  * 관련 요구사항: FR-54 트렌드 기술 노출, FR-55 직무 연관 필터링
  * 관련 규칙: claude.md "LLM 응답은 JSON으로 받고 파싱 실패를 예외 처리한다" — 형식이 어긋나면 예외를 던져
  * 호출부(TrendCollectService)가 저장 없이 직전 데이터를 유지하게 한다. 서버 코드에서만 호출한다.
+ *
+ * 호출·재시도는 공용 LlmClient(GroqLlmClient)에 맡긴다 (2026-10-06 — 예전엔 이 클래스가 Groq를 직접 부르고
+ * 400을 4번 연달아 재시도했다). 스케줄러 배치라 재시도는 LlmRetryPolicy.BATCH(429에 20·40·60초 대기)를 쓴다.
+ * 후보 글이 매일 달라 같은 프롬프트가 거의 없으므로 캐시는 씌우지 않는다 — 실패하면 직전 데이터 유지로 충분하다.
  */
 public class TrendLlmService {
 
-    private static final Logger LOG = Logger.getLogger(TrendLlmService.class.getName());
-    private static final String ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
-    private static final String DEFAULT_MODEL = "openai/gpt-oss-120b";
-    private static final Duration TIMEOUT = Duration.ofSeconds(60);
+    private static final double TEMPERATURE = 0.2;
+    // gpt-oss는 추론에 토큰을 쓴다 — 후보가 많으면 출력이 잘려 형식 오류가 나므로 한도를 넉넉히 둔다
+    private static final int MAX_COMPLETION_TOKENS = 8000;
     private static final int MAX_TECHS = 20;
     private static final int CHUNK_SIZE = 80;
-    private static final int MAX_RETRIES = 4;
-    private static final long RETRY_WAIT_MS = 20_000;
-    // retry-after는 한도가 풀리는 시각이라 딱 맞춰 보내면 다시 걸릴 수 있어 조금 더 기다린다. 비정상적으로 긴 값은 상한으로 자른다.
-    private static final Duration RETRY_AFTER_MARGIN = Duration.ofMillis(500);
-    private static final Duration MAX_RETRY_WAIT = Duration.ofSeconds(60);
     private static final int MAX_SUMMARY_LENGTH = 200;
     private static final int MAX_TECH_NAME_LENGTH = 100;
     private static final BigDecimal MIN_RELEVANCE = new BigDecimal("0.5");
-    private static final Pattern TRAILING_QUALIFIER = Pattern.compile("\\s*[(（][^()（）]*[)）]$");
+    // "Jira (Sub-task under Epic)"처럼 뒤에 붙은 괄호 설명을 떼어 같은 도구를 하나로 모은다 (seongwon FR-55)
+    private static final Pattern TRAILING_QUALIFIER = Pattern.compile("\s*[(（][^()（）]*[)）]$");
 
-    // FR-55 직군별 보충 수집 때 "이 직군에서 기술로 인정할 것" — 개발 직군이 아니면 도구·방법론이 곧 이력서에 쓰는 기술이다
     private static final Map<String, String> CATEGORY_FOCUS = Map.of(
             "BACKEND", "백엔드 개발: 서버 언어·프레임워크, API 설계, 데이터베이스, 메시징, 캐시, 테스트 기법",
             "FRONTEND", "프론트엔드 개발: 웹 언어·프레임워크, 상태 관리, 빌드 도구, CSS 기법, 웹 접근성·성능 기법",
@@ -59,6 +53,37 @@ public class TrendLlmService {
     /** 정리 결과 1건. candidateIndex는 입력 후보 목록의 위치, jobRelevance는 job_id → 연관도(0~1), confidence는 "취업 준비생이 배울 만한 확실한 기술"이라는 LLM의 확신도(0~1). */
     public record TrendItem(int candidateIndex, String techName, String summary, BigDecimal confidence,
                            Map<Long, BigDecimal> jobRelevance) {
+    }
+
+    // LLM 응답 형식 — {"items":[{"index":0,"tech_name":"","summary":"","confidence":0.9,"jobs":[{"job_id":1,"relevance":0.9}]}]}
+    static class Response {
+        List<Item> items;
+    }
+
+    static class Item {
+        Integer index;
+        @SerializedName("tech_name")
+        String techName;
+        String summary;
+        BigDecimal confidence;
+        List<JobRelevance> jobs;
+    }
+
+    static class JobRelevance {
+        @SerializedName("job_id")
+        Long jobId;
+        BigDecimal relevance;
+    }
+
+    private final LlmClient llm;
+
+    public TrendLlmService() {
+        this(GroqLlmClient.fromConfig().withSettings(TEMPERATURE, MAX_COMPLETION_TOKENS).withRetryPolicy(LlmRetryPolicy.BATCH));
+    }
+
+    // 테스트에서 StubLlmClient를 넣는다
+    public TrendLlmService(LlmClient llm) {
+        this.llm = llm;
     }
 
     /** 후보를 나눠 여러 번 호출하고 결과를 합친다. 같은 기술은 먼저 나온 것 하나만 남긴다. */
@@ -86,70 +111,12 @@ public class TrendLlmService {
         return all;
     }
 
-    private List<TrendItem> organizeChunk(List<String> candidateTexts, List<JobDto> jobs, String focusCategory)
-            throws ExternalApiException {
-        String apiKey = AppConfig.get("GROQ_API_KEY");
-        if (apiKey == null) {
-            throw new ExternalApiException("GROQ_API_KEY가 설정되지 않았습니다 (config.properties 또는 환경변수)", null);
-        }
-        String model = AppConfig.get("GROQ_MODEL");
-
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("model", model == null ? DEFAULT_MODEL : model);
-        body.put("temperature", 0.2);
-        // gpt-oss는 추론에 토큰을 쓴다 — 후보가 많으면 출력이 잘려 JSON 검증 오류(400)가 나므로 추론을 줄이고 한도를 넉넉히 둔다
-        body.put("reasoning_effort", "low");
-        body.put("max_completion_tokens", 8000);
-        body.put("response_format", Map.of("type", "json_object"));
-        body.put("messages", List.of(
-                Map.of("role", "system", "content", systemPrompt(focusCategory)),
-                Map.of("role", "user", "content", userPrompt(candidateTexts, jobs))));
-
-        String response = post(body, apiKey);
-        return parse(response, candidateTexts.size(), jobs.stream().map(JobDto::getId).collect(Collectors.toSet()));
+    private List<TrendItem> organizeChunk(List<String> candidateTexts, List<JobDto> jobs,
+            String focusCategory) throws ExternalApiException {
+        Response response = llm.completeJson(systemPrompt(focusCategory) + "\n\n" + userPrompt(candidateTexts, jobs), Response.class);
+        return toItems(response, candidateTexts.size(), jobs.stream().map(JobDto::getId).collect(Collectors.toSet()));
     }
 
-    // 일시적 실패는 다시 시도한다.
-    // - 429: Groq 무료 한도(분당 토큰) 초과 — Groq가 retry-after 헤더로 알려주는 시간만큼만 기다렸다가 재시도
-    //        (예전엔 20·40·60초 고정이라 몇 초면 풀릴 한도에도 수 분씩 기다렸다). 헤더가 없으면 예전 방식으로 기다린다.
-    // - 400: 모델이 JSON 형식을 어긴 출력을 내면 Groq가 검증 실패로 400을 돌려준다(샘플링 탓의 간헐적 실패) — 바로 재시도
-    private String post(Map<String, Object> body, String apiKey) throws ExternalApiException {
-        for (int attempt = 1; ; attempt++) {
-            GroqRetryAfterClient.Response response = GroqRetryAfterClient.postJson(
-                    ENDPOINT, body, Map.of("Authorization", "Bearer " + apiKey), TIMEOUT);
-            if (response.isSuccess()) {
-                return response.body();
-            }
-            int status = response.statusCode();
-            ExternalApiException failure = new ExternalApiException(
-                    "외부 API 응답 실패: HTTP " + status + " (" + ENDPOINT + ")", null, status);
-            if ((status != 429 && status != 400) || attempt >= MAX_RETRIES) {
-                throw failure;
-            }
-            if (status == 429) {
-                Duration wait = retryWait(response.retryAfter(), attempt);
-                LOG.info("Groq 요청 한도 초과(429) — " + wait.toMillis() + "ms 후 재시도 (" + attempt + "/" + (MAX_RETRIES - 1)
-                        + ", retry-after " + (response.retryAfter() == null ? "없음" : response.retryAfter().toMillis() + "ms") + ")");
-                try {
-                    Thread.sleep(wait.toMillis());
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    throw failure;
-                }
-            } else {
-                LOG.info("Groq JSON 검증 실패(400) — 바로 재시도 (" + attempt + "/" + (MAX_RETRIES - 1) + ")");
-            }
-        }
-    }
-
-    /** 429 대기 시간 — retry-after에 여유분을 더하되 상한을 둔다. 헤더가 없으면 예전처럼 RETRY_WAIT_MS × 시도 횟수. */
-    static Duration retryWait(Duration retryAfter, int attempt) {
-        if (retryAfter == null) {
-            return Duration.ofMillis(RETRY_WAIT_MS * attempt);
-        }
-        Duration wait = retryAfter.plus(RETRY_AFTER_MARGIN);
-        return wait.compareTo(MAX_RETRY_WAIT) > 0 ? MAX_RETRY_WAIT : wait;
-    }
 
     private String systemPrompt(String focusCategory) {
         String focus = focusCategory == null ? null : CATEGORY_FOCUS.get(focusCategory);
@@ -190,60 +157,53 @@ public class TrendLlmService {
         return sb.toString();
     }
 
-    /**
-     * 기술명 끝의 괄호 설명을 뗀다 — LLM이 "Jira (Clear Done Column)"처럼 같은 기술을 기능별로 쪼개 내놓아도 한 기술로 보게 한다.
-     * 예: "Amazon Web Services (AWS)" → "Amazon Web Services". 괄호만 있는 이름이면 원래 이름을 그대로 둔다.
-     */
+
+    // LLM 출력은 신뢰하지 않는다 — 범위 밖 번호·모르는 직무·비정상 값은 버리고, 목록 자체가 없으면 예외 (NFR-6)
+    /** 기술명 뒤의 괄호 설명을 뗀 이름 — 같은 도구가 여러 이름으로 쌓이지 않게 한다 (FR-55) */
     static String baseTechName(String techName) {
         String trimmed = techName.trim();
         String base = TRAILING_QUALIFIER.matcher(trimmed).replaceFirst("").trim();
         return base.isEmpty() ? trimmed : base;
     }
 
-    // LLM 출력은 신뢰하지 않는다 — 범위 밖 번호·모르는 직무·비정상 값은 버리고, 형식 자체가 틀리면 예외
-    private List<TrendItem> parse(String response, int candidateCount, Set<Long> validJobIds)
+    static List<TrendItem> toItems(Response response, int candidateCount, Set<Long> validJobIds)
             throws ExternalApiException {
-        try {
-            String content = JsonParser.parseString(response).getAsJsonObject()
-                    .getAsJsonArray("choices").get(0).getAsJsonObject()
-                    .getAsJsonObject("message").get("content").getAsString();
-            JsonArray items = JsonParser.parseString(content).getAsJsonObject().getAsJsonArray("items");
-
-            List<TrendItem> result = new ArrayList<>();
-            Set<String> seenTech = new java.util.HashSet<>();
-            for (JsonElement element : items) {
-                JsonObject item = element.getAsJsonObject();
-                int index = item.get("index").getAsInt();
-                String techName = baseTechName(item.get("tech_name").getAsString());
-                String summary = item.get("summary").getAsString().trim();
-                if (index < 0 || index >= candidateCount || techName.isEmpty() || summary.isEmpty()
-                        || techName.length() > MAX_TECH_NAME_LENGTH || !seenTech.add(techName.toLowerCase())) {
-                    continue;
-                }
-                if (summary.length() > MAX_SUMMARY_LENGTH) {
-                    summary = summary.substring(0, MAX_SUMMARY_LENGTH);
-                }
-                BigDecimal confidence = item.has("confidence") && !item.get("confidence").isJsonNull()
-                        ? item.get("confidence").getAsBigDecimal().max(BigDecimal.ZERO).min(BigDecimal.ONE)
-                        : BigDecimal.ZERO; // 확신도가 없으면 통과시키지 않도록 0으로 둔다
-                Map<Long, BigDecimal> relevance = new LinkedHashMap<>();
-                JsonArray jobs = item.getAsJsonArray("jobs");
-                if (jobs != null) {
-                    for (JsonElement j : jobs) {
-                        long jobId = j.getAsJsonObject().get("job_id").getAsLong();
-                        BigDecimal score = j.getAsJsonObject().get("relevance").getAsBigDecimal()
-                                .max(BigDecimal.ZERO).min(BigDecimal.ONE).setScale(4, RoundingMode.HALF_UP);
-                        if (validJobIds.contains(jobId) && score.compareTo(MIN_RELEVANCE) >= 0) {
-                            relevance.put(jobId, score);
-                        }
+        if (response == null || response.items == null) {
+            throw new ExternalApiException("LLM 응답에 items가 없습니다", null, LlmRetryPolicy.FORMAT_ERROR);
+        }
+        List<TrendItem> result = new ArrayList<>();
+        Set<String> seenTech = new HashSet<>();
+        for (Item item : response.items) {
+            if (item == null || item.index == null || item.techName == null || item.summary == null) {
+                continue;
+            }
+            int index = item.index;
+            String techName = baseTechName(item.techName);
+            String summary = item.summary.trim();
+            if (index < 0 || index >= candidateCount || techName.isEmpty() || summary.isEmpty()
+                    || techName.length() > MAX_TECH_NAME_LENGTH || !seenTech.add(techName.toLowerCase())) {
+                continue;
+            }
+            if (summary.length() > MAX_SUMMARY_LENGTH) {
+                summary = summary.substring(0, MAX_SUMMARY_LENGTH);
+            }
+            BigDecimal confidence = item.confidence == null
+                    ? BigDecimal.ZERO // 확신도가 없으면 통과시키지 않도록 0으로 둔다
+                    : item.confidence.max(BigDecimal.ZERO).min(BigDecimal.ONE);
+            Map<Long, BigDecimal> relevance = new LinkedHashMap<>();
+            if (item.jobs != null) {
+                for (JobRelevance j : item.jobs) {
+                    if (j == null || j.jobId == null || j.relevance == null) {
+                        continue;
+                    }
+                    BigDecimal score = j.relevance.max(BigDecimal.ZERO).min(BigDecimal.ONE).setScale(4, RoundingMode.HALF_UP);
+                    if (validJobIds.contains(j.jobId) && score.compareTo(MIN_RELEVANCE) >= 0) {
+                        relevance.put(j.jobId, score);
                     }
                 }
-                result.add(new TrendItem(index, techName, summary, confidence, relevance));
             }
-            return result;
-        } catch (RuntimeException e) {
-            // JsonSyntaxException, NPE, IllegalStateException, IndexOutOfBounds 등 응답 형식 오류 전부 (NFR-6)
-            throw new ExternalApiException("LLM 응답 JSON 파싱 실패", e);
+            result.add(new TrendItem(index, techName, summary, confidence, relevance));
         }
+        return result;
     }
 }

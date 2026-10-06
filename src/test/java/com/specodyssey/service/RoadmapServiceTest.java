@@ -173,6 +173,8 @@ class RoadmapServiceTest {
             }
             TestFixtures.hardDeleteByColumn(conn, "ROADMAP", "user_id", userId);
             TestFixtures.hardDeleteByColumn(conn, "SCORE_LOG", "user_id", userId);
+            // 공유 DB라 다른 실행(대시보드·자정 스케줄러)이 테스트 사용자에게 점수 기록을 남길 수 있다 — 안 지우면 USERS 삭제가 FK에 막힌다
+            TestFixtures.hardDeleteByColumn(conn, "SPEC_SCORE_HISTORY", "user_id", userId);
             TestFixtures.hardDeleteByColumn(conn, "USER_SCORE_SUMMARY", "user_id", userId);
             TestFixtures.hardDeleteByColumn(conn, "USER_SKILLS", "user_id", userId);
             TestFixtures.hardDeleteByColumn(conn, "USER_SPECS", "user_id", userId);
@@ -1635,6 +1637,31 @@ class RoadmapServiceTest {
                 TestFixtures.hardDelete(conn, "SKILL", extraSkillId);
             }
         }
+    }
+
+    // FR-111 재시도 버튼 (2026-10-06, E 추가) — 기본 문구로 대체된 프로젝트 단계만 다시 받고, 나머지 단계는 그대로 둔다
+    @Test
+    void 프로젝트_추천을_다시_시도하면_기본_문구였던_단계만_AI_추천으로_바뀐다() throws Exception {
+        RoadmapService down = new RoadmapService(new ProjectIdeaService(StubLlmClient.failing(503)));
+        Long roadmapId = down.generate(userId);
+        List<RoadmapStepDto> before = roadmapService.getSteps(roadmapId);
+        RoadmapStepDto project = before.stream().filter(s -> "PROJECT".equals(s.getStepType())).findFirst().orElseThrow();
+        assertTrue(project.getReason().startsWith(RoadmapGenerator.PROJECT_FALLBACK_PREFIX), project.getReason());
+
+        assertEquals(0, down.retryProjectIdea(userId), "또 실패하면 아무것도 바꾸지 않는다");
+        assertEquals(1, roadmapService.retryProjectIdea(userId));
+
+        List<RoadmapStepDto> after = roadmapService.getSteps(roadmapId);
+        RoadmapStepDto retried = after.stream().filter(s -> s.getId().equals(project.getId())).findFirst().orElseThrow();
+        assertFalse(retried.getReason().startsWith(RoadmapGenerator.PROJECT_FALLBACK_PREFIX), retried.getReason());
+        assertEquals(before.size(), after.size(), "단계를 더하거나 빼지 않는다");
+        for (RoadmapStepDto step : after) {
+            if (!step.getId().equals(project.getId())) {
+                RoadmapStepDto old = before.stream().filter(s -> s.getId().equals(step.getId())).findFirst().orElseThrow();
+                assertEquals(old.getReason(), step.getReason(), "다른 단계의 문구는 그대로");
+            }
+        }
+        assertEquals(0, roadmapService.retryProjectIdea(userId), "이미 AI 추천이 들어간 단계는 다시 부르지 않는다");
     }
 
     @Test

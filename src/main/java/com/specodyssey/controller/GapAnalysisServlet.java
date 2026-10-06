@@ -73,6 +73,8 @@ public class GapAnalysisServlet extends HttpServlet {
             }
 
             List<GapAnalysisItemDto> items = gapAnalysisService.getItems(analysis.getId());
+            // FR-113·TD-2 — 추정치 요구 기술엔 "예시적 추정", 공고가 적은 직무엔 안내 (2026-10-06)
+            GapAnalysisService.RequirementSource source = gapAnalysisService.getRequirementSource(targetJobId);
             List<GapItemView> itemViews = new ArrayList<>();
             int metCount = 0;
             for (GapAnalysisItemDto item : items) {
@@ -81,8 +83,10 @@ public class GapAnalysisServlet extends HttpServlet {
                 if (met) {
                     metCount++;
                 }
-                itemViews.add(new GapItemView(skill == null ? "(알 수 없음)" : skill.getSkillName(), met));
+                itemViews.add(new GapItemView(skill == null ? "(알 수 없음)" : skill.getSkillName(), met,
+                        source.isEstimated(item.getSkillId())));
             }
+            req.setAttribute("requirementSource", source);
 
             req.setAttribute("job", job);
             req.setAttribute("analysis", analysis);
@@ -119,10 +123,21 @@ public class GapAnalysisServlet extends HttpServlet {
     public static final class GapItemView {
         private final String skillName;
         private final boolean met;
+        private final boolean estimated;
 
         public GapItemView(String skillName, boolean met) {
+            this(skillName, met, false);
+        }
+
+        public GapItemView(String skillName, boolean met, boolean estimated) {
             this.skillName = skillName;
             this.met = met;
+            this.estimated = estimated;
+        }
+
+        /** 이 요구 기술이 실제 공고가 아니라 추정치(JOB_REQUIRED_SKILL.is_estimated)인지 */
+        public boolean isEstimated() {
+            return estimated;
         }
 
         public String getSkillName() {

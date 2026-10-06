@@ -78,9 +78,9 @@ class ProjectIdeaServiceTest {
             ProjectIdeaService.ProjectIdea idea = down.suggest(job, skills);
 
             assertEquals("직전 아이디어", idea.title());
-            List<String> notices = AiNotices.drain();
+            List<AiNotices.Notice> notices = AiNotices.drain();
             assertEquals(1, notices.size());
-            assertTrue(notices.get(0).contains("직전 프로젝트 추천"), notices::toString);
+            assertTrue(notices.get(0).getMessage().contains("직전 프로젝트 추천"), notices::toString);
         } finally {
             try (Connection conn = DBUtil.getConnection();
                  PreparedStatement p = conn.prepareStatement(
@@ -100,7 +100,21 @@ class ProjectIdeaServiceTest {
 
         String reason = generator.buildProjectReason(null, List.of());
 
-        assertTrue(reason.startsWith("부족한 기술을 실제로 다뤄볼 프로젝트"), reason);
-        assertEquals(List.of(RoadmapGenerator.PROJECT_FALLBACK_NOTICE), AiNotices.drain());
+        assertTrue(reason.startsWith(RoadmapGenerator.PROJECT_FALLBACK_PREFIX), reason);
+        List<AiNotices.Notice> notices = AiNotices.drain();
+        assertEquals(1, notices.size());
+        assertEquals(RoadmapGenerator.PROJECT_FALLBACK_NOTICE, notices.get(0).getMessage());
+        assertEquals("ROADMAP_PROJECT", notices.get(0).getRetryTarget(), "503은 일시적 실패라 다시 시도 버튼을 띄운다");
+    }
+
+    @Test
+    void 키_오류처럼_다시_해도_안_되는_실패는_로드맵_다시_시도_버튼을_띄우지_않는다() throws Exception {
+        RoadmapGenerator generator = new RoadmapGenerator(
+                new ProjectIdeaService(StubLlmClient.failing(401)), new SkillDeepenService(null));
+        AiNotices.clear();
+
+        generator.buildProjectReason(null, List.of());
+
+        assertTrue(AiNotices.drain().stream().noneMatch(AiNotices.Notice::isRetryable));
     }
 }

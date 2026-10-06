@@ -19,6 +19,8 @@ public final class LlmRetryPolicy {
     public static final int FORMAT_ERROR = 422;
 
     public static final LlmRetryPolicy DEFAULT = new LlmRetryPolicy(3, 1_000, Duration.ofSeconds(60));
+    // 스케줄러 배치(트렌드 수집)용 — 화면을 붙잡지 않으므로 Groq 분당 한도(429)가 풀릴 때까지 20·40·60초 기다린다 (2026-10-06)
+    public static final LlmRetryPolicy BATCH = new LlmRetryPolicy(4, 20_000, Duration.ofMinutes(5));
 
     private final int maxAttempts;
     private final long backoffMillis;

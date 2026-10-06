@@ -11,10 +11,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * 요청 중에 모인 AI 대체 안내(AiNotices)를 세션으로 옮긴다 — 다음 화면의 header.jsp가 한 번 보여주고 지운다 (FR-111, 2026-10-02).
@@ -32,7 +29,7 @@ public class AiNoticeFilter implements Filter {
         try {
             chain.doFilter(request, response);
         } finally {
-            List<String> notices = AiNotices.drain();
+            List<AiNotices.Notice> notices = AiNotices.drain();
             if (!notices.isEmpty() && request instanceof HttpServletRequest req) {
                 moveToSession(req.getSession(false), notices);
             }
@@ -40,15 +37,11 @@ public class AiNoticeFilter implements Filter {
     }
 
     // 아직 보여주지 않은 안내가 있으면 뒤에 덧붙인다 (같은 문구는 한 번만)
-    static void moveToSession(HttpSession session, List<String> notices) {
+    static void moveToSession(HttpSession session, List<AiNotices.Notice> notices) {
         if (session == null) {
             return;
         }
-        Set<String> merged = new LinkedHashSet<>();
-        if (session.getAttribute(AiNotices.SESSION_KEY) instanceof List<?> pending) {
-            pending.forEach(n -> merged.add(String.valueOf(n)));
-        }
-        merged.addAll(notices);
-        session.setAttribute(AiNotices.SESSION_KEY, new ArrayList<>(merged));
+        List<?> pending = session.getAttribute(AiNotices.SESSION_KEY) instanceof List<?> list ? list : null;
+        session.setAttribute(AiNotices.SESSION_KEY, AiNotices.merge(pending, notices));
     }
 }

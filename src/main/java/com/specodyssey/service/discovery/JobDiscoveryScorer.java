@@ -21,6 +21,8 @@ import java.util.Map;
  *                             0.50 이하 → 0, 0.85 이상 → 1, 그 사이는 직선으로 부분 인정
  *   스펙 비중       = 0.5 × min(1, 매칭된 보유 기술 수 / 5)   ← 스펙이 없으면 설문 100%
  *   최종 점수       = (1 - 스펙 비중) × 설문 점수 + 스펙 비중 × 스펙 점수
+ *   전공을 반영하면 = (1 - 스펙 비중 - 0.15) × 설문 + 스펙 비중 × 스펙 + 0.15 × 전공 점수(계열, MajorAffinity)
+ *                     전공이 없거나 어느 계열과도 뚜렷하지 않으면 반영하지 않는다 (2026-10-06)
  *   요구 기술 데이터가 없는 직무는 스펙 점수 자리에 이 사용자의 평균 스펙 점수를 넣는다
  *   (0이면 부당하게 깎이고, 설문만 쓰면 데이터 없는 직무가 오히려 유리해진다).
  *
@@ -46,6 +48,9 @@ public class JobDiscoveryScorer {
     static final int MIN_RESULTS = 3;
     static final int MAX_RESULTS = 5;
     static final double EXTRA_RESULT_CUTOFF = 0.80;
+    // 전공(FR-38 ②, 2026-10-06): 반영할 수 있을 때만 이 비중. 설문 비중은 최소 1 - 0.5 - 0.15 = 0.35로 남는다
+    static final double MAJOR_WEIGHT = 0.15;
+    static final double MAJOR_MENTION_THRESHOLD = 0.8; // 기본 설명에 "전공도 가깝다"를 붙이는 기준
 
     static final Map<String, String> CATEGORY_KO = Map.of(
             "BACKEND", "서버·로직",
@@ -90,6 +95,8 @@ public class JobDiscoveryScorer {
         public Double specScore;              // 요구 기술 데이터가 없으면 null
         public final List<String> matchedSkills = new ArrayList<>();
         public String reason;                 // match_reason — LLM이 없거나 실패해도 쓸 수 있는 기본 문장
+        public String major;                  // 전공을 반영했을 때만 (FR-38 ②)
+        public Double majorScore;             // 이 계열과 전공의 가까움 0~1, 반영 안 했으면 null
 
         @Override
         public String toString() {
@@ -104,9 +111,20 @@ public class JobDiscoveryScorer {
 
     public List<Recommendation> recommend(List<SurveyAnswer> answers, List<OwnedSkill> ownedSkills,
                                           List<JobCandidate> jobs) {
+        return recommend(answers, ownedSkills, jobs, null, Map.of());
+    }
+
+    /**
+     * 전공까지 반영한다 (FR-38 ②, 2026-10-06 youngjun 추가).
+     * @param majorScores 계열 → 0~1 (MajorAffinity). 비어 있으면 전공 없이 계산 — 위 메서드와 결과가 같다
+     */
+    public List<Recommendation> recommend(List<SurveyAnswer> answers, List<OwnedSkill> ownedSkills,
+                                          List<JobCandidate> jobs, String major, Map<String, Double> majorScores) {
         Map<String, Double> surveyAvg = averageByCategory(answers);
         Map<Long, OwnedSkill> owned = bestPerSkill(ownedSkills);
         double specWeight = SPEC_WEIGHT_MAX * Math.min(1.0, (double) owned.size() / SKILLS_FOR_FULL_SPEC_WEIGHT);
+        boolean useMajor = major != null && !major.isBlank() && majorScores != null && !majorScores.isEmpty();
+        double majorWeight = useMajor ? MAJOR_WEIGHT : 0.0;
 
         List<Recommendation> scored = new ArrayList<>();
         double specSum = 0;
@@ -130,7 +148,15 @@ public class JobDiscoveryScorer {
         double neutralSpec = specCount == 0 ? 0.0 : specSum / specCount;
         for (Recommendation r : scored) {
             double spec = r.specScore == null ? neutralSpec : r.specScore;
-            r.totalScore = (1 - specWeight) * r.surveyScore + specWeight * spec;
+            if (useMajor) {
+                r.major = major.trim();
+                r.majorScore = majorScores.getOrDefault(r.category, 0.0);
+                if (r.majorScore >= MAJOR_MENTION_THRESHOLD) {
+                    r.reason += " 전공(" + r.major + ")도 이 분야와 가깝습니다.";
+                }
+            }
+            r.totalScore = (1 - specWeight - majorWeight) * r.surveyScore + specWeight * spec
+                    + majorWeight * (r.majorScore == null ? 0.0 : r.majorScore);
         }
 
         scored.sort(Comparator.comparingDouble((Recommendation r) -> r.totalScore).reversed()

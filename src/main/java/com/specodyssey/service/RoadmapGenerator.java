@@ -18,6 +18,8 @@ import com.specodyssey.dto.RoadmapDto;
 import com.specodyssey.dto.SkillDto;
 import com.specodyssey.service.RoadmapService.NoGapAnalysisException;
 import com.specodyssey.util.AiNotices;
+import com.specodyssey.util.ExternalApiClient.ExternalApiException;
+import com.specodyssey.util.LlmRetryPolicy;
 import com.specodyssey.util.TransactionUtil;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -56,8 +58,9 @@ public class RoadmapGenerator {
     private static final int SCORE_REQUIRED = 2;
     private static final int SCORE_PREFERRED = 1;
     // 프로젝트 추천 LLM이 실패해 고정 문구로 대체했을 때 다음 화면에 띄우는 안내 (FR-111)
-    static final String PROJECT_FALLBACK_NOTICE =
-            "AI 프로젝트 추천을 받지 못해 기본 안내로 대신했습니다. 로드맵을 다시 만들면 새로 추천받을 수 있어요.";
+    static final String PROJECT_FALLBACK_NOTICE = "AI 프로젝트 추천을 받지 못해 기본 안내로 대신했습니다.";
+    // 대체 문구의 앞부분 — 다시 시도(ProjectIdeaRetryService)가 이 문구로 시작하는 단계만 찾아 바꾼다
+    static final String PROJECT_FALLBACK_PREFIX = "부족한 기술을 실제로 다뤄볼 프로젝트를 진행해보세요. 우선순위가 높은 기술: ";
     // AI 프로젝트 아이디어 단계의 reason 앞머리 — roadmap.jsp가 이걸로 "제목 — 설명"을 나눠 카드엔 제목만 보여준다.
     // 예전에는 💡 이모지였다(2026-10-03 이모지 제거, 저장된 값은 sql/22로 바꿈).
     public static final String PROJECT_IDEA_PREFIX = "아이디어: ";
@@ -337,10 +340,10 @@ public class RoadmapGenerator {
                     job == null || job.getJobName() == null ? "이 직무" : job.getJobName(), names);
             return PROJECT_IDEA_PREFIX + idea.title() + " — " + idea.description();
         } catch (Exception e) {
-            // FR-111 — 조용히 넘기지 않고 다음 화면에 안내한다 (2026-10-02)
-            AiNotices.add(PROJECT_FALLBACK_NOTICE);
-            String topSkills = String.join(", ", names);
-            return "부족한 기술을 실제로 다뤄볼 프로젝트를 진행해보세요. 우선순위가 높은 기술: " + topSkills;
+            // FR-111 — 조용히 넘기지 않고 다음 화면에 안내한다. 시간이 지나면 풀리는 실패면 "다시 시도" 버튼도 단다 (2026-10-06)
+            boolean retryable = e instanceof ExternalApiException api && LlmRetryPolicy.isTransient(api.getStatusCode());
+            AiNotices.add(PROJECT_FALLBACK_NOTICE, retryable ? AiNotices.RetryTarget.ROADMAP_PROJECT : null);
+            return PROJECT_FALLBACK_PREFIX + String.join(", ", names);
         }
     }
 

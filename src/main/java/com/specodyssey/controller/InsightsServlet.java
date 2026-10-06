@@ -3,6 +3,7 @@ package com.specodyssey.controller;
 import com.specodyssey.dao.UserDao;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.service.InsightService;
+import com.specodyssey.service.JobBenchmarkSpecService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -21,6 +22,7 @@ import java.sql.SQLException;
 public class InsightsServlet extends HttpServlet {
 
     private final InsightService insightService = new InsightService();
+    private final JobBenchmarkSpecService jobBenchmarkSpecService = new JobBenchmarkSpecService();
     private final UserDao userDao = new UserDao();
 
     @Override
@@ -33,6 +35,10 @@ public class InsightsServlet extends HttpServlet {
                 req.setAttribute("noTargetJob", true);
             } else {
                 req.setAttribute("insight", insightService.build(user));
+                // FR-111 — 합격자 참고 루트를 AI가 못 만든 상태면 "준비 중" 대신 실패 안내를 띄운다
+                // (youngjun 2026-10-06). 참고 루트 자체는 InsightService가 같은 서비스로 이미 읽어 온다.
+                req.setAttribute("benchmarkUnavailable",
+                        jobBenchmarkSpecService.isTemporarilyUnavailable(user.getDesiredJobId()));
             }
         } catch (SQLException e) {
             throw new ServletException("데이터 인사이트를 불러오는 중 오류가 발생했습니다.", e);
