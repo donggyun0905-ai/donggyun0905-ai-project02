@@ -90,10 +90,10 @@ public class RecommendationDescriber {
                             : String.format(Locale.ROOT, "  보유 기술 적합도 %.0f점/100%n", r.specScore * 100))
                     .append("  이미 가진 관련 기술: ")
                     .append(r.matchedSkills.isEmpty() ? "없음" : String.join(", ", r.matchedSkills)).append('\n');
-            if (r.major != null && r.majorScore != null) {
-                // FR-38 ② 전공도 근거로 준다 (2026-10-06) — 0~100은 6개 계열 중 상대적인 가까움
-                candidates.append(String.format(Locale.ROOT, "  전공: %s (이 분야와 가까운 정도 %.0f점/100)%n",
-                        r.major, r.majorScore * 100));
+            if (r.majorScore != null) {
+                // FR-38 ② 전공도 근거로 준다 — 0~100은 6개 계열 중 상대적인 가까움(MajorAffinity)
+                candidates.append(String.format(Locale.ROOT, "  전공이 이 분야와 가까운 정도 %.0f점/100%n",
+                        r.majorScore * 100));
             }
             candidates.append("  기본 설명: ").append(r.reason == null ? "" : r.reason).append('\n');
         }

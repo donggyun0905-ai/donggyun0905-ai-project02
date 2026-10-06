@@ -237,6 +237,8 @@ class UserWithdrawTest {
         UserService.LoginIdCheck check = userService.checkLoginId(loginId);
         UserService.DuplicateLoginIdException thrown =
                 assertThrows(UserService.DuplicateLoginIdException.class, () -> register(loginId));
-        assertEquals(check.message(), thrown.getMessage(), "화면 안내와 가입 실패 문구가 같아야 한다");
+        // 남은 일수는 두 호출 사이에 날짜 경계를 넘으면 1 차이가 날 수 있어(30일 → 29일) 숫자는 빼고 비교한다
+        assertEquals(check.message().replaceAll("\\d+", "N"), thrown.getMessage().replaceAll("\\d+", "N"),
+                "화면 안내와 가입 실패 문구가 같아야 한다");
     }
 }

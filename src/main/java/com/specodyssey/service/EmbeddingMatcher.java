@@ -106,7 +106,11 @@ public class EmbeddingMatcher implements SkillMatcher {
     }
 
     // MajorAffinity(전공 ↔ 직무 계열)도 같은 모델을 쓴다 — 같은 패키지에 연다 (2026-10-06)
-    static LocalEmbedder embedder() {
+    /**
+     * 공용 로컬 임베딩 모델 — 모델 하나가 약 440MB라 기능마다 따로 로드하면 안 된다.
+     * 전공 역산(discovery.MajorAffinity)도 이 인스턴스를 쓴다(2026-10-06). 모델이 없으면 null.
+     */
+    public static LocalEmbedder embedder() {
         if (embedderUnavailable) {
             return null;
         }

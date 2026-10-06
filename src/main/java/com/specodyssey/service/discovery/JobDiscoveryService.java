@@ -17,7 +17,6 @@ import com.specodyssey.dto.UserSkillDto;
 import com.specodyssey.dto.UserSurveyAnswerDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.service.EmbeddingMatcher;
-import com.specodyssey.service.MajorAffinity;
 import com.specodyssey.service.SkillMatcher;
 import com.specodyssey.service.discovery.JobDiscoveryScorer.JobCandidate;
 import com.specodyssey.service.discovery.JobDiscoveryScorer.OwnedSkill;
@@ -60,7 +59,7 @@ public class JobDiscoveryService {
     private final SkillMatcher skillMatcher;
     private final RecommendationDescriber describer;
     private final JobDiscoveryScorer scorer = new JobDiscoveryScorer();
-    // FR-38 ② 전공 ↔ 직무 계열 (임베딩, 2026-10-06 youngjun 추가)
+    // FR-38 ② 전공 ↔ 직무 계열 (임베딩, kangdain 2026-10-06)
     private final MajorAffinity majorAffinity = new MajorAffinity();
 
     public JobDiscoveryService() {
@@ -133,10 +132,9 @@ public class JobDiscoveryService {
         }
         List<SurveyAnswer> answers = validate(questions, answersByQuestionId);
 
-        UserDto user = userDao.findById(userId);
-        String major = user == null ? null : user.getMajor();
-        List<Recommendation> recommendations = scorer.recommend(answers, collectOwnedSkills(userId), loadJobCandidates(),
-                major, majorAffinity.scores(major));
+        List<Recommendation> recommendations =
+                scorer.recommend(answers, collectOwnedSkills(userId), loadJobCandidates(),
+                        majorAffinity.score(findMajor(userId)));
         describe(recommendations);
 
         LocalDateTime now = LocalDateTime.now();
@@ -231,6 +229,12 @@ public class JobDiscoveryService {
             }
         }
         return owned;
+    }
+
+    // FR-38 ② 전공 역산 재료. 프로필에 전공을 안 넣었으면 null → 전공 없이 추천한다
+    private String findMajor(Long userId) throws SQLException {
+        UserDto user = userDao.findById(userId);
+        return user == null ? null : user.getMajor();
     }
 
     private void addRaw(Map<String, String> raws, String raw) {
