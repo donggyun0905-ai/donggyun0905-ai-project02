@@ -170,9 +170,11 @@ class RoadmapServiceTest {
             }
             TestFixtures.hardDeleteByColumn(conn, "DOCUMENTS", "user_id", userId);
             for (RoadmapDto roadmap : roadmapDao.findByUserId(userId)) {
-                for (RoadmapStepDto step : roadmapStepDao.findByRoadmapId(roadmap.getId())) {
-                    TestFixtures.hardDelete(conn, "ROADMAP_STEP", step.getId());
-                }
+                // findByRoadmapId는 is_deleted = FALSE만 돌려준다 — 업그레이드·복습 주기 중
+                // softDeleteIncomplete 등으로 논리 삭제된 단계는 여기 안 걸려서 그대로 남고,
+                // SKILL을 하드 삭제할 때 FK로 막힌다. 테스트 정리는 소프트 삭제 여부와 상관없이
+                // roadmap_id로 전부 지운다.
+                TestFixtures.hardDeleteByColumn(conn, "ROADMAP_STEP", "roadmap_id", roadmap.getId());
                 TestFixtures.hardDelete(conn, "ROADMAP", roadmap.getId());
             }
             TestFixtures.hardDeleteByColumn(conn, "SCORE_LOG", "user_id", userId);
@@ -188,8 +190,8 @@ class RoadmapServiceTest {
                 pstmt.executeUpdate();
             }
             TestFixtures.hardDeleteByColumn(conn, "USER_PROJECTS", "user_id", userId);
-            TestFixtures.hardDelete(conn, "GAP_ANALYSIS_ITEM", gapItemId1);
-            TestFixtures.hardDelete(conn, "GAP_ANALYSIS_ITEM", gapItemId2);
+            // gapItemId1·2 외에 테스트 도중 더 생겼을 수 있는 행까지 gap_analysis_id 기준으로 전부 지운다.
+            TestFixtures.hardDeleteByColumn(conn, "GAP_ANALYSIS_ITEM", "gap_analysis_id", gapAnalysisId);
             TestFixtures.hardDelete(conn, "GAP_ANALYSIS", gapAnalysisId);
             TestFixtures.hardDelete(conn, "JOB_REQUIRED_SKILL", jobRequiredSkillId1);
             TestFixtures.hardDelete(conn, "JOB_REQUIRED_SKILL", jobRequiredSkillId2);
