@@ -83,10 +83,6 @@ class RoadmapServiceTest {
     private Long requiredSkillId;
     private Long preferredSkillId;
     private Long gapAnalysisId;
-    private Long jobRequiredSkillId1;
-    private Long jobRequiredSkillId2;
-    private Long gapItemId1;
-    private Long gapItemId2;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -118,7 +114,7 @@ class RoadmapServiceTest {
             req.setImportance("REQUIRED");
             req.setSource("MANUAL");
             req.setEstimated(false);
-            jobRequiredSkillId1 = jobRequiredSkillDao.insert(conn, req);
+            jobRequiredSkillDao.insert(conn, req);
 
             JobRequiredSkillDto pref = new JobRequiredSkillDto();
             pref.setJobId(jobId);
@@ -126,7 +122,7 @@ class RoadmapServiceTest {
             pref.setImportance("PREFERRED");
             pref.setSource("MANUAL");
             pref.setEstimated(false);
-            jobRequiredSkillId2 = jobRequiredSkillDao.insert(conn, pref);
+            jobRequiredSkillDao.insert(conn, pref);
 
             GapAnalysisDto analysis = new GapAnalysisDto();
             analysis.setUserId(userId);
@@ -141,13 +137,13 @@ class RoadmapServiceTest {
             preferredItem.setGapAnalysisId(gapAnalysisId);
             preferredItem.setSkillId(preferredSkillId);
             preferredItem.setStatus("MISSING");
-            gapItemId2 = gapAnalysisItemDao.insert(conn, preferredItem);
+            gapAnalysisItemDao.insert(conn, preferredItem);
 
             GapAnalysisItemDto requiredItem = new GapAnalysisItemDto();
             requiredItem.setGapAnalysisId(gapAnalysisId);
             requiredItem.setSkillId(requiredSkillId);
             requiredItem.setStatus("MISSING");
-            gapItemId1 = gapAnalysisItemDao.insert(conn, requiredItem);
+            gapAnalysisItemDao.insert(conn, requiredItem);
         }
     }
 
@@ -169,14 +165,13 @@ class RoadmapServiceTest {
                 TestFixtures.hardDeleteByColumn(conn, "PROJECT_LINK", "project_id", project.getId());
             }
             TestFixtures.hardDeleteByColumn(conn, "DOCUMENTS", "user_id", userId);
-            for (RoadmapDto roadmap : roadmapDao.findByUserId(userId)) {
-                // findByRoadmapId는 is_deleted = FALSE만 돌려준다 — 업그레이드·복습 주기 중
-                // softDeleteIncomplete 등으로 논리 삭제된 단계는 여기 안 걸려서 그대로 남고,
-                // SKILL을 하드 삭제할 때 FK로 막힌다. 테스트 정리는 소프트 삭제 여부와 상관없이
-                // roadmap_id로 전부 지운다.
-                TestFixtures.hardDeleteByColumn(conn, "ROADMAP_STEP", "roadmap_id", roadmap.getId());
-                TestFixtures.hardDelete(conn, "ROADMAP", roadmap.getId());
+            // DAO 조회는 어느 단계에서든 is_deleted = FALSE만 돌려준다 — 업그레이드·복습 주기나
+            // 재생성이 논리 삭제한 ROADMAP·ROADMAP_STEP은 거기 안 걸려 그대로 남고, SKILL·USERS를
+            // 하드 삭제할 때 FK로 막는다. 정리는 소프트 삭제 여부와 상관없이 FK 컬럼으로 전부 지운다.
+            for (Long roadmapId : TestFixtures.findIdsByColumn(conn, "ROADMAP", "user_id", userId)) {
+                TestFixtures.hardDeleteByColumn(conn, "ROADMAP_STEP", "roadmap_id", roadmapId);
             }
+            TestFixtures.hardDeleteByColumn(conn, "ROADMAP", "user_id", userId);
             TestFixtures.hardDeleteByColumn(conn, "SCORE_LOG", "user_id", userId);
             TestFixtures.hardDeleteByColumn(conn, "USER_SCORE_SUMMARY", "user_id", userId);
             TestFixtures.hardDeleteByColumn(conn, "USER_SKILLS", "user_id", userId);
@@ -190,13 +185,26 @@ class RoadmapServiceTest {
                 pstmt.executeUpdate();
             }
             TestFixtures.hardDeleteByColumn(conn, "USER_PROJECTS", "user_id", userId);
-            // gapItemId1·2 외에 테스트 도중 더 생겼을 수 있는 행까지 gap_analysis_id 기준으로 전부 지운다.
-            TestFixtures.hardDeleteByColumn(conn, "GAP_ANALYSIS_ITEM", "gap_analysis_id", gapAnalysisId);
-            TestFixtures.hardDelete(conn, "GAP_ANALYSIS", gapAnalysisId);
-            TestFixtures.hardDelete(conn, "JOB_REQUIRED_SKILL", jobRequiredSkillId1);
-            TestFixtures.hardDelete(conn, "JOB_REQUIRED_SKILL", jobRequiredSkillId2);
-            TestFixtures.hardDelete(conn, "SKILL", requiredSkillId);
-            TestFixtures.hardDelete(conn, "SKILL", preferredSkillId);
+            // 재분석은 GAP_ANALYSIS를 새로 만든다 — setUp이 만든 하나만 지우면 나머지가 남아
+            // SKILL 하드 삭제를 막으므로, 이 사용자의 분석을 전부 지운다.
+            for (Long analysisId : TestFixtures.findIdsByColumn(conn, "GAP_ANALYSIS", "user_id", userId)) {
+                TestFixtures.hardDeleteByColumn(conn, "GAP_ANALYSIS_ITEM", "gap_analysis_id", analysisId);
+            }
+            TestFixtures.hardDeleteByColumn(conn, "GAP_ANALYSIS", "user_id", userId);
+            // 이 테스트 기술을 팀 공용 BACKEND 직무의 요구 기술로 끼워 넣기 때문에, 그 사이에 분석을
+            // 돌린 다른 테스트 사용자의 GAP_ANALYSIS_ITEM·ROADMAP_STEP도 이 기술을 물고 있을 수 있다.
+            // 내가 만든 기술은 반드시 지워지도록 소유자와 상관없이 이 기술을 가리키는 행을 모두 끊는다.
+            for (Long skillId : List.of(requiredSkillId, preferredSkillId)) {
+                TestFixtures.hardDeleteByColumn(conn, "GAP_ANALYSIS_ITEM", "skill_id", skillId);
+                TestFixtures.hardDeleteByColumn(conn, "ROADMAP_STEP", "related_skill_id", skillId);
+                TestFixtures.hardDeleteByColumn(conn, "USER_SKILLS", "skill_id", skillId);
+                TestFixtures.hardDeleteByColumn(conn, "SKILL_ALIAS", "skill_id", skillId);
+                TestFixtures.hardDeleteByColumn(conn, "JOB_REQUIRED_SKILL", "skill_id", skillId);
+                TestFixtures.hardDelete(conn, "SKILL", skillId);
+            }
+            // SpecScoreScheduler는 웹앱이 뜨는 순간 전체 사용자에게 스냅샷을 남긴다 — 누가 같은 공유 DB로
+            // 서버를 띄워 두면 테스트가 방금 만든 사용자 몫까지 생긴다. USERS 바로 앞에서 지워 그 창을 줄인다.
+            TestFixtures.hardDeleteByColumn(conn, "SPEC_SCORE_HISTORY", "user_id", userId);
             TestFixtures.hardDelete(conn, "USERS", userId);
         }
     }

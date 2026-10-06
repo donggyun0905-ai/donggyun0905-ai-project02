@@ -1,11 +1,8 @@
 package com.specodyssey.service;
 
 import com.specodyssey.dao.GapAnalysisDao;
-import com.specodyssey.dao.GapAnalysisItemDao;
 import com.specodyssey.dao.JobDao;
 import com.specodyssey.dao.JobRequiredSkillDao;
-import com.specodyssey.dao.RoadmapDao;
-import com.specodyssey.dao.RoadmapStepDao;
 import com.specodyssey.dao.TestFixtures;
 import com.specodyssey.dao.UserDao;
 import com.specodyssey.dao.UserSkillDao;
@@ -13,7 +10,6 @@ import com.specodyssey.dto.GapAnalysisDto;
 import com.specodyssey.dto.GapAnalysisItemDto;
 import com.specodyssey.dto.JobDto;
 import com.specodyssey.dto.JobRequiredSkillDto;
-import com.specodyssey.dto.RoadmapDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.dto.UserSkillDto;
 import com.specodyssey.util.DBUtil;
@@ -44,9 +40,6 @@ class GapAnalysisServiceTest {
     private final JobRequiredSkillDao jobRequiredSkillDao = new JobRequiredSkillDao();
     private final UserSkillDao userSkillDao = new UserSkillDao();
     private final GapAnalysisDao gapAnalysisDao = new GapAnalysisDao();
-    private final GapAnalysisItemDao gapAnalysisItemDao = new GapAnalysisItemDao();
-    private final RoadmapDao roadmapDao = new RoadmapDao();
-    private final RoadmapStepDao roadmapStepDao = new RoadmapStepDao();
     private final GapAnalysisService gapAnalysisService = new GapAnalysisService();
     // 실제 Groq를 부르지 않는다 — RoadmapServiceTest와 같은 이유(2026-10-01, youngjun 제안).
     private final RoadmapService roadmapService = new RoadmapService(new ProjectIdeaService(
@@ -60,9 +53,6 @@ class GapAnalysisServiceTest {
     private String metByRawInputSkillName;
     private Long missingSkillId;
     private String missingSkillName;
-    private Long jobReqId1;
-    private Long jobReqId2;
-    private Long jobReqId3;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -88,9 +78,9 @@ class GapAnalysisServiceTest {
             metByRawInputSkillId = TestFixtures.insertSkill(conn, metByRawInputSkillName);
             missingSkillId = TestFixtures.insertSkill(conn, missingSkillName);
 
-            jobReqId1 = insertRequired(conn, metBySkillIdSkillId);
-            jobReqId2 = insertRequired(conn, metByRawInputSkillId);
-            jobReqId3 = insertRequired(conn, missingSkillId);
+            insertRequired(conn, metBySkillIdSkillId);
+            insertRequired(conn, metByRawInputSkillId);
+            insertRequired(conn, missingSkillId);
 
             // 1) skill_id로 이미 연결된 보유 스킬
             UserSkillDto owned1 = new UserSkillDto();
@@ -120,25 +110,32 @@ class GapAnalysisServiceTest {
     @AfterEach
     void tearDown() throws Exception {
         try (Connection conn = DBUtil.getConnection()) {
-            for (RoadmapDto roadmap : roadmapDao.findByUserId(userId)) {
-                for (var step : roadmapStepDao.findByRoadmapId(roadmap.getId())) {
-                    TestFixtures.hardDelete(conn, "ROADMAP_STEP", step.getId());
-                }
-                TestFixtures.hardDelete(conn, "ROADMAP", roadmap.getId());
+            // DAO 조회(findByUserId 등)는 is_deleted = FALSE만 돌려준다 — 재분석이 논리 삭제한 행을
+            // 놓치면 그 행이 FK로 SKILL·USERS 하드 삭제를 막으므로, 전부 FK 컬럼으로 직접 지운다.
+            for (Long roadmapId : TestFixtures.findIdsByColumn(conn, "ROADMAP", "user_id", userId)) {
+                TestFixtures.hardDeleteByColumn(conn, "ROADMAP_STEP", "roadmap_id", roadmapId);
             }
-            for (GapAnalysisDto analysis : gapAnalysisDao.findByUserId(userId)) {
-                for (GapAnalysisItemDto item : gapAnalysisItemDao.findByGapAnalysisId(analysis.getId())) {
-                    TestFixtures.hardDelete(conn, "GAP_ANALYSIS_ITEM", item.getId());
-                }
-                TestFixtures.hardDelete(conn, "GAP_ANALYSIS", analysis.getId());
+            TestFixtures.hardDeleteByColumn(conn, "ROADMAP", "user_id", userId);
+            for (Long analysisId : TestFixtures.findIdsByColumn(conn, "GAP_ANALYSIS", "user_id", userId)) {
+                TestFixtures.hardDeleteByColumn(conn, "GAP_ANALYSIS_ITEM", "gap_analysis_id", analysisId);
             }
+            TestFixtures.hardDeleteByColumn(conn, "GAP_ANALYSIS", "user_id", userId);
+            TestFixtures.hardDeleteByColumn(conn, "SCORE_LOG", "user_id", userId);
+            TestFixtures.hardDeleteByColumn(conn, "USER_SCORE_SUMMARY", "user_id", userId);
             TestFixtures.hardDeleteByColumn(conn, "USER_SKILLS", "user_id", userId);
-            TestFixtures.hardDelete(conn, "JOB_REQUIRED_SKILL", jobReqId1);
-            TestFixtures.hardDelete(conn, "JOB_REQUIRED_SKILL", jobReqId2);
-            TestFixtures.hardDelete(conn, "JOB_REQUIRED_SKILL", jobReqId3);
-            TestFixtures.hardDelete(conn, "SKILL", metBySkillIdSkillId);
-            TestFixtures.hardDelete(conn, "SKILL", metByRawInputSkillId);
-            TestFixtures.hardDelete(conn, "SKILL", missingSkillId);
+            // 이 테스트 기술을 팀 공용 BACKEND 직무의 요구 기술로 끼워 넣기 때문에, 그 사이에 분석을
+            // 돌린 다른 테스트 사용자의 GAP_ANALYSIS_ITEM·ROADMAP_STEP도 이 기술을 물고 있을 수 있다.
+            // 내가 만든 기술은 반드시 지워지도록 소유자와 상관없이 이 기술을 가리키는 행을 모두 끊는다.
+            for (Long skillId : List.of(metBySkillIdSkillId, metByRawInputSkillId, missingSkillId)) {
+                TestFixtures.hardDeleteByColumn(conn, "GAP_ANALYSIS_ITEM", "skill_id", skillId);
+                TestFixtures.hardDeleteByColumn(conn, "ROADMAP_STEP", "related_skill_id", skillId);
+                TestFixtures.hardDeleteByColumn(conn, "USER_SKILLS", "skill_id", skillId);
+                TestFixtures.hardDeleteByColumn(conn, "SKILL_ALIAS", "skill_id", skillId);
+                TestFixtures.hardDeleteByColumn(conn, "JOB_REQUIRED_SKILL", "skill_id", skillId);
+                TestFixtures.hardDelete(conn, "SKILL", skillId);
+            }
+            // SpecScoreScheduler는 웹앱이 뜨는 순간 전체 사용자에게 스냅샷을 남긴다 — USERS 바로 앞에서 지운다.
+            TestFixtures.hardDeleteByColumn(conn, "SPEC_SCORE_HISTORY", "user_id", userId);
             TestFixtures.hardDelete(conn, "USERS", userId);
         }
     }

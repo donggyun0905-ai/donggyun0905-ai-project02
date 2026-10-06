@@ -47,6 +47,12 @@ public class InsightViewDto {
         public boolean isComparable() {
             return myScore != null && peerAverage != null;
         }
+
+        // 구성요소가 아닌 파생 값은 x() 형태도 둬야 한다 — Tomcat 11의 RecordELResolver는
+        // record에서 isX()/getX()를 안 찾는다. 없으면 ${peer.comparable}이 Tomcat 11에서만 500.
+        public boolean comparable() {
+            return isComparable();
+        }
     }
 
     /** FR-47 기술별 월별 언급 비율. months와 skills[].ratios의 순서가 같다. */
