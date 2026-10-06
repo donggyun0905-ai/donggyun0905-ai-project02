@@ -13,6 +13,7 @@ import com.specodyssey.dto.TechArticleAttachmentDto;
 import com.specodyssey.dto.TechArticleCommentDto;
 import com.specodyssey.dto.TechArticleDto;
 import com.specodyssey.dto.UserScoreSummaryDto;
+import com.specodyssey.service.NotificationService;
 import com.specodyssey.util.TransactionUtil;
 
 import java.sql.SQLException;
@@ -43,6 +44,7 @@ public class SpecArchiveService {
     private final TechArticleReactionDao reactionDao = new TechArticleReactionDao();
     private final UserScoreSummaryDao summaryDao = new UserScoreSummaryDao();
     private final LevelTierDao tierDao = new LevelTierDao();
+    private final NotificationService notificationService = new NotificationService();
 
     // ---------------------------------------------------------------- 화면용 값 (JSP EL은 getter로 읽는다)
 
@@ -279,7 +281,7 @@ public class SpecArchiveService {
      * replyToCommentId가 없으면 최상위 댓글. 있으면 그 댓글이 속한 줄기(최상위 댓글) 밑에 달고, 그 댓글 작성자를 @대상으로 남긴다.
      */
     public void addComment(Long userId, Long articleId, String content, Long replyToCommentId) throws SQLException {
-        requireVisible(articleId);
+        TechArticleDto article = visibleArticle(articleId);
         String text = SpecArchiveRules.checkComment(content);
 
         TechArticleCommentDto comment = new TechArticleCommentDto();
@@ -294,11 +296,14 @@ public class SpecArchiveService {
             comment.setParentCommentId(target.getParentCommentId() != null ? target.getParentCommentId() : target.getId());
             comment.setReplyToUserId(target.getUserId());
         }
-        TransactionUtil.runInTransaction(conn -> {
-            commentDao.insert(conn, comment);
+        Long commentId = TransactionUtil.runInTransaction(conn -> {
+            Long id = commentDao.insert(conn, comment);
             articleDao.adjustCount(conn, articleId, CountColumn.COMMENT, 1);
-            return null;
+            return id;
         });
+        // 글쓴이에게 댓글 알림, 답글 대상에게 답글 알림 — 댓글이 저장된 뒤에 보내고, 실패해도 댓글은 그대로 둔다
+        notificationService.notifyComment(articleId, article.getUserId(), article.getTitle(),
+                userId, commentId, comment.getReplyToUserId());
     }
 
     /** 작성자 본인 댓글 삭제. 지웠으면 true. */
@@ -317,8 +322,14 @@ public class SpecArchiveService {
     }
 
     private void requireVisible(Long articleId) throws SQLException {
-        if (articleDao.findArchiveById(articleId) == null) {
+        visibleArticle(articleId);
+    }
+
+    private TechArticleDto visibleArticle(Long articleId) throws SQLException {
+        TechArticleDto article = articleDao.findArchiveById(articleId);
+        if (article == null) {
             throw new IllegalArgumentException("글을 찾을 수 없습니다. 지워졌을 수 있습니다.");
         }
+        return article;
     }
 }

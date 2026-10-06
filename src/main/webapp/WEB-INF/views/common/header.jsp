@@ -9,6 +9,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${empty pageTitle ? '스펙 오디세이' : pageTitle}</title>
     <link rel="stylesheet" href="${ctx}/css/style.css">
+    <link rel="stylesheet" href="${ctx}/css/notification.css">
 </head>
 <body class="${sideWidgets ? 'has-side' : ''}">
 <input type="checkbox" id="nav-toggle">
@@ -19,6 +20,8 @@
     <a class="brand" href="${ctx}/"><img src="${ctx}/image/logo.png" alt="로고">스펙 오디세이</a>
     <span class="spacer"></span>
     <c:if test="${not empty sessionScope.loginUser}">
+        <%-- 알림 버튼 — 등급 배지 왼쪽 (내용은 notification-bell.jsp) --%>
+        <jsp:include page="/WEB-INF/views/common/notification-bell.jsp" />
         <c:if test="${not empty currentTier}">
             <span class="tier-badge">
                 <img src="${ctx}${tierLogoPath}" alt="${currentTier.tierName}">
