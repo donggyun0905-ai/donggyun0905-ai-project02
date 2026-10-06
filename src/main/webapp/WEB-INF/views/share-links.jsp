@@ -52,7 +52,7 @@
                     <p style="margin:8px 0;"><label style="display:inline; width:auto;"><input type="checkbox" name="scopeGrowth" style="width:auto;"> <strong>성장 잠재력</strong> — 최근 스펙이 늘어난 속도</label></p>
                     <p style="margin:8px 0;"><label style="display:inline; width:auto;"><input type="checkbox" name="scopeResume" style="width:auto;" checked> <strong>이력서 파일</strong> — 내 프로필에 올린 이력서를 내려받을 수 있게 합니다</label></p>
                     <p style="margin:8px 0;"><label style="display:inline; width:auto;"><input type="checkbox" name="scopeCoverLetter" style="width:auto;" checked> <strong>자소서 파일</strong> — 내 프로필에 올린 자소서를 내려받을 수 있게 합니다</label></p>
-                    <p class="muted" style="font-size:0.78rem; margin:6px 0 0;">💡 이력서·자소서를 함께 공개하면 면접관이 링크 하나로 기본 이력부터 서류까지 한눈에 볼 수 있어 편해요. 올려 둔 파일이 없으면 면접관에게는 "아직 올리지 않았습니다"로만 보입니다.</p>
+                    <p class="muted" style="font-size:0.78rem; margin:6px 0 0;"><span class="ic ic-bulb" aria-hidden="true"></span> 이력서·자소서를 함께 공개하면 면접관이 링크 하나로 기본 이력부터 서류까지 한눈에 볼 수 있어 편해요. 올려 둔 파일이 없으면 면접관에게는 "아직 올리지 않았습니다"로만 보입니다.</p>
                     <p class="muted" style="font-size:0.78rem; margin:6px 0 0;">격차 분석, 등급과 점수, 미션 기록, 이력서·자소서 외의 서류, AI 활용 기록은 어떤 경우에도 공유되지 않습니다.</p>
                 </div>
                 <button type="submit" style="margin-top:12px;">링크 만들기</button>

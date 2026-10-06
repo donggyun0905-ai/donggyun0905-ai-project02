@@ -228,8 +228,14 @@ class RoadmapServiceTest {
         assertNotNull(steps.get(0).getCertificationId());
         assertFalse(steps.get(0).getReason().isBlank());
 
-        assertEquals("PROJECT", steps.get(1).getStepType());
-        assertFalse(steps.get(1).getReason().isBlank());
+        // 직무 자격증 다음에 공통 자격증(어학·컴활)이 한 칸 더 올 수 있고, 자격증들 바로 뒤가 프로젝트다
+        int afterCerts = 0;
+        while ("CERT".equals(steps.get(afterCerts).getStepType())) {
+            afterCerts++;
+        }
+        assertTrue(afterCerts <= 2, "자격증은 직무 1 + 공통 1까지: " + afterCerts);
+        assertEquals("PROJECT", steps.get(afterCerts).getStepType());
+        assertFalse(steps.get(afterCerts).getReason().isBlank());
 
         // 기술별 사다리 — 시드 직무에 요구 기술이 더 있어 5개(라운드)로 보충되고, 기술마다 4개 티어 단계가 생긴다.
         // 입문 티어의 SKILL 단계는 점수 내림차순이어야 한다.

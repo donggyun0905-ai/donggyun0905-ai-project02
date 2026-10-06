@@ -3,7 +3,7 @@
     <c:forEach var="spec" items="${specs}">
         <li class="spread">
             <span>
-                [<c:out value='${spec.specType}' />] <c:out value='${spec.title}' />
+                <span class="chip chip-locked" style="margin-right:6px;">${spec.specType == 'CERT' ? '자격증' : spec.specType == 'LANGUAGE' ? '어학' : spec.specType == 'AWARD' ? '수상' : '기타'}</span><c:out value='${spec.title}' />
                 <c:if test="${not empty spec.issuer}"> · ${spec.issuer}</c:if>
                 <c:if test="${not empty spec.score}"> · ${spec.score}</c:if>
                 <c:if test="${not empty spec.acquiredDate}"> · ${spec.acquiredDate}</c:if>

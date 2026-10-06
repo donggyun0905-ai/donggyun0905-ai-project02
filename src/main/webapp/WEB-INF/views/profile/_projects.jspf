@@ -3,18 +3,18 @@
     <c:forEach var="project" items="${projects}">
         <li>
             <strong><c:out value='${project.title}' /></strong>
-            <span class="muted">(${project.startDate} ~ ${project.endDate})</span><br>
+            <c:if test="${not empty project.startDate or not empty project.endDate}"><span class="muted">(${project.startDate} ~ ${project.endDate})</span></c:if><br>
             <c:out value='${project.description}' /><br>
             <c:if test="${not empty project.techStack}">기술스택: ${project.techStack}</c:if>
             <c:if test="${not empty project.repoUrl or not empty project.deployUrl or not empty projectLinks[project.id]}">
-                <br>🔗
+                <br><span class="ic ic-link" aria-hidden="true"></span>
                 <c:if test="${not empty project.repoUrl}"><a href="<c:out value='${project.repoUrl}' />" target="_blank" rel="noopener noreferrer">저장소</a></c:if>
                 <c:if test="${not empty project.deployUrl}"> · <a href="<c:out value='${project.deployUrl}' />" target="_blank" rel="noopener noreferrer">배포</a></c:if>
                 <c:forEach var="link" items="${projectLinks[project.id]}"> · <a href="<c:out value='${link.url}' />" target="_blank" rel="noopener noreferrer"><c:out value="${link.displayName}" /></a></c:forEach>
             </c:if>
             <c:forEach var="doc" items="${documents}">
                 <c:if test="${doc.projectId == project.id}">
-                    <br><a href="${pageContext.request.contextPath}/documents/${doc.id}">📎 <c:out value='${doc.originalName}' /></a>
+                    <br><a href="${pageContext.request.contextPath}/documents/${doc.id}" class="file-link"><span class="ic ic-paperclip" aria-hidden="true"></span> <c:out value='${doc.originalName}' /></a>
                 </c:if>
             </c:forEach>
             <div class="row" style="margin-top:8px;">

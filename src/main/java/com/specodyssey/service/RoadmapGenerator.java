@@ -58,6 +58,10 @@ public class RoadmapGenerator {
     // 프로젝트 추천 LLM이 실패해 고정 문구로 대체했을 때 다음 화면에 띄우는 안내 (FR-111)
     static final String PROJECT_FALLBACK_NOTICE =
             "AI 프로젝트 추천을 받지 못해 기본 안내로 대신했습니다. 로드맵을 다시 만들면 새로 추천받을 수 있어요.";
+    // AI 프로젝트 아이디어 단계의 reason 앞머리 — roadmap.jsp가 이걸로 "제목 — 설명"을 나눠 카드엔 제목만 보여준다.
+    // 예전에는 💡 이모지였다(2026-10-03 이모지 제거, 저장된 값은 sql/22로 바꿈).
+    public static final String PROJECT_IDEA_PREFIX = "아이디어: ";
+    private static final String COMMON_CATEGORY = "COMMON";
 
     // 가장 최근 격차 분석을 기준으로 새 로드맵을 생성한다. 기존 대표 로드맵이 있으면 비활성화한다 (FR-37).
     public Long generate(Long userId) throws SQLException, NoGapAnalysisException {
@@ -91,6 +95,9 @@ public class RoadmapGenerator {
         // LLM 호출이 들어갈 수 있어서 DB 트랜잭션을 열기 전에 끝낸다.
         List<Long> roundSkillIds = selectRoundSkills(job, rankedMissing, importanceBySkillId);
         CertificationDto suggestedCert = findSuggestedCertification(userId, job);
+        // 직무와 상관없이 많은 기업이 보는 공통 자격증(어학·컴활)도 하나 함께 제안한다(2026-10-03 사용자 요청 —
+        // 직무 자격증이 다 떨어져야만 공통 자격증이 나오던 탓에 사실상 보이지 않았다).
+        CertificationDto commonCert = findSuggestedCommonCertification(userId);
         // ENTRY 티어의 PROJECT 단계 안내 문구를 미리 만들어둔다 — LLM 호출은 DB 트랜잭션을 열기
         // 전에 끝내야 한다(claude.md: 외부 API 호출에 타임아웃을 직접 두고, 느리거나 실패해도
         // DB 커넥션을 물고 있으면 안 됨). 실패해도 로드맵 생성 자체는 막지 않는다(FR-111).
@@ -122,6 +129,10 @@ public class RoadmapGenerator {
                     if (suggestedCert != null) {
                         order = stepWriter.insertStep(conn, roadmapId, order, "CERT", tier, suggestedCert.getId(), null,
                                 buildCertReason(job, suggestedCert));
+                    }
+                    if (commonCert != null) {
+                        order = stepWriter.insertStep(conn, roadmapId, order, "CERT", tier, commonCert.getId(), null,
+                                buildCommonCertReason(commonCert));
                     }
                     if (!roundSkillIds.isEmpty()) {
                         order = stepWriter.insertStep(conn, roadmapId, order, "PROJECT", tier, null, null, projectReason);
@@ -240,28 +251,66 @@ public class RoadmapGenerator {
     }
 
     // 목표 직무 카테고리의 자격증 중, 사용자가 이미 보유(USER_SPECS)하지 않았고 난이도가 가장 낮은 것을 고른다.
+    // 공통(COMMON) 자격증은 findSuggestedCommonCertification이 따로 한 칸을 맡으므로 여기서는 고르지 않는다.
     CertificationDto findSuggestedCertification(Long userId, JobDto job) throws SQLException {
-        if (job == null || job.getJobCategory() == null) {
+        if (job == null || job.getJobCategory() == null || COMMON_CATEGORY.equals(job.getJobCategory())) {
             return null;
         }
-        List<CertificationDto> candidates = certificationDao.findByJobCategory(job.getJobCategory());
+        List<CertificationDto> candidates = certificationDao.findByJobCategory(job.getJobCategory()).stream()
+                .filter(cert -> !COMMON_CATEGORY.equals(cert.getJobCategory()))
+                .toList();
+        return firstNotOwned(userId, candidates, false);
+    }
+
+    // 직무와 상관없이 쓰는 공통 자격증(어학·컴활 등) 중 사용자가 아직 없는 것 하나 — 난이도 낮은 순.
+    CertificationDto findSuggestedCommonCertification(Long userId) throws SQLException {
+        return firstNotOwned(userId, certificationDao.findByJobCategory(COMMON_CATEGORY), true);
+    }
+
+    // 공통 자격증의 한글 표기 — 프로필에 "토익 850"처럼 적어 둔 것도 이미 가진 것으로 본다
+    private static final Map<String, List<String>> COMMON_CERT_ALIASES = Map.of(
+            "toeic", List.of("토익"),
+            "toeicspeaking", List.of("토익스피킹", "토스"),
+            "opic", List.of("오픽"));
+
+    // includeLanguage: 공통 자격증(어학 등)은 프로필의 "어학" 항목에 점수와 함께 적는 경우가 많아
+    // 자격증 이름이 그 제목에 들어 있으면(예: "TOEIC 850") 이미 가진 것으로 본다.
+    private CertificationDto firstNotOwned(Long userId, List<CertificationDto> candidates, boolean includeLanguage)
+            throws SQLException {
         if (candidates.isEmpty()) {
             return null;
         }
         Set<String> owned = userSpecDao.findByUserId(userId).stream()
-                .filter(spec -> "CERT".equals(spec.getSpecType()) && spec.getTitle() != null)
+                .filter(spec -> spec.getTitle() != null && ("CERT".equals(spec.getSpecType())
+                        || (includeLanguage && "LANGUAGE".equals(spec.getSpecType()))))
                 .map(spec -> spec.getTitle().trim().toLowerCase())
                 .collect(Collectors.toSet());
 
         return candidates.stream()
-                .filter(cert -> !owned.contains(cert.getCertName().trim().toLowerCase()))
+                .filter(cert -> !owned.contains(cert.getCertName().trim().toLowerCase())
+                        && !(includeLanguage && mentionedIn(owned, cert.getCertName())))
                 .findFirst() // findByJobCategory가 이미 난이도 오름차순으로 정렬해서 준다
                 .orElse(null);
+    }
+
+    // 자격증 이름(띄어쓰기 무시) 또는 한글 표기가 보유 스펙 제목에 들어 있는지 — "TOEIC Speaking"이 "TOEIC"보다 길어
+    // 먼저 검사되지 않도록 별칭까지 포함해 단순 포함 여부만 본다.
+    private static boolean mentionedIn(Set<String> ownedTitles, String certName) {
+        String key = certName.toLowerCase().replace(" ", "");
+        List<String> names = new ArrayList<>(COMMON_CERT_ALIASES.getOrDefault(key, List.of()));
+        names.add(key);
+        return ownedTitles.stream().map(title -> title.replace(" ", ""))
+                .anyMatch(title -> names.stream().anyMatch(title::contains));
     }
 
     private int nextVersion(Long userId) throws SQLException {
         List<RoadmapDto> existing = roadmapDao.findByUserId(userId);
         return existing.isEmpty() ? 1 : existing.get(0).getVersion() + 1;
+    }
+
+    String buildCommonCertReason(CertificationDto cert) {
+        return "직무와 상관없이 많은 기업이 서류에서 보는 공통 자격증(" + cert.getCertName() + ")입니다. "
+                + "어학 점수나 컴퓨터 활용 능력은 지원 자격으로 자주 쓰여요.";
     }
 
     String buildCertReason(JobDto job, CertificationDto cert) {
@@ -286,7 +335,7 @@ public class RoadmapGenerator {
         try {
             ProjectIdeaService.ProjectIdea idea = projectIdeaService.suggest(
                     job == null || job.getJobName() == null ? "이 직무" : job.getJobName(), names);
-            return "💡 " + idea.title() + " — " + idea.description();
+            return PROJECT_IDEA_PREFIX + idea.title() + " — " + idea.description();
         } catch (Exception e) {
             // FR-111 — 조용히 넘기지 않고 다음 화면에 안내한다 (2026-10-02)
             AiNotices.add(PROJECT_FALLBACK_NOTICE);

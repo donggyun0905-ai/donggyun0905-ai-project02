@@ -1,6 +1,6 @@
 <div class="card" style="margin-top:28px; border-color:var(--danger);">
     <h2 style="color:var(--danger); margin-bottom:8px;">회원 탈퇴</h2>
-    <p class="muted">탈퇴하면 로그인·프로필 조회가 모두 불가능해집니다. 비밀번호를 입력하고 확인해주세요.</p>
+    <p class="muted">탈퇴하면 바로 로그아웃되고 다른 사람에게 내 이력이 보이지 않습니다. 30일 안에 같은 아이디·비밀번호로 다시 로그인하면 탈퇴를 취소할 수 있고, 30일이 지나면 개인정보가 지워져 복구할 수 없습니다. 비밀번호를 입력하고 확인해주세요.</p>
     <form action="${pageContext.request.contextPath}/profile/withdraw" method="post"
           onsubmit="return confirm('정말 탈퇴하시겠습니까?');" class="row">
         <input type="hidden" name="_csrf" value="${csrfToken}">

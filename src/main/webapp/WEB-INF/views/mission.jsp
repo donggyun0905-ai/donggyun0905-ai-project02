@@ -69,8 +69,8 @@
                                 <div class="spread">
                                     <strong><c:out value="${m.title}" /></strong>
                                     <c:choose>
-                                        <c:when test="${failed}"><span class="chip chip-danger">✘ 실패</span></c:when>
-                                        <c:when test="${m.completed}"><span class="chip chip-teal">✔ 완료</span></c:when>
+                                        <c:when test="${failed}"><span class="chip chip-danger"><span class="ic ic-x" aria-hidden="true"></span> 실패</span></c:when>
+                                        <c:when test="${m.completed}"><span class="chip chip-teal"><span class="ic ic-check" aria-hidden="true"></span> 완료</span></c:when>
                                         <c:otherwise><span class="chip chip-gold">남음</span></c:otherwise>
                                     </c:choose>
                                 </div>

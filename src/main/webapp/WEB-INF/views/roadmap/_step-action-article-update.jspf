@@ -1,9 +1,9 @@
                                         <c:if test="${step.reviewStatus == 'NEEDS_REVISION'}">
-                                            <p class="error-message" style="font-size:0.85rem; margin:6px 0;">📝 <c:out value="${step.reviewNote}" /></p>
+                                            <p class="error-message" style="font-size:0.85rem; margin:6px 0;"><span class="ic ic-file-text" aria-hidden="true"></span> <c:out value="${step.reviewNote}" /></p>
                                         </c:if>
                                         <button type="button" class="open-step-dialog" data-dialog="stepDialog-${step.id}">보강한 글 PDF 제출하기</button>
                                         <dialog id="stepDialog-${step.id}" class="step-dialog">
-                                        <div class="step-dialog-head"><h3>보강한 글 PDF 제출하기</h3><button type="button" class="dialog-close link-button" aria-label="닫기">✕</button></div>
+                                        <div class="step-dialog-head"><h3>보강한 글 PDF 제출하기</h3><button type="button" class="dialog-close link-button" aria-label="닫기"><span class="ic ic-x" aria-hidden="true"></span></button></div>
                                             <p class="muted" style="line-height:1.6;"><c:out value="${step.reason}" /></p>
                                             <form action="${pageContext.request.contextPath}/roadmap" method="post"
                                                   enctype="multipart/form-data" style="margin-top:10px;">

@@ -147,20 +147,21 @@ header .menu-btn { margin-bottom: 0; }
     letter-spacing: 0.04em; padding: 14px 20px 4px;
 }
 .nav-drawer-panel a {
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex; align-items: center; justify-content: flex-start;
     padding: 9px 20px; color: var(--ink); font-size: 0.92rem;
 }
 .nav-drawer-panel a:hover { background: var(--page-bg); text-decoration: none; }
 /* 로그아웃은 POST 폼이라 버튼이지만 다른 메뉴 링크와 똑같이 보이게 한다 */
 .nav-drawer-panel .logout-form { margin: 0; }
 .nav-drawer-panel .logout-form button {
-    display: flex; align-items: center; justify-content: space-between; width: 100%;
+    display: flex; align-items: center; justify-content: flex-start; width: 100%;
     padding: 9px 20px; margin: 0; border: none; border-radius: 0; background: none;
     color: var(--ink); font: inherit; font-size: 0.92rem; text-align: left; cursor: pointer;
 }
 .nav-drawer-panel .logout-form button:hover { background: var(--page-bg); transform: translateX(2px); }
 .nav-drawer-panel a.active { background: var(--header-bg); color: #fff; }
 .nav-badge {
+    margin-left: auto;
     background: var(--danger); color: #fff; font-size: 0.68rem; font-weight: 700;
     border-radius: 999px; padding: 1px 7px;
 }
@@ -307,7 +308,8 @@ form p { margin: 10px 0; }
 label { display: block; font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 4px; }
 
 input[type="text"], input[type="email"], input[type="password"],
-input[type="date"], input[type="file"], select, textarea {
+input[type="date"], input[type="file"], input[type="url"], input[type="number"],
+input[type="search"], input[type="tel"], select, textarea {
     width: 100%; padding: 9px 11px; border: 1px solid var(--border);
     border-radius: 6px; background: #fff; color: var(--ink);
     font-size: 0.92rem; font-family: inherit;
@@ -322,6 +324,7 @@ button, .btn {
     display: inline-block; background: var(--primary); color: #fff;
     border: none; border-radius: 6px; padding: 9px 22px;
     font-size: 0.9rem; font-weight: 600; cursor: pointer; font-family: inherit;
+    white-space: nowrap; flex-shrink: 0; /* 좁은 칸에서 "격차 분석 보/기"처럼 글자가 꺾이지 않게 */
 }
 button:hover, .btn:hover { background: var(--primary-hover); }
 button.secondary, .btn.secondary { background: #fff; color: var(--ink); border: 1px solid var(--border); }
@@ -431,3 +434,63 @@ body.has-side {
     body.has-side > .site-footer { order: 4; }
     .side-left, .side-right { position: static; width: auto; overflow: visible; padding: 16px 24px; border: none; }
 }
+
+/* ── 입력창·파일 버튼·아이콘 다듬기 (2026-10-03) ─────────────────────────────── */
+/* 링크 입력칸 — 앞에 링크 아이콘을 넣어 무엇을 넣는 칸인지 바로 보이게 한다 */
+input[type="url"] {
+    padding-left: 34px;
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a7a63' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'/%3E%3C/svg%3E") no-repeat 11px center / 15px 15px;
+}
+input::placeholder, textarea::placeholder { color: #b7a98f; }
+input:hover:not(:focus):not([type="checkbox"]):not([type="radio"]), select:hover:not(:focus), textarea:hover:not(:focus) {
+    border-color: #d3bf95;
+}
+
+/* 파일 올리기 — 점선 상자 + "파일 선택" 버튼을 보조 버튼 모양으로 */
+input[type="file"] {
+    padding: 8px; border: 1.5px dashed #d3bf95; background: #fffdf7; color: var(--ink-soft);
+    font-size: 0.85rem; cursor: pointer;
+}
+input[type="file"]:hover { border-color: var(--primary); background: #fff; }
+input[type="file"]::file-selector-button {
+    margin-right: 12px; padding: 7px 14px; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--card-bg); color: var(--ink); font-size: 0.85rem; font-weight: 600; font-family: inherit; cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+input[type="file"]::file-selector-button:hover { background: var(--page-bg); border-color: var(--primary); }
+
+/* 파일 내려받기·첨부 파일 링크 — 작은 칩 모양 */
+a.file-link {
+    display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
+    padding: 4px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: #fff; color: var(--ink); font-size: 0.85rem; text-decoration: none; vertical-align: middle;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+a.file-link .ic { color: var(--primary); }
+a.file-link:hover { border-color: var(--primary); background: var(--card-bg); text-decoration: none; }
+
+/* 아이콘 간격 — 글자 앞에 붙는 아이콘은 살짝 띄운다 */
+.nav-drawer-panel a .ic, .nav-drawer-panel .logout-form button .ic { margin-right: 8px; color: var(--ink-soft); }
+.nav-drawer-panel a.active .ic { color: #fff; }
+.menu-btn .ic { margin-right: 4px; }
+.empty-state .icon .ic { width: 1em; height: 1em; }
+.journey-marker .ic { width: 1.1em; height: 1.1em; vertical-align: middle; }
+h1 .ic, h2 .ic { color: var(--primary); }
+a.file-link + .inline-form { margin-left: 8px; }
+/* 대시보드 여정 지도의 티어 표시 — 작은 글자용 칩 그대로면 아이콘이 너무 작아 보여 원형으로 키운다 */
+.chip.tier-dot { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px;
+    padding: 0; margin: 0 auto; border-radius: 50%; font-size: 1.05rem; }
+/* 왼쪽 위젯 "한눈에 보기" — D-day · 지금 할 일 · 나의 등급 */
+.glance-row { padding: 12px 0; border-top: 1px solid var(--border); }
+.glance-row:first-of-type { margin-top: 10px; }
+.glance-label { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 700; color: var(--ink-soft); margin-bottom: 6px; }
+.glance-label .ic { color: var(--primary); }
+.glance-empty { margin: 4px 0 0; font-size: 0.82rem; }
+.glance-ddays { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.84rem; }
+.glance-ddays li { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.glance-ddays .chip { flex-shrink: 0; margin-right: 0; }
+.glance-ddays-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.glance-step { margin: 0; font-size: 0.85rem; line-height: 1.5; }
+.glance-step .chip { margin-right: 6px; }
+.glance-tier { margin: 0; font-size: 0.86rem; }
+.glance-link { display: inline-block; margin-top: 6px; font-size: 0.8rem; }

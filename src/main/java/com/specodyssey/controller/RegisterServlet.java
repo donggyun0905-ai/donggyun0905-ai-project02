@@ -38,6 +38,11 @@ public class RegisterServlet extends HttpServlet {
         try {
             // 동의는 화면의 체크박스를 우회해 직접 요청해도 받아야 한다 — 서버에서도 막는다.
             boolean interviewer = RoleFilter.INTERVIEWER.equals(req.getParameter("userType"));
+            // 가입 화면은 비밀번호 확인 칸을 함께 보낸다 — 화면은 미리 막지만 서버에서도 한 번 더 본다
+            String passwordConfirm = req.getParameter("passwordConfirm");
+            if (passwordConfirm != null && !passwordConfirm.equals(password)) {
+                throw new IllegalArgumentException("비밀번호와 비밀번호 확인이 다릅니다.");
+            }
             if (!"Y".equals(req.getParameter("privacyConsent"))) {
                 throw new IllegalArgumentException("개인정보 수집·이용에 동의해야 가입할 수 있습니다.");
             }

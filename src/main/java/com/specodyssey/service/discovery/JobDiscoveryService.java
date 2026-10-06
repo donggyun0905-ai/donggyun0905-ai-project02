@@ -91,6 +91,11 @@ public class JobDiscoveryService {
     }
 
     /** 다시 풀 때 이전 응답을 미리 체크해 두려고 쓴다. key = question_id */
+    /** 설문 문항이 바뀌어 아직 답하지 않은 문항 수(설문을 한 적 없는 사람은 0) — 다시 풀어 보라는 안내에 쓴다. */
+    public int countNewQuestions(Long userId) throws SQLException {
+        return answerDao.countUnansweredJobDiscoveryQuestions(userId);
+    }
+
     public Map<Long, Integer> getMyAnswers(Long userId) throws SQLException {
         Map<Long, Integer> mine = new HashMap<>();
         for (UserSurveyAnswerDto a : answerDao.findByUserId(userId)) {
