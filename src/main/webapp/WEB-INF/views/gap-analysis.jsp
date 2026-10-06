@@ -63,6 +63,12 @@
     <c:otherwise>
         <h1>격차 분석</h1>
         <p class="muted">목표 직무 <strong><c:out value='${job.jobName}' /></strong>의 요구 기술과 지금 가진 스펙을 비교했습니다. 분석일 <c:out value="${analyzedAtText}" /></p>
+        <%-- FR-113·TD-2 투명성 — 실제 공고가 적은 직무는 요구 기술이 추정치라는 걸 먼저 알린다 (2026-10-06) --%>
+        <c:if test="${requirementSource.fewPostings and requirementSource.anyEstimated}">
+            <div class="banner" role="note">
+                <span>이 직무는 수집된 실제 채용 공고가 ${requirementSource.postingCount}건뿐이라, 요구 기술은 일반적인 요구 역량을 바탕으로 한 <strong>예시적 추정</strong>입니다.</span>
+            </div>
+        </c:if>
 
         <div class="two-col" style="margin-top:16px;">
             <div class="primary">
@@ -70,7 +76,7 @@
                     <h2>한눈에 보기</h2>
                     <p style="margin-top:10px;"><strong style="font-size:1.5rem;">${metCount}</strong> / ${totalCount}개 요구 기술 충족 (일치율 ${analysis.matchRate}%)</p>
                     <div class="progress-track"><div class="progress-fill teal" style="width:${analysis.matchRate}%;"></div></div>
-                    <p class="muted" style="margin:0;">지금은 기술명이 정확히 일치하는지로만 판정합니다(대소문자 무시). 의미 기반 매칭은 나중에 고도화 예정입니다.</p>
+                    <p class="muted" style="margin:0;">기술명·별칭·표기 차이에 더해, 뜻이 비슷한 기술도 연결해 판정합니다(로컬 임베딩 매칭).</p>
                 </div>
 
                 <div class="card">
@@ -79,7 +85,7 @@
                         <tr><th>기술</th><th>상태</th></tr>
                         <c:forEach var="item" items="${items}">
                             <tr>
-                                <td><c:out value='${item.skillName}' /></td>
+                                <td><c:out value='${item.skillName}' /><c:if test="${item.estimated}"> <span class="pill">예시적 추정</span></c:if></td>
                                 <c:choose>
                                     <c:when test="${item.met}"><td style="color:var(--teal);"><span class="ic ic-check" aria-hidden="true"></span> 충족</td></c:when>
                                     <c:otherwise><td style="color:var(--danger);"><span class="ic ic-x" aria-hidden="true"></span> 부족</td></c:otherwise>
@@ -87,6 +93,9 @@
                             </tr>
                         </c:forEach>
                     </table>
+                    <c:if test="${requirementSource.anyEstimated}">
+                        <p class="muted" style="margin:8px 0 0;">'예시적 추정' 표시가 붙은 기술은 실제 공고에서 뽑은 것이 아니라, 이 직무에 일반적으로 요구되는 역량을 정리한 참고 기준입니다.</p>
+                    </c:if>
                 </div>
 
                 <div class="row">
