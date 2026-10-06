@@ -51,6 +51,8 @@
                     <p class="muted" style="margin-top:10px;">
                         <c:choose>
                             <c:when test="${empty sessionScope.loginUser}">희망 직무를 설정하면 참고 루트를 보여드립니다.</c:when>
+                            <%-- FR-111 AI 생성 실패 — 10분 뒤 다시 열면 다시 만든다 (2026-10-06) --%>
+                            <c:when test="${benchmarkUnavailable}">AI 참고 루트를 지금 만들 수 없습니다. 잠시 후 다시 열어 주세요.</c:when>
                             <c:otherwise>아직 생성된 참고 루트가 없습니다. 희망 직무를 프로필에서 설정했는지 확인해주세요.</c:otherwise>
                         </c:choose>
                     </p>

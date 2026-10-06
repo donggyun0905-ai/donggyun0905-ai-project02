@@ -50,6 +50,8 @@ public class InsightsServlet extends HttpServlet {
             UserDto user = userDao.findById(userId);
             if (user.getDesiredJobId() != null) {
                 req.setAttribute("benchmark", jobBenchmarkSpecService.getOrGenerate(user.getDesiredJobId()));
+                // FR-111 — AI 생성 실패면 "희망 직무 확인" 대신 실패 안내를 띄운다 (2026-10-06)
+                req.setAttribute("benchmarkUnavailable", jobBenchmarkSpecService.isTemporarilyUnavailable(user.getDesiredJobId()));
             }
         } catch (SQLException e) {
             throw new ServletException("데이터 인사이트를 불러오는 중 오류가 발생했습니다.", e);
