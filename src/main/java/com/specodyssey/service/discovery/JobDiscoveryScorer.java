@@ -20,7 +20,9 @@ import java.util.Map;
  *                     인정도: 보유 기술이 그 skill_id로 매칭된 점수(SkillMatcher score)를
  *                             0.50 이하 → 0, 0.85 이상 → 1, 그 사이는 직선으로 부분 인정
  *   스펙 비중       = 0.5 × min(1, 매칭된 보유 기술 수 / 5)   ← 스펙이 없으면 설문 100%
- *   최종 점수       = (1 - 스펙 비중) × 설문 점수 + 스펙 비중 × 스펙 점수
+ *   전공 점수(계열)  = MajorAffinity가 임베딩으로 구한 0~1 상대 점수 (FR-38 ②, 2026-10-06)
+ *   전공 비중       = 0.2 × 전공 신뢰도                    ← 전공이 없거나 계열 차이가 작으면 0
+ *   최종 점수       = (1 - 스펙 비중 - 전공 비중) × 설문 점수 + 스펙 비중 × 스펙 점수 + 전공 비중 × 전공 점수
  *   요구 기술 데이터가 없는 직무는 스펙 점수 자리에 이 사용자의 평균 스펙 점수를 넣는다
  *   (0이면 부당하게 깎이고, 설문만 쓰면 데이터 없는 직무가 오히려 유리해진다).
  *
@@ -46,6 +48,11 @@ public class JobDiscoveryScorer {
     static final int MIN_RESULTS = 3;
     static final int MAX_RESULTS = 5;
     static final double EXTRA_RESULT_CUTOFF = 0.80;
+    /** 전공 비중 최대치 — MajorFit.confidence가 1일 때 (FR-38 ②) */
+    static final double MAJOR_WEIGHT_MAX = 0.2;
+    /** 전공 신뢰도가 이 이상이고 그 계열 전공 점수가 MAJOR_SHOW_THRESHOLD 이상일 때만 추천 이유에 전공을 적는다 */
+    static final double MAJOR_SHOW_CONFIDENCE = 0.5;
+    static final double MAJOR_SHOW_THRESHOLD = 0.8;
 
     static final Map<String, String> CATEGORY_KO = Map.of(
             "BACKEND", "서버·로직",
@@ -79,6 +86,21 @@ public class JobDiscoveryScorer {
         }
     }
 
+    /**
+     * 전공 → 계열 적합도 (FR-38 ②). MajorAffinity가 임베딩으로 만든다.
+     * scoreByCategory: 계열별 0~1 상대 점수, confidence: 0~1 — 계열 사이 차이가 작은 전공일수록 0에 가깝다.
+     */
+    public record MajorFit(String major, Map<String, Double> scoreByCategory, double confidence) {
+        public MajorFit {
+            scoreByCategory = scoreByCategory == null ? Map.of() : scoreByCategory;
+        }
+
+        /** 전공이 없거나 모델이 없을 때 — 전공 비중 0 */
+        public static MajorFit none() {
+            return new MajorFit(null, Map.of(), 0);
+        }
+    }
+
     /** 추천 결과 한 건 → JOB_RECOMMENDATION 한 줄. */
     public static class Recommendation {
         public long jobId;
@@ -88,14 +110,16 @@ public class JobDiscoveryScorer {
         public double totalScore;
         public double surveyScore;
         public Double specScore;              // 요구 기술 데이터가 없으면 null
+        public Double majorScore;             // 전공을 반영하지 않았으면 null
         public final List<String> matchedSkills = new ArrayList<>();
         public String reason;                 // match_reason — LLM이 없거나 실패해도 쓸 수 있는 기본 문장
 
         @Override
         public String toString() {
-            return String.format(Locale.ROOT, "%d순위 %s total=%.3f survey=%.3f spec=%s matched=%s | %s",
+            return String.format(Locale.ROOT, "%d순위 %s total=%.3f survey=%.3f spec=%s major=%s matched=%s | %s",
                     rankOrder, jobName, totalScore, surveyScore,
                     specScore == null ? "없음" : String.format(Locale.ROOT, "%.3f", specScore),
+                    majorScore == null ? "없음" : String.format(Locale.ROOT, "%.3f", majorScore),
                     matchedSkills, reason);
         }
     }
@@ -104,9 +128,16 @@ public class JobDiscoveryScorer {
 
     public List<Recommendation> recommend(List<SurveyAnswer> answers, List<OwnedSkill> ownedSkills,
                                           List<JobCandidate> jobs) {
+        return recommend(answers, ownedSkills, jobs, MajorFit.none());
+    }
+
+    public List<Recommendation> recommend(List<SurveyAnswer> answers, List<OwnedSkill> ownedSkills,
+                                          List<JobCandidate> jobs, MajorFit majorFit) {
         Map<String, Double> surveyAvg = averageByCategory(answers);
         Map<Long, OwnedSkill> owned = bestPerSkill(ownedSkills);
         double specWeight = SPEC_WEIGHT_MAX * Math.min(1.0, (double) owned.size() / SKILLS_FOR_FULL_SPEC_WEIGHT);
+        MajorFit major = majorFit == null ? MajorFit.none() : majorFit;
+        double majorWeight = MAJOR_WEIGHT_MAX * Math.max(0, Math.min(1, major.confidence()));
 
         List<Recommendation> scored = new ArrayList<>();
         double specSum = 0;
@@ -123,14 +154,19 @@ public class JobDiscoveryScorer {
                 specSum += r.specScore;
                 specCount++;
             }
-            r.reason = buildReason(job, avg, r.matchedSkills);
+            r.majorScore = majorWeight > 0 ? major.scoreByCategory().get(job.category()) : null;
+            boolean showMajor = major.confidence() >= MAJOR_SHOW_CONFIDENCE && r.majorScore != null
+                    && r.majorScore >= MAJOR_SHOW_THRESHOLD;
+            r.reason = buildReason(job, avg, r.matchedSkills, showMajor ? major.major() : null);
             scored.add(r);
         }
 
         double neutralSpec = specCount == 0 ? 0.0 : specSum / specCount;
         for (Recommendation r : scored) {
             double spec = r.specScore == null ? neutralSpec : r.specScore;
-            r.totalScore = (1 - specWeight) * r.surveyScore + specWeight * spec;
+            double majorPart = r.majorScore == null ? 0 : majorWeight;
+            r.totalScore = (1 - specWeight - majorPart) * r.surveyScore + specWeight * spec
+                    + (r.majorScore == null ? 0 : majorPart * r.majorScore);
         }
 
         scored.sort(Comparator.comparingDouble((Recommendation r) -> r.totalScore).reversed()
@@ -211,7 +247,8 @@ public class JobDiscoveryScorer {
         return out;
     }
 
-    private String buildReason(JobCandidate job, Double avg, List<String> matched) {
+    private String buildReason(JobCandidate job, Double avg, List<String> matched,
+                               String closeMajor) {
         String ko = CATEGORY_KO.getOrDefault(job.category(), job.category());
         StringBuilder sb = new StringBuilder();
         if (avg != null) {
@@ -226,6 +263,9 @@ public class JobDiscoveryScorer {
             sb.append(", 이 직무의 요구 기술 데이터는 아직 수집 중이라 설문 기준으로 골랐습니다.");
         } else {
             sb.append(", 아직 겹치는 보유 기술이 적어 설문 응답을 중심으로 골랐습니다.");
+        }
+        if (closeMajor != null) {
+            sb.append(" 전공(").append(closeMajor).append(")도 ").append(ko).append(" 계열과 의미상 가깝습니다.");
         }
         return sb.toString();
     }
