@@ -86,7 +86,7 @@
 </div>
 </c:if>
 
-<main class="${mainWide ? 'wide' : ''}">
+<main class="${mainWide ? 'wide' : ''}${mainFull ? ' full' : ''}">
 <%-- FR-111 AI 응답을 받지 못해 대체했을 때의 안내 — AiNoticeFilter가 세션에 담고, 한 번 보여준 뒤 지운다 (2026-10-02, E) --%>
 <c:if test="${not empty sessionScope.aiNotice}">
     <div class="banner ai-notice" role="status">
