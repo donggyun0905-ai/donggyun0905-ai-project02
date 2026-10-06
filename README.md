@@ -80,7 +80,8 @@ done
 **이미 DB가 있다면** 아직 안 돌린 변경만 번호 순서대로 실행합니다(대부분 한 번만 실행해야 하는 `ALTER`라서, 이미 적용했는지 파일 맨 위 설명을 먼저 읽으세요).
 최근 것: `15_schema_project_link`(프로젝트 기타 링크) · `16_alter_users_recovery_code`(**없으면 로그인부터 `Unknown column 'recovery_code_hash'` 오류**) ·
 `17_schema_scoring_rule`(점수·주기 규칙, 없어도 기본값으로 동작) · `18_fix_withdrawn_login_id`(여러 번 실행해도 안전) · `19_alter_tech_article_spec_archive`(스펙 아카이브) ·
-`21_schema_notification`(헤더 알림 — 새 DB도 실행. 없으면 알림 버튼만 안 보이고 나머지는 동작).
+`21_schema_notification`(헤더 알림 — 새 DB도 실행. 없으면 알림 버튼만 안 보이고 나머지는 동작) ·
+`22_alter_share_link_scope_age`(공유 링크 나이 공개 — **없으면 공유 링크·면접관 화면이 `Unknown column 'scope_age'` 오류**).
 
 > ⚠ **`sql/do-not-run/`의 파일은 데이터가 든 DB에서 실행하지 마세요.** 스냅샷은 모든 테이블을 지우고 빈 테이블로 다시 만듭니다.
 

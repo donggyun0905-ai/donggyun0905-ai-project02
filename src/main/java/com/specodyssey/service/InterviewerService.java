@@ -145,6 +145,14 @@ public class InterviewerService {
 
     /** 담아 둔 지원자와 요구 역량, 지원자별 적합도. "공유받은 이력" 목록과 "지원자 비교" 화면이 같이 쓴다. */
     public InterviewerCompareDto loadCompare(Long userId) throws SQLException {
+        return loadCompare(userId, CompareSort.ADDED);
+    }
+
+    /**
+     * 나란히 보기용 — 면접관이 고른 기준으로 지원자 순서를 바꾼다.
+     * "지원자 N" 이름은 정렬 전에 담은 순서로 붙여서, 정렬을 바꿔도 같은 지원자는 같은 번호로 불린다.
+     */
+    public InterviewerCompareDto loadCompare(Long userId, CompareSort sort) throws SQLException {
         EvaluationSessionDto session = getOrCreateSession(userId);
         InterviewerCompareDto compare = new InterviewerCompareDto();
 
@@ -164,6 +172,7 @@ public class InterviewerService {
             applicant.setItemId(item.getId());
             applicant.setLabel("지원자 " + order++);
             applicant.setAddedDate(item.getAddedAt().toLocalDate().toString());
+            applicant.setAddedAt(item.getAddedAt());
 
             ShareLinkDto link = shareLinkDao.findActiveById(item.getShareLinkId());
             ShareViewDto view = link == null ? null : shareViewService.loadViewByLinkId(link.getId());
@@ -175,6 +184,8 @@ public class InterviewerService {
                     applicant.setLabel(view.getName());
                 }
                 applicant.setCertText(certText(view));
+                applicant.setCertFullText(view.getCertNames().isEmpty() ? applicant.getCertText()
+                        : String.join(", ", view.getCertNames()));
                 applicant.setGrowthText(growthText(view));
                 if (view.isScopeSkills()) {
                     int matchedWeight = 0;
@@ -194,6 +205,7 @@ public class InterviewerService {
             }
             compare.getApplicants().add(applicant);
         }
+        sort.sort(compare.getApplicants());
         return compare;
     }
 

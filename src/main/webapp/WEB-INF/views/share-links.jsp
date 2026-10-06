@@ -48,6 +48,7 @@
                 <div class="card" style="background:#fff; margin:12px 0 0;">
                     <strong style="font-size:0.88rem;">공개 범위</strong>
                     <p style="margin:8px 0;"><label style="display:inline; width:auto;"><input type="checkbox" name="scopeBasic" style="width:auto;" checked> <strong>기본 이력</strong> — 이름, 전공, 자격증, 프로젝트 타임라인</label></p>
+                    <p style="margin:8px 0;"><label style="display:inline; width:auto;"><input type="checkbox" name="scopeAge" style="width:auto;"> <strong>나이</strong> — 면접관이 지원자를 비교할 때 나이를 보고 나이순으로 정렬할 수 있습니다</label></p>
                     <p style="margin:8px 0;"><label style="display:inline; width:auto;"><input type="checkbox" name="scopeSkills" style="width:auto;" checked> <strong>보유 기술 스택</strong> — 면접관의 적합도 계산에 쓰입니다</label></p>
                     <p style="margin:8px 0;"><label style="display:inline; width:auto;"><input type="checkbox" name="scopeGrowth" style="width:auto;"> <strong>성장 잠재력</strong> — 최근 스펙이 늘어난 속도</label></p>
                     <p style="margin:8px 0;"><label style="display:inline; width:auto;"><input type="checkbox" name="scopeResume" style="width:auto;" checked> <strong>이력서 파일</strong> — 내 프로필에 올린 이력서를 내려받을 수 있게 합니다</label></p>

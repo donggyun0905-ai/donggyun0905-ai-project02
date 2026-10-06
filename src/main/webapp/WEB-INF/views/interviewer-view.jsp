@@ -43,6 +43,11 @@
                     <span style="flex:1;"><div class="muted" style="font-size:0.8rem;">희망 직무</div><strong><c:out value="${view.desiredJobName}" default="미정" /></strong></span>
                 </div>
             </c:if>
+            <c:if test="${view.scopeAge}">
+                <div class="row" style="margin-top:10px;">
+                    <span style="flex:1;"><div class="muted" style="font-size:0.8rem;">나이</div><strong><c:choose><c:when test="${empty view.age}">미입력</c:when><c:otherwise>${view.age}세</c:otherwise></c:choose></strong></span>
+                </div>
+            </c:if>
             <p style="margin-top:12px; margin-bottom:0;">
                 공개된 항목
                 <c:if test="${view.scopeBasic}"><span class="chip chip-teal">기본 이력</span></c:if>
@@ -50,6 +55,7 @@
                 <c:if test="${view.scopeGrowth}"><span class="chip chip-teal">성장 잠재력</span></c:if>
                 <c:if test="${view.scopeResume}"><span class="chip chip-teal">이력서 파일</span></c:if>
                 <c:if test="${view.scopeCoverLetter}"><span class="chip chip-teal">자소서 파일</span></c:if>
+                <c:if test="${view.scopeAge}"><span class="chip chip-teal">나이</span></c:if>
             </p>
         </div>
 
