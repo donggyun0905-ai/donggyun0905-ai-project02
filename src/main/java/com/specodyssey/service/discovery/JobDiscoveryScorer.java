@@ -21,7 +21,7 @@ import java.util.Map;
  *                             0.50 이하 → 0, 0.85 이상 → 1, 그 사이는 직선으로 부분 인정
  *   스펙 비중       = 0.5 × min(1, 매칭된 보유 기술 수 / 5)   ← 스펙이 없으면 설문 100%
  *   전공 점수(계열)  = MajorAffinity가 임베딩으로 구한 0~1 상대 점수 (FR-38 ②, 2026-10-06)
- *   전공 비중       = 0.2 × 전공 신뢰도                    ← 전공이 없거나 계열 차이가 작으면 0
+ *   전공 비중       = 0.2 × 전공 신뢰도                    ← 전공이 없거나 신뢰도가 0.3 미만이면 0
  *   최종 점수       = (1 - 스펙 비중 - 전공 비중) × 설문 점수 + 스펙 비중 × 스펙 점수 + 전공 비중 × 전공 점수
  *   요구 기술 데이터가 없는 직무는 스펙 점수 자리에 이 사용자의 평균 스펙 점수를 넣는다
  *   (0이면 부당하게 깎이고, 설문만 쓰면 데이터 없는 직무가 오히려 유리해진다).
@@ -50,6 +50,12 @@ public class JobDiscoveryScorer {
     static final double EXTRA_RESULT_CUTOFF = 0.80;
     /** 전공 비중 최대치 — MajorFit.confidence가 1일 때 (FR-38 ②) */
     static final double MAJOR_WEIGHT_MAX = 0.2;
+    /**
+     * 전공 신뢰도가 이보다 낮으면 전공을 아예 반영하지 않는다. 데모(설문 전부 3점)에서 컴공(0.28)→DevOps,
+     * 국문(0.10)→프론트엔드처럼 모델의 약한 신호가 동점을 깨서 납득하기 어려운 1순위가 나왔다(2026-10-06).
+     * 수학과(0.22)→데이터처럼 맞는 약한 신호도 같이 빠지지만, 전공은 확실할 때만 쓰는 쪽을 택했다.
+     */
+    static final double MAJOR_MIN_CONFIDENCE = 0.3;
     /** 전공 신뢰도가 이 이상이고 그 계열 전공 점수가 MAJOR_SHOW_THRESHOLD 이상일 때만 추천 이유에 전공을 적는다 */
     static final double MAJOR_SHOW_CONFIDENCE = 0.5;
     static final double MAJOR_SHOW_THRESHOLD = 0.8;
@@ -137,7 +143,8 @@ public class JobDiscoveryScorer {
         Map<Long, OwnedSkill> owned = bestPerSkill(ownedSkills);
         double specWeight = SPEC_WEIGHT_MAX * Math.min(1.0, (double) owned.size() / SKILLS_FOR_FULL_SPEC_WEIGHT);
         MajorFit major = majorFit == null ? MajorFit.none() : majorFit;
-        double majorWeight = MAJOR_WEIGHT_MAX * Math.max(0, Math.min(1, major.confidence()));
+        double majorWeight = major.confidence() < MAJOR_MIN_CONFIDENCE
+                ? 0 : MAJOR_WEIGHT_MAX * Math.min(1, major.confidence());
 
         List<Recommendation> scored = new ArrayList<>();
         double specSum = 0;

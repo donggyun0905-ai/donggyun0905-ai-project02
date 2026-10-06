@@ -10,8 +10,8 @@
 --   discovery_demo_stat     통계학과       → 1순위 데이터 계열 + 추천 이유에 "전공(통계학과)도 …"
 --   discovery_demo_sec      정보보호학과   → 1순위 보안 계열 + 전공 문장
 --   discovery_demo_design   시각디자인학과 → 1순위 프론트엔드 계열 + 전공 문장
---   discovery_demo_cs       컴퓨터공학과   → 전공 신호 약함 — 전공 문장 없음
---   discovery_demo_korean   국어국문학과   → IT와 거리가 멂 — 전공 문장 없음
+--   discovery_demo_cs       컴퓨터공학과   → 전공 신호 약함(신뢰도 0.3 미만) — 전공 미반영, 전공 없는 사용자와 같은 결과
+--   discovery_demo_korean   국어국문학과   → IT와 거리가 멂(신뢰도 0.3 미만) — 전공 미반영, 전공 없는 사용자와 같은 결과
 -- =========================================================
 SET NAMES utf8mb4;
 

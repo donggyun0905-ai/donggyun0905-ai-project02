@@ -97,7 +97,9 @@ public class MajorAffinity {
                 similarity.put(c.getKey(), LocalEmbedder.cosine(majorVector, c.getValue()));
             }
             return normalize(key, similarity);
-        } catch (Exception e) {
+        } catch (Exception | LinkageError e) {
+            // LinkageError: 네이티브 라이브러리(ONNX·토크나이저) 로딩 실패는 Exception이 아니라 Error로 온다.
+            // 예) Tomcat을 끄지 않고 WAR만 바꾸면 "already loaded in another classloader" — 이때도 화면은 멈추면 안 된다(FR-111)
             LOG.log(Level.WARNING, "전공 임베딩 계산 실패 — 전공 없이 추천합니다: " + key, e);
             return MajorFit.none();
         }
@@ -174,8 +176,8 @@ public class MajorAffinity {
             if (sharedEmbedder == null) {
                 try {
                     sharedEmbedder = LocalEmbedder.fromConfig();
-                } catch (Exception e) {
-                    LOG.log(Level.INFO, "EMBEDDING_MODEL_DIR 모델을 못 찾아 전공 역산을 건너뜁니다 — "
+                } catch (Exception | LinkageError e) {
+                    LOG.log(Level.INFO, "임베딩 모델을 불러오지 못해 전공 역산을 건너뜁니다 — "
                             + "설문·보유 기술만으로 추천합니다.", e);
                     embedderUnavailable = true;
                     return null;

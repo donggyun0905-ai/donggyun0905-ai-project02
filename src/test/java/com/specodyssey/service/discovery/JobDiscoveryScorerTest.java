@@ -178,10 +178,20 @@ class JobDiscoveryScorerTest {
 
     @Test
     void 전공_신호가_약하면_점수엔_조금_반영해도_이유엔_적지_않는다() {
-        List<Recommendation> result = scorer.recommend(neutralAnswers(), List.of(), jobs(), dataMajor(0.3));
+        List<Recommendation> result = scorer.recommend(neutralAnswers(), List.of(), jobs(), dataMajor(0.4));
 
         assertNotNull(result.get(0).majorScore);
         assertTrue(result.stream().noneMatch(r -> r.reason.contains("전공")));
+    }
+
+    @Test
+    void 전공_신뢰도가_최소치_미만이면_동점도_깨지_않는다() {
+        // 설문이 전부 같아도 약한 전공 신호(컴공 0.28 수준)로 순위를 정하지 않는다
+        List<Recommendation> without = scorer.recommend(neutralAnswers(), List.of(), jobs());
+        List<Recommendation> weak = scorer.recommend(neutralAnswers(), List.of(), jobs(), dataMajor(0.28));
+
+        assertEquals(without.stream().map(r -> r.jobName).toList(), weak.stream().map(r -> r.jobName).toList());
+        assertTrue(weak.stream().allMatch(r -> r.majorScore == null));
     }
 
     @Test
