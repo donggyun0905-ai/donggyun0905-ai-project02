@@ -10,7 +10,7 @@
                         <input type="hidden" name="_csrf" value="${csrfToken}">
                         <input type="hidden" name="action" value="update">
                         <input type="hidden" name="userSkillId" value="${skill.id}">
-                        <p><input type="text" name="rawInput" value="<c:out value='${skill.rawInput}' />" placeholder="기술명 (예: Python, React)" required></p>
+                        <p><input type="text" name="rawInput" data-input-check="skill" autocomplete="off" value="<c:out value='${skill.rawInput}' />" placeholder="기술명 (예: Python, React)" required></p>
                         <p>
                             <select name="proficiency">
                                 <option value="" ${empty skill.proficiency ? 'selected' : ''}>숙련도 선택 안함</option>
@@ -35,7 +35,7 @@
 <div class="card">
     <form action="${pageContext.request.contextPath}/profile/skills" method="post" class="row">
         <input type="hidden" name="_csrf" value="${csrfToken}">
-        <input type="text" name="rawInput" placeholder="기술명 (예: Python, React)" required style="width:auto; flex-grow:1;">
+        <input type="text" name="rawInput" data-input-check="skill" autocomplete="off" placeholder="기술명 (예: Python, React)" required style="width:auto; flex-grow:1;">
         <select name="proficiency" style="width:auto;">
             <option value="">숙련도 선택 안함</option>
             <option value="BEGINNER">입문</option>

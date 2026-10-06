@@ -2,6 +2,7 @@ package com.specodyssey.controller;
 
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.dto.UserSpecDto;
+import com.specodyssey.service.ProfileInputChecker;
 import com.specodyssey.service.ProfileService;
 import com.specodyssey.service.RoadmapService;
 
@@ -20,12 +21,28 @@ import java.time.format.DateTimeParseException;
 /**
  * 보유 스펙 추가 · 수정 · 삭제.
  * 관련 요구사항: FR-23
+ * GET ?check=&specType= : 입력하는 동안 명칭 검사(엉터리 글자·자격증 이름 제안) — 결과는 JSON (2026-10-06)
  */
 @WebServlet("/profile/specs")
 public class ProfileSpecServlet extends HttpServlet {
 
     private final ProfileService profileService = new ProfileService();
     private final RoadmapService roadmapService = new RoadmapService();
+    private final ProfileInputChecker inputChecker = new ProfileInputChecker();
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        String check = req.getParameter("check");
+        if (check == null) {
+            resp.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return;
+        }
+        try {
+            ProfileSkillServlet.writeJson(resp, inputChecker.checkSpec(req.getParameter("specType"), check));
+        } catch (SQLException e) {
+            throw new ServletException("스펙 명칭 확인 중 오류가 발생했습니다.", e);
+        }
+    }
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -40,14 +57,14 @@ public class ProfileSpecServlet extends HttpServlet {
                 profileService.deleteSpec(userId, specId);
             } else if ("update".equals(action)) {
                 UserSpecDto spec = parseSpec(req, resp);
-                if (spec == null) {
+                if (spec == null || rejected(spec, resp)) {
                     return;
                 }
                 spec.setId(Long.valueOf(req.getParameter("specId")));
                 profileService.updateSpec(userId, spec);
             } else {
                 UserSpecDto spec = parseSpec(req, resp);
-                if (spec == null) {
+                if (spec == null || rejected(spec, resp)) {
                     return;
                 }
                 profileService.addSpec(userId, spec);
@@ -65,6 +82,15 @@ public class ProfileSpecServlet extends HttpServlet {
         }
 
         resp.sendRedirect(req.getContextPath() + "/profile");
+    }
+
+    // 화면의 검사를 거치지 않은 요청도 엉터리 명칭은 저장하지 않는다
+    private boolean rejected(UserSpecDto spec, HttpServletResponse resp) throws SQLException, IOException {
+        if (!inputChecker.rejectsSpec(spec.getSpecType(), spec.getTitle())) {
+            return false;
+        }
+        resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "의미 없는 글자처럼 보여요. 명칭을 다시 확인해 주세요.");
+        return true;
     }
 
     // 유효성 검사 실패 시 400 응답을 직접 보내고 null을 반환한다.

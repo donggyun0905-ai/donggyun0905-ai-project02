@@ -22,7 +22,7 @@
                                 <option value="AWARD" ${spec.specType == 'AWARD' ? 'selected' : ''}>수상</option>
                             </select>
                         </p>
-                        <p><input type="text" name="title" value="<c:out value='${spec.title}' />" placeholder="명칭" required></p>
+                        <p><input type="text" name="title" data-input-check="spec" autocomplete="off" value="<c:out value='${spec.title}' />" placeholder="명칭" required></p>
                         <p><input type="text" name="issuer" value="<c:out value='${spec.issuer}' />" placeholder="발급기관"></p>
                         <p><input type="text" name="score" value="${spec.score}" placeholder="점수(어학 등)"></p>
                         <p><input type="date" name="acquiredDate" value="${spec.acquiredDate}"></p>
@@ -48,7 +48,7 @@
             <option value="LANGUAGE">어학</option>
             <option value="AWARD">수상</option>
         </select>
-        <input type="text" name="title" placeholder="명칭" required style="width:auto; flex-grow:1;">
+        <input type="text" name="title" data-input-check="spec" autocomplete="off" placeholder="명칭" required style="width:auto; flex-grow:1;">
         <input type="text" name="issuer" placeholder="발급기관" style="width:auto;">
         <input type="text" name="score" placeholder="점수(어학 등)" style="width:auto;">
         <input type="date" name="acquiredDate" style="width:auto;">
