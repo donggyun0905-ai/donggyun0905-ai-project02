@@ -44,14 +44,16 @@ public class RoadmapService {
     private final RoadmapStepDao roadmapStepDao = new RoadmapStepDao();
     // 실제 일은 아래 협력 클래스가 한다 — 이 클래스는 컨트롤러·테스트가 쓰던 공개 메서드를 그대로 유지하는 창구다.
     private final RoadmapGenerator generator;
+    private final RoadmapRefresher refresher;
     private final RoadmapCompletionService completion = new RoadmapCompletionService();
     private final RoadmapSubmissionService submissions = new RoadmapSubmissionService();
     private final RoadmapReviewService reviews = new RoadmapReviewService();
     private final RoadmapUpkeepService upkeep = new RoadmapUpkeepService();
     private final RoadmapProgressCalculator progressCalculator = new RoadmapProgressCalculator();
 
+    // 기술 보충도 캐시를 씌운다 — 같은 직무·후보면 재사용하고, 실패하면 직전 선택으로 대체(FR-111, 2026-10-02)
     public RoadmapService() {
-        this(new ProjectIdeaService(), new SkillDeepenService(GroqLlmClient.fromConfig()));
+        this(new ProjectIdeaService(), new SkillDeepenService(new CachingLlmClient(GroqLlmClient.fromConfig())));
     }
 
     // 테스트에서 StubLlmClient 기반 ProjectIdeaService를 넣어 실제 Groq 호출을 피하려고 열어둔 생성자
@@ -63,6 +65,7 @@ public class RoadmapService {
 
     public RoadmapService(ProjectIdeaService projectIdeaService, SkillDeepenService skillDeepenService) {
         this.generator = new RoadmapGenerator(projectIdeaService, skillDeepenService);
+        this.refresher = new RoadmapRefresher(generator);
     }
 
     public RoadmapDto getPrimaryRoadmap(Long userId) throws SQLException {
@@ -159,6 +162,11 @@ public class RoadmapService {
     public SkillProofGrader.GradeResult submitArticleUpdate(Long userId, Long stepId, String extractedText,
             DocumentDto proofFile) throws SQLException {
         return upkeep.submitArticleUpdate(userId, stepId, extractedText, proofFile);
+    }
+
+    // 재분석 결과를 지금 로드맵에 바뀐 부분만 반영 → RoadmapRefresher (로드맵이 없거나 직무가 바뀌었으면 통째로 새로 만든다)
+    public RoadmapRefresher.Result refresh(Long userId) throws SQLException, NoGapAnalysisException {
+        return refresher.refresh(userId);
     }
 
     // 로드맵 생성 → RoadmapGenerator

@@ -1,5 +1,6 @@
 package com.specodyssey.service;
 
+import com.specodyssey.util.AiNotices;
 import com.specodyssey.util.ExternalApiClient.ExternalApiException;
 import com.specodyssey.util.GroqLlmClient;
 import com.specodyssey.util.LlmClient;
@@ -29,8 +30,9 @@ public class ProjectIdeaService {
 
     private final LlmClient llm;
 
+    // 같은 직무·부족 기술이면 7일 동안 재사용하고, Groq가 실패하면 직전에 받은 아이디어로 대체한다(FR-111, 2026-10-02)
     public ProjectIdeaService() {
-        this(GroqLlmClient.fromConfig());
+        this(new CachingLlmClient(GroqLlmClient.fromConfig()));
     }
 
     public ProjectIdeaService(LlmClient llm) {
@@ -38,9 +40,20 @@ public class ProjectIdeaService {
     }
 
     public ProjectIdea suggest(String jobName, List<String> missingSkillNames) throws ExternalApiException {
-        String prompt = systemPrompt() + "\n\n" + userPrompt(jobName, missingSkillNames);
-        ProjectIdea idea = llm.completeJson(prompt, ProjectIdea.class);
-        return validate(idea);
+        LlmResult<ProjectIdea> result = CachingLlmClient.completeWithStatus(llm, prompt(jobName, missingSkillNames), ProjectIdea.class);
+        if (result.isUnavailable()) {
+            throw result.cause();
+        }
+        if (result.isFallback()) {
+            // FR-111 — 직전 아이디어로 대체했다고 다음 화면에 안내한다
+            AiNotices.add("AI 응답을 받지 못해 " + result.getCachedAtText() + "에 받은 직전 프로젝트 추천을 넣었습니다.");
+        }
+        return validate(result.getValue());
+    }
+
+    // 테스트가 캐시 키를 계산하려고 같은 패키지에서 쓴다
+    String prompt(String jobName, List<String> missingSkillNames) {
+        return systemPrompt() + "\n\n" + userPrompt(jobName, missingSkillNames);
     }
 
     private String systemPrompt() {

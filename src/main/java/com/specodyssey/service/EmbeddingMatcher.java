@@ -3,6 +3,7 @@ package com.specodyssey.service;
 import com.specodyssey.util.LocalEmbedder;
 
 import java.sql.SQLException;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -24,6 +25,10 @@ import java.util.logging.Logger;
  * 놓치지 않는 쪽에 맞췄다. 짧은 이름끼리의 오탐(Java↔JavaScript류)은 실무에서는 대부분
  * SKILL_ALIAS 사전이 먼저 정확 일치로 잡아줘서 애초에 이 단계까지 안 온다 — 사전에 없는
  * 새로운 짧은 이름 조합에서는 여전히 오탐 가능성이 남아 있다는 걸 인지하고 채택한다.
+ *
+ * 2026-10-02: "자바 백엔드"가 임베딩에서 JavaScript(0.769)로 가던 문제는 FuzzyNameMatcher의 단어 단위
+ * 매칭("자바"→Java)이 먼저 잡도록 해서 막았다. 실제 스킬 이름 벡터와 비교하면 0.75를 넘는 경우가 드물고
+ * 그마저 Java/JavaScript 계열이라, 이 단계는 이름·별칭으로 못 찾은 입력의 마지막 수단으로만 둔다.
  *
  * 모델 파일(EMBEDDING_MODEL_DIR)이 없는 PC에서는 첫 호출에서 조용히 포기하고 그 뒤로는
  * FuzzyNameMatcher 결과만 쓴다 — 팀원 전원이 440MB 모델을 받아둘 필요는 없다.
@@ -50,10 +55,22 @@ public class EmbeddingMatcher implements SkillMatcher {
 
     @Override
     public MatchResult match(String raw) throws SQLException {
-        MatchResult delegateResult = delegate.match(raw);
-        if (delegateResult.skillId() != null) {
-            return delegateResult;
+        List<MatchResult> all = matchAll(raw);
+        return all.isEmpty() ? MatchResult.none() : all.get(0);
+    }
+
+    // 이름·별칭 단계에서 하나라도 찾으면(단어 단위로 여러 개일 수 있음) 그대로 쓰고, 못 찾았을 때만 임베딩
+    @Override
+    public List<MatchResult> matchAll(String raw) throws SQLException {
+        List<MatchResult> found = delegate.matchAll(raw);
+        if (!found.isEmpty()) {
+            return found;
         }
+        MatchResult embedded = embeddingMatch(raw);
+        return embedded.skillId() == null ? List.of() : List.of(embedded);
+    }
+
+    private MatchResult embeddingMatch(String raw) throws SQLException {
         if (raw == null || raw.isBlank()) {
             return MatchResult.none();
         }

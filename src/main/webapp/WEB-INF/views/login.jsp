@@ -7,7 +7,7 @@
     <h1>로그인</h1>
 
     <c:if test="${not empty errorMessage}">
-        <p class="error-message">${errorMessage}</p>
+        <p class="error-message"><c:out value='${errorMessage}' /></p>
     </c:if>
 
     <div class="card">

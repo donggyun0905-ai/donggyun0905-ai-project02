@@ -4,7 +4,6 @@ import com.specodyssey.service.archive.ArchiveContentCodec;
 import com.specodyssey.service.archive.SpecArchiveRules;
 import com.specodyssey.service.archive.SpecArchiveService;
 import com.specodyssey.service.archive.SpecArchiveService.UploadedImage;
-import com.specodyssey.util.FileStorageUtil;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.MultipartConfig;
 import jakarta.servlet.annotation.WebServlet;
@@ -13,7 +12,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.Part;
 
-import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.SQLException;
@@ -33,7 +31,7 @@ import java.util.regex.Pattern;
  *   image_K         — K번 사진 파일
  * 첨부 개수 제한은 없고 용량만 본다: 글 하나에 올리는 사진을 모두 합쳐 10MB.
  * 요청 전체 상한은 사진 10MB + 글·제목 여유 2MB — 사진 합계는 아래에서 따로 다시 센다.
- * 사진은 파일 앞부분으로 실제 형식(PNG·JPEG·GIF·WebP)을 확인하고, 저장 확장자도 그 형식으로 정한다.
+ * 사진은 파일 앞부분으로 실제 형식(PNG·JPEG·GIF·WebP)을 확인한 뒤, 내용째 DB에 저장한다 (서버 PC 폴더에 두지 않음).
  */
 @WebServlet("/spec-archive/write")
 @MultipartConfig(
@@ -46,8 +44,6 @@ public class SpecArchiveWriteServlet extends HttpServlet {
     private static final Logger LOG = Logger.getLogger(SpecArchiveWriteServlet.class.getName());
     private static final String VIEW = "/WEB-INF/views/spec-archive-write.jsp";
     private static final Pattern IMAGE_PART = Pattern.compile("image_(\\d{1,4})");
-    private static final Map<String, String> EXTENSION_OF = Map.of(
-            "image/png", "png", "image/jpeg", "jpg", "image/gif", "gif", "image/webp", "webp");
 
     private final SpecArchiveService archiveService = new SpecArchiveService();
 
@@ -83,22 +79,18 @@ public class SpecArchiveWriteServlet extends HttpServlet {
             for (Part part : parts) {
                 Matcher m = IMAGE_PART.matcher(part.getName());
                 if (m.matches() && part.getSize() > 0) {
-                    uploads.put(Integer.parseInt(m.group(1)), saveImage(part));
+                    uploads.put(Integer.parseInt(m.group(1)), readImage(part));
                 }
             }
+            // 본문에서 빠진 사진(편집 중 지운 것 등)은 서비스가 저장하지 않는다
             Long articleId = archiveService.create(userId, req.getParameter("title"), content, uploads);
-            // 본문에서 빠져 저장되지 않은 사진(편집 중 지운 것 등)은 디스크에 남기지 않는다
-            SpecArchiveService.unusedUploadKeys(content, uploads.keySet())
-                    .forEach(k -> FileStorageUtil.deleteQuietly(uploads.get(k).filePath()));
             req.getSession().setAttribute(SpecArchiveServlet.MESSAGE_KEY, "글을 올렸습니다.");
             resp.sendRedirect(req.getContextPath() + "/spec-archive/post?id=" + articleId);
         } catch (IllegalArgumentException | SecurityException e) {
-            uploads.values().forEach(u -> FileStorageUtil.deleteQuietly(u.filePath())); // 글이 안 올라갔으면 파일도 남기지 않는다
             showFormAgain(req, resp, userId, e.getMessage(), content, !uploads.isEmpty());
         } catch (SQLException | IOException | RuntimeException e) {
-            // 저장 중 오류(DB·디스크)도 오류 페이지로 보내지 않고 같은 화면에 안내한다 — 쓰던 글은 그대로 남긴다.
+            // 저장 중 오류(DB)도 오류 페이지로 보내지 않고 같은 화면에 안내한다 — 쓰던 글은 그대로 남긴다.
             // (오류 페이지에서 뒤로 가면 브라우저가 예전 화면을 되살려 이전 첨부가 다시 올라가던 문제도 함께 막는다)
-            uploads.values().forEach(u -> FileStorageUtil.deleteQuietly(u.filePath()));
             LOG.log(Level.SEVERE, "스펙 아카이브 글 저장 실패 (userId=" + userId + ")", e);
             showFormAgain(req, resp, userId, "글을 저장하지 못했습니다. 잠시 후 다시 올려 주세요. 계속 안 되면 관리자에게 알려 주세요.",
                     content, !uploads.isEmpty());
@@ -129,21 +121,18 @@ public class SpecArchiveWriteServlet extends HttpServlet {
         req.setAttribute("codeLanguages", SpecArchiveRules.CODE_LANGUAGES); // 코드 블록 언어 선택 목록
     }
 
-    private UploadedImage saveImage(Part part) throws IOException {
+    private UploadedImage readImage(Part part) throws IOException {
         String originalName = part.getSubmittedFileName() == null || part.getSubmittedFileName().isBlank()
                 ? "붙여넣은 사진" : part.getSubmittedFileName();
-        try (InputStream raw = part.getInputStream(); BufferedInputStream in = new BufferedInputStream(raw)) {
-            in.mark(16);
-            byte[] head = in.readNBytes(12);
-            in.reset();
-            String mime = SpecArchiveRules.detectImageMime(head);
-            if (mime == null) {
-                throw new IllegalArgumentException("사진 파일만 올릴 수 있습니다 (PNG·JPG·GIF·WebP). — " + originalName);
-            }
-            // 저장 파일 확장자는 원본 이름이 아니라 확인한 형식으로 정한다
-            FileStorageUtil.SavedFile saved = FileStorageUtil.save(in, "image." + EXTENSION_OF.get(mime));
-            String name = originalName.length() <= 255 ? originalName : originalName.substring(0, 255);
-            return new UploadedImage(name, saved.getStoredName(), saved.getFilePath(), saved.getFileSize(), mime);
+        byte[] data;
+        try (InputStream in = part.getInputStream()) {
+            data = in.readAllBytes(); // 한 장도 10MB를 넘지 않는다 (위에서 합계를 이미 확인)
         }
+        String mime = SpecArchiveRules.detectImageMime(data);
+        if (mime == null) {
+            throw new IllegalArgumentException("사진 파일만 올릴 수 있습니다 (PNG·JPG·GIF·WebP). — " + originalName);
+        }
+        String name = originalName.length() <= 255 ? originalName : originalName.substring(0, 255);
+        return new UploadedImage(name, mime, data);
     }
 }

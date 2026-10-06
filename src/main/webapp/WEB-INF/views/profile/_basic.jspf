@@ -7,9 +7,9 @@
         <div class="card">
             <p>입력하신 내용과 정확히 일치하는 직무가 없어서, 가장 비슷한 직무를 찾았습니다. 맞나요?</p>
             <p style="margin:10px 0;">
-                <strong>${pendingJobMatch.job.jobName}</strong>
+                <strong><c:out value='${pendingJobMatch.job.jobName}' /></strong>
                 <c:if test="${not empty pendingJobMatch.job.jobCategory}">
-                    <span class="chip chip-teal">${pendingJobMatch.job.jobCategory}</span>
+                    <span class="chip chip-teal"><c:out value='${pendingJobMatch.job.jobCategory}' /></span>
                 </c:if>
             </p>
             <c:if test="${not empty pendingJobMatch.aliasNames}">
@@ -22,13 +22,13 @@
                     <input type="hidden" name="_csrf" value="${csrfToken}">
                     <input type="hidden" name="action" value="confirmJob">
                     <input type="hidden" name="confirmedJobId" value="${pendingJobMatch.job.id}">
-                    <input type="hidden" name="email" value="${pendingEmail}">
-                    <input type="hidden" name="major" value="${pendingMajor}">
+                    <input type="hidden" name="email" value="<c:out value='${pendingEmail}' />">
+                    <input type="hidden" name="major" value="<c:out value='${pendingMajor}' />">
                     <input type="hidden" name="name" value="<c:out value='${pendingPersonalInfo.name}' />">
                     <input type="hidden" name="age" value="${pendingPersonalInfo.age}">
-                    <input type="hidden" name="careerStatus" value="${pendingPersonalInfo.careerStatus}">
+                    <input type="hidden" name="careerStatus" value="<c:out value='${pendingPersonalInfo.careerStatus}' />">
                     <input type="hidden" name="grade" value="<c:out value='${pendingPersonalInfo.grade}' />">
-                    <input type="hidden" name="interestField" value="${pendingInterestField}">
+                    <input type="hidden" name="interestField" value="<c:out value='${pendingInterestField}' />">
                     <button type="submit">예, 이 직무로 저장</button>
                 </form>
                 <a href="${pageContext.request.contextPath}/profile" class="btn secondary">아니오, 다시 검색</a>
@@ -53,9 +53,9 @@
                     </select>
                 </p>
                 <p id="grade-field"><label>학년</label><input type="text" name="grade" maxlength="20" required placeholder="예) 3학년" value="<c:out value='${empty param.grade ? user.grade : param.grade}' />"></p>
-                <p><label>이메일</label><input type="email" name="email" value="${user.email}"></p>
-                <p><label>전공</label><input type="text" name="major" value="${user.major}"></p>
-                <p><label>관심 분야</label><input type="text" name="interestField" value="${user.interestField}"></p>
+                <p><label>이메일</label><input type="email" name="email" value="<c:out value='${user.email}' />"></p>
+                <p><label>전공</label><input type="text" name="major" value="<c:out value='${user.major}' />"></p>
+                <p><label>관심 분야</label><input type="text" name="interestField" value="<c:out value='${user.interestField}' />"></p>
                 <p>
                     <label>희망 직무</label>
                     <%-- list=datalist: 클릭하면 전체 직무가 드롭박스로 보이고, 입력할수록 그중 일치하는
@@ -65,13 +65,13 @@
                          비워두고 저장하면 "아직 모르겠음"으로 저장된다(별도 라디오 없이 입력칸 하나로 판단). --%>
                     <input type="text" name="desiredJobQuery" list="jobOptions" style="width:auto;"
                            autocomplete="off" placeholder="아직 모르겠으면 비워두세요 (다른 이름으로 알고 있어도 OK)"
-                           value="${desiredJobQuery}">
+                           value="<c:out value='${desiredJobQuery}' />">
                     <datalist id="jobOptions">
                         <c:forEach var="job" items="${jobs}">
-                            <option value="${job.jobName}">
+                            <option value="<c:out value='${job.jobName}' />">
                         </c:forEach>
                         <c:forEach var="alias" items="${jobAliases}">
-                            <option value="${alias.aliasName}">
+                            <option value="<c:out value='${alias.aliasName}' />">
                         </c:forEach>
                     </datalist>
                 </p>

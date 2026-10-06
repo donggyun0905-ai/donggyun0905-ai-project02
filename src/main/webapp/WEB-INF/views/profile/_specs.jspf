@@ -3,7 +3,7 @@
     <c:forEach var="spec" items="${specs}">
         <li class="spread">
             <span>
-                [${spec.specType}] ${spec.title}
+                [<c:out value='${spec.specType}' />] <c:out value='${spec.title}' />
                 <c:if test="${not empty spec.issuer}"> · ${spec.issuer}</c:if>
                 <c:if test="${not empty spec.score}"> · ${spec.score}</c:if>
                 <c:if test="${not empty spec.acquiredDate}"> · ${spec.acquiredDate}</c:if>
@@ -22,8 +22,8 @@
                                 <option value="AWARD" ${spec.specType == 'AWARD' ? 'selected' : ''}>수상</option>
                             </select>
                         </p>
-                        <p><input type="text" name="title" value="${spec.title}" placeholder="명칭" required></p>
-                        <p><input type="text" name="issuer" value="${spec.issuer}" placeholder="발급기관"></p>
+                        <p><input type="text" name="title" value="<c:out value='${spec.title}' />" placeholder="명칭" required></p>
+                        <p><input type="text" name="issuer" value="<c:out value='${spec.issuer}' />" placeholder="발급기관"></p>
                         <p><input type="text" name="score" value="${spec.score}" placeholder="점수(어학 등)"></p>
                         <p><input type="date" name="acquiredDate" value="${spec.acquiredDate}"></p>
                         <button type="submit">저장</button>

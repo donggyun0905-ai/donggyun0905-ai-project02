@@ -15,9 +15,15 @@ import java.util.List;
 /** TECH_ARTICLE_ATTACHMENT 테이블 DAO — 글 첨부(업로드 이미지 · 이미지 링크 · 유튜브). */
 public class TechArticleAttachmentDao {
 
+    private static final String COLUMNS =
+            "id, article_id, attachment_type, sort_order, url, embed_key, original_name, stored_name, " +
+            "file_path, file_size, mime_type, created_at, updated_at, is_deleted";
+    private static final String T_COLUMNS = "t." + COLUMNS.replace(", ", ", t.");
+
+    /** 사진 내용(file_data)까지 함께 넣는다. 목록 조회용 COLUMNS에는 file_data를 넣지 않는다 — 큰 값을 매번 읽지 않게. */
     public void insert(Connection conn, TechArticleAttachmentDto a) throws SQLException {
         String sql = "INSERT INTO TECH_ARTICLE_ATTACHMENT (article_id, attachment_type, sort_order, url, embed_key, " +
-                "original_name, stored_name, file_path, file_size, mime_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                "original_name, stored_name, file_path, file_size, mime_type, file_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, a.getArticleId());
             pstmt.setString(2, a.getAttachmentType());
@@ -33,13 +39,14 @@ public class TechArticleAttachmentDao {
                 pstmt.setLong(9, a.getFileSize());
             }
             pstmt.setString(10, a.getMimeType());
+            pstmt.setBytes(11, a.getFileData());
             pstmt.executeUpdate();
         }
     }
 
     /** 글의 첨부, 표시 순서대로 */
     public List<TechArticleAttachmentDto> findByArticleId(Long articleId) throws SQLException {
-        String sql = "SELECT * FROM TECH_ARTICLE_ATTACHMENT WHERE article_id = ? AND is_deleted = FALSE ORDER BY sort_order";
+        String sql = "SELECT " + COLUMNS + " FROM TECH_ARTICLE_ATTACHMENT WHERE article_id = ? AND is_deleted = FALSE ORDER BY sort_order";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, articleId);
@@ -54,11 +61,11 @@ public class TechArticleAttachmentDao {
     }
 
     /**
-     * 이미지 보여주기용 — 공개된 스펙 아카이브 글에 달린 업로드 이미지만 찾는다.
+     * 이미지 보여주기용 — 공개된 스펙 아카이브 글에 달린 업로드 이미지만 찾는다. 사진 내용(file_data)도 함께 읽는다.
      * 지운 글·내린 글의 이미지는 주소를 알아도 받을 수 없다. 없으면 null.
      */
     public TechArticleAttachmentDto findVisibleUploadedImage(Long attachmentId) throws SQLException {
-        String sql = "SELECT t.* FROM TECH_ARTICLE_ATTACHMENT t JOIN TECH_ARTICLE a ON a.id = t.article_id " +
+        String sql = "SELECT " + T_COLUMNS + ", t.file_data FROM TECH_ARTICLE_ATTACHMENT t JOIN TECH_ARTICLE a ON a.id = t.article_id " +
                 "WHERE t.id = ? AND t.is_deleted = FALSE AND t.attachment_type = 'IMAGE_UPLOAD' " +
                 "AND a.source_type = '" + TechArticleDao.SOURCE_ARCHIVE_TIP + "' " +
                 "AND a.status = '" + TechArticleDao.STATUS_PUBLISHED + "' AND a.is_deleted = FALSE";
@@ -66,7 +73,12 @@ public class TechArticleAttachmentDao {
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, attachmentId);
             try (ResultSet rs = pstmt.executeQuery()) {
-                return rs.next() ? mapRow(rs) : null;
+                if (!rs.next()) {
+                    return null;
+                }
+                TechArticleAttachmentDto a = mapRow(rs);
+                a.setFileData(rs.getBytes("file_data"));
+                return a;
             }
         }
     }

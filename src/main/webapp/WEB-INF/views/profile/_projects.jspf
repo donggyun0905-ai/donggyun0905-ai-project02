@@ -2,9 +2,9 @@
 <ul class="item-list">
     <c:forEach var="project" items="${projects}">
         <li>
-            <strong>${project.title}</strong>
+            <strong><c:out value='${project.title}' /></strong>
             <span class="muted">(${project.startDate} ~ ${project.endDate})</span><br>
-            ${project.description}<br>
+            <c:out value='${project.description}' /><br>
             <c:if test="${not empty project.techStack}">기술스택: ${project.techStack}</c:if>
             <c:if test="${not empty project.repoUrl or not empty project.deployUrl or not empty projectLinks[project.id]}">
                 <br>🔗
@@ -14,7 +14,7 @@
             </c:if>
             <c:forEach var="doc" items="${documents}">
                 <c:if test="${doc.projectId == project.id}">
-                    <br><a href="${pageContext.request.contextPath}/documents/${doc.id}">📎 ${doc.originalName}</a>
+                    <br><a href="${pageContext.request.contextPath}/documents/${doc.id}">📎 <c:out value='${doc.originalName}' /></a>
                 </c:if>
             </c:forEach>
             <div class="row" style="margin-top:8px;">
@@ -24,9 +24,9 @@
                         <input type="hidden" name="_csrf" value="${csrfToken}">
                         <input type="hidden" name="action" value="update">
                         <input type="hidden" name="projectId" value="${project.id}">
-                        <p><input type="text" name="title" value="${project.title}" placeholder="프로젝트명" required></p>
-                        <p><textarea name="description" placeholder="설명">${project.description}</textarea></p>
-                        <p><input type="text" name="techStack" value="${project.techStack}" placeholder="사용 기술 (예: Java, Spring, MySQL)"></p>
+                        <p><input type="text" name="title" value="<c:out value='${project.title}' />" placeholder="프로젝트명" required></p>
+                        <p><textarea name="description" placeholder="설명"><c:out value='${project.description}' /></textarea></p>
+                        <p><input type="text" name="techStack" value="<c:out value='${project.techStack}' />" placeholder="사용 기술 (예: Java, Spring, MySQL)"></p>
                         <p class="row">
                             <span style="flex:1;">시작일 <input type="date" name="startDate" value="${project.startDate}"></span>
                             <span style="flex:1;">종료일 <input type="date" name="endDate" value="${project.endDate}"></span>
