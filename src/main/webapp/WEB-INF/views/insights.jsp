@@ -144,7 +144,7 @@
                     <table style="margin-top:10px;">
                         <c:forEach var="t" items="${insight.benchmark}">
                             <tr>
-                                <td style="width:140px;"><strong>${t.label}</strong><br><span class="muted" style="font-size:0.78rem;">${t.tier}</span></td>
+                                <td style="width:140px;"><strong><c:out value="${t.label}" /></strong><br><span class="muted" style="font-size:0.78rem;"><c:out value="${t.tier}" /></span></td>
                                 <td><c:forEach var="item" items="${t.items}" varStatus="st"><c:out value="${item}" /><c:if test="${!st.last}"> · </c:if></c:forEach></td>
                             </tr>
                         </c:forEach>
