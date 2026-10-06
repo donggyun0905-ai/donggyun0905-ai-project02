@@ -89,13 +89,19 @@ public class RecommendationDescriber {
                             ? "  보유 기술 적합도: 이 직무의 요구 기술 데이터 없음\n"
                             : String.format(Locale.ROOT, "  보유 기술 적합도 %.0f점/100%n", r.specScore * 100))
                     .append("  이미 가진 관련 기술: ")
-                    .append(r.matchedSkills.isEmpty() ? "없음" : String.join(", ", r.matchedSkills)).append('\n')
-                    .append("  기본 설명: ").append(r.reason == null ? "" : r.reason).append('\n');
+                    .append(r.matchedSkills.isEmpty() ? "없음" : String.join(", ", r.matchedSkills)).append('\n');
+            if (r.major != null && r.majorScore != null) {
+                // FR-38 ② 전공도 근거로 준다 (2026-10-06) — 0~100은 6개 계열 중 상대적인 가까움
+                candidates.append(String.format(Locale.ROOT, "  전공: %s (이 분야와 가까운 정도 %.0f점/100)%n",
+                        r.major, r.majorScore * 100));
+            }
+            candidates.append("  기본 설명: ").append(r.reason == null ? "" : r.reason).append('\n');
         }
         return """
                 너는 IT 취업 준비생의 진로 상담가다. 흥미·성향 설문과 보유 기술로 계산한 후보 직무 목록을 보고,
                 각 직무를 왜 추천하는지 취업 준비생에게 말하듯 한국어로 2문장 이내(%d자 이내)로 설명해라.
-                - 아래에 주어진 점수와 "이미 가진 관련 기술"만 근거로 쓴다. 목록에 없는 기술을 이미 가졌다고 쓰지 않는다.
+                - 아래에 주어진 점수와 "이미 가진 관련 기술", 전공(주어졌을 때만)만 근거로 쓴다. 목록에 없는 기술을 이미 가졌다고 쓰지 않는다.
+                - 전공이 그 분야와 가까우면(70점 이상) 전공을 살릴 수 있다는 점을 짧게 언급해도 좋다.
                 - 이미 가진 기술이 없으면 설문 성향을 근거로 설명하고, 첫걸음으로 무엇을 배우면 좋은지 한 가지 덧붙인다.
                 - 점수 숫자를 그대로 나열하지 말고 자연스러운 문장으로 쓴다.
                 반드시 다음 JSON 객체 하나만 출력한다: {"items":[{"rank":1,"reason":""}]}

@@ -130,4 +130,55 @@ class JobDiscoveryScorerTest {
         assertThrows(IllegalArgumentException.class, () -> new SurveyAnswer("DATA", 0));
         assertThrows(IllegalArgumentException.class, () -> new SurveyAnswer("DATA", 6));
     }
+
+    // ================= FR-38 ② 전공 (2026-10-06 youngjun 추가) =================
+
+    // 계열마다 같은 점수로 답한 설문 — 전공이 순위를 가르는지 보려고 설문 차이를 없앤다
+    private static List<SurveyAnswer> flatAnswers() {
+        List<SurveyAnswer> answers = new ArrayList<>();
+        for (String c : List.of("BACKEND", "FRONTEND", "DATA", "DEVOPS", "SECURITY", "PM")) {
+            answers.add(new SurveyAnswer(c, 3));
+        }
+        return answers;
+    }
+
+    private static java.util.Map<String, Double> dataLeaningMajor() {
+        return java.util.Map.of("DATA", 1.0, "PM", 0.45, "BACKEND", 0.3, "DEVOPS", 0.1, "FRONTEND", 0.05, "SECURITY", 0.0);
+    }
+
+    @Test
+    void 설문이_비슷하면_전공과_가까운_계열이_1순위로_올라온다() {
+        List<Recommendation> recs = scorer.recommend(flatAnswers(), List.of(), jobs(), "통계학과", dataLeaningMajor());
+
+        assertEquals("DATA", recs.get(0).category);
+        assertEquals("통계학과", recs.get(0).major);
+        assertEquals(1.0, recs.get(0).majorScore);
+        assertTrue(recs.get(0).reason.contains("전공(통계학과)도 이 분야와 가깝습니다"), recs.get(0).reason);
+        Recommendation notClose = recs.stream().filter(r -> !"DATA".equals(r.category)).findFirst().orElseThrow();
+        assertFalse(notClose.reason.contains("전공("), "가깝지 않은 분야엔 전공 문장을 붙이지 않는다");
+    }
+
+    @Test
+    void 전공이_없거나_점수가_비면_기존_계산과_결과가_같다() {
+        List<Recommendation> before = scorer.recommend(backendLeaningAnswers(), backendSkills(), jobs());
+        List<Recommendation> noMajor = scorer.recommend(backendLeaningAnswers(), backendSkills(), jobs(), null, dataLeaningMajor());
+        List<Recommendation> noScores = scorer.recommend(backendLeaningAnswers(), backendSkills(), jobs(), "국어국문학과", java.util.Map.of());
+
+        for (List<Recommendation> other : List.of(noMajor, noScores)) {
+            assertEquals(before.size(), other.size());
+            for (int i = 0; i < before.size(); i++) {
+                assertEquals(before.get(i).jobId, other.get(i).jobId);
+                assertEquals(before.get(i).totalScore, other.get(i).totalScore, 1e-12);
+                assertNull(other.get(i).majorScore);
+            }
+        }
+    }
+
+    @Test
+    void 전공은_설문을_뒤집을_만큼_크지_않다() {
+        // 백엔드 성향이 뚜렷한 사용자는 데이터 쪽 전공이어도 1순위가 그대로다 (전공 비중 15%)
+        List<Recommendation> recs = scorer.recommend(backendLeaningAnswers(), backendSkills(), jobs(), "통계학과", dataLeaningMajor());
+
+        assertEquals("백엔드 개발자", recs.get(0).jobName);
+    }
 }

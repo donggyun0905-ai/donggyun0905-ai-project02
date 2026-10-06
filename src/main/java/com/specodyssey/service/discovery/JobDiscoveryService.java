@@ -15,7 +15,9 @@ import com.specodyssey.dto.SurveyQuestionDto;
 import com.specodyssey.dto.UserProjectDto;
 import com.specodyssey.dto.UserSkillDto;
 import com.specodyssey.dto.UserSurveyAnswerDto;
+import com.specodyssey.dto.UserDto;
 import com.specodyssey.service.EmbeddingMatcher;
+import com.specodyssey.service.MajorAffinity;
 import com.specodyssey.service.SkillMatcher;
 import com.specodyssey.service.discovery.JobDiscoveryScorer.JobCandidate;
 import com.specodyssey.service.discovery.JobDiscoveryScorer.OwnedSkill;
@@ -58,6 +60,8 @@ public class JobDiscoveryService {
     private final SkillMatcher skillMatcher;
     private final RecommendationDescriber describer;
     private final JobDiscoveryScorer scorer = new JobDiscoveryScorer();
+    // FR-38 ② 전공 ↔ 직무 계열 (임베딩, 2026-10-06 youngjun 추가)
+    private final MajorAffinity majorAffinity = new MajorAffinity();
 
     public JobDiscoveryService() {
         // EmbeddingMatcher: TD-1 임베딩까지 붙은 최종 매처(2026-09-30). 정확 일치·SKILL_ALIAS·
@@ -129,8 +133,10 @@ public class JobDiscoveryService {
         }
         List<SurveyAnswer> answers = validate(questions, answersByQuestionId);
 
-        List<Recommendation> recommendations =
-                scorer.recommend(answers, collectOwnedSkills(userId), loadJobCandidates());
+        UserDto user = userDao.findById(userId);
+        String major = user == null ? null : user.getMajor();
+        List<Recommendation> recommendations = scorer.recommend(answers, collectOwnedSkills(userId), loadJobCandidates(),
+                major, majorAffinity.scores(major));
         describe(recommendations);
 
         LocalDateTime now = LocalDateTime.now();

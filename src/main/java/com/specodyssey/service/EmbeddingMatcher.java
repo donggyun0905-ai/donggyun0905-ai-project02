@@ -105,7 +105,8 @@ public class EmbeddingMatcher implements SkillMatcher {
         return new MatchResult(bestSkillId, bestScore);
     }
 
-    private static LocalEmbedder embedder() {
+    // MajorAffinity(전공 ↔ 직무 계열)도 같은 모델을 쓴다 — 같은 패키지에 연다 (2026-10-06)
+    static LocalEmbedder embedder() {
         if (embedderUnavailable) {
             return null;
         }
