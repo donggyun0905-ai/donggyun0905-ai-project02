@@ -1,5 +1,6 @@
 package com.specodyssey.service;
 
+import com.specodyssey.util.AppClock;
 import com.specodyssey.dao.CertificationDao;
 import com.specodyssey.dao.RoadmapDao;
 import com.specodyssey.dao.RoadmapStepDao;
@@ -113,7 +114,7 @@ public class RoadmapCompletionService {
                 throw new IllegalArgumentException("복습·업데이트·트렌딩 학습 단계는 기록을 제출해야 완료할 수 있습니다.");
             }
             int updatedRows = roadmapStepDao.updateCompleted(conn, stepId, userId, completed,
-                    completed ? LocalDateTime.now() : null);
+                    completed ? AppClock.now() : null);
             // updatedRows == 0이면 소유자가 아니라서 애초에 반영이 안 된 것 — 점수도 스펙도 주면 안 된다.
             if (completed && updatedRows > 0) {
                 scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId,
@@ -219,7 +220,7 @@ public class RoadmapCompletionService {
         spec.setSpecType("CERT");
         spec.setTitle(cert.getCertName());
         spec.setIssuer(cert.getIssuer());
-        spec.setAcquiredDate(LocalDateTime.now().toLocalDate());
+        spec.setAcquiredDate(AppClock.today());
         userSpecDao.insert(conn, spec);
     }
 }

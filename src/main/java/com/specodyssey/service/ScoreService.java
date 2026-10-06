@@ -1,5 +1,6 @@
 package com.specodyssey.service;
 
+import com.specodyssey.util.AppClock;
 import com.specodyssey.dao.LevelTierDao;
 import com.specodyssey.dao.ScoreLogDao;
 import com.specodyssey.dao.UserScoreSummaryDao;
@@ -62,7 +63,7 @@ public class ScoreService {
         log.setSignalType(signalType);
         log.setRefId(refId);
         log.setPoints(points);
-        log.setEarnedAt(LocalDateTime.now());
+        log.setEarnedAt(AppClock.now());
         scoreLogDao.insert(conn, log);
 
         UserScoreSummaryDto summary = userScoreSummaryDao.findByUserId(conn, userId, true);

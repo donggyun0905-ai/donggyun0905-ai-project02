@@ -1,5 +1,6 @@
 package com.specodyssey.service;
 
+import com.specodyssey.util.AppClock;
 import com.specodyssey.dao.RoadmapDao;
 import com.specodyssey.dao.RoadmapStepDao;
 import com.specodyssey.dao.SkillDao;
@@ -169,7 +170,7 @@ public class RoadmapReviewService {
                     .count();
             int points = reviewPoints(prior);
             roadmapStepDao.updateProof(conn, stepId, userId, PROOF_REVIEW_NOTE, trimmed, null,
-                    SkillProofGrader.PASSED, "복습 기록 제출", true, LocalDateTime.now());
+                    SkillProofGrader.PASSED, "복습 기록 제출", true, AppClock.now());
             scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId, points);
             return points;
         });

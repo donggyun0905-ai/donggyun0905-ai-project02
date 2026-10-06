@@ -1,5 +1,6 @@
 package com.specodyssey.service;
 
+import com.specodyssey.util.AppClock;
 import com.specodyssey.dao.RoadmapStepDao;
 import com.specodyssey.dto.RoadmapStepDto;
 import java.sql.Connection;
@@ -42,7 +43,7 @@ final class RoadmapStepWriter {
         step.setRelatedSkillId(relatedSkillId);
         step.setReason(reason);
         step.setCompleted(alreadyDone);
-        step.setCompletedAt(alreadyDone ? LocalDateTime.now() : null);
+        step.setCompletedAt(alreadyDone ? AppClock.now() : null);
         step.setEvidenceProjectId(evidenceProjectId);
         roadmapStepDao.insert(conn, step);
         return order + 1;

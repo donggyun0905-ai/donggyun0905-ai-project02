@@ -1059,3 +1059,27 @@ CREATE TABLE IF NOT EXISTS SCORING_RULE (
     PRIMARY KEY (id),
     UNIQUE KEY uk_scoring_rule_key (rule_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------------
+-- SIMULATION_STATE (테스트 계정 시뮬레이션 진행 상태) — 신설, sql/24_alter_users_is_test_simulation.sql · 25(target_score)
+-- 계정마다 한 행. 목표 점수에 닿을 때까지 하루씩 돈다. 일시정지 후 days_done 다음 날부터 이어 간다.
+-- 초기화하면 행도 지운다(테스트 계정만 물리 삭제).
+-- ---------------------------------------------------------------------------
+CREATE TABLE SIMULATION_STATE (
+    id           BIGINT        NOT NULL AUTO_INCREMENT,
+    user_id      BIGINT        NOT NULL,
+    status       VARCHAR(10)   NOT NULL,           -- RUNNING / PAUSED / DONE
+    persona      VARCHAR(20)   NOT NULL,           -- DILIGENT(성실) / STEADY(보통) / ON_OFF(작심삼일)
+    target_score INT           NULL,               -- 목표 점수 — 총점이 이 점수에 닿으면 멈춘다
+    start_date   DATE          NOT NULL,
+    total_days   INT           NOT NULL,           -- 최대 날 수(365) — 목표에 못 닿아도 여기서 멈춘다
+    days_done    INT           NOT NULL DEFAULT 0,
+    started_at   DATETIME      NOT NULL,
+    last_error   VARCHAR(500)  NULL,
+    created_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted   BOOLEAN       NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_simulation_state_user (user_id),
+    CONSTRAINT fk_simulation_state_user FOREIGN KEY (user_id) REFERENCES USERS (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

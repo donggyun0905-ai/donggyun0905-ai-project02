@@ -1,5 +1,6 @@
 package com.specodyssey.service;
 
+import com.specodyssey.util.AppClock;
 import com.specodyssey.dao.GapAnalysisDao;
 import com.specodyssey.dao.GapAnalysisItemDao;
 import com.specodyssey.dao.JobDao;
@@ -102,7 +103,7 @@ public class GapAnalysisService {
             analysis.setJobId(jobId);
             analysis.setMatchRate(matchRate);
             analysis.setJobRequirementVersion(jobRequirementVersion);
-            analysis.setAnalyzedAt(LocalDateTime.now());
+            analysis.setAnalyzedAt(AppClock.now());
             Long analysisId = gapAnalysisDao.insert(conn, analysis);
 
             for (int i = 0; i < required.size(); i++) {
