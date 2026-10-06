@@ -42,6 +42,7 @@ public class TrendSourceClient {
     private static final String GITHUB_SEARCH =
             "https://api.github.com/search/repositories?q=created:%%3E%s&sort=stars&order=desc&per_page=%d";
     private static final String DEVTO_TOP = "https://dev.to/api/articles?top=1&per_page=%d";
+    private static final String DEVTO_TAG_TOP = "https://dev.to/api/articles?tag=%s&top=%d&per_page=%d";
     private static final String LOBSTERS_HOTTEST = "https://lobste.rs/hottest.json";
     private static final String GEEKNEWS_FEED = "https://news.hada.io/rss/news";
 
@@ -49,8 +50,20 @@ public class TrendSourceClient {
     private static final int GITHUB_LIMIT = 100;
     private static final int GITHUB_LOOKBACK_DAYS = 7;
     private static final int DEVTO_LIMIT = 60;
+    // 직군 태그 글은 하루치로는 적어서 최근 일주일 인기글을 본다
+    private static final int DEVTO_TAG_LOOKBACK_DAYS = 7;
+    private static final int DEVTO_TAG_LIMIT = 30;
     private static final int HN_PARALLELISM = 8;
     private static final Map<String, String> UA = Map.of("User-Agent", "spec-odyssey");
+
+    // FR-55 직군별 보충 수집용 dev.to 태그 (JOB.job_category → 태그). 일반 소스가 개발 글 위주라 기획 등 다른 직군 글이 모자랄 때 쓴다.
+    private static final Map<String, List<String>> CATEGORY_DEVTO_TAGS = Map.of(
+            "BACKEND", List.of("backend", "api", "database"),
+            "FRONTEND", List.of("frontend", "webdev", "css"),
+            "DATA", List.of("datascience", "dataengineering", "machinelearning"),
+            "DEVOPS", List.of("devops", "cloud", "kubernetes"),
+            "SECURITY", List.of("security", "cybersecurity"),
+            "PM", List.of("productmanagement", "product", "agile", "ux"));
 
     /** 후보 1건. text는 LLM에 보내는 요약 텍스트, url·publishedAt은 저장할 출처 정보. */
     public record Candidate(String text, String url, LocalDateTime publishedAt) {
@@ -70,6 +83,16 @@ public class TrendSourceClient {
                 source("dev.to", this::fetchDevTo),
                 source("Lobsters", this::fetchLobsters),
                 source("GeekNews", this::fetchGeekNews));
+    }
+
+    /** 직군 하나의 보충 수집 소스. 태그가 정해지지 않은 직군이면 빈 목록. */
+    public List<Source> categorySources(String jobCategory) {
+        List<Source> result = new ArrayList<>();
+        for (String tag : CATEGORY_DEVTO_TAGS.getOrDefault(jobCategory, List.of())) {
+            result.add(source("dev.to #" + tag, () -> fetchDevToArticles(
+                    String.format(DEVTO_TAG_TOP, tag, DEVTO_TAG_LOOKBACK_DAYS, DEVTO_TAG_LIMIT))));
+        }
+        return result;
     }
 
     private interface Fetcher {
@@ -160,8 +183,11 @@ public class TrendSourceClient {
 
     // dev.to 최근 하루 인기 글 — 개발 기술 글 비중이 높다
     private List<Candidate> fetchDevTo() throws Exception {
-        JsonArray items = JsonParser.parseString(
-                ExternalApiClient.get(String.format(DEVTO_TOP, DEVTO_LIMIT), UA)).getAsJsonArray();
+        return fetchDevToArticles(String.format(DEVTO_TOP, DEVTO_LIMIT));
+    }
+
+    private List<Candidate> fetchDevToArticles(String apiUrl) throws Exception {
+        JsonArray items = JsonParser.parseString(ExternalApiClient.get(apiUrl, UA)).getAsJsonArray();
         List<Candidate> result = new ArrayList<>();
         for (JsonElement e : items) {
             JsonObject article = e.getAsJsonObject();
