@@ -7,6 +7,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -83,6 +84,45 @@ public class CertificationDao {
                 }
                 return certifications;
             }
+        }
+    }
+
+    // 관리자 기준 데이터 관리(2026-10-06)
+    public Long insert(CertificationDto cert) throws SQLException {
+        String sql = "INSERT INTO CERTIFICATION (cert_name, issuer, job_category, difficulty_level) VALUES (?, ?, ?, ?)";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            pstmt.setString(1, cert.getCertName());
+            pstmt.setString(2, cert.getIssuer());
+            pstmt.setString(3, cert.getJobCategory());
+            setNullableInt(pstmt, 4, cert.getDifficultyLevel());
+            pstmt.executeUpdate();
+            try (ResultSet keys = pstmt.getGeneratedKeys()) {
+                return keys.next() ? keys.getLong(1) : null;
+            }
+        }
+    }
+
+    public void update(Long id, String certName, String issuer, String jobCategory, Integer difficultyLevel)
+            throws SQLException {
+        String sql = "UPDATE CERTIFICATION SET cert_name = ?, issuer = ?, job_category = ?, difficulty_level = ? " +
+                "WHERE id = ? AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, certName);
+            pstmt.setString(2, issuer);
+            pstmt.setString(3, jobCategory);
+            setNullableInt(pstmt, 4, difficultyLevel);
+            pstmt.setLong(5, id);
+            pstmt.executeUpdate();
+        }
+    }
+
+    private void setNullableInt(PreparedStatement pstmt, int index, Integer value) throws SQLException {
+        if (value == null) {
+            pstmt.setNull(index, java.sql.Types.INTEGER);
+        } else {
+            pstmt.setInt(index, value);
         }
     }
 

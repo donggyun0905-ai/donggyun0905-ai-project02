@@ -108,7 +108,7 @@ class OnboardingFilterTest {
         assertTrue(passes(req(interviewer, "/interviewer/shared"), FakeWeb.response()));
 
         UserDto admin = newApplicant();
-        admin.setLoginId("admin");
+        admin.setUserType("ADMIN");
         assertTrue(passes(req(admin, "/admin"), FakeWeb.response()));
     }
 

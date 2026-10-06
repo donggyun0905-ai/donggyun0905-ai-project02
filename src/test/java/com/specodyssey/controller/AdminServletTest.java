@@ -30,12 +30,12 @@ class AdminServletTest {
         UserDto u = new UserDto();
         u.setId(1L);
         u.setLoginId(loginId);
-        u.setUserType("APPLICANT");
+        u.setUserType("admin".equals(loginId) ? "ADMIN" : "APPLICANT");
         return u;
     }
 
     @Test
-    void 로그인_아이디가_admin인_계정만_관리자다() {
+    void user_type이_ADMIN인_계정만_관리자다() {
         assertTrue(AdminAccess.isAdmin(user("admin")));
         assertFalse(AdminAccess.isAdmin(user("someone")));
         assertFalse(AdminAccess.isAdmin(null));

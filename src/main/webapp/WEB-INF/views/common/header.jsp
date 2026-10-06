@@ -67,7 +67,7 @@
 
         <c:if test="${isAdmin}">
         <div class="nav-group-title">관리</div>
-        <a href="${ctx}/admin" class="${path == '/admin' || path == '/admin/job-skill-trend' ? 'active' : ''}"><span class="ic ic-wrench" aria-hidden="true"></span> 관리자</a>
+        <a href="${ctx}/admin" class="${path.startsWith('/admin') ? 'active' : ''}"><span class="ic ic-wrench" aria-hidden="true"></span> 관리자</a>
         </c:if>
 
         <div class="nav-group-title">공유 · 계정</div>

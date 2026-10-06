@@ -116,6 +116,27 @@ public class JobRequiredSkillDao {
         }
     }
 
+    // 관리자 기준 데이터 관리(2026-10-06)
+    public void update(Long id, String importance, String requiredLevel) throws SQLException {
+        String sql = "UPDATE JOB_REQUIRED_SKILL SET importance = ?, required_level = ? WHERE id = ? AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, importance);
+            pstmt.setString(2, requiredLevel);
+            pstmt.setLong(3, id);
+            pstmt.executeUpdate();
+        }
+    }
+
+    public void softDelete(Long id) throws SQLException {
+        String sql = "UPDATE JOB_REQUIRED_SKILL SET is_deleted = TRUE WHERE id = ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, id);
+            pstmt.executeUpdate();
+        }
+    }
+
     private JobRequiredSkillDto mapRow(ResultSet rs) throws SQLException {
         JobRequiredSkillDto item = new JobRequiredSkillDto();
         item.setId(rs.getLong("id"));

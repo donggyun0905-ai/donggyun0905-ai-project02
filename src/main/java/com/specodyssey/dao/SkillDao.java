@@ -7,6 +7,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -89,6 +90,32 @@ public class SkillDao {
                 stamp.append(rs.getString(i)).append('|');
             }
             return stamp.toString();
+        }
+    }
+
+    // 관리자 기준 데이터 관리(2026-10-06) — 이름·분야만 다룬다. 임베딩은 EmbeddingBackfillService
+    // 배치가 채우는 값이라 여기서 건드리지 않는다(새로 만든 행은 임베딩이 없을 때까지 FuzzyNameMatcher로만 매칭된다).
+    public Long insert(SkillDto skill) throws SQLException {
+        String sql = "INSERT INTO SKILL (skill_name, category) VALUES (?, ?)";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            pstmt.setString(1, skill.getSkillName());
+            pstmt.setString(2, skill.getCategory());
+            pstmt.executeUpdate();
+            try (ResultSet keys = pstmt.getGeneratedKeys()) {
+                return keys.next() ? keys.getLong(1) : null;
+            }
+        }
+    }
+
+    public void update(Long id, String skillName, String category) throws SQLException {
+        String sql = "UPDATE SKILL SET skill_name = ?, category = ? WHERE id = ? AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, skillName);
+            pstmt.setString(2, category);
+            pstmt.setLong(3, id);
+            pstmt.executeUpdate();
         }
     }
 

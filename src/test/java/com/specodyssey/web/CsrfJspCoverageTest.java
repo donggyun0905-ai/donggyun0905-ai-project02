@@ -72,8 +72,10 @@ class CsrfJspCoverageTest {
                 if (tag.contains("_csrf") || tag.contains("<input")) {
                     problems.add(jsp.getFileName() + " : 토큰/입력이 폼 태그 속성 안에 끼어 있다 " + oneLine);
                 }
+                // GET 폼(검색·필터처럼 부작용 없는 조회)은 CSRF 토큰이 필요 없다 — 다른 사이트가 위조해서
+                // 보내도 그냥 같은 조회만 될 뿐 상태가 안 바뀐다. method="post"가 아니면 이 폼으로 간주한다.
                 if (!tag.toLowerCase().contains("method=\"post\"")) {
-                    problems.add(jsp.getFileName() + " : GET 폼이 생겼다면 이 검사를 GET 예외로 바꿔야 한다 " + oneLine);
+                    continue;
                 }
                 String after = text.substring(end + 1, Math.min(text.length(), end + 1 + 120)).stripLeading();
                 if (!after.startsWith("<input type=\"hidden\" " + TOKEN_INPUT)) {

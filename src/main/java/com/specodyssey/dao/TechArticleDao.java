@@ -21,6 +21,7 @@ public class TechArticleDao {
 
     public static final String SOURCE_ARCHIVE_TIP = "ARCHIVE_TIP";
     public static final String STATUS_PUBLISHED = "PUBLISHED";
+    public static final String STATUS_HIDDEN = "HIDDEN";
 
     /** 목록 정렬 */
     public enum Sort {
@@ -157,6 +158,64 @@ public class TechArticleDao {
             pstmt.setLong(1, articleId);
             pstmt.setLong(2, userId);
             return pstmt.executeUpdate() > 0;
+        }
+    }
+
+    // --- 관리자 전용(2026-10-06) — status 상관없이 보고, 직접 숨기거나 되살린다 ---
+
+    /** 관리자용 — status 상관없이 글 하나(지워졌어도 안 지운 것처럼 조회할 때는 쓰지 않는다). */
+    public TechArticleDto findByIdForAdmin(Long id) throws SQLException {
+        String sql = SELECT_WITH_AUTHOR + "WHERE a.id = ? AND a.is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, id);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        }
+    }
+
+    /** 관리자용 목록 — statusFilter가 null이면 전체, 아니면 그 상태만. 최신 글 먼저. */
+    public List<TechArticleDto> findAllPageForAdmin(String statusFilter, int offset, int limit) throws SQLException {
+        String sql = SELECT_WITH_AUTHOR + "WHERE a.is_deleted = FALSE "
+                + (statusFilter != null ? "AND a.status = ? " : "")
+                + "ORDER BY a.created_at DESC, a.id DESC LIMIT ? OFFSET ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            int i = 1;
+            if (statusFilter != null) {
+                pstmt.setString(i++, statusFilter);
+            }
+            pstmt.setInt(i++, limit);
+            pstmt.setInt(i, offset);
+            return mapRows(pstmt);
+        }
+    }
+
+    public int countAllForAdmin(String statusFilter) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM TECH_ARTICLE a WHERE a.is_deleted = FALSE "
+                + (statusFilter != null ? "AND a.status = ?" : "");
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            if (statusFilter != null) {
+                pstmt.setString(1, statusFilter);
+            }
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        }
+    }
+
+    /** 관리자가 글을 숨기거나(PUBLISHED→HIDDEN) 되살린다(HIDDEN→PUBLISHED). 되살리면 hidden_reason/at은 비운다. */
+    public void updateStatus(Connection conn, Long articleId, String status, String hiddenReason,
+            LocalDateTime hiddenAt) throws SQLException {
+        String sql = "UPDATE TECH_ARTICLE SET status = ?, hidden_reason = ?, hidden_at = ? WHERE id = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, status);
+            pstmt.setString(2, hiddenReason);
+            pstmt.setTimestamp(3, toTimestamp(hiddenAt));
+            pstmt.setLong(4, articleId);
+            pstmt.executeUpdate();
         }
     }
 

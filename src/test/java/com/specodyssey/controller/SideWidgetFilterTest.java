@@ -47,7 +47,7 @@ class SideWidgetFilterTest {
     @Test
     void 면접관_관리자_비로그인_POST에는_위젯이_붙지_않는다() throws Exception {
         assertNull(run(user("INTERVIEWER", "iv"), "GET", "/dashboard").attributes.get("sideWidgets"));
-        assertNull(run(user("APPLICANT", "admin"), "GET", "/dashboard").attributes.get("sideWidgets"));
+        assertNull(run(user("ADMIN", "admin"), "GET", "/dashboard").attributes.get("sideWidgets"));
         assertNull(run(null, "GET", "/dashboard").attributes.get("sideWidgets"));
         assertNull(run(user("APPLICANT", "someone"), "POST", "/dashboard").attributes.get("sideWidgets"));
     }
