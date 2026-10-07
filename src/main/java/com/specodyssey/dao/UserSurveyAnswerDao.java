@@ -76,6 +76,19 @@ public class UserSurveyAnswerDao {
         }
     }
 
+    // FR-37 직무 발굴 설문을 마지막으로 제출한 시각 — 제출할 때마다 전 문항 answered_at이 갱신된다. 설문 전이면 null
+    public LocalDateTime findLastJobDiscoveryAnsweredAt(Long userId) throws SQLException {
+        String sql = "SELECT MAX(a.answered_at) FROM USER_SURVEY_ANSWER a JOIN SURVEY_QUESTION q ON q.id = a.question_id " +
+                "WHERE a.user_id = ? AND a.is_deleted = FALSE AND q.survey_type = 'JOB_DISCOVERY'";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? toLocalDateTime(rs.getTimestamp(1)) : null;
+            }
+        }
+    }
+
     // 설문을 한 번이라도 한 사람이 아직 답하지 않은 살아 있는 직무 발굴 문항 수 — 문항이 늘거나 바뀌면 1 이상이 된다.
     // 설문을 아예 안 한 사람은 0(안내 대상이 아니다 — 그 사람은 처음부터 설문으로 보내진다).
     public int countUnansweredJobDiscoveryQuestions(Long userId) throws SQLException {

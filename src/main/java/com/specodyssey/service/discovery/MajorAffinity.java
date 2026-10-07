@@ -96,7 +96,9 @@ public class MajorAffinity {
                 similarity.put(c.getKey(), LocalEmbedder.cosine(majorVector, c.getValue()));
             }
             return normalize(key, similarity);
-        } catch (Exception e) {
+        } catch (Exception | LinkageError e) {
+            // LinkageError: 네이티브 라이브러리(ONNX·토크나이저) 로딩 실패는 Exception이 아니라 Error로 온다.
+            // 예) Tomcat을 끄지 않고 WAR만 바꾸면 "already loaded in another classloader" — 이때도 화면은 멈추면 안 된다(FR-111)
             LOG.log(Level.WARNING, "전공 임베딩 계산 실패 — 전공 없이 추천합니다: " + key, e);
             return MajorFit.none();
         }
