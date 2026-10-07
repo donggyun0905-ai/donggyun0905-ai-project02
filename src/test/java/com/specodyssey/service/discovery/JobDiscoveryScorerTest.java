@@ -155,6 +155,8 @@ class JobDiscoveryScorerTest {
 
         assertEquals("DATA", result.get(0).category);
         assertTrue(result.get(0).reason.contains("전공(통계학과)"), result.get(0).reason);
+        assertEquals("통계학과", result.get(0).closeMajor, "전공 반영 배지");
+        assertTrue(result.stream().skip(1).allMatch(r -> r.closeMajor == null), "전공과 먼 계열엔 배지 없음");
     }
 
     @Test
@@ -182,6 +184,7 @@ class JobDiscoveryScorerTest {
 
         assertNotNull(result.get(0).majorScore);
         assertTrue(result.stream().noneMatch(r -> r.reason.contains("전공")));
+        assertTrue(result.stream().allMatch(r -> r.closeMajor == null), "신호가 약하면 배지도 없음");
     }
 
     @Test

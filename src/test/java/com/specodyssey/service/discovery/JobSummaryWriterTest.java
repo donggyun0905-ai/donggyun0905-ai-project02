@@ -146,4 +146,82 @@ class JobSummaryWriterTest {
         assertNull(JobSummaryWriter.parse(""));
         assertNull(JobSummaryWriter.parse("{깨진"));
     }
+
+    // ---- 최근 공고 근거 · 전공 배지 (2026-10-07) ----
+
+    private static JobTrendDigest backendTrend() {
+        List<com.specodyssey.dao.InsightDao.TrendRow> rows = new ArrayList<>();
+        String[] names = {"Java", "Spring Boot", "MySQL", "Docker", "AWS"};
+        double[] aug = {60, 50, 40, 20, 15};
+        double[] sep = {55, 50, 41, 32, 21};
+        for (int i = 0; i < names.length; i++) {
+            rows.add(new com.specodyssey.dao.InsightDao.TrendRow(i, names[i], "202608", java.math.BigDecimal.valueOf(aug[i])));
+            rows.add(new com.specodyssey.dao.InsightDao.TrendRow(i, names[i], "202609", java.math.BigDecimal.valueOf(sep[i])));
+        }
+        return JobTrendDigest.from(rows);
+    }
+
+    @Test
+    void 트렌드가_있으면_프롬프트에_근거로_넣고_요약에도_저장한다() {
+        List<String> prompts = new ArrayList<>();
+        LlmClient llm = new LlmClient() {
+            @Override
+            @SuppressWarnings("unchecked")
+            public <T> T completeJson(String prompt, Class<T> type) {
+                prompts.add(prompt);
+                JobSummaryWriter.Response r = new JobSummaryWriter.Response();
+                r.duties = "서버를 만듭니다.";
+                r.outlook = "Docker 같은 배포 기술을 찾는 곳이 늘고 있습니다.";
+                return (T) r;
+            }
+        };
+        var recs = List.of(rec(1, "백엔드 개발자", "BACKEND"));
+
+        new JobSummaryWriter(llm).summarize(recs, SKILLS, Map.of(1L, backendTrend()));
+
+        assertTrue(prompts.get(0).contains("지난달보다 언급이 늘어난 기술: Docker"), prompts.get(0));
+        JobSummary s = JobSummaryWriter.parse(recs.get(0).summaryJson);
+        assertEquals("9월", s.getTrend().getMonth());
+        assertEquals("Docker", s.getTrend().getRising().get(0).getName());
+        assertEquals(12, s.getTrend().getRising().get(0).getChange());
+    }
+
+    @Test
+    void 트렌드가_없는_직무는_근거_없음으로_묻는다() {
+        String prompt = JobSummaryWriter.prompt("UI 개발자", "FRONTEND", List.of(), null);
+
+        assertTrue(prompt.contains("최근 공고 근거: 없음"));
+    }
+
+    @Test
+    void LLM이_실패해도_트렌드와_전공_배지는_남는다() {
+        Recommendation r = rec(1, "데이터 분석가", "DATA");
+        r.closeMajor = "통계학과";
+
+        new JobSummaryWriter(StubLlmClient.failing(503)).summarize(List.of(r), SKILLS, Map.of(1L, backendTrend()));
+
+        JobSummary s = JobSummaryWriter.parse(r.summaryJson);
+        assertEquals("통계학과", s.getMajor());
+        assertNotNull(s.getTrend(), "트렌드는 DB 데이터라 LLM과 상관없이 보여 준다");
+        assertFalse(s.isAi());
+    }
+
+    @Test
+    void 전공_배지는_프롬프트에_들어가지_않아_캐시를_나눠_쓴다() {
+        List<String> prompts = new ArrayList<>();
+        LlmClient llm = new LlmClient() {
+            @Override
+            public <T> T completeJson(String prompt, Class<T> type) throws ExternalApiException {
+                prompts.add(prompt);
+                throw new ExternalApiException("실패", null, 400);
+            }
+        };
+        Recommendation withMajor = rec(1, "백엔드 개발자", "BACKEND");
+        withMajor.closeMajor = "컴퓨터공학과";
+
+        new JobSummaryWriter(llm).summarize(List.of(withMajor), SKILLS);
+        new JobSummaryWriter(llm).summarize(List.of(rec(1, "백엔드 개발자", "BACKEND")), SKILLS);
+
+        assertEquals(prompts.get(0), prompts.get(1));
+    }
 }

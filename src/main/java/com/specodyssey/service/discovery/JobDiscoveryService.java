@@ -1,5 +1,6 @@
 package com.specodyssey.service.discovery;
 
+import com.specodyssey.dao.InsightDao;
 import com.specodyssey.dao.JobDao;
 import com.specodyssey.dao.JobRecommendationDao;
 import com.specodyssey.dao.JobRequiredSkillDao;
@@ -35,6 +36,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * 직무 발굴. 관련 요구사항: FR-34 · 38 · 39
@@ -49,6 +52,7 @@ import java.util.Map;
 public class JobDiscoveryService {
 
     public static final String SURVEY_TYPE = "JOB_DISCOVERY";
+    private static final Logger LOG = Logger.getLogger(JobDiscoveryService.class.getName());
 
     private final SurveyQuestionDao questionDao = new SurveyQuestionDao();
     private final UserSurveyAnswerDao answerDao = new UserSurveyAnswerDao();
@@ -58,6 +62,7 @@ public class JobDiscoveryService {
     private final UserSkillDao userSkillDao = new UserSkillDao();
     private final UserProjectDao userProjectDao = new UserProjectDao();
     private final UserDao userDao = new UserDao();
+    private final InsightDao insightDao = new InsightDao();
     private final SkillMatcher skillMatcher;
     private final RecommendationDescriber describer;
     private final JobSummaryWriter summaryWriter;
@@ -161,7 +166,7 @@ public class JobDiscoveryService {
                 scorer.recommend(answers, collectOwnedSkills(userId), jobs,
                         majorAffinity.score(findMajor(userId)));
         describe(recommendations);
-        summaryWriter.summarize(recommendations, requiredSkillNames(jobs)); // FR-35
+        summaryWriter.summarize(recommendations, requiredSkillNames(jobs), recentTrends(recommendations)); // FR-35
 
         LocalDateTime now = LocalDateTime.now();
         TransactionUtil.runInTransaction(conn -> {
@@ -282,6 +287,25 @@ public class JobDiscoveryService {
             jobs.add(new JobCandidate(job.getId(), job.getJobName(), job.getJobCategory(), skills));
         }
         return jobs;
+    }
+
+    /**
+     * FR-35 전망 근거 — 추천된 직무만 최근 2개월 공고 동향을 읽는다. 데이터가 부족한 직무는 빠진다.
+     * 조회가 실패해도 요약은 일반 설명으로 나오면 되므로 설문 제출을 막지 않는다.
+     */
+    private Map<Long, JobTrendDigest> recentTrends(List<Recommendation> recommendations) {
+        Map<Long, JobTrendDigest> trends = new HashMap<>();
+        for (Recommendation r : recommendations) {
+            try {
+                JobTrendDigest digest = JobTrendDigest.from(insightDao.findRecentTrend(r.jobId, 2));
+                if (digest != null) {
+                    trends.put(r.jobId, digest);
+                }
+            } catch (SQLException e) {
+                LOG.log(Level.WARNING, "직무 요약용 트렌드 조회 실패 — 일반 설명으로 대체: job_id=" + r.jobId, e);
+            }
+        }
+        return trends;
     }
 
     /** FR-35 필요 역량 표시용 — job_id → 요구 기술 이름 (필수 먼저, 그다음 우대) */

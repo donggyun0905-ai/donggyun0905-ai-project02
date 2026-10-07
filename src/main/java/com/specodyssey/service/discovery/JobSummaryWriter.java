@@ -29,7 +29,13 @@ import java.util.regex.Pattern;
  *   "백엔드 개발자가 하는 일"은 누가 봐도 같아서 프롬프트에 사용자 정보를 넣지 않는다.
  *   그래서 CachingLlmClient(DB 캐시)가 다른 사용자 요청에도 같은 결과를 재사용한다 — 직무 18개면 18번이면 끝.
  *   직무 설명은 자주 바뀌지 않아 캐시 유효기간을 30일로 길게 둔다.
- *   나중에 근거를 늘리려면(예: 트렌드 데이터로 전망 보강) prompt()에 줄을 더하면 된다.
+ *
+ * ── 최근 공고 근거 (2026-10-07) ─────────────────────────────
+ *   JobTrendDigest(최근 공고에서 많이 찾는 기술·지난달보다 늘어난 기술)가 있으면 프롬프트에 기술 이름만 근거로 주고,
+ *   화면에는 DB 숫자를 그대로 보여 준다. 트렌드가 바뀌면 프롬프트가 바뀌어 캐시도 자연히 새로 만들어진다.
+ *   데이터가 적은 직무는 근거 없이 일반 설명만 쓴다.
+ *
+ * 사용자별 값은 전공 배지(major) 하나뿐이고 프롬프트에는 들어가지 않는다 — 캐시 공유에 영향 없음.
  *
  * ── 실패하면 (FR-111) ────────────────────────────────────────
  *   LLM이 실패하면 계열별 기본 문구로 채운다 — 요약이 비는 일은 없다. 안내 배너는 추천 이유(RecommendationDescriber)가
@@ -88,28 +94,39 @@ public class JobSummaryWriter {
      * @param skillsByJob job_id → 요구 기술 이름 (필수 먼저). 없으면 필요 역량이 빈 목록이 된다.
      */
     public void summarize(List<Recommendation> recommendations, Map<Long, List<String>> skillsByJob) {
+        summarize(recommendations, skillsByJob, Map.of());
+    }
+
+    /** @param trendsByJob job_id → 최근 공고 근거. 없거나 데이터가 부족한 직무는 빠져 있다. */
+    public void summarize(List<Recommendation> recommendations, Map<Long, List<String>> skillsByJob,
+                          Map<Long, JobTrendDigest> trendsByJob) {
         if (recommendations == null) {
             return;
         }
         boolean llmDown = false;
         for (Recommendation r : recommendations) {
             List<String> skills = topSkills(skillsByJob == null ? null : skillsByJob.get(r.jobId));
+            JobTrendDigest trend = trendsByJob == null ? null : trendsByJob.get(r.jobId);
             Response ai = null;
             if (!llmDown) {
-                LlmResult<Response> result = call(r, skills);
+                LlmResult<Response> result = call(r, skills, trend);
                 if (result == null || result.isUnavailable()) {
                     llmDown = true;
                 } else {
                     ai = result.getValue();
                 }
             }
-            r.summaryJson = GSON.toJson(build(r.category, skills, ai));
+            JobSummary summary = build(r.category, skills, ai);
+            summary.trend = trend;
+            summary.major = r.closeMajor;
+            r.summaryJson = GSON.toJson(summary);
         }
     }
 
-    private LlmResult<Response> call(Recommendation r, List<String> skills) {
+    private LlmResult<Response> call(Recommendation r, List<String> skills, JobTrendDigest trend) {
         try {
-            return CachingLlmClient.completeWithStatus(llm, prompt(r.jobName, r.category, skills), Response.class);
+            return CachingLlmClient.completeWithStatus(llm, prompt(r.jobName, r.category, skills, trend),
+                    Response.class);
         } catch (RuntimeException e) {
             LOG.log(Level.WARNING, "직무 요약 LLM 생성 실패 — 기본 문구를 씁니다: " + r.jobName, e);
             return null;
@@ -143,6 +160,10 @@ public class JobSummaryWriter {
     }
 
     static String prompt(String jobName, String category, List<String> skills) {
+        return prompt(jobName, category, skills, null);
+    }
+
+    static String prompt(String jobName, String category, List<String> skills, JobTrendDigest trend) {
         return """
                 너는 IT 진로 안내서를 쓰는 사람이다. 아래 직무를 처음 알아보는 취업 준비생에게 한국어로 설명해라.
                 - duties: 이 직무가 실제로 하는 일. 1~2문장, %d자 이내.
@@ -150,11 +171,15 @@ public class JobSummaryWriter {
                 - 연봉·채용 건수·성장률 같은 숫자와 통계, 특정 회사 이름은 쓰지 않는다. 확실하지 않은 내용은 쓰지 않는다.
                 - 모든 문장은 "~합니다"로 끝나는 존댓말로 쓰고, 문장을 직무 이름으로 시작하지 않는다.
                 - 참고 요구 기술은 하는 일을 설명할 때만 참고하고, 기술 이름을 길게 나열하지 않는다.
+                - "최근 공고 근거"가 주어지면 outlook에서 그 기술 이름을 한두 개 활용해 요즘 흐름을 설명한다(숫자는 쓰지 않는다).
+                  근거가 "없음"이면 일반적인 전망만 쓴다.
                 반드시 다음 JSON 객체 하나만 출력한다: {"duties":"","outlook":""}
 
                 직무: %s (%s)
-                참고 요구 기술: %s""".formatted(MAX_TEXT_LENGTH, MAX_TEXT_LENGTH, jobName, category,
-                skills.isEmpty() ? "없음" : String.join(", ", skills));
+                참고 요구 기술: %s
+                최근 공고 근거: %s""".formatted(MAX_TEXT_LENGTH, MAX_TEXT_LENGTH, jobName, category,
+                skills.isEmpty() ? "없음" : String.join(", ", skills),
+                trend == null ? "없음" : trend.promptLine());
     }
 
     private static List<String> topSkills(List<String> skills) {
@@ -192,6 +217,8 @@ public class JobSummaryWriter {
         private List<String> skills;
         private String outlook;
         private String source;
+        private JobTrendDigest trend; // 최근 공고 근거 — 데이터가 부족한 직무는 null
+        private String major;         // 전공 반영 배지 — 전공이 이 계열과 뚜렷이 가까울 때만 전공명
 
         JobSummary() {
         }
@@ -207,5 +234,7 @@ public class JobSummaryWriter {
         public List<String> getSkills() { return skills == null ? List.of() : skills; }
         public String getOutlook() { return outlook; }
         public boolean isAi() { return SOURCE_AI.equals(source); }
+        public JobTrendDigest getTrend() { return trend; }
+        public String getMajor() { return major; }
     }
 }

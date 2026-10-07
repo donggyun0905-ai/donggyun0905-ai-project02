@@ -120,6 +120,7 @@ public class JobDiscoveryScorer {
         public final List<String> matchedSkills = new ArrayList<>();
         public String reason;                 // match_reason — LLM이 없거나 실패해도 쓸 수 있는 기본 문장
         public String summaryJson;            // summary_json — 하는 일·필요 역량·전망 (FR-35, JobSummaryWriter가 채움)
+        public String closeMajor;             // 전공 반영 배지용 — 추천 이유에 전공 문장을 붙인 후보만 전공명, 아니면 null
 
         @Override
         public String toString() {
@@ -165,7 +166,8 @@ public class JobDiscoveryScorer {
             r.majorScore = majorWeight > 0 ? major.scoreByCategory().get(job.category()) : null;
             boolean showMajor = major.confidence() >= MAJOR_SHOW_CONFIDENCE && r.majorScore != null
                     && r.majorScore >= MAJOR_SHOW_THRESHOLD;
-            r.reason = buildReason(job, avg, r.matchedSkills, showMajor ? major.major() : null);
+            r.closeMajor = showMajor ? major.major() : null;
+            r.reason = buildReason(job, avg, r.matchedSkills, r.closeMajor);
             scored.add(r);
         }
 

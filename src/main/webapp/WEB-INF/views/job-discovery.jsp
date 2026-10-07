@@ -1,5 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <c:set var="pageTitle" value="직무 찾기 - 스펙 오디세이" scope="request" />
 <c:set var="mainWide" value="true" scope="request" />
 <jsp:include page="/WEB-INF/views/common/header.jsp" />
@@ -76,6 +77,10 @@
                     <div style="border-top:1px solid var(--border); margin-top:14px; padding-top:14px;">
                         <span class="chip ${r.rankOrder == 1 ? 'chip-gold' : 'chip-locked'}">추천 ${r.rankOrder}순위</span>
                         <strong><c:out value="${r.jobName}" /></strong>
+                        <%-- FR-38 ② 전공이 이 계열과 뚜렷이 가까워 점수에 반영된 후보 --%>
+                        <c:if test="${not empty r.summary.major}">
+                            <span class="chip chip-gold" title="전공(${fn:escapeXml(r.summary.major)})이 이 분야와 가까워 추천 점수에 반영했어요">전공 반영</span>
+                        </c:if>
                         <c:if test="${r.selected}"><span class="pill">선택함</span></c:if>
                         <p style="margin:8px 0;"><strong>추천 이유</strong> <c:out value="${r.matchReason}" /></p>
                         <%-- FR-35 직무 요약 — 하는 일·전망은 AI(실패 시 기본 문구), 필요 역량은 요구 기술 데이터 --%>
@@ -93,6 +98,23 @@
                                             </p>
                                         </c:if>
                                         <p style="margin:0;"><strong>전망</strong> <c:out value="${r.summary.outlook}" /></p>
+                                        <%-- 전망 근거 — 수집된 공고 데이터(JOB_SKILL_TREND) 숫자 그대로. 데이터가 부족한 직무는 안 보인다 --%>
+                                        <c:if test="${not empty r.summary.trend}">
+                                            <p style="margin:8px 0 0;"><strong>최근 공고 동향</strong>
+                                                <span class="muted" style="font-size:0.8rem;">(<c:out value="${r.summary.trend.month}" /> 기준)</span></p>
+                                            <p style="margin:4px 0 0;">많이 찾는 기술
+                                                <c:forEach var="t" items="${r.summary.trend.hot}">
+                                                    <span class="chip" style="margin:2px 2px 0 0;"><c:out value="${t}" /></span>
+                                                </c:forEach>
+                                            </p>
+                                            <c:if test="${not empty r.summary.trend.rising}">
+                                                <p style="margin:4px 0 0;">지난달보다 늘어난 기술
+                                                    <c:forEach var="t" items="${r.summary.trend.rising}">
+                                                        <span class="chip chip-gold" style="margin:2px 2px 0 0;"><c:out value="${t.name}" /> +${t.change}%p</span>
+                                                    </c:forEach>
+                                                </p>
+                                            </c:if>
+                                        </c:if>
                                         <p class="muted" style="margin:8px 0 0; font-size:0.78rem;">
                                             ${r.summary.ai ? 'AI가 정리한 일반적인 설명입니다. 필요 역량은 수집된 요구 기술 기준입니다.'
                                                            : '기본 설명입니다. 필요 역량은 수집된 요구 기술 기준입니다.'}
