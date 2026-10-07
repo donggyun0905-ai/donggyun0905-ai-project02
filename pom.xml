@@ -47,6 +47,32 @@
         </dependency>
 
         <!--
+          EL·JSP API — RecordElResolver(Tomcat 10·11 공통 record EL 해석기)를 컴파일하려고 둔다. 톰캣이 런타임에 제공(provided).
+          아래 tomcat-jasper(테스트)가 끌어오는 것과 같은 artifact·버전이라 클래스패스에 한 벌만 잡힌다 —
+          jakarta.el-api 같은 다른 artifact를 쓰면 같은 패키지가 두 벌 생겨 JspCompileTest가 흔들린다.
+          11 API로 컴파일해도 10.1에서 돈다: 쓰는 메서드(getValue 등)는 EL 5.0·6.0에 똑같이 있다.
+        -->
+        <dependency>
+            <groupId>org.apache.tomcat</groupId>
+            <artifactId>tomcat-el-api</artifactId>
+            <version>11.0.25</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tomcat</groupId>
+            <artifactId>tomcat-jsp-api</artifactId>
+            <version>11.0.25</version>
+            <scope>provided</scope>
+            <exclusions>
+                <!-- 아래 tomcat-jasper와 같은 이유 — jakarta.servlet-api 6.0.0과 패키지가 겹친다 -->
+                <exclusion>
+                    <groupId>org.apache.tomcat</groupId>
+                    <artifactId>tomcat-servlet-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!--
           테스트: JSP를 Tomcat 11의 Jasper로 미리 컴파일해 본다 (JspCompileTest).
           JSP는 톰캣이 요청받는 순간 컴파일하므로 보통의 단위 테스트로는 EL 문법 오류가 안 잡힌다.
           팀원 대부분이 10.1을 쓰는데 EL 버전이 달라(10.1=EL 5.0, 11=EL 6.0) 10.1에서 멀쩡한 표현식이
