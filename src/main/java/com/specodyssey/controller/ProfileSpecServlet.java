@@ -112,6 +112,15 @@ public class ProfileSpecServlet extends HttpServlet {
         if (acquiredDateParam != null && !acquiredDateParam.isBlank()) {
             spec.setAcquiredDate(LocalDate.parse(acquiredDateParam));
         }
+        // FR-81 경험(인턴·대외활동·교육)만 기간이 있다 — 취득일 칸이 시작일, 종료일은 비우면 진행 중
+        String endDateParam = req.getParameter("endDate");
+        if ("EXPERIENCE".equals(spec.getSpecType()) && endDateParam != null && !endDateParam.isBlank()) {
+            spec.setEndDate(LocalDate.parse(endDateParam));
+            if (spec.getAcquiredDate() != null && spec.getEndDate().isBefore(spec.getAcquiredDate())) {
+                resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "종료일이 시작일보다 빠릅니다.");
+                return null;
+            }
+        }
         return spec;
     }
 }

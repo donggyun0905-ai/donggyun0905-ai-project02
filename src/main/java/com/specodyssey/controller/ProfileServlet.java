@@ -8,6 +8,7 @@ import com.specodyssey.dto.JobDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.dto.UserProjectDto;
 import com.specodyssey.service.AiUsageLogService;
+import com.specodyssey.service.EducationService;
 import com.specodyssey.service.PersonalInfo;
 import com.specodyssey.service.ProfileService;
 import com.specodyssey.service.ResumeService;
@@ -37,6 +38,7 @@ public class ProfileServlet extends HttpServlet {
     private final ProfileService profileService = new ProfileService();
     private final AiUsageLogService aiUsageLogService = new AiUsageLogService();
     private final ResumeService resumeService = new ResumeService();
+    private final EducationService educationService = new EducationService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -182,6 +184,7 @@ public class ProfileServlet extends HttpServlet {
             jobs.stream().filter(j -> j.getId().equals(user.getDesiredJobId())).findFirst()
                     .ifPresent(j -> req.setAttribute("desiredJobQuery", j.getJobName()));
         }
+        req.setAttribute("education", educationService.find(userId));
         req.setAttribute("specs", profileService.getSpecs(userId));
         List<UserProjectDto> projects = profileService.getProjects(userId);
         req.setAttribute("projects", projects);

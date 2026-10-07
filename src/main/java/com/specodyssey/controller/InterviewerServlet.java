@@ -58,6 +58,12 @@ public class InterviewerServlet extends HttpServlet {
             try {
                 if (SHARED.equals(page) && "add".equals(action)) {
                     interviewerService.addLink(userId, req.getParameter("link"));
+                } else if (SHARED.equals(page) && "evaluate".equals(action)) {
+                    String rating = req.getParameter("rating");
+                    interviewerService.updateEvaluation(userId, Long.valueOf(req.getParameter("itemId")),
+                            req.getParameter("reviewStatus"),
+                            rating == null || rating.isBlank() ? null : Integer.valueOf(rating),
+                            req.getParameter("memo"));
                 } else if (SHARED.equals(page) && "remove".equals(action)) {
                     interviewerService.removeItem(userId, Long.valueOf(req.getParameter("itemId")));
                 } else if (COMPARE.equals(page) && "addCriterion".equals(action)) {
@@ -85,18 +91,39 @@ public class InterviewerServlet extends HttpServlet {
             throw new ServletException("면접관 화면 저장 중 오류가 발생했습니다.", e);
         }
 
-        resp.sendRedirect(req.getContextPath() + "/interviewer" + page);
+        // 검토 상태로 걸러 보던 중이었으면 그 목록으로 돌아간다
+        String status = statusFilter(req);
+        resp.sendRedirect(req.getContextPath() + "/interviewer" + page
+                + (status == null ? "" : "?status=" + status));
+    }
+
+    // ?status= 검토 상태 필터 — 모르는 값이면 전체
+    private static String statusFilter(HttpServletRequest req) {
+        String status = req.getParameter("status");
+        return status != null && InterviewerCompareDto.REVIEW_STATUS_LABELS.containsKey(status) ? status : null;
+    }
+
+    private static void applyStatusFilter(HttpServletRequest req, InterviewerCompareDto compare) {
+        String status = statusFilter(req);
+        req.setAttribute("statusFilter", status);
+        req.setAttribute("statusLabels", InterviewerCompareDto.REVIEW_STATUS_LABELS);
+        req.setAttribute("statusCounts", InterviewerService.countByReviewStatus(compare.getApplicants()));
+        InterviewerService.filterByReviewStatus(compare.getApplicants(), status);
     }
 
     private void show(HttpServletRequest req, HttpServletResponse resp, String page)
             throws SQLException, ServletException, IOException {
         Long userId = loginUserId(req);
         if (SHARED.equals(page)) {
-            req.setAttribute("compare", interviewerService.loadCompare(userId));
+            InterviewerCompareDto compare = interviewerService.loadCompare(userId);
+            applyStatusFilter(req, compare);
+            req.setAttribute("compare", compare);
             forward(req, resp, "interviewer-shared.jsp");
         } else if (COMPARE.equals(page)) {
             CompareSort sort = compareSort(req);
-            req.setAttribute("compare", interviewerService.loadCompare(userId, sort));
+            InterviewerCompareDto compare = interviewerService.loadCompare(userId, sort);
+            applyStatusFilter(req, compare);
+            req.setAttribute("compare", compare);
             req.setAttribute("sortOptions", CompareSort.values());
             req.setAttribute("currentSort", sort.getKey());
             req.setAttribute("skills", interviewerService.listSkills());
@@ -112,7 +139,9 @@ public class InterviewerServlet extends HttpServlet {
             req.setAttribute("company", interviewerService.getOrCreateSession(userId).getCompanyName());
             forward(req, resp, "interviewer-profile.jsp");
         } else if (COMPARE_EXPORT.equals(page)) {
-            exportExcel(resp, interviewerService.loadCompare(userId, compareSort(req)));
+            InterviewerCompareDto compare = interviewerService.loadCompare(userId, compareSort(req));
+            InterviewerService.filterByReviewStatus(compare.getApplicants(), statusFilter(req));
+            exportExcel(resp, compare);
         } else {
             resp.sendRedirect(req.getContextPath() + RoleFilter.INTERVIEWER_HOME);
         }

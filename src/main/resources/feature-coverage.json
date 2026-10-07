@@ -305,6 +305,7 @@
     "views": [],
     "tests": [
       "JobDiscoveryScorerTest.java",
+      "JobDiscoveryServiceTest.java",
       "JobRecommendationDaoTest.java"
     ]
   },
@@ -315,15 +316,24 @@
     "area": "2-3. AI 분석 + 길 제시 ★ (프로젝트의 심장)",
     "controllers": [],
     "services": [
+      "JobDiscoveryScorer.java",
       "JobDiscoveryService.java",
+      "JobSummaryWriter.java",
+      "JobTrendDigest.java",
       "RecommendationDescriber.java"
     ],
     "daos": [
       "JobRecommendationDao.java"
     ],
-    "views": [],
+    "views": [
+      "job-discovery.jsp"
+    ],
     "tests": [
+      "JobDiscoveryScorerTest.java",
+      "JobDiscoveryServiceTest.java",
       "JobRecommendationDaoTest.java",
+      "JobSummaryWriterTest.java",
+      "JobTrendDigestTest.java",
       "RecommendationDescriberTest.java"
     ]
   },
@@ -360,6 +370,7 @@
     "area": "2-3. AI 분석 + 길 제시 ★ (프로젝트의 심장)",
     "controllers": [],
     "services": [
+      "JobDiscoveryService.java",
       "ProfileService.java",
       "RoadmapGenerator.java",
       "RoadmapRefresher.java",
@@ -368,15 +379,20 @@
     "daos": [
       "GapAnalysisDao.java",
       "RoadmapDao.java",
-      "UserDao.java"
+      "UserDao.java",
+      "UserSurveyAnswerDao.java"
     ],
-    "views": [],
+    "views": [
+      "job-discovery.jsp"
+    ],
     "tests": [
       "GapAnalysisDaoTest.java",
+      "JobDiscoveryServiceTest.java",
       "ProfileServiceTest.java",
       "RoadmapDaoTest.java",
       "RoadmapServiceTest.java",
-      "UserDaoTest.java"
+      "UserDaoTest.java",
+      "UserSurveyAnswerDaoTest.java"
     ]
   },
   {
@@ -398,9 +414,12 @@
       "SurveyQuestionDao.java",
       "UserSurveyAnswerDao.java"
     ],
-    "views": [],
+    "views": [
+      "job-discovery.jsp"
+    ],
     "tests": [
       "JobDiscoveryScorerTest.java",
+      "JobDiscoveryServiceTest.java",
       "JobRecommendationDaoTest.java",
       "MajorAffinityTest.java",
       "RecommendationDescriberTest.java",
@@ -425,6 +444,7 @@
     ],
     "views": [],
     "tests": [
+      "JobDiscoveryServiceTest.java",
       "JobRecommendationDaoTest.java",
       "UserDaoTest.java"
     ]
@@ -559,7 +579,8 @@
       "InsightsServlet.java"
     ],
     "services": [
-      "InsightService.java"
+      "InsightService.java",
+      "JobTrendDigest.java"
     ],
     "daos": [
       "InsightDao.java",
@@ -570,7 +591,8 @@
     ],
     "tests": [
       "InsightServiceTest.java",
-      "JobSkillTrendDaoTest.java"
+      "JobSkillTrendDaoTest.java",
+      "JobTrendDigestTest.java"
     ]
   },
   {
@@ -891,15 +913,19 @@
     "priority": "[필수]",
     "area": "2-8. 면접관 / 평가 뷰",
     "controllers": [
+      "ProfileEducationServlet.java",
+      "ProfileSpecServlet.java",
       "ShareDocumentServlet.java",
       "ShareViewServlet.java"
     ],
     "services": [
+      "EducationService.java",
       "ShareViewService.java",
       "SpecScoreService.java"
     ],
     "daos": [
       "ActivityDao.java",
+      "UserEducationDao.java",
       "UserSpecDao.java"
     ],
     "views": [
@@ -1136,6 +1162,7 @@
       "GapAnalysisService.java",
       "JobBenchmarkSpecService.java",
       "JobDiscoveryService.java",
+      "JobSummaryWriter.java",
       "LlmResult.java",
       "MajorAffinity.java",
       "ProjectIdeaRetryService.java",
@@ -1167,6 +1194,8 @@
       "GroqLlmClientTest.java",
       "JobBenchmarkSpecRetryTest.java",
       "JobBenchmarkSpecServiceTest.java",
+      "JobDiscoveryServiceTest.java",
+      "JobSummaryWriterTest.java",
       "LlmRetryPolicyTest.java",
       "MajorAffinityTest.java",
       "ProjectIdeaServiceTest.java",

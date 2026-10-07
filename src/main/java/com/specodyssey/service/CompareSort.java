@@ -22,7 +22,8 @@ public enum CompareSort {
     AGE_DESC("ageDesc", "나이 많은 순"),
     FIT("fit", "적합도 높은 순"),
     CERTS("certs", "자격증 많은 순"),
-    PROJECTS("projects", "프로젝트 많은 순");
+    PROJECTS("projects", "프로젝트 많은 순"),
+    RATING("rating", "내 평점 높은 순");
 
     private final String key;
     private final String label;
@@ -68,6 +69,7 @@ public enum CompareSort {
             case FIT -> by(Applicant::getFitScore, Comparator.<Integer>reverseOrder());
             case CERTS -> by(CompareSort::certCount, Comparator.<Integer>reverseOrder());
             case PROJECTS -> by(CompareSort::projectCount, Comparator.<Integer>reverseOrder());
+            case RATING -> by(Applicant::getRating, Comparator.<Integer>reverseOrder());
         };
     }
 

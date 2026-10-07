@@ -27,7 +27,17 @@
             <a class="btn secondary" href="${pageContext.request.contextPath}/interviewer/compare">나란히 비교하기</a>
         </c:if>
     </div>
+<%-- 검토 상태로 걸러 보기 — 면접관 본인의 기록이라 지원자에게는 보이지 않는다 --%>
+<div class="row" style="gap:6px; flex-wrap:wrap; margin-top:10px;">
+    <a class="chip ${empty statusFilter ? 'chip-teal' : 'chip-locked'}" href="${pageContext.request.contextPath}/interviewer/shared">전체 ${statusCounts['ALL']}</a>
+    <c:forEach var="entry" items="${statusLabels}">
+        <a class="chip ${statusFilter == entry.key ? 'chip-teal' : 'chip-locked'}" href="${pageContext.request.contextPath}/interviewer/shared?status=${entry.key}"><c:out value="${entry.value}" /> ${statusCounts[entry.key]}</a>
+    </c:forEach>
+</div>
     <c:choose>
+        <c:when test="${empty compare.applicants and not empty statusFilter}">
+            <p class="muted" style="margin-top:10px;">이 상태의 지원자가 없습니다.</p>
+        </c:when>
         <c:when test="${empty compare.applicants}">
             <p class="muted" style="margin-top:10px;">아직 담은 지원자가 없습니다. 지원자에게 받은 공유 링크를 위에 붙여 넣어 보세요.</p>
         </c:when>
@@ -70,6 +80,38 @@
                                 <button type="submit" class="link-button">목록에서 빼기</button>
                             </form>
                         </div>
+                        <%-- 내 검토 기록: 상태 · 평점 · 메모 (지원자에게는 보이지 않는다) --%>
+                        <details style="margin-top:8px;" ${not empty applicant.memo or not empty applicant.rating ? 'open' : ''}>
+                            <summary style="cursor:pointer;">
+                                내 검토 · <strong><c:out value="${applicant.reviewStatusLabel}" /></strong>
+                                <c:if test="${not empty applicant.rating}"> · 평점 ${applicant.rating}/5</c:if>
+                            </summary>
+                            <form method="post" action="${pageContext.request.contextPath}/interviewer/shared" style="margin-top:8px;">
+                                <input type="hidden" name="_csrf" value="${csrfToken}">
+                                <input type="hidden" name="action" value="evaluate">
+                                <input type="hidden" name="itemId" value="${applicant.itemId}">
+                                <c:if test="${not empty statusFilter}"><input type="hidden" name="status" value="${statusFilter}"></c:if>
+                                <p class="row" style="gap:8px;">
+                                    <span style="flex:1;"><label>상태</label>
+                                        <select name="reviewStatus">
+                                            <c:forEach var="entry" items="${statusLabels}">
+                                                <option value="${entry.key}" ${applicant.reviewStatus == entry.key ? 'selected' : ''}><c:out value="${entry.value}" /></option>
+                                            </c:forEach>
+                                        </select>
+                                    </span>
+                                    <span style="flex:1;"><label>평점</label>
+                                        <select name="rating">
+                                            <option value="" ${empty applicant.rating ? 'selected' : ''}>미평가</option>
+                                            <c:forEach var="score" begin="1" end="5">
+                                                <option value="${score}" ${applicant.rating == score ? 'selected' : ''}>${score}점</option>
+                                            </c:forEach>
+                                        </select>
+                                    </span>
+                                </p>
+                                <p><textarea name="memo" maxlength="1000" rows="3" placeholder="면접에서 물어볼 것, 인상 깊었던 점 등 (나만 보입니다)"><c:out value="${applicant.memo}" /></textarea></p>
+                                <button type="submit" class="secondary">검토 저장</button>
+                            </form>
+                        </details>
                     </li>
                 </c:forEach>
             </ul>

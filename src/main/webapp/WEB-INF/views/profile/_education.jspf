@@ -1,0 +1,40 @@
+<%-- 학력 — 면접관에게는 공유 링크에서 "학력"을 고른 경우에만 보인다(블라인드 채용이면 끄면 된다) --%>
+<h2 style="margin-top:24px; margin-bottom:10px;">학력</h2>
+<div class="card">
+    <form action="${pageContext.request.contextPath}/profile/education" method="post">
+        <input type="hidden" name="_csrf" value="${csrfToken}">
+        <p class="row">
+            <span style="flex:2;"><label>학교</label><input type="text" name="schoolName" maxlength="100" required placeholder="예) 한국대학교" value="<c:out value='${education.schoolName}' />"></span>
+            <span style="flex:1;"><label>상태</label>
+                <select name="graduationStatus" required>
+                    <option value="" ${empty education ? 'selected' : ''} disabled>선택해주세요</option>
+                    <option value="ENROLLED" ${education.graduationStatus == 'ENROLLED' ? 'selected' : ''}>재학</option>
+                    <option value="LEAVE" ${education.graduationStatus == 'LEAVE' ? 'selected' : ''}>휴학</option>
+                    <option value="EXPECTED" ${education.graduationStatus == 'EXPECTED' ? 'selected' : ''}>졸업 예정</option>
+                    <option value="GRADUATED" ${education.graduationStatus == 'GRADUATED' ? 'selected' : ''}>졸업</option>
+                </select>
+            </span>
+            <span style="flex:1;"><label>졸업(예정)일</label><input type="date" name="graduationDate" value="${education.graduationDate}"></span>
+        </p>
+        <p class="row">
+            <span style="flex:1;"><label>학점 (선택)</label><input type="number" name="gpa" step="0.01" min="0" max="4.5" placeholder="예) 3.82" value="${education.gpa}"></span>
+            <span style="flex:1;"><label>만점</label>
+                <select name="gpaMax">
+                    <option value="4.5" ${empty education.gpaMax or education.gpaMax == 4.5 ? 'selected' : ''}>4.5</option>
+                    <option value="4.3" ${education.gpaMax == 4.3 ? 'selected' : ''}>4.3</option>
+                    <option value="4.0" ${education.gpaMax == 4.0 ? 'selected' : ''}>4.0</option>
+                </select>
+            </span>
+        </p>
+        <div class="row" style="gap:10px;">
+            <button type="submit">학력 저장</button>
+        </div>
+    </form>
+    <c:if test="${not empty education}">
+        <form action="${pageContext.request.contextPath}/profile/education" method="post" class="inline-form" style="margin-top:8px;">
+            <input type="hidden" name="_csrf" value="${csrfToken}">
+            <input type="hidden" name="action" value="delete">
+            <button type="submit" class="link-button">학력 지우기</button>
+        </form>
+    </c:if>
+</div>

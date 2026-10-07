@@ -36,6 +36,9 @@ class CompareExcelExporterTest {
         Applicant a = applicant("김철수", full);
         a.getMatches().add(true);
         a.setFitScore(100);
+        a.setReviewStatus("PASS");
+        a.setRating(4);
+        a.setMemo("코드 품질 좋음");
 
         ShareViewDto skillsOnly = new ShareViewDto();
         skillsOnly.setScopeSkills(true);
@@ -51,16 +54,17 @@ class CompareExcelExporterTest {
         List<List<Object>> rows = CompareExcelExporter.rows(compare);
 
         assertEquals(4, rows.size());
-        assertEquals(List.of("순번", "지원자", "담은 날짜", "공유 상태", "전공", "학년", "희망 직무", "나이",
+        assertEquals(List.of("순번", "지원자", "담은 날짜", "내 검토 상태", "내 평점", "내 메모", "공유 상태", "전공", "학년", "희망 직무", "나이",
                 "자격증", "자격증 수", "프로젝트 수", "Java (가중치 3)", "적합도 점수", "보유 기술", "성장 잠재력",
                 "이력서 공개", "자소서 공개"), rows.get(0));
-        assertEquals(Arrays.asList(1, "김철수", "2026-10-06", "공유 중", "컴퓨터공학", "4학년", null, 25,
+        assertEquals(Arrays.asList(1, "김철수", "2026-10-06", "서류 합격", 4, "코드 품질 좋음", "공유 중", "컴퓨터공학", "4학년", null, 25,
                 "정보처리기사, SQLD", 2, 2, "갖춤", 100, "Java, Spring", "비공개", "비공개", "비공개"), rows.get(1));
-        assertEquals(Arrays.asList(2, "지원자 2", "2026-10-06", "공유 중", "비공개", "비공개", "비공개", "비공개",
+        assertEquals(Arrays.asList(2, "지원자 2", "2026-10-06", "검토 중", null, null, "공유 중", "비공개", "비공개", "비공개", "비공개",
                 "비공개", "비공개", "비공개", "없음", 0, "", "비공개", "비공개", "비공개"), rows.get(2));
         // 머리 행과 칸 수가 같아야 엑셀에서 열이 어긋나지 않는다
         assertEquals(rows.get(0).size(), rows.get(3).size());
-        assertEquals("공유 중단", rows.get(3).get(3));
+        assertEquals("검토 중", rows.get(3).get(3)); // 공유가 멈춰도 내 검토 기록은 남는다
+        assertEquals("공유 중단", rows.get(3).get(6));
         assertEquals("공유 중단", rows.get(3).get(rows.get(3).size() - 1));
     }
 

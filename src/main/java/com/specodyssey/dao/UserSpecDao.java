@@ -23,7 +23,7 @@ public class UserSpecDao {
 
     // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
     private static final String COLUMNS =
-            "id, user_id, spec_type, title, issuer, score, acquired_date, created_at, " +
+            "id, user_id, spec_type, title, issuer, score, acquired_date, end_date, created_at, " +
             "updated_at, is_deleted";
 
     public Long insert(UserSpecDto spec) throws SQLException {
@@ -34,8 +34,8 @@ public class UserSpecDao {
 
     // 프로필 변경 시 USERS.profile_updated_at과 같은 트랜잭션으로 묶기 위한 오버로드
     public Long insert(Connection conn, UserSpecDto spec) throws SQLException {
-        String sql = "INSERT INTO USER_SPECS (user_id, spec_type, title, issuer, score, acquired_date) " +
-                "VALUES (?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO USER_SPECS (user_id, spec_type, title, issuer, score, acquired_date, end_date) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setLong(1, spec.getUserId());
             pstmt.setString(2, spec.getSpecType());
@@ -43,6 +43,7 @@ public class UserSpecDao {
             pstmt.setString(4, spec.getIssuer());
             pstmt.setString(5, spec.getScore());
             setNullableDate(pstmt, 6, spec.getAcquiredDate());
+            setNullableDate(pstmt, 7, spec.getEndDate());
             pstmt.executeUpdate();
             try (ResultSet keys = pstmt.getGeneratedKeys()) {
                 return keys.next() ? keys.getLong(1) : null;
@@ -84,7 +85,7 @@ public class UserSpecDao {
 
     // 본인 소유가 아닌 id는 WHERE 조건에서 자연히 걸러진다 (0행 갱신)
     public void update(Connection conn, UserSpecDto spec, Long userId) throws SQLException {
-        String sql = "UPDATE USER_SPECS SET spec_type = ?, title = ?, issuer = ?, score = ?, acquired_date = ? " +
+        String sql = "UPDATE USER_SPECS SET spec_type = ?, title = ?, issuer = ?, score = ?, acquired_date = ?, end_date = ? " +
                 "WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, spec.getSpecType());
@@ -92,8 +93,9 @@ public class UserSpecDao {
             pstmt.setString(3, spec.getIssuer());
             pstmt.setString(4, spec.getScore());
             setNullableDate(pstmt, 5, spec.getAcquiredDate());
-            pstmt.setLong(6, spec.getId());
-            pstmt.setLong(7, userId);
+            setNullableDate(pstmt, 6, spec.getEndDate());
+            pstmt.setLong(7, spec.getId());
+            pstmt.setLong(8, userId);
             pstmt.executeUpdate();
         }
     }
@@ -118,6 +120,8 @@ public class UserSpecDao {
         spec.setScore(rs.getString("score"));
         java.sql.Date acquiredDate = rs.getDate("acquired_date");
         spec.setAcquiredDate(acquiredDate == null ? null : acquiredDate.toLocalDate());
+        java.sql.Date endDate = rs.getDate("end_date");
+        spec.setEndDate(endDate == null ? null : endDate.toLocalDate());
         spec.setCreatedAt(toLocalDateTime(rs.getTimestamp("created_at")));
         spec.setUpdatedAt(toLocalDateTime(rs.getTimestamp("updated_at")));
         spec.setDeleted(rs.getBoolean("is_deleted"));

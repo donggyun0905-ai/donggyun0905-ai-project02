@@ -559,6 +559,8 @@ CREATE TABLE SHARE_LINK (
     scope_cover_letter BOOLEAN    NOT NULL DEFAULT FALSE, -- 자소서 파일(USERS.cover_letter_document_id) 공개
     scope_age        BOOLEAN      NOT NULL DEFAULT FALSE, -- 나이(USERS.age) 공개 — 면접관 비교 화면의 나이순 정렬용
     scope_activity   BOOLEAN      NOT NULL DEFAULT FALSE, -- 활동 내역(잔디·타임라인) 공개 — sql/30
+    scope_project_docs BOOLEAN    NOT NULL DEFAULT FALSE, -- 프로젝트 제출 서류(PROJECT_DOCUMENT_ITEM) 파일 공개 (31번)
+    scope_education  BOOLEAN      NOT NULL DEFAULT FALSE, -- 학력(USER_EDUCATION) 공개 — 블라인드 채용 고려 (31번)
     label            VARCHAR(50)  NULL,
     created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -625,6 +627,9 @@ CREATE TABLE EVALUATION_SESSION_ITEM (
     session_id       BIGINT      NOT NULL,
     share_link_id    BIGINT      NOT NULL,
     added_at         DATETIME    NOT NULL,
+    review_status    VARCHAR(20) NOT NULL DEFAULT 'REVIEWING', -- REVIEWING / PASS / HOLD / FAIL (31번)
+    rating           TINYINT     NULL,                         -- 면접관 평점 1~5
+    memo             TEXT        NULL,                         -- 면접관 메모 — 지원자에게 보이지 않음
     created_at       DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     is_deleted       BOOLEAN     NOT NULL DEFAULT FALSE,
@@ -1084,4 +1089,27 @@ CREATE TABLE SIMULATION_STATE (
     PRIMARY KEY (id),
     UNIQUE KEY uk_simulation_state_user (user_id),
     CONSTRAINT fk_simulation_state_user FOREIGN KEY (user_id) REFERENCES USERS (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
+-- USER_EDUCATION (학력) — 신설 (31번)
+-- 관련 요구사항: FR-81 이력 · NFR-4 공개 범위(SHARE_LINK.scope_education)
+-- UNIQUE: user_id — 계정당 최종 학력 한 줄
+-- =========================================================
+CREATE TABLE USER_EDUCATION (
+    id                 BIGINT        NOT NULL AUTO_INCREMENT,
+    user_id            BIGINT        NOT NULL,
+    school_name        VARCHAR(100)  NOT NULL,
+    graduation_status  VARCHAR(20)   NOT NULL,        -- ENROLLED(재학) / LEAVE(휴학) / EXPECTED(졸업 예정) / GRADUATED(졸업)
+    graduation_date    DATE          NULL,            -- 졸업일 또는 졸업 예정일
+    gpa                DECIMAL(3,2)  NULL,
+    gpa_max            DECIMAL(3,2)  NULL,            -- 4.5 / 4.3 / 4.0 — 학점을 넣으면 같이 넣는다
+    created_at         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted         BOOLEAN       NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_user_education_user (user_id),
+    CONSTRAINT fk_user_education_user
+        FOREIGN KEY (user_id) REFERENCES USERS (id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

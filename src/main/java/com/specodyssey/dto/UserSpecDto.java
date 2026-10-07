@@ -12,6 +12,7 @@ public class UserSpecDto {
     private String issuer;
     private String score;
     private LocalDate acquiredDate;
+    private LocalDate endDate; // EXPERIENCE(인턴·대외활동)의 종료일 — acquiredDate가 시작일. 진행 중이거나 다른 유형이면 null
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private boolean deleted;
@@ -94,5 +95,13 @@ public class UserSpecDto {
 
     public void setDeleted(boolean deleted) {
         this.deleted = deleted;
+    }
+
+    public LocalDate getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(LocalDate endDate) {
+        this.endDate = endDate;
     }
 }

@@ -16,6 +16,8 @@ public class UserProjectDto {
     private String repoUrl;        // 코드 저장소 링크 (선택)
     private String deployUrl;      // 배포 주소 (선택)
     private String retrospective;  // 완료 회고 (선택)
+    private Integer teamSize; // 팀 인원(본인 포함). 1이면 개인 프로젝트, 미입력이면 null
+    private String myRole;    // 본인 역할 — "백엔드·DB 설계" 등
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private boolean deleted;
@@ -130,5 +132,21 @@ public class UserProjectDto {
 
     public void setRetrospective(String retrospective) {
         this.retrospective = retrospective;
+    }
+
+    public Integer getTeamSize() {
+        return teamSize;
+    }
+
+    public void setTeamSize(Integer teamSize) {
+        this.teamSize = teamSize;
+    }
+
+    public String getMyRole() {
+        return myRole;
+    }
+
+    public void setMyRole(String myRole) {
+        this.myRole = myRole;
     }
 }

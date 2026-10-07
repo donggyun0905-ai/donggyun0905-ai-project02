@@ -45,17 +45,20 @@ public class ShareViewServlet extends HttpServlet {
             return;
         }
 
+        // "?view=inline"이면 PDF를 내려받지 않고 화면 안(iframe)에 원본 그대로 연다 — PDF가 아니면 무시하고 내려받기
+        boolean inline = "inline".equals(req.getParameter("view"));
+
         // "/share/{토큰}/resume" — 이력서 파일 내려받기
         if (pathInfo != null && pathInfo.endsWith(RESUME_SUFFIX)) {
             downloadFile(resp, pathInfo.substring(1, pathInfo.length() - RESUME_SUFFIX.length()),
-                    shareViewService::loadResume, "이력서");
+                    shareViewService::loadResume, "이력서", inline);
             return;
         }
 
         // "/share/{토큰}/cover-letter" — 자소서 파일 내려받기
         if (pathInfo != null && pathInfo.endsWith(COVER_LETTER_SUFFIX)) {
             downloadFile(resp, pathInfo.substring(1, pathInfo.length() - COVER_LETTER_SUFFIX.length()),
-                    shareViewService::loadCoverLetter, "자소서");
+                    shareViewService::loadCoverLetter, "자소서", inline);
             return;
         }
 
@@ -84,7 +87,7 @@ public class ShareViewServlet extends HttpServlet {
 
     // 지원자가 이 링크에 이력서·자소서 공개를 고른 경우에만 내려준다 — 조건 확인은 ShareViewService.loadResume·loadCoverLetter가 한다.
     // 받을 수 없는 경우는 이유를 구분하지 않고 404로 답한다(링크가 유효한지 떠볼 단서를 주지 않는다).
-    private void downloadFile(HttpServletResponse resp, String token, FileLoader loader, String label)
+    private void downloadFile(HttpServletResponse resp, String token, FileLoader loader, String label, boolean inline)
             throws ServletException, IOException {
         DocumentDto file;
         try {
@@ -101,7 +104,9 @@ public class ShareViewServlet extends HttpServlet {
         resp.setHeader("Cache-Control", "no-store");
         resp.setHeader("X-Robots-Tag", "noindex, nofollow");
         resp.setContentType(FileStorageUtil.mimeTypeFor(file.getOriginalName()));
-        resp.setHeader("Content-Disposition", "attachment; filename*=UTF-8''"
+        // 화면에 끼워 여는 건 PDF만 — 스크립트가 돌 수 있는 형식은 열지 않는다
+        String disposition = inline && FileStorageUtil.isPdf(file.getOriginalName()) ? "inline" : "attachment";
+        resp.setHeader("Content-Disposition", disposition + "; filename*=UTF-8''"
                 + URLEncoder.encode(file.getOriginalName(), StandardCharsets.UTF_8));
         FileStorageUtil.writeTo(file.getFilePath(), resp.getOutputStream());
     }

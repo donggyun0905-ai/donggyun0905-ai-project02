@@ -15,7 +15,9 @@ public class ShareLinkDto {
     private boolean scopeResume;
     private boolean scopeCoverLetter;
     private boolean scopeAge; // 나이 공개 — 지원자가 링크마다 고른다(기본 비공개)
-    private boolean scopeActivity; // 활동 내역(잔디·타임라인) 공개 — 지원자가 링크마다 고른다(기본 비공개)
+    private boolean scopeActivity;    // 활동 내역(잔디·타임라인) 공개 — 지원자가 링크마다 고른다(기본 비공개)
+    private boolean scopeProjectDocs; // 프로젝트 제출 서류(README·실행 화면 등) 파일 공개 — 기본 비공개
+    private boolean scopeEducation;   // 학력(학교·졸업·학점) 공개 — 기본 비공개(블라인드 채용)
     private String label;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -103,6 +105,22 @@ public class ShareLinkDto {
 
     public boolean isScopeAge() {
         return scopeAge;
+    }
+
+    public boolean isScopeProjectDocs() {
+        return scopeProjectDocs;
+    }
+
+    public void setScopeProjectDocs(boolean scopeProjectDocs) {
+        this.scopeProjectDocs = scopeProjectDocs;
+    }
+
+    public boolean isScopeEducation() {
+        return scopeEducation;
+    }
+
+    public void setScopeEducation(boolean scopeEducation) {
+        this.scopeEducation = scopeEducation;
     }
 
     public void setScopeAge(boolean scopeAge) {

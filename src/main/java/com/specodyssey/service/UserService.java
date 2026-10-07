@@ -1,6 +1,7 @@
 package com.specodyssey.service;
 
 import com.specodyssey.dao.UserDao;
+import com.specodyssey.dao.UserEducationDao;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.util.PasswordUtil;
 import com.specodyssey.util.RecoveryCode;
@@ -22,6 +23,7 @@ public class UserService {
     public static final int WITHDRAWAL_GRACE_DAYS = 30;
 
     private final UserDao userDao = new UserDao();
+    private final UserEducationDao userEducationDao = new UserEducationDao();
 
     /** 비밀번호는 맞지만 유예 중인 탈퇴 계정 — 화면에서 탈퇴 취소를 제안한다. */
     public static class PendingWithdrawalException extends Exception {
@@ -254,7 +256,10 @@ public class UserService {
 
     /** WithdrawalPurgeScheduler 전용 — 유예가 끝난 탈퇴 계정의 아이디를 비우고 개인정보를 지운다. */
     public int purgeExpiredWithdrawals() throws SQLException {
-        return userDao.purgeExpiredWithdrawals(graceCutoff());
+        LocalDateTime cutoff = graceCutoff();
+        // 학력(학교·학점)도 개인정보라 같이 지운다 — USERS를 먼저 바꿔도 조건(is_deleted·withdraw_requested_at)은 그대로라 순서 무관
+        userEducationDao.purgeExpiredWithdrawals(cutoff);
+        return userDao.purgeExpiredWithdrawals(cutoff);
     }
 
     /**

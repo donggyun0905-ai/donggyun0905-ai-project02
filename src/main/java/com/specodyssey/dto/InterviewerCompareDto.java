@@ -11,6 +11,18 @@ import java.util.List;
  */
 public class InterviewerCompareDto {
 
+    /** 면접관 검토 상태 — 화면 표시 순서대로 */
+    public static final java.util.Map<String, String> REVIEW_STATUS_LABELS = reviewStatusLabels();
+
+    private static java.util.Map<String, String> reviewStatusLabels() {
+        java.util.Map<String, String> m = new java.util.LinkedHashMap<>();
+        m.put("REVIEWING", "검토 중");
+        m.put("PASS", "서류 합격");
+        m.put("HOLD", "보류");
+        m.put("FAIL", "불합격");
+        return java.util.Collections.unmodifiableMap(m);
+    }
+
     private List<Criterion> criteria = new ArrayList<>();
     private int totalWeight;
     private List<Applicant> applicants = new ArrayList<>();
@@ -51,8 +63,13 @@ public class InterviewerCompareDto {
         private String certText;    // "정보처리기사 외 1개" / "없음"
         private String certFullText; // 표 칸에 마우스를 올렸을 때 보여줄 전체 목록 "정보처리기사, SQLD"
         private List<Boolean> matches = new ArrayList<>(); // criteria와 같은 순서. 기술 스택 비공개면 비어 있다
+        private List<String> matchDetails = new ArrayList<>(); // matches와 같은 순서. 갖춘 칸만 "고급 · 프로젝트 2개", 없으면 null
         private Integer fitScore;   // 적합도 점수. 계산할 수 없으면 null
         private String growthText;  // 성장 잠재력 요약. 비공개면 null
+        // 면접관 본인의 검토 기록 — 지원자에게는 보이지 않는다
+        private String reviewStatus = "REVIEWING";
+        private Integer rating;
+        private String memo;
 
         public boolean isAvailable() {
             return view != null;
@@ -124,6 +141,38 @@ public class InterviewerCompareDto {
 
         public List<Boolean> getMatches() {
             return matches;
+        }
+
+        public String getReviewStatus() {
+            return reviewStatus;
+        }
+
+        public void setReviewStatus(String reviewStatus) {
+            this.reviewStatus = reviewStatus;
+        }
+
+        public String getReviewStatusLabel() {
+            return REVIEW_STATUS_LABELS.getOrDefault(reviewStatus, reviewStatus);
+        }
+
+        public Integer getRating() {
+            return rating;
+        }
+
+        public void setRating(Integer rating) {
+            this.rating = rating;
+        }
+
+        public String getMemo() {
+            return memo;
+        }
+
+        public void setMemo(String memo) {
+            this.memo = memo;
+        }
+
+        public List<String> getMatchDetails() {
+            return matchDetails;
         }
 
         public void setMatches(List<Boolean> matches) {

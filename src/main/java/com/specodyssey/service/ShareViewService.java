@@ -7,9 +7,13 @@ import com.specodyssey.dao.RoadmapDao;
 import com.specodyssey.dao.RoadmapStepDao;
 import com.specodyssey.dao.ShareLinkDao;
 import com.specodyssey.dao.ShareLinkViewLogDao;
+import com.specodyssey.dao.SkillDao;
 import com.specodyssey.dao.SpecScoreHistoryDao;
 import com.specodyssey.dao.UserDao;
+import com.specodyssey.dao.UserEducationDao;
+import com.specodyssey.dao.ProjectDocumentItemDao;
 import com.specodyssey.dao.ProjectLinkDao;
+import com.specodyssey.dao.ProjectTechNoteDao;
 import com.specodyssey.dao.UserProjectDao;
 import com.specodyssey.dao.UserSkillDao;
 import com.specodyssey.dao.UserSpecDao;
@@ -22,10 +26,14 @@ import com.specodyssey.dto.ShareLinkDto;
 import com.specodyssey.dto.ShareLinkViewLogDto;
 import com.specodyssey.dto.ShareViewDto;
 import com.specodyssey.dto.ShareViewDto.TimelineItem;
+import com.specodyssey.dto.SkillDto;
 import com.specodyssey.dto.SpecScoreHistoryDto;
 import com.specodyssey.dto.UserDto;
+import com.specodyssey.dto.ProjectDocumentItemDto;
 import com.specodyssey.dto.ProjectLinkDto;
+import com.specodyssey.dto.ProjectTechNoteDto;
 import com.specodyssey.dto.UserProjectDto;
+import com.specodyssey.util.FileStorageUtil;
 import com.specodyssey.util.UrlRules;
 import com.specodyssey.dto.UserSkillDto;
 import com.specodyssey.dto.UserSpecDto;
@@ -35,9 +43,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.logging.Logger;
@@ -54,7 +64,8 @@ public class ShareViewService {
     private static final int GROWTH_POINTS = 6; // 성장 그래프에 보여줄 최근 기록 수
 
     private static final Map<String, String> SPEC_TYPE_LABELS = Map.of(
-            "CERT", "자격증", "LANGUAGE", "어학", "AWARD", "수상");
+            "CERT", "자격증", "LANGUAGE", "어학", "AWARD", "수상", "EXPERIENCE", "경험");
+    private static final String SUBMITTED = "SUBMITTED";
     private static final Map<String, String> PROFICIENCY_LABELS = Map.of(
             "BEGINNER", "입문", "INTERMEDIATE", "중급", "ADVANCED", "고급");
 
@@ -67,9 +78,13 @@ public class ShareViewService {
     private final UserSpecDao userSpecDao = new UserSpecDao();
     private final UserProjectDao userProjectDao = new UserProjectDao();
     private final ProjectLinkDao projectLinkDao = new ProjectLinkDao();
+    private final ProjectTechNoteDao projectTechNoteDao = new ProjectTechNoteDao();
+    private final ProjectDocumentItemDao projectDocumentItemDao = new ProjectDocumentItemDao();
     private final UserSkillDao userSkillDao = new UserSkillDao();
     private final SpecScoreHistoryDao specScoreHistoryDao = new SpecScoreHistoryDao();
     private final CertificationDao certificationDao = new CertificationDao();
+    private final SkillDao skillDao = new SkillDao();
+    private final UserEducationDao educationDao = new UserEducationDao();
     private final RoadmapDao roadmapDao = new RoadmapDao();
     private final RoadmapStepDao roadmapStepDao = new RoadmapStepDao();
     private final NotificationService notificationService = new NotificationService();
@@ -138,6 +153,58 @@ public class ShareViewService {
         return user == null ? null : findProfileDocument(user, user.getCoverLetterDocumentId());
     }
 
+    /**
+     * 공유 화면에서 연 서류(/share/documents/{토큰}/{문서id}) — 그 링크의 화면에 실제로 실린 서류만 내준다.
+     * 문서 id는 순번이라 추측하기 쉬워서, "토큰 주인의 문서면 아무거나"로 열면 이력서 공개를 끈 링크로도
+     * 이력서를 받을 수 있었다. 이제 아래 둘 중 하나여야 한다.
+     *   - 기본 이력을 공개한 링크: 타임라인 자격증 항목의 증빙 서류
+     *   - 프로젝트 서류를 공개한 링크: 프로젝트에 제출한 서류(PROJECT_DOCUMENT_ITEM)
+     * @return 조건에 하나라도 안 맞으면 null (화면에서는 404 — 이유를 구분하지 않는다)
+     */
+    public DocumentDto loadSharedDocument(String token, Long documentId) throws SQLException {
+        if (token == null || token.isBlank() || documentId == null) {
+            return null;
+        }
+        ShareLinkDto link = shareLinkDao.findByToken(token);
+        if (link == null || userDao.findById(link.getUserId()) == null) {
+            return null;
+        }
+        if (!sharedDocumentIds(link).contains(documentId)) {
+            return null;
+        }
+        DocumentDto document = documentDao.findById(documentId);
+        return (document == null || !document.getUserId().equals(link.getUserId())) ? null : document;
+    }
+
+    // 이 링크의 화면에 실리는 서류 id — buildView가 화면에 내보내는 것과 같은 규칙
+    private Set<Long> sharedDocumentIds(ShareLinkDto link) throws SQLException {
+        Set<Long> ids = new HashSet<>();
+        Long userId = link.getUserId();
+        if (link.isScopeBasic()) {
+            RoadmapDto primaryRoadmap = roadmapDao.findPrimaryByUserId(userId);
+            if (primaryRoadmap != null) {
+                for (UserSpecDto spec : userSpecDao.findByUserId(userId)) {
+                    if ("CERT".equals(spec.getSpecType())) {
+                        Long id = findCertDocumentId(primaryRoadmap, spec.getTitle());
+                        if (id != null) {
+                            ids.add(id);
+                        }
+                    }
+                }
+            }
+        }
+        if (link.isScopeBasic() && link.isScopeProjectDocs()) {
+            for (UserProjectDto project : userProjectDao.findByUserId(userId)) {
+                for (ProjectDocumentItemDto item : projectDocumentItemDao.findByProjectId(project.getId())) {
+                    if (SUBMITTED.equals(item.getStatus()) && item.getDocumentId() != null) {
+                        ids.add(item.getDocumentId());
+                    }
+                }
+            }
+        }
+        return ids;
+    }
+
     // 지원자가 지정한 이력서. 지정하지 않았거나 그 서류가 지워졌으면 null
     private DocumentDto findResume(UserDto user) throws SQLException {
         return findProfileDocument(user, user.getResumeDocumentId());
@@ -171,7 +238,12 @@ public class ShareViewService {
         view.setScopeCoverLetter(link.isScopeCoverLetter());
         view.setScopeAge(link.isScopeAge());
         view.setScopeActivity(link.isScopeActivity());
+        view.setScopeEducation(link.isScopeEducation());
+        // 프로젝트 서류는 타임라인(기본 이력) 안에 실리므로 기본 이력도 공개한 링크에서만 의미가 있다
+        view.setScopeProjectDocs(link.isScopeBasic() && link.isScopeProjectDocs());
 
+        // 기술 → 프로젝트 근거는 프로젝트 목록(기본 이력)을 공개한 링크에서만 쓴다
+        List<ProjectEvidence> projectEvidence = List.of();
         if (link.isScopeBasic()) {
             view.setName(user.getName());
             view.setMajor(user.getMajor());
@@ -180,14 +252,18 @@ public class ShareViewService {
                 JobDto job = jobDao.findById(user.getDesiredJobId());
                 view.setDesiredJobName(job == null ? null : job.getJobName());
             }
-            fillTimeline(view, user.getId());
+            projectEvidence = fillTimeline(view, user.getId(), view.isScopeProjectDocs());
+        }
+        // 학력은 블라인드 채용을 고려해 기본 이력과 따로 고른 링크에서만
+        if (link.isScopeEducation()) {
+            view.setEducation(educationDao.findByUserId(user.getId()));
         }
         // 나이는 기본 이력과 따로 고른 링크에서만 (면접관 비교 화면의 나이순 정렬용, NFR-4)
         if (link.isScopeAge()) {
             view.setAge(user.getAge());
         }
         if (link.isScopeSkills()) {
-            fillSkills(view, user.getId());
+            fillSkills(view, user.getId(), projectEvidence);
         }
         if (link.isScopeResume()) {
             DocumentDto resume = findResume(user);
@@ -209,7 +285,10 @@ public class ShareViewService {
     }
 
     // FR-81 자격증·어학·수상과 프로젝트를 한 줄로 세워 시간순으로 정렬한다. 날짜가 없는 항목은 맨 뒤.
-    private void fillTimeline(ShareViewDto view, Long userId) throws SQLException {
+    // 돌려주는 값은 기술 카드의 "사용한 프로젝트" 근거용 — 프로젝트를 한 번만 읽으려고 여기서 같이 모은다.
+    private List<ProjectEvidence> fillTimeline(ShareViewDto view, Long userId, boolean shareProjectDocs)
+            throws SQLException {
+        List<ProjectEvidence> evidence = new ArrayList<>();
         List<Dated> dated = new ArrayList<>();
         RoadmapDto primaryRoadmap = roadmapDao.findPrimaryByUserId(userId);
         for (UserSpecDto spec : userSpecDao.findByUserId(userId)) {
@@ -222,8 +301,12 @@ public class ShareViewService {
             // — 그 약속을 지키려면 실제로 여기서 보여줘야 한다.
             Long documentId = "CERT".equals(spec.getSpecType()) && primaryRoadmap != null
                     ? findCertDocumentId(primaryRoadmap, spec.getTitle()) : null;
+            // 경험(인턴·대외활동)은 기간으로, 나머지는 취득일로 보여준다
+            String dateText = "EXPERIENCE".equals(spec.getSpecType())
+                    ? period(spec.getAcquiredDate(), spec.getEndDate())
+                    : spec.getAcquiredDate() == null ? "날짜 미입력" : spec.getAcquiredDate().toString();
             dated.add(new Dated(spec.getAcquiredDate(), new TimelineItem(
-                    spec.getAcquiredDate() == null ? "날짜 미입력" : spec.getAcquiredDate().toString(),
+                    dateText,
                     SPEC_TYPE_LABELS.getOrDefault(spec.getSpecType(), spec.getSpecType()),
                     spec.getTitle(), detail, documentId)));
         }
@@ -233,16 +316,75 @@ public class ShareViewService {
                 projects.stream().map(UserProjectDto::getId).collect(Collectors.toList()));
         for (UserProjectDto project : projects) {
             String techStack = isBlank(project.getTechStack()) ? null : "사용 기술: " + project.getTechStack();
-            dated.add(new Dated(project.getStartDate(), new TimelineItem(
+            TimelineItem item = new TimelineItem(
                     period(project.getStartDate(), project.getEndDate()),
                     "프로젝트", project.getTitle(), join(project.getDescription(), techStack), null,
-                    projectLinks(project, extraLinks.get(project.getId())))));
+                    projectLinks(project, extraLinks.get(project.getId())));
+            List<ProjectTechNoteDto> notes = projectTechNoteDao.findByProjectId(project.getId());
+            fillProjectDetail(item, project, notes, shareProjectDocs);
+            dated.add(new Dated(project.getStartDate(), item));
+            evidence.add(ProjectEvidence.of(project, notes));
         }
         dated.sort(Comparator.comparing((Dated d) -> d.date, Comparator.nullsLast(Comparator.naturalOrder())));
 
         for (Dated d : dated) {
             view.getTimeline().add(d.item);
         }
+        return evidence;
+    }
+
+    // 면접관이 프로젝트에서 가장 오래 보는 부분 — 팀 규모·내 역할, 회고, 기술별 활용 설명, 어떤 서류까지 갖췄는지.
+    // 서류 파일은 지원자가 링크에 "프로젝트 서류"(scope_project_docs)를 고른 경우에만 열린다.
+    private void fillProjectDetail(TimelineItem item, UserProjectDto project, List<ProjectTechNoteDto> techNotes,
+                                   boolean shareProjectDocs) throws SQLException {
+        item.setTeamSize(project.getTeamSize());
+        item.setMyRole(isBlank(project.getMyRole()) ? null : project.getMyRole().trim());
+        if (!isBlank(project.getRetrospective())) {
+            item.setRetrospective(project.getRetrospective().trim());
+        }
+        List<ShareViewDto.TechNote> notes = new ArrayList<>();
+        for (ProjectTechNoteDto note : techNotes) {
+            if (!isBlank(note.getDescription())) {
+                notes.add(new ShareViewDto.TechNote(note.getSkillName(), note.getDescription().trim()));
+            }
+        }
+        item.setTechNotes(notes);
+        List<ShareViewDto.SubmittedDoc> docs = submittedDocs(projectDocumentItemDao.findByProjectId(project.getId()));
+        // 파일은 "프로젝트 서류"를 공개한 링크에서만 연다 — 아니면 종류 이름만 보인다
+        if (shareProjectDocs) {
+            for (ShareViewDto.SubmittedDoc doc : docs) {
+                if (doc.getSourceDocumentId() == null) {
+                    continue;
+                }
+                DocumentDto file = documentDao.findById(doc.getSourceDocumentId());
+                if (file != null && file.getUserId().equals(project.getUserId())) {
+                    doc.share(file.getId(), file.getOriginalName(), previewType(file.getOriginalName()));
+                }
+            }
+        }
+        item.setSubmittedDocs(docs);
+    }
+
+    // 실제로 제출한 것만, 화면 표시 순서(ProjectSubmissionService.DOC_TYPE_LABELS)대로
+    static List<ShareViewDto.SubmittedDoc> submittedDocs(List<ProjectDocumentItemDto> items) {
+        List<ShareViewDto.SubmittedDoc> docs = new ArrayList<>();
+        for (Map.Entry<String, String> e : ProjectSubmissionService.DOC_TYPE_LABELS.entrySet()) {
+            for (ProjectDocumentItemDto i : items) {
+                if (SUBMITTED.equals(i.getStatus()) && e.getKey().equals(i.getDocType())) {
+                    docs.add(new ShareViewDto.SubmittedDoc(e.getKey(), e.getValue(), i.getDocumentId()));
+                    break;
+                }
+            }
+        }
+        return docs;
+    }
+
+    // 화면 안에서 바로 보여줄 수 있는 형식 — PDF는 iframe, 이미지는 img. 그 외는 내려받기만
+    static String previewType(String fileName) {
+        if (FileStorageUtil.isPdf(fileName)) {
+            return "pdf";
+        }
+        return FileStorageUtil.isInlineSafe(fileName) ? "image" : null;
     }
 
     // 면접관이 누르는 링크라서 저장할 때 검증했더라도 내보내기 직전에 한 번 더 웹 주소(http/https)만 남긴다.
@@ -285,17 +427,80 @@ public class ShareViewService {
         return null;
     }
 
-    private void fillSkills(ShareViewDto view, Long userId) throws SQLException {
+    private void fillSkills(ShareViewDto view, Long userId, List<ProjectEvidence> projects) throws SQLException {
         for (UserSkillDto skill : userSkillDao.findByUserId(userId)) {
             // 숙련도는 선택 입력이라 null일 수 있다 — Map.of로 만든 맵은 null 키 조회에서 예외를 던진다
             String proficiency = skill.getProficiency() == null
                     ? null : PROFICIENCY_LABELS.get(skill.getProficiency());
-            view.getSkills().add(
-                    proficiency == null ? skill.getRawInput() : skill.getRawInput() + " · " + proficiency);
+            String label = proficiency == null ? skill.getRawInput() : skill.getRawInput() + " · " + proficiency;
+            view.getSkills().add(label);
+            String nameKey = normalize(skill.getRawInput());
             if (skill.getSkillId() != null) {
                 view.getSkillIds().add(skill.getSkillId());
             }
-            view.getSkillNames().add(skill.getRawInput().trim().toLowerCase(Locale.ROOT));
+            view.getSkillNames().add(nameKey);
+
+            // 표준 이름("Spring Boot")도 같이 맞춰 본다 — 입력 원문("스프링부트")과 프로젝트 tech_stack 표기가 다를 수 있다
+            String canonicalKey = null;
+            if (skill.getSkillId() != null && !projects.isEmpty()) {
+                SkillDto master = skillDao.findById(skill.getSkillId());
+                canonicalKey = master == null ? null : normalize(master.getSkillName());
+            }
+            view.getSkillItems().add(new ShareViewDto.SkillItem(label, skill.getSkillId(), nameKey,
+                    skill.getProficiency(), usedIn(projects, skill.getSkillId(), nameKey, canonicalKey)));
+        }
+    }
+
+    // FR-81 보강 — 이 기술을 쓴 프로젝트 제목. 기술 활용 설명(PROJECT_TECH_NOTE)에 있거나 tech_stack에 같은 이름이 있으면 쓴 것으로 본다.
+    static List<String> usedIn(List<ProjectEvidence> projects, Long skillId, String nameKey, String canonicalKey) {
+        List<String> titles = new ArrayList<>();
+        for (ProjectEvidence p : projects) {
+            boolean used = (skillId != null && p.noteSkillIds.contains(skillId))
+                    || p.stackKeys.contains(nameKey)
+                    || (canonicalKey != null && p.stackKeys.contains(canonicalKey));
+            if (used) {
+                titles.add(p.title);
+            }
+        }
+        return titles;
+    }
+
+    private static String normalize(String name) {
+        return name == null ? "" : name.trim().toLowerCase(Locale.ROOT);
+    }
+
+    /** 프로젝트 하나에서 기술 근거를 찾는 데 필요한 것만. */
+    static final class ProjectEvidence {
+        private final String title;
+        private final Set<Long> noteSkillIds;
+        private final Set<String> stackKeys;
+
+        ProjectEvidence(String title, Set<Long> noteSkillIds, Set<String> stackKeys) {
+            this.title = title;
+            this.noteSkillIds = noteSkillIds;
+            this.stackKeys = stackKeys;
+        }
+
+        static ProjectEvidence of(UserProjectDto project, List<ProjectTechNoteDto> notes) {
+            Set<Long> ids = new HashSet<>();
+            for (ProjectTechNoteDto note : notes) {
+                ids.add(note.getSkillId());
+            }
+            return new ProjectEvidence(project.getTitle(), ids, stackKeys(project.getTechStack()));
+        }
+
+        // tech_stack은 자유 입력이라 쉼표·슬래시·가운뎃점 등으로 나뉘어 있다
+        static Set<String> stackKeys(String techStack) {
+            Set<String> keys = new HashSet<>();
+            if (techStack != null) {
+                for (String part : techStack.split("[,/·|+;\\n]")) {
+                    String key = normalize(part);
+                    if (!key.isEmpty()) {
+                        keys.add(key);
+                    }
+                }
+            }
+            return keys;
         }
     }
 
