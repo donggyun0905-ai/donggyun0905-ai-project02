@@ -11,12 +11,14 @@ import com.specodyssey.dao.UserSurveyAnswerDao;
 import com.specodyssey.dto.JobDto;
 import com.specodyssey.dto.JobRecommendationDto;
 import com.specodyssey.dto.JobRequiredSkillDto;
+import com.specodyssey.dto.SkillDto;
 import com.specodyssey.dto.SurveyQuestionDto;
 import com.specodyssey.dto.UserProjectDto;
 import com.specodyssey.dto.UserSkillDto;
 import com.specodyssey.dto.UserSurveyAnswerDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.service.EmbeddingMatcher;
+import com.specodyssey.service.SkillCatalog;
 import com.specodyssey.service.SkillMatcher;
 import com.specodyssey.service.discovery.JobDiscoveryScorer.JobCandidate;
 import com.specodyssey.service.discovery.JobDiscoveryScorer.OwnedSkill;
@@ -58,6 +60,7 @@ public class JobDiscoveryService {
     private final UserDao userDao = new UserDao();
     private final SkillMatcher skillMatcher;
     private final RecommendationDescriber describer;
+    private final JobSummaryWriter summaryWriter;
     private final JobDiscoveryScorer scorer = new JobDiscoveryScorer();
     // FR-38 ② 전공 ↔ 직무 계열 (임베딩, kangdain 2026-10-06)
     private final MajorAffinity majorAffinity = new MajorAffinity();
@@ -73,8 +76,14 @@ public class JobDiscoveryService {
     }
 
     public JobDiscoveryService(SkillMatcher skillMatcher, RecommendationDescriber describer) {
+        this(skillMatcher, describer, new JobSummaryWriter());
+    }
+
+    public JobDiscoveryService(SkillMatcher skillMatcher, RecommendationDescriber describer,
+                               JobSummaryWriter summaryWriter) {
         this.skillMatcher = skillMatcher;
         this.describer = describer;
+        this.summaryWriter = summaryWriter;
     }
 
     /** 설문 응답이 빠졌거나 범위를 벗어났을 때. 서블릿이 400으로 돌려준다. */
@@ -128,7 +137,7 @@ public class JobDiscoveryService {
         List<RecommendationView> views = new ArrayList<>();
         for (JobRecommendationDto r : recommendationDao.findByUserId(userId)) {
             views.add(new RecommendationView(r.getId(), r.getJobId(), jobNames.get(r.getJobId()),
-                    r.getRankOrder(), r.getMatchReason(), r.isSelected()));
+                    r.getRankOrder(), r.getMatchReason(), r.isSelected(), JobSummaryWriter.parse(r.getSummaryJson())));
         }
         return views;
     }
@@ -147,10 +156,12 @@ public class JobDiscoveryService {
         }
         List<SurveyAnswer> answers = validate(questions, answersByQuestionId);
 
+        List<JobCandidate> jobs = loadJobCandidates();
         List<Recommendation> recommendations =
-                scorer.recommend(answers, collectOwnedSkills(userId), loadJobCandidates(),
+                scorer.recommend(answers, collectOwnedSkills(userId), jobs,
                         majorAffinity.score(findMajor(userId)));
         describe(recommendations);
+        summaryWriter.summarize(recommendations, requiredSkillNames(jobs)); // FR-35
 
         LocalDateTime now = LocalDateTime.now();
         TransactionUtil.runInTransaction(conn -> {
@@ -169,6 +180,7 @@ public class JobDiscoveryService {
                 dto.setJobId(r.jobId);
                 dto.setRankOrder(r.rankOrder);
                 dto.setMatchReason(r.reason);
+                dto.setSummaryJson(r.summaryJson);
                 recommendationDao.upsert(conn, dto);
             }
             return null;
@@ -272,10 +284,32 @@ public class JobDiscoveryService {
         return jobs;
     }
 
+    /** FR-35 필요 역량 표시용 — job_id → 요구 기술 이름 (필수 먼저, 그다음 우대) */
+    private Map<Long, List<String>> requiredSkillNames(List<JobCandidate> jobs) throws SQLException {
+        Map<Long, String> names = new HashMap<>();
+        for (SkillDto s : SkillCatalog.current().skills()) {
+            names.put(s.getId(), s.getSkillName());
+        }
+        Map<Long, List<String>> byJob = new HashMap<>();
+        for (JobCandidate job : jobs) {
+            List<String> list = new ArrayList<>();
+            for (boolean required : new boolean[]{true, false}) {
+                for (RequiredSkill rs : job.skills()) {
+                    String name = names.get(rs.skillId());
+                    if (rs.required() == required && name != null) {
+                        list.add(name);
+                    }
+                }
+            }
+            byJob.put(job.jobId(), list);
+        }
+        return byJob;
+    }
+
     /**
      * 추천 이유를 다듬는 자리 (FR-35 · 38의 "AI가 종합").
      * 실패하면 아무것도 하지 않고 넘어가서 계산기 기본 문장을 그대로 쓴다(FR-111).
-     * summary_json(하는 일·필요 역량·전망)은 화면에서 아직 쓰지 않아 채우지 않는다.
+     * summary_json(하는 일·필요 역량·전망)은 JobSummaryWriter가 따로 채운다(FR-35).
      */
     private void describe(List<Recommendation> recommendations) {
         describer.describe(recommendations);
@@ -289,15 +323,17 @@ public class JobDiscoveryService {
         private final Integer rankOrder;
         private final String matchReason;
         private final boolean selected;
+        private final JobSummaryWriter.JobSummary summary; // FR-35 — 예전에 받은 추천이면 null
 
         public RecommendationView(Long id, Long jobId, String jobName, Integer rankOrder,
-                                  String matchReason, boolean selected) {
+                                  String matchReason, boolean selected, JobSummaryWriter.JobSummary summary) {
             this.id = id;
             this.jobId = jobId;
             this.jobName = jobName;
             this.rankOrder = rankOrder;
             this.matchReason = matchReason;
             this.selected = selected;
+            this.summary = summary;
         }
 
         public Long getId() { return id; }
@@ -306,5 +342,6 @@ public class JobDiscoveryService {
         public Integer getRankOrder() { return rankOrder; }
         public String getMatchReason() { return matchReason; }
         public boolean isSelected() { return selected; }
+        public JobSummaryWriter.JobSummary getSummary() { return summary; }
     }
 }

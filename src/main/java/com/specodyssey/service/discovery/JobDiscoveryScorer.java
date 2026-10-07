@@ -119,6 +119,7 @@ public class JobDiscoveryScorer {
         public Double majorScore;             // 전공을 반영하지 않았으면 null
         public final List<String> matchedSkills = new ArrayList<>();
         public String reason;                 // match_reason — LLM이 없거나 실패해도 쓸 수 있는 기본 문장
+        public String summaryJson;            // summary_json — 하는 일·필요 역량·전망 (FR-35, JobSummaryWriter가 채움)
 
         @Override
         public String toString() {

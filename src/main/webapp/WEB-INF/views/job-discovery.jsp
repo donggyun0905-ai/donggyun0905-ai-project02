@@ -78,6 +78,32 @@
                         <strong><c:out value="${r.jobName}" /></strong>
                         <c:if test="${r.selected}"><span class="pill">선택함</span></c:if>
                         <p style="margin:8px 0;"><strong>추천 이유</strong> <c:out value="${r.matchReason}" /></p>
+                        <%-- FR-35 직무 요약 — 하는 일·전망은 AI(실패 시 기본 문구), 필요 역량은 요구 기술 데이터 --%>
+                        <c:choose>
+                            <c:when test="${not empty r.summary}">
+                                <details style="margin:0 0 10px;">
+                                    <summary style="cursor:pointer; color:var(--primary);">이 직무 알아보기</summary>
+                                    <div style="margin-top:8px; padding:10px 12px; border:1px solid var(--border); border-radius:8px;">
+                                        <p style="margin:0 0 8px;"><strong>하는 일</strong> <c:out value="${r.summary.duties}" /></p>
+                                        <c:if test="${not empty r.summary.skills}">
+                                            <p style="margin:0 0 8px;"><strong>필요 역량</strong>
+                                                <c:forEach var="skill" items="${r.summary.skills}">
+                                                    <span class="chip chip-locked" style="margin:2px 2px 0 0;"><c:out value="${skill}" /></span>
+                                                </c:forEach>
+                                            </p>
+                                        </c:if>
+                                        <p style="margin:0;"><strong>전망</strong> <c:out value="${r.summary.outlook}" /></p>
+                                        <p class="muted" style="margin:8px 0 0; font-size:0.78rem;">
+                                            ${r.summary.ai ? 'AI가 정리한 일반적인 설명입니다. 필요 역량은 수집된 요구 기술 기준입니다.'
+                                                           : '기본 설명입니다. 필요 역량은 수집된 요구 기술 기준입니다.'}
+                                        </p>
+                                    </div>
+                                </details>
+                            </c:when>
+                            <c:otherwise>
+                                <p class="muted" style="margin:0 0 10px; font-size:0.85rem;">다시 제출하면 이 직무가 하는 일·필요 역량·전망 요약을 볼 수 있어요.</p>
+                            </c:otherwise>
+                        </c:choose>
                         <form action="${ctx}/job-discovery" method="post">
                             <input type="hidden" name="_csrf" value="${csrfToken}">
                             <input type="hidden" name="action" value="select">
