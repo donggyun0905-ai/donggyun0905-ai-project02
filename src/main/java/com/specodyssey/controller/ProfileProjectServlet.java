@@ -79,6 +79,9 @@ public class ProfileProjectServlet extends HttpServlet {
         project.setDeployUrl(trimToNull(req.getParameter("deployUrl")));
         project.setStartDate(parseDate(req.getParameter("startDate")));
         project.setEndDate(parseDate(req.getParameter("endDate")));
+        String teamSize = trimToNull(req.getParameter("teamSize"));
+        project.setTeamSize(teamSize == null ? null : Integer.valueOf(teamSize)); // 숫자가 아니면 NumberFormatException → 400
+        project.setMyRole(trimToNull(req.getParameter("myRole")));
         return project;
     }
 

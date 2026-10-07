@@ -8,6 +8,9 @@ public class EvaluationSessionItemDto {
     private Long sessionId;
     private Long shareLinkId;
     private LocalDateTime addedAt;
+    private String reviewStatus; // REVIEWING / PASS / HOLD / FAIL — 기본 REVIEWING
+    private Integer rating;      // 1~5, 미평가면 null
+    private String memo;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private boolean deleted;
@@ -66,5 +69,29 @@ public class EvaluationSessionItemDto {
 
     public void setDeleted(boolean deleted) {
         this.deleted = deleted;
+    }
+
+    public String getReviewStatus() {
+        return reviewStatus;
+    }
+
+    public void setReviewStatus(String reviewStatus) {
+        this.reviewStatus = reviewStatus;
+    }
+
+    public Integer getRating() {
+        return rating;
+    }
+
+    public void setRating(Integer rating) {
+        this.rating = rating;
+    }
+
+    public String getMemo() {
+        return memo;
+    }
+
+    public void setMemo(String memo) {
+        this.memo = memo;
     }
 }

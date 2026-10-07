@@ -65,6 +65,19 @@ public class ShareLinkService {
                                    boolean scopeSkills, boolean scopeGrowth, boolean scopeResume,
                                    boolean scopeCoverLetter, boolean scopeAge)
             throws SQLException {
+        return createLink(userId, label, expiryDays, scopeBasic, scopeSkills, scopeGrowth, scopeResume,
+                scopeCoverLetter, scopeAge, false, false);
+    }
+
+    /**
+     * @param scopeProjectDocs 프로젝트에 제출한 서류(README·실행 화면 등) 파일 공개 — 첨부에 개인정보가 섞일 수 있어 따로 고른다
+     * @param scopeEducation 학력(학교·졸업·학점) 공개 — 블라인드 채용을 고려해 기본 이력과 따로 고른다
+     */
+    public ShareLinkDto createLink(Long userId, String label, Integer expiryDays, boolean scopeBasic,
+                                   boolean scopeSkills, boolean scopeGrowth, boolean scopeResume,
+                                   boolean scopeCoverLetter, boolean scopeAge, boolean scopeProjectDocs,
+                                   boolean scopeEducation)
+            throws SQLException {
         String trimmedLabel = (label == null || label.isBlank()) ? null : label.trim();
         if (trimmedLabel != null && trimmedLabel.length() > LABEL_MAX_LENGTH) {
             throw new IllegalArgumentException("메모는 " + LABEL_MAX_LENGTH + "자 이내로 입력해주세요.");
@@ -72,7 +85,8 @@ public class ShareLinkService {
         if (expiryDays != null && !ALLOWED_EXPIRY_DAYS.contains(expiryDays)) {
             throw new IllegalArgumentException("만료 기간을 다시 선택해주세요.");
         }
-        if (!scopeBasic && !scopeSkills && !scopeGrowth && !scopeResume && !scopeCoverLetter && !scopeAge) {
+        if (!scopeBasic && !scopeSkills && !scopeGrowth && !scopeResume && !scopeCoverLetter && !scopeAge
+                && !scopeProjectDocs && !scopeEducation) {
             throw new IllegalArgumentException("공개 범위를 하나 이상 선택해주세요.");
         }
 
@@ -87,6 +101,8 @@ public class ShareLinkService {
         link.setScopeResume(scopeResume);
         link.setScopeCoverLetter(scopeCoverLetter);
         link.setScopeAge(scopeAge);
+        link.setScopeProjectDocs(scopeProjectDocs);
+        link.setScopeEducation(scopeEducation);
         link.setLabel(trimmedLabel);
         link.setId(shareLinkDao.insert(link));
         return link;
@@ -154,6 +170,12 @@ public class ShareLinkService {
         }
         if (link.isScopeAge()) {
             scopes.add("나이");
+        }
+        if (link.isScopeEducation()) {
+            scopes.add("학력");
+        }
+        if (link.isScopeProjectDocs()) {
+            scopes.add("프로젝트 서류");
         }
         return String.join(", ", scopes);
     }

@@ -6,6 +6,9 @@
             <c:if test="${not empty project.startDate or not empty project.endDate}"><span class="muted">(${project.startDate} ~ ${project.endDate})</span></c:if><br>
             <c:out value='${project.description}' /><br>
             <c:if test="${not empty project.techStack}">기술스택: ${project.techStack}</c:if>
+            <c:if test="${not empty project.teamSize or not empty project.myRole}">
+                <br><span class="muted"><c:if test="${not empty project.teamSize}">${project.teamSize == 1 ? '개인 프로젝트' : project.teamSize += '인 팀'}</c:if><c:if test="${not empty project.teamSize and not empty project.myRole}"> · </c:if><c:out value='${project.myRole}' /></span>
+            </c:if>
             <c:if test="${not empty project.repoUrl or not empty project.deployUrl or not empty projectLinks[project.id]}">
                 <br><span class="ic ic-link" aria-hidden="true"></span>
                 <c:if test="${not empty project.repoUrl}"><a href="<c:out value='${project.repoUrl}' />" target="_blank" rel="noopener noreferrer">저장소</a></c:if>
@@ -30,6 +33,11 @@
                         <p class="row">
                             <span style="flex:1;">시작일 <input type="date" name="startDate" value="${project.startDate}"></span>
                             <span style="flex:1;">종료일 <input type="date" name="endDate" value="${project.endDate}"></span>
+                        </p>
+                        <%-- 면접관 뷰에서 기여도로 보이는 값 — 팀 인원(본인 포함)과 내가 맡은 역할 --%>
+                        <p class="row">
+                            <span style="flex:1;">팀 인원 <input type="number" name="teamSize" min="1" max="100" value="${project.teamSize}" placeholder="1이면 개인"></span>
+                            <span style="flex:2;">내 역할 <input type="text" name="myRole" maxlength="100" value="<c:out value='${project.myRole}' />" placeholder="예) 백엔드 API · DB 설계"></span>
                         </p>
                         <p class="row">
                             <span style="flex:1;"><input type="url" name="repoUrl" maxlength="500" value="<c:out value='${project.repoUrl}' />" placeholder="코드 저장소 링크 (선택)"></span>
@@ -59,6 +67,10 @@
         <p class="row">
             <span style="flex:1;">시작일 <input type="date" name="startDate"></span>
             <span style="flex:1;">종료일 <input type="date" name="endDate"></span>
+        </p>
+        <p class="row">
+            <span style="flex:1;">팀 인원 <input type="number" name="teamSize" min="1" max="100" placeholder="1이면 개인"></span>
+            <span style="flex:2;">내 역할 <input type="text" name="myRole" maxlength="100" placeholder="예) 백엔드 API · DB 설계"></span>
         </p>
         <p class="row">
             <span style="flex:1;"><input type="url" name="repoUrl" maxlength="500" placeholder="코드 저장소 링크 (선택)"></span>

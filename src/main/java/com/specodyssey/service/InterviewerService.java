@@ -27,6 +27,7 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * 면접관 계정 기능 — 공유받은 이력 담기, 회사 요구 역량, 지원자 비교, 내 프로필.
@@ -40,6 +41,8 @@ public class InterviewerService {
     public static final int MAX_WEIGHT = 5;
     private static final int COMPANY_NAME_MAX_LENGTH = 100; // EVALUATION_SESSION.company_name VARCHAR(100)
 
+    private static final Map<String, String> PROFICIENCY_LABELS = Map.of(
+            "BEGINNER", "입문", "INTERMEDIATE", "중급", "ADVANCED", "고급");
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final EvaluationSessionDao sessionDao = new EvaluationSessionDao();
@@ -113,6 +116,51 @@ public class InterviewerService {
         }
     }
 
+    static final int MEMO_MAX_LENGTH = 1000;
+
+    /**
+     * 면접관 본인의 검토 기록 — 상태(검토 중/서류 합격/보류/불합격)·평점(1~5)·메모. 지원자에게는 보이지 않는다.
+     * 다른 면접관 목록의 항목이면 아무 것도 바뀌지 않는다(세션 토큰으로 소유 확인).
+     * @throws IllegalArgumentException 상태·평점·메모 길이가 잘못된 경우
+     */
+    public void updateEvaluation(Long userId, Long itemId, String reviewStatus, Integer rating, String memo)
+            throws SQLException {
+        if (!InterviewerCompareDto.REVIEW_STATUS_LABELS.containsKey(reviewStatus)) {
+            throw new IllegalArgumentException("검토 상태를 다시 선택해주세요.");
+        }
+        if (rating != null && (rating < 1 || rating > 5)) {
+            throw new IllegalArgumentException("평점은 1~5점으로 선택해주세요.");
+        }
+        String trimmedMemo = memo == null || memo.isBlank() ? null : memo.strip();
+        if (trimmedMemo != null && trimmedMemo.length() > MEMO_MAX_LENGTH) {
+            throw new IllegalArgumentException("메모는 " + MEMO_MAX_LENGTH + "자 이내로 입력해주세요.");
+        }
+        EvaluationSessionDto session = getOrCreateSession(userId);
+        try (Connection conn = DBUtil.getConnection()) {
+            itemDao.updateEvaluation(conn, itemId, session.getSessionToken(), reviewStatus, rating, trimmedMemo);
+        }
+    }
+
+    /** 검토 상태별 지원자 수 — 상태 필터 탭에 숫자로 보여준다. 키 "ALL"은 전체. */
+    public static java.util.Map<String, Integer> countByReviewStatus(List<Applicant> applicants) {
+        java.util.Map<String, Integer> counts = new java.util.HashMap<>();
+        counts.put("ALL", applicants.size());
+        for (String status : InterviewerCompareDto.REVIEW_STATUS_LABELS.keySet()) {
+            counts.put(status, 0);
+        }
+        for (Applicant a : applicants) {
+            counts.merge(a.getReviewStatus(), 1, Integer::sum);
+        }
+        return counts;
+    }
+
+    /** 고른 검토 상태의 지원자만 남긴다(제자리). status가 null이면 그대로. */
+    public static void filterByReviewStatus(List<Applicant> applicants, String status) {
+        if (status != null) {
+            applicants.removeIf(a -> !status.equals(a.getReviewStatus()));
+        }
+    }
+
     // ---------------------------------------------------------------- 회사 요구 역량 (FR-83)
 
     /**
@@ -173,6 +221,11 @@ public class InterviewerService {
             applicant.setLabel("지원자 " + order++);
             applicant.setAddedDate(item.getAddedAt().toLocalDate().toString());
             applicant.setAddedAt(item.getAddedAt());
+            if (item.getReviewStatus() != null) {
+                applicant.setReviewStatus(item.getReviewStatus());
+            }
+            applicant.setRating(item.getRating());
+            applicant.setMemo(item.getMemo());
 
             ShareLinkDto link = shareLinkDao.findActiveById(item.getShareLinkId());
             ShareViewDto view = link == null ? null : shareViewService.loadViewByLinkId(link.getId());
@@ -188,16 +241,18 @@ public class InterviewerService {
                         : String.join(", ", view.getCertNames()));
                 applicant.setGrowthText(growthText(view));
                 if (view.isScopeSkills()) {
-                    int matchedWeight = 0;
+                    double matchedWeight = 0;
                     for (int i = 0; i < criteriaRows.size(); i++) {
                         EvaluationCriteriaDto row = criteriaRows.get(i);
                         // 마스터에 매칭된 기술은 id로, 아직 매칭 전인 기술은 입력한 이름으로 맞춘다
                         String criterionName = compare.getCriteria().get(i).getSkillName();
-                        boolean has = view.getSkillIds().contains(row.getSkillId())
-                                || view.getSkillNames().contains(criterionName.trim().toLowerCase(Locale.ROOT));
-                        applicant.getMatches().add(has);
-                        if (has) {
-                            matchedWeight += row.getWeight();
+                        ShareViewDto.SkillItem owned = findOwned(view, row.getSkillId(),
+                                criterionName.trim().toLowerCase(Locale.ROOT));
+                        applicant.getMatches().add(owned != null);
+                        applicant.getMatchDetails().add(owned == null ? null : matchDetail(owned));
+                        if (owned != null) {
+                            matchedWeight += row.getWeight()
+                                    * matchCredit(owned.getProficiency(), !owned.getProjectTitles().isEmpty());
                         }
                     }
                     applicant.setFitScore(fitScore(matchedWeight, totalWeight));
@@ -211,7 +266,48 @@ public class InterviewerService {
 
     // 적합도 = 맞춘 역량의 가중치 합 ÷ 전체 가중치 합 × 100. 요구 역량이 없으면 계산하지 않는다.
     static Integer fitScore(int matchedWeight, int totalWeight) {
-        return totalWeight == 0 ? null : Math.round(matchedWeight * 100f / totalWeight);
+        return fitScore((double) matchedWeight, totalWeight);
+    }
+
+    // 숙련도를 반영한 버전 — matchedWeight는 가중치 × 인정 비율(matchCredit)의 합
+    static Integer fitScore(double matchedWeight, int totalWeight) {
+        return totalWeight == 0 ? null : (int) Math.round(matchedWeight * 100 / totalWeight);
+    }
+
+    /**
+     * 갖춘 기술 하나를 얼마나 인정할지(0~1). 이름만 있는 기술과 프로젝트로 써 본 고급 기술을 같게 보지 않는다.
+     * 숙련도: 고급 1.0 · 중급 0.8 · 입문 0.5 · 미입력 0.6 (미입력을 입문보다 살짝 높게 — 정직하게 "입문"을 고른 사람이 손해 보지 않을 만큼만)
+     * 그 기술을 쓴 프로젝트가 있으면 +0.2 (최대 1.0).
+     */
+    static double matchCredit(String proficiency, boolean usedInProject) {
+        double base;
+        if ("ADVANCED".equals(proficiency)) {
+            base = 1.0;
+        } else if ("INTERMEDIATE".equals(proficiency)) {
+            base = 0.8;
+        } else if ("BEGINNER".equals(proficiency)) {
+            base = 0.5;
+        } else {
+            base = 0.6;
+        }
+        return Math.min(1.0, base + (usedInProject ? 0.2 : 0));
+    }
+
+    private static ShareViewDto.SkillItem findOwned(ShareViewDto view, Long skillId, String nameKey) {
+        for (ShareViewDto.SkillItem item : view.getSkillItems()) {
+            if ((skillId != null && skillId.equals(item.getSkillId())) || nameKey.equals(item.getNameKey())) {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    // 비교 표 칸에 "갖춤" 아래 작게 — "고급 · 프로젝트 2개" / "숙련도 미입력"
+    static String matchDetail(ShareViewDto.SkillItem owned) {
+        String level = PROFICIENCY_LABELS.getOrDefault(owned.getProficiency() == null ? "" : owned.getProficiency(),
+                "숙련도 미입력");
+        int used = owned.getProjectTitles().size();
+        return used == 0 ? level : level + " · 프로젝트 " + used + "개";
     }
 
     private static String certText(ShareViewDto view) {

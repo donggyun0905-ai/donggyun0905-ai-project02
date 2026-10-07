@@ -94,6 +94,11 @@ public final class FileStorageUtil {
         return originalFilename != null && INLINE_SAFE_EXTENSIONS.contains(extensionOf(originalFilename).toLowerCase(Locale.ROOT));
     }
 
+    /** PDF인지 — 화면 안에 원본 그대로 끼워 보여줄 수 있는 형식(면접관 뷰 이력서·자소서 미리보기). */
+    public static boolean isPdf(String originalFilename) {
+        return originalFilename != null && "pdf".equals(extensionOf(originalFilename).toLowerCase(Locale.ROOT));
+    }
+
     // 원본 파일명은 저장 경로 생성에 전혀 쓰지 않는다(UUID로만 생성) — 경로 조작 공격 자체가 성립하지 않는다.
     public static SavedFile save(InputStream in, String originalFilename) throws IOException {
         String ext = extensionOf(originalFilename);

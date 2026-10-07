@@ -69,6 +69,8 @@ class InterviewerServiceTest {
         skill.setUserId(applicantId);
         skill.setSkillId(ownedSkillId);
         skill.setRawInput(ownedSkillName);
+        // 고급이면 인정 비율 1.0 — 아래 가중치 계산 테스트가 숙련도와 무관하게 "가중치 비율"만 보게 한다
+        skill.setProficiency("ADVANCED");
         new UserSkillDao().insert(skill);
 
         interviewerId = new UserService().registerInterviewer(
@@ -205,6 +207,7 @@ class InterviewerServiceTest {
         UserSkillDto unmatched = new UserSkillDto();
         unmatched.setUserId(applicantId);
         unmatched.setRawInput("  " + missingSkillName.toUpperCase() + " ");
+        unmatched.setProficiency("ADVANCED");
         Long unmatchedId = new UserSkillDao().insert(unmatched);
         try {
             ShareLinkDto link = shareLinkService.createLink(applicantId, "A사", 30, true, true, false);

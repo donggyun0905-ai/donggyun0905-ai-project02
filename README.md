@@ -92,7 +92,8 @@ done
 `24_schema_notification`(헤더 알림 — 새 DB도 실행. 없으면 알림 버튼만 안 보이고 나머지는 동작) ·
 `26_alter_users_is_test_simulation`(테스트 계정 표시 + 시뮬레이션 진행 상태 — 01·03에도 반영돼 새 DB에서는 불필요. 맨 아래 UPDATE가 테스트용 아이디들을 `is_test = TRUE`로 표시하는데, 그 계정은 시뮬레이션 초기화로 **물리 삭제**될 수 있으니 실제로 쓰는 계정이 섞였는지 먼저 확인) ·
 `27_alter_simulation_target_score`(시뮬레이션을 "70일 고정"에서 "목표 점수에 닿을 때까지"로) ·
-`28_alter_share_link_scope_age`(공유 링크 나이 공개 — **없으면 공유 링크·면접관 화면이 `Unknown column 'scope_age'` 오류**).
+`28_alter_share_link_scope_age`(공유 링크 나이 공개 — **없으면 공유 링크·면접관 화면이 `Unknown column 'scope_age'` 오류**) ·
+`29_alter_interviewer_view_upgrade`(면접관 뷰 보강 — 경험 기간·팀 규모/역할·학력 테이블·공유 범위 2종·면접관 검토 상태/평점/메모. 01·03에도 반영돼 새 DB에서는 불필요. **없으면 프로필·공유 링크·면접관 화면이 `Unknown column` 오류**).
 > 25번은 없습니다 — 알림(seongwon)과 시뮬레이션(donghyeon)의 번호가 24로 겹쳐 시뮬레이션 쪽을 26·27로 옮겼습니다.
 > 나이 공개(seongwon)도 원래 22번이었는데 로드맵 이모지 정리와 겹쳐 28번으로 옮겼습니다.
 `05_seed_survey`도 다시 실행하면 새 문항(18문항 중 없는 것)만 추가됩니다(같은 문구는 건너뜀).

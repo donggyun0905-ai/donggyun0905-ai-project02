@@ -115,6 +115,7 @@ CREATE TABLE USER_SPECS (
     issuer          VARCHAR(100) NULL,
     score           VARCHAR(20)  NULL,
     acquired_date   DATE         NULL,
+    end_date        DATE         NULL, -- 경험(EXPERIENCE)의 종료일 — acquired_date가 시작일, 진행 중이면 NULL (29번)
     created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     is_deleted      BOOLEAN      NOT NULL DEFAULT FALSE,
@@ -144,6 +145,8 @@ CREATE TABLE USER_PROJECTS (
     repo_url                  VARCHAR(500) NULL, -- 코드 저장소 링크
     deploy_url                VARCHAR(500) NULL, -- 배포 주소 (선택)
     retrospective             TEXT         NULL, -- 완료 회고 2~3줄 — 무엇을 배우고 해결했는지
+    team_size                 INT          NULL, -- 팀 인원(본인 포함). 1이면 개인 프로젝트 (29번)
+    my_role                   VARCHAR(100) NULL, -- 본인 역할 — 면접관 뷰의 기여도 (29번)
     created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     is_deleted    BOOLEAN      NOT NULL DEFAULT FALSE,

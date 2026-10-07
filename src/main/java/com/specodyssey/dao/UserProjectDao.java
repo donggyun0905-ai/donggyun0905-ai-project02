@@ -24,7 +24,7 @@ public class UserProjectDao {
     // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
     private static final String COLUMNS =
             "id, user_id, title, description, tech_stack, start_date, end_date, " +
-            "upgraded_from_project_id, repo_url, deploy_url, retrospective, created_at, " +
+            "upgraded_from_project_id, repo_url, deploy_url, retrospective, team_size, my_role, created_at, " +
             "updated_at, is_deleted";
 
     public Long insert(UserProjectDto project) throws SQLException {
@@ -36,7 +36,7 @@ public class UserProjectDao {
     public Long insert(Connection conn, UserProjectDto project) throws SQLException {
         String sql = "INSERT INTO USER_PROJECTS " +
                 "(user_id, title, description, tech_stack, start_date, end_date, upgraded_from_project_id, " +
-                " repo_url, deploy_url, retrospective) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                " repo_url, deploy_url, retrospective, team_size, my_role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setLong(1, project.getUserId());
             pstmt.setString(2, project.getTitle());
@@ -48,6 +48,12 @@ public class UserProjectDao {
             pstmt.setString(8, project.getRepoUrl());
             pstmt.setString(9, project.getDeployUrl());
             pstmt.setString(10, project.getRetrospective());
+            if (project.getTeamSize() == null) {
+                pstmt.setNull(11, Types.INTEGER);
+            } else {
+                pstmt.setInt(11, project.getTeamSize());
+            }
+            pstmt.setString(12, project.getMyRole());
             pstmt.executeUpdate();
             try (ResultSet keys = pstmt.getGeneratedKeys()) {
                 return keys.next() ? keys.getLong(1) : null;
@@ -88,6 +94,24 @@ public class UserProjectDao {
     public UserProjectDto findById(Long id, Long userId) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
             return findById(conn, id, userId);
+        }
+    }
+
+    // 팀 규모·본인 역할은 프로필 화면에서만 고친다 — 로드맵 제출(ProjectSubmissionService)도 update()를 쓰는데
+    // 그 폼에는 이 칸이 없어서, update()에 넣으면 제출할 때마다 지워진다.
+    public void updateTeamInfo(Connection conn, Long projectId, Long userId, Integer teamSize, String myRole)
+            throws SQLException {
+        String sql = "UPDATE USER_PROJECTS SET team_size = ?, my_role = ? WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            if (teamSize == null) {
+                pstmt.setNull(1, Types.INTEGER);
+            } else {
+                pstmt.setInt(1, teamSize);
+            }
+            pstmt.setString(2, myRole);
+            pstmt.setLong(3, projectId);
+            pstmt.setLong(4, userId);
+            pstmt.executeUpdate();
         }
     }
 
@@ -145,6 +169,8 @@ public class UserProjectDao {
         project.setRepoUrl(rs.getString("repo_url"));
         project.setDeployUrl(rs.getString("deploy_url"));
         project.setRetrospective(rs.getString("retrospective"));
+        project.setTeamSize(rs.getObject("team_size", Integer.class));
+        project.setMyRole(rs.getString("my_role"));
         project.setCreatedAt(toLocalDateTime(rs.getTimestamp("created_at")));
         project.setUpdatedAt(toLocalDateTime(rs.getTimestamp("updated_at")));
         project.setDeleted(rs.getBoolean("is_deleted"));

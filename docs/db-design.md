@@ -175,15 +175,17 @@ erDiagram
 | --- | --- | --- | --- |
 | `id` | BIGINT | PK | 식별자 |
 | `user_id` | BIGINT | FK | → USERS |
-| `spec_type` | VARCHAR(20) |  | CERT(자격증) / LANGUAGE(어학) / AWARD(수상) |
+| `spec_type` | VARCHAR(20) |  | CERT(자격증) / LANGUAGE(어학) / AWARD(수상) / EXPERIENCE(경험 — 인턴·대외활동·교육) |
 | `title` | VARCHAR(100) |  | 명칭 |
 | `issuer` | VARCHAR(100) |  | 발급 기관 |
 | `score` | VARCHAR(20) |  | 어학 점수 등 |
-| `acquired_date` | DATE |  | 취득일 — 타임라인 정렬 기준 |
+| `acquired_date` | DATE |  | 취득일 — 타임라인 정렬 기준. EXPERIENCE면 시작일 |
+| `end_date` | DATE |  | EXPERIENCE의 종료일 — 진행 중이면 NULL. 다른 유형은 항상 NULL |
 
 설계 판단:
 
 - spec_type 하나로 세 종류를 구분한다. 자격증·어학·수상을 각각 테이블로 나누면 컬럼이 거의 같은 테이블이 셋 생기고 조회 쿼리도 셋으로 갈라진다.
+- (변경, 2026-10-07) EXPERIENCE와 end_date를 추가했다(`sql/29_alter_interviewer_view_upgrade.sql`). FR-81 타임라인 순서(전공→자격증→프로젝트→**경험**)에 경험이 있는데 담을 곳이 없었다. 인턴·대외활동은 기관(issuer)·기간이 있다는 점만 다르고 나머지가 같아서 새 테이블 대신 유형 하나와 종료일 컬럼만 더했다. 경험은 면접관 뷰에서 "시작일 ~ 종료일(진행 중)"로 보인다.
 
 #### USER_PROJECTS (프로젝트·경험)
 
@@ -204,6 +206,8 @@ erDiagram
 | `repo_url` | VARCHAR(500) |  | 코드 저장소 링크 — 파일 스크린샷보다 실제로 열어볼 수 있는 링크가 신뢰도가 높다. 완료 판정에는 안 쓴다(참고용) |
 | `deploy_url` | VARCHAR(500) |  | 배포 주소 (선택) — 있으면 완성도가 확실히 보이지만 강제하면 4주 일정에 부담이라 NULL 허용 |
 | `retrospective` | TEXT |  | 완료 회고 2~3줄 — "업그레이드했다"는 사실만이 아니라 무엇을 배우고 해결했는지. 완료 판정에는 안 쓴다 |
+| `team_size` | INT |  | 팀 인원(본인 포함). 1이면 개인 프로젝트, 미입력 NULL |
+| `my_role` | VARCHAR(100) |  | 본인 역할 — 예) "백엔드 API · DB 설계" |
 
 설계 판단:
 
@@ -211,6 +215,32 @@ erDiagram
 - upgraded_from_project_id는 2026-09-30 팀 결정(SKILL 단계 학습 검증)에서 추가됐다. CORE/ADVANCED는 "신규/업그레이드 둘 다 허용"이 원칙이라, 둘을 구분해서 로드맵 여정에 "이 프로젝트를 발전시켰다"는 이력을 남길 수 있게 한다.
 
 - (변경) repo_url·deploy_url·retrospective를 추가했다(개발일지 4-4, 2026-09-30 확정). 지금까지 프로젝트 완료는 증빙 파일 업로드만으로 판정돼서 실제 동작 여부·학습 맥락·최소한의 문서화가 하나도 안 남았다는 문제 제기가 있었다. 세 값 모두 완료 판정에는 쓰지 않는다 — 판정은 PROJECT_DOCUMENT_ITEM의 필수 두 종류(README·실행 화면)로 한다.
+- (변경, 2026-10-07) team_size·my_role을 추가했다(`sql/29_alter_interviewer_view_upgrade.sql`). 면접관이 프로젝트에서 가장 먼저 확인하는 것이 "몇 명 중 무엇을 맡았나"(기여도)인데 담을 곳이 없었다. 프로필 화면에서만 고치고(`UserProjectDao.updateTeamInfo`), 로드맵 제출이 쓰는 `update()`에는 넣지 않았다 — 그 폼에는 이 칸이 없어서 넣으면 제출할 때마다 지워진다.
+
+#### USER_EDUCATION (학력) — 신설
+
+관련 요구사항: FR-81 이력 · NFR-4 공개 범위
+
+최종 학력 한 줄. USERS에는 전공·학년만 있어서 면접관이 서류에서 보는 학교·졸업(예정)·학점을 담을 곳이 없었다.
+
+| 컬럼 | 타입 | 키 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK | 식별자 |
+| `user_id` | BIGINT | FK, UK | → USERS (계정당 하나) |
+| `school_name` | VARCHAR(100) |  | 학교 이름 |
+| `graduation_status` | VARCHAR(20) |  | ENROLLED(재학) / LEAVE(휴학) / EXPECTED(졸업 예정) / GRADUATED(졸업) |
+| `graduation_date` | DATE |  | 졸업일 또는 졸업 예정일 |
+| `gpa` | DECIMAL(3,2) |  | 학점 (선택) |
+| `gpa_max` | DECIMAL(3,2) |  | 만점 4.5 / 4.3 / 4.0 — 학점을 넣으면 같이 넣는다 |
+
+**UNIQUE**: (user_id) — 계정당 최종 학력 한 줄. 저장은 upsert 하나로 처리한다
+
+설계 판단:
+
+- USERS에 컬럼을 더하지 않고 테이블을 따로 뒀다. USERS는 여러 팀원이 같이 고치는 중심 테이블이라 매퍼(UserDao)를 건드리면 병합 충돌이 잦고, 학력은 선택 입력이라 비어 있는 계정이 많다.
+- 학점만으로는 4.5 만점인지 4.3 만점인지 알 수 없어 만점을 같이 받는다. 학점이 있는데 만점이 없으면 저장하지 않는다.
+- 학력은 블라인드 채용을 고려해 기본 이력(scope_basic)에 묶지 않고 SHARE_LINK.scope_education으로 따로 공개한다.
+- 탈퇴 유예가 끝나면 USERS 개인정보와 함께 학교·학점을 비운다(`UserEducationDao.purgeExpiredWithdrawals`).
 
 #### PROJECT_TECH_NOTE (프로젝트 기술 활용 설명서) — 신설
 
@@ -982,15 +1012,19 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | `scope_resume` | BOOLEAN |  | 이력서 파일(USERS.resume_document_id) 공개 (기본 false) |
 | `scope_cover_letter` | BOOLEAN |  | 자소서 파일(USERS.cover_letter_document_id) 공개 (기본 false) |
 | `scope_age` | BOOLEAN |  | 나이(USERS.age) 공개 (기본 false) — 면접관 비교 화면의 나이 표시·나이순 정렬 |
+| `scope_project_docs` | BOOLEAN |  | 프로젝트 제출 서류(PROJECT_DOCUMENT_ITEM → DOCUMENTS) 파일 공개 (기본 false). 타임라인 안에 실리므로 scope_basic과 같이 켜야 보인다 |
+| `scope_education` | BOOLEAN |  | 학력(USER_EDUCATION) 공개 (기본 false) |
 | `label` | VARCHAR(50) |  | 지원자용 메모 (예: "A회사 지원") — 링크 여러 개 구분 |
 
 설계 판단:
 
 - scope_* 세 컬럼이 공개 범위를 통제한다. 토큰만 있으면 그 user_id의 모든 테이블을 읽을 수 있는 구조였는데, 부족 역량 히트맵·등급·코테 오답률·개인 서류가 전부 딸려 있어 지원자에게 불리하다. 애플리케이션 코드로만 막으면 화면 하나 추가하다 실수로 뚫린다.
 - NFR-4(민감 데이터는 본인 동의·본인 선택 공유만)를 스키마 차원에서 지키는 장치이기도 하다. FR-102의 AI 활용 기록은 아예 공유 대상에서 제외한다.
-- (변경) scope_resume을 추가했다. 면접관이 공유 링크로 지원자의 이력서 파일을 내려받게 하되, 이력서에는 연락처·주소 같은 개인정보가 들어 있어 scope_basic에 묶지 않고 링크마다 따로 고르게 했다. 기본값이 false라 컬럼 추가 전에 만든 링크는 모두 비공개로 남는다. 이력서가 아닌 서류(프로젝트 첨부 등)는 여전히 어떤 링크로도 공유되지 않는다. 이미 만든 DB에는 `sql/10_alter_share_link_scope_resume.sql`을 실행한다.
+- (변경) scope_resume을 추가했다. 면접관이 공유 링크로 지원자의 이력서 파일을 내려받게 하되, 이력서에는 연락처·주소 같은 개인정보가 들어 있어 scope_basic에 묶지 않고 링크마다 따로 고르게 했다. 기본값이 false라 컬럼 추가 전에 만든 링크는 모두 비공개로 남는다. 이력서가 아닌 서류(프로젝트 첨부 등)는 여전히 어떤 링크로도 공유되지 않는다(→ 2026-10-07 scope_project_docs로 바뀜, 아래). 이미 만든 DB에는 `sql/10_alter_share_link_scope_resume.sql`을 실행한다.
 - (변경) scope_cover_letter를 추가했다. 자소서도 이력서처럼 링크마다 따로 고르게 한다. 자소서에는 지원 동기·개인 경험처럼 이력서보다 사적인 이야기가 많아서 scope_basic에 묶지 않았고, 기본값이 false라 이 컬럼이 생기기 전에 만든 링크는 모두 자소서 비공개로 남는다(NFR-4).
 - (변경, 2026-10-06) scope_age를 추가했다(`sql/28_alter_share_link_scope_age.sql`). 면접관이 나란히 보기를 나이순으로 정렬하려면 나이가 필요한데, 나이는 채용에서 민감한 정보라 scope_basic에 묶지 않고 지원자가 링크마다 따로 고르게 했다. 기본값 false라 기존 링크는 모두 나이 비공개로 남고, 공개하지 않은 지원자는 나이순 정렬에서 맨 뒤로 간다.
+- (변경, 2026-10-07) scope_project_docs·scope_education을 추가했다(`sql/29_alter_interviewer_view_upgrade.sql`). 면접관이 프로젝트의 README·실행 화면·설계 문서를 직접 열어 봐야 깊이를 판단할 수 있다는 요청이 있었고, 첨부에 개인정보가 섞일 수 있어 이력서처럼 링크마다 따로 고르게 했다. 학력은 블라인드 채용을 고려해 따로 고른다. 둘 다 기본 false라 기존 링크는 비공개로 남는다.
+- (보안, 2026-10-07) 공유 화면 서류 열람(`/share/documents/{토큰}/{문서id}`)은 그 링크의 화면에 실제로 실린 서류만 연다(`ShareViewService.loadSharedDocument`): scope_basic이면 타임라인 자격증 증빙, scope_basic + scope_project_docs면 프로젝트 제출 서류. 이전에는 "토큰 주인의 문서면 아무거나"였는데, 문서 id가 순번이라 id만 바꿔 이력서 공개를 끈 링크로도 이력서를 받을 수 있었다.
 - 탈퇴(USERS.is_deleted = true) 시 이 사용자의 모든 SHARE_LINK을 is_active = false로 내려야 한다. 논리 삭제라 행은 남는데 토큰이 살아 있으면 면접관이 계속 열람할 수 있다.
 - 토큰은 추측 불가능한 랜덤 문자열이어야 한다(NFR-9). 읽기 전용이고 만료·비활성화가 가능하다.
 - is_active를 지원자가 언제든 false로 바꿀 수 있어야 한다(FR-86). 공유를 중단할 권한은 지원자에게 있다.
@@ -1049,12 +1083,16 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | `session_id` | BIGINT | FK | → EVALUATION_SESSION |
 | `share_link_id` | BIGINT | FK | → SHARE_LINK |
 | `added_at` | DATETIME |  | 담은 시각 |
+| `review_status` | VARCHAR(20) |  | 면접관 검토 상태 — REVIEWING(검토 중, 기본) / PASS(서류 합격) / HOLD(보류) / FAIL(불합격) |
+| `rating` | TINYINT |  | 면접관 평점 1~5, 미평가 NULL |
+| `memo` | TEXT |  | 면접관 메모 (최대 1,000자) — 지원자에게 보이지 않는다 |
 
 **복합 UNIQUE**: (session_id, share_link_id) — 같은 지원자를 장바구니에 두 번 담지 못하게
 
 설계 판단:
 
 - 세션 하나에 지원자 여러 명이 담긴다. 이 목록이 곧 비교 뷰의 열(column)이 된다.
+- (변경, 2026-10-07) review_status·rating·memo를 추가했다(`sql/29_alter_interviewer_view_upgrade.sql`). 비교만 되고 "누구를 통과시킬지" 기록할 곳이 없어 실제 서류 심사에 쓸 수 없었다. 면접관 본인의 기록이라 지원자 화면·알림에는 나오지 않고, 지원자가 공유를 멈춰도 남는다. 새 테이블 대신 컬럼으로 둔 이유는 담긴 지원자 한 명당 정확히 하나라서다.
 
 #### EVALUATION_CRITERIA (평가 기준) — 신설
 

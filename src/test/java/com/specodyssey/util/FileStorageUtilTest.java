@@ -41,4 +41,14 @@ class FileStorageUtilTest {
         assertFalse(FileStorageUtil.isInlineSafe("a.html"));
         assertFalse(FileStorageUtil.isInlineSafe(null));
     }
+
+    @Test
+    void 화면_미리보기는_PDF만_대소문자_무관하게_허용한다() {
+        assertTrue(FileStorageUtil.isPdf("이력서.pdf"));
+        assertTrue(FileStorageUtil.isPdf("resume.PDF"));
+        assertFalse(FileStorageUtil.isPdf("resume.docx"));
+        assertFalse(FileStorageUtil.isPdf("resume.hwp"));
+        assertFalse(FileStorageUtil.isPdf("pdf"));
+        assertFalse(FileStorageUtil.isPdf(null));
+    }
 }

@@ -255,6 +255,7 @@ public class ProfileService {
             }
             project.setRetrospective(existing.getRetrospective());
             userProjectDao.update(conn, project, userId);
+            userProjectDao.updateTeamInfo(conn, existing.getId(), userId, project.getTeamSize(), project.getMyRole());
             if (normalized != null) {
                 projectLinkDao.replaceForProject(conn, existing.getId(), normalized);
             }
@@ -274,6 +275,22 @@ public class ProfileService {
     private void validateProjectUrls(UserProjectDto project) {
         UrlRules.requireWebUrlIfPresent(project.getRepoUrl(), "코드 저장소 링크");
         UrlRules.requireWebUrlIfPresent(project.getDeployUrl(), "배포 주소");
+        validateTeamInfo(project);
+    }
+
+    static final int TEAM_SIZE_MAX = 100;
+    static final int MY_ROLE_MAX_LENGTH = 100; // USER_PROJECTS.my_role VARCHAR(100)
+
+    // 팀 규모(본인 포함 1~100명)·본인 역할 — 면접관 뷰에서 기여도로 읽히는 값
+    static void validateTeamInfo(UserProjectDto project) {
+        Integer size = project.getTeamSize();
+        if (size != null && (size < 1 || size > TEAM_SIZE_MAX)) {
+            throw new IllegalArgumentException("팀 인원은 본인 포함 1~" + TEAM_SIZE_MAX + "명으로 입력해주세요.");
+        }
+        String role = project.getMyRole();
+        if (role != null && role.length() > MY_ROLE_MAX_LENGTH) {
+            throw new IllegalArgumentException("내 역할은 " + MY_ROLE_MAX_LENGTH + "자 이내로 입력해주세요.");
+        }
     }
 
     public void deleteProject(Long userId, Long projectId) throws SQLException {

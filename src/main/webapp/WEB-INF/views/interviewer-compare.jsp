@@ -75,11 +75,21 @@
                 <noscript><button type="submit" class="secondary">정렬</button></noscript>
             </form>
             <%-- 담은 지원자 스펙을 엑셀(.xlsx)로 — 지금 고른 정렬 순서 그대로, 지원자가 공개한 값만 --%>
-            <a class="btn secondary" href="${pageContext.request.contextPath}/interviewer/compare/export">📥 엑셀로 받기</a>
+            <a class="btn secondary" href="${pageContext.request.contextPath}/interviewer/compare/export${empty statusFilter ? '' : '?status='.concat(statusFilter)}">📥 엑셀로 받기</a>
             </div>
         </c:if>
     </div>
+<%-- 검토 상태로 걸러 보기 — 면접관 본인의 기록이라 지원자에게는 보이지 않는다 --%>
+<div class="row" style="gap:6px; flex-wrap:wrap; margin-top:10px;">
+    <a class="chip ${empty statusFilter ? 'chip-teal' : 'chip-locked'}" href="${pageContext.request.contextPath}/interviewer/compare">전체 ${statusCounts['ALL']}</a>
+    <c:forEach var="entry" items="${statusLabels}">
+        <a class="chip ${statusFilter == entry.key ? 'chip-teal' : 'chip-locked'}" href="${pageContext.request.contextPath}/interviewer/compare?status=${entry.key}"><c:out value="${entry.value}" /> ${statusCounts[entry.key]}</a>
+    </c:forEach>
+</div>
     <c:choose>
+        <c:when test="${empty compare.applicants and not empty statusFilter}">
+            <p class="muted" style="margin-top:10px;">이 상태의 지원자가 없습니다.</p>
+        </c:when>
         <c:when test="${empty compare.applicants}">
             <p class="muted" style="margin-top:10px;">아직 담은 지원자가 없습니다. <a href="${pageContext.request.contextPath}/interviewer/shared">공유받은 이력</a>에서 받은 링크를 담아 주세요.</p>
         </c:when>
@@ -96,6 +106,16 @@
                                 <a class="compare-link" href="${pageContext.request.contextPath}/share/${applicant.token}">이력 보기</a>
                             </c:if>
                         </th>
+                    </c:forEach>
+                </tr>
+                <%-- 면접관 본인의 검토 기록 — 공유가 멈춰도 남는다. 고치는 곳은 "공유받은 이력" --%>
+                <tr>
+                    <td>내 검토</td>
+                    <c:forEach var="applicant" items="${compare.applicants}">
+                        <td title="<c:out value='${applicant.memo}' />">
+                            <strong><c:out value="${applicant.reviewStatusLabel}" /></strong><c:if test="${not empty applicant.rating}"> · ${applicant.rating}/5</c:if>
+                            <c:if test="${not empty applicant.memo}"><br><span class="muted" style="font-size:0.78rem;"><c:out value="${applicant.memo}" /></span></c:if>
+                        </td>
                     </c:forEach>
                 </tr>
                 <tr>
@@ -148,7 +168,7 @@
                             <c:choose>
                                 <c:when test="${not applicant.available}"><td class="muted">-</td></c:when>
                                 <c:when test="${not applicant.view.scopeSkills}"><td class="muted">지원자가 공개하지 않음</td></c:when>
-                                <c:when test="${applicant.matches[row.index]}"><td style="color:var(--teal);">갖춤</td></c:when>
+                                <c:when test="${applicant.matches[row.index]}"><td style="color:var(--teal);">갖춤<c:if test="${not empty applicant.matchDetails[row.index]}"><br><span class="muted" style="font-size:0.78rem;"><c:out value="${applicant.matchDetails[row.index]}" /></span></c:if></td></c:when>
                                 <c:otherwise><td style="color:var(--danger);">없음</td></c:otherwise>
                             </c:choose>
                         </c:forEach>
@@ -200,7 +220,7 @@
             </table>
             </div>
             <c:if test="${not empty compare.criteria}">
-                <p class="muted" style="font-size:0.78rem; margin-top:10px; margin-bottom:0;">적합도 = 맞춘 역량의 가중치 합 ÷ 전체 가중치 합(${compare.totalWeight}) × 100. 지원자가 기술 스택을 공개하지 않으면 계산하지 않습니다.</p>
+                <p class="muted" style="font-size:0.78rem; margin-top:10px; margin-bottom:0;">적합도 = 맞춘 역량마다 (가중치 × 인정 비율)을 더해 전체 가중치 합(${compare.totalWeight})으로 나눈 값 × 100. 인정 비율은 숙련도에 따라 고급 1.0 · 중급 0.8 · 입문 0.5 · 미입력 0.6이고, 그 기술을 쓴 프로젝트가 있으면 0.2를 더합니다(최대 1.0). 지원자가 기술 스택을 공개하지 않으면 계산하지 않습니다.</p>
             </c:if>
         </c:otherwise>
     </c:choose>

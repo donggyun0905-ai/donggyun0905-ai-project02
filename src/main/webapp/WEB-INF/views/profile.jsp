@@ -24,6 +24,8 @@
 
 <%@ include file="/WEB-INF/views/profile/_basic.jspf" %>
 
+<%@ include file="/WEB-INF/views/profile/_education.jspf" %>
+
 <%@ include file="/WEB-INF/views/profile/_documents.jspf" %>
 
 <%@ include file="/WEB-INF/views/profile/_specs.jspf" %>
