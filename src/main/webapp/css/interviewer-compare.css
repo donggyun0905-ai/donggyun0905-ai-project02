@@ -1,0 +1,52 @@
+/* 면접관 "지원자 비교 > 나란히 보기" 표 (interviewer-compare.jsp)
+   칸 크기를 고정해 지원자가 많아도 칸이 찌그러지지 않게 하고, 넘치면 표 안에서 가로로 스크롤한다.
+   왼쪽 "항목" 열은 스크롤해도 제자리에 남는다. 칸보다 긴 글은 말줄임(…)으로 자르고, 마우스를 올리면 전체가 보인다(title). */
+
+.compare-scroll {
+    overflow-x: auto;
+    margin-top: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+.compare-table {
+    width: max-content;
+    min-width: 100%;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.compare-table th,
+.compare-table td {
+    width: 200px;
+    min-width: 200px;
+    max-width: 200px;
+    height: 44px;
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--border);
+}
+
+/* 지원자 이름 + "이력 보기" 두 줄이 들어가는 머리 행 */
+.compare-table th { height: 58px; }
+.compare-table .compare-name { display: block; overflow: hidden; text-overflow: ellipsis; color: var(--ink); font-size: 0.85rem; }
+.compare-table .compare-link { display: block; margin-top: 2px; font-size: 0.75rem; }
+
+/* 항목 열 — 가로 스크롤해도 고정 */
+.compare-table th:first-child,
+.compare-table td:first-child {
+    width: 170px;
+    min-width: 170px;
+    max-width: 170px;
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--card-bg);
+    border-right: 1px solid var(--border);
+}
+.compare-table th:first-child { background: #f1e4c8; }
+.compare-table tr:last-child td { border-bottom: none; }

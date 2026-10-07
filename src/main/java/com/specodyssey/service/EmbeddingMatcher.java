@@ -125,7 +125,9 @@ public class EmbeddingMatcher implements SkillMatcher {
             if (sharedEmbedder == null) {
                 try {
                     sharedEmbedder = LocalEmbedder.fromConfig();
-                } catch (Exception e) {
+                } catch (Exception | LinkageError e) {
+                    // LinkageError: JDK에 든 C++ 런타임이 오래되면 ONNX Runtime DLL 로딩이 UnsatisfiedLinkError로 실패한다
+                    // (Oracle JDK 17.0.12 등) — 앱이 500으로 멈추지 않게 모델이 없는 것과 똑같이 건너뛴다 (2026-10-06)
                     LOG.log(Level.INFO, "EMBEDDING_MODEL_DIR 모델을 못 찾아 임베딩 매칭을 건너뜁니다 — "
                             + "FuzzyNameMatcher(정확 일치·편집거리)만 사용합니다.", e);
                     embedderUnavailable = true;
