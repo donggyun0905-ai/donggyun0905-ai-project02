@@ -73,7 +73,8 @@ class RoadmapSubmissionFormTest {
             assertTrue(s.getTechNotes().get(0).isConsentForTraining());
             assertEquals(1, s.getExtraFiles().size());
             for (DocumentDto file : s.allNewFiles()) {
-                assertTrue(Files.exists(Paths.get(file.getFilePath())), "읽는 즉시 디스크에 저장된다");
+                assertTrue(file.getFileData() != null && file.getFileData().length > 0, "읽는 즉시 내용을 담는다(DB 저장용)");
+                assertNull(file.getFilePath(), "디스크에는 쓰지 않는다");
             }
         } finally {
             cleanup(s);

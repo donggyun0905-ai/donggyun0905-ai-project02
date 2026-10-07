@@ -681,10 +681,11 @@ CREATE TABLE DOCUMENTS (
     roadmap_step_id  BIGINT       NULL,
     original_name    VARCHAR(255) NOT NULL,
     stored_name      VARCHAR(255) NOT NULL, -- 한글·중복 파일명 대응 저장명
-    file_path        VARCHAR(500) NOT NULL,
+    file_path        VARCHAR(500) NULL, -- 예전(디스크) 서류만 — 새 서류는 NULL (32번)
     file_size        BIGINT       NOT NULL,
     mime_type        VARCHAR(100) NULL,
     checksum         VARCHAR(64)  NULL, -- 무결성 관리(NFR-7)
+    file_data        LONGBLOB     NULL, -- 파일 내용 — 어느 PC의 서버에서든 열리게 DB에 저장 (32번)
     created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     is_deleted       BOOLEAN      NOT NULL DEFAULT FALSE,

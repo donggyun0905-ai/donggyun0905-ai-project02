@@ -15,8 +15,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.time.LocalDateTime;
 
@@ -68,23 +66,25 @@ class ResumeServiceTest {
         assertNotNull(found);
         assertEquals("이력서.pdf", found.getOriginalName());
         assertNull(found.getProjectId());
-        assertTrue(Files.exists(Paths.get(first.getFilePath())));
+        Long firstId = found.getId();
+        assertTrue(hasData(firstId));
 
-        // 새 파일로 바꾸면 이전 이력서는 서류 목록과 디스크에서 사라진다
+        // 새 파일로 바꾸면 이전 이력서는 서류 목록에서 사라지고 내용도 비워진다
         DocumentDto second = savedFile("이력서_최종.docx");
         service.replaceResume(userId, second);
 
         assertEquals("이력서_최종.docx", service.findResume(userId).getOriginalName());
+        Long secondId = service.findResume(userId).getId();
         assertEquals(1, new DocumentDao().findByUserId(userId).size());
-        assertFalse(Files.exists(Paths.get(first.getFilePath())));
-        assertTrue(Files.exists(Paths.get(second.getFilePath())));
+        assertFalse(hasData(firstId));
+        assertTrue(hasData(secondId));
 
         service.removeResume(userId);
 
         assertNull(service.findResume(userId));
         assertNull(userDao.findById(userId).getResumeDocumentId());
         assertTrue(new DocumentDao().findByUserId(userId).isEmpty());
-        assertFalse(Files.exists(Paths.get(second.getFilePath())));
+        assertFalse(hasData(secondId));
     }
 
     @Test
@@ -137,14 +137,16 @@ class ResumeServiceTest {
         assertNull(service.findCoverLetter(userId).getProjectId());
         assertEquals("이력서.pdf", service.findResume(userId).getOriginalName());
 
-        // 새 파일로 바꾸면 이전 자소서만 서류 목록과 디스크에서 사라지고, 이력서는 그대로다
+        // 새 파일로 바꾸면 이전 자소서만 서류 목록에서 사라지고(내용도 비움), 이력서는 그대로다
+        Long firstId = service.findCoverLetter(userId).getId();
         DocumentDto second = savedFile("자소서_최종.hwp");
         service.replaceCoverLetter(userId, second);
 
         assertEquals("자소서_최종.hwp", service.findCoverLetter(userId).getOriginalName());
+        Long secondId = service.findCoverLetter(userId).getId();
         assertEquals(2, new DocumentDao().findByUserId(userId).size());
-        assertFalse(Files.exists(Paths.get(first.getFilePath())));
-        assertTrue(Files.exists(Paths.get(second.getFilePath())));
+        assertFalse(hasData(firstId));
+        assertTrue(hasData(secondId));
         assertEquals("이력서.pdf", service.findResume(userId).getOriginalName());
 
         // 자소서를 지워도 이력서는 남는다
@@ -152,7 +154,7 @@ class ResumeServiceTest {
 
         assertNull(service.findCoverLetter(userId));
         assertNull(userDao.findById(userId).getCoverLetterDocumentId());
-        assertFalse(Files.exists(Paths.get(second.getFilePath())));
+        assertFalse(hasData(secondId));
         assertEquals("이력서.pdf", service.findResume(userId).getOriginalName());
 
         service.removeResume(userId);
@@ -239,6 +241,10 @@ class ResumeServiceTest {
         assertFalse(ResumeService.isAllowedFile(null));
     }
 
+    private static boolean hasData(Long documentId) throws Exception {
+        return new DocumentDao().readFileData(documentId) != null;
+    }
+
     private DocumentDto savedFile(String originalName) throws Exception {
         FileStorageUtil.SavedFile saved = FileStorageUtil.save(
                 new ByteArrayInputStream("테스트 이력서".getBytes(StandardCharsets.UTF_8)), originalName);
@@ -246,6 +252,7 @@ class ResumeServiceTest {
         document.setOriginalName(originalName);
         document.setStoredName(saved.getStoredName());
         document.setFilePath(saved.getFilePath());
+        document.setFileData(saved.getData());
         document.setFileSize(saved.getFileSize());
         document.setMimeType("application/octet-stream");
         document.setChecksum(saved.getChecksum());

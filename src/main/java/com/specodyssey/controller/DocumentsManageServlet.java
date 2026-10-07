@@ -118,6 +118,7 @@ public class DocumentsManageServlet extends HttpServlet {
         document.setOriginalName(originalName);
         document.setStoredName(saved.getStoredName());
         document.setFilePath(saved.getFilePath());
+        document.setFileData(saved.getData()); // 파일 내용은 DB(DOCUMENTS.file_data)에
         document.setFileSize(saved.getFileSize());
         document.setMimeType(FileStorageUtil.mimeTypeFor(originalName));
         document.setChecksum(saved.getChecksum());

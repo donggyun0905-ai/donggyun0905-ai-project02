@@ -3,6 +3,7 @@ package com.specodyssey.controller;
 import com.specodyssey.dto.DocumentDto;
 import com.specodyssey.dto.ShareViewDto;
 import com.specodyssey.dto.UserDto;
+import com.specodyssey.service.DocumentContentService;
 import com.specodyssey.service.ShareViewService;
 import com.specodyssey.util.FileStorageUtil;
 
@@ -16,8 +17,6 @@ import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.sql.SQLException;
 
 /**
@@ -34,6 +33,7 @@ public class ShareViewServlet extends HttpServlet {
     private static final String COVER_LETTER_SUFFIX = "/cover-letter";
 
     private final ShareViewService shareViewService = new ShareViewService();
+    private final DocumentContentService documentContentService = new DocumentContentService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -95,8 +95,8 @@ public class ShareViewServlet extends HttpServlet {
         } catch (SQLException e) {
             throw new ServletException(label + "를 불러오는 중 오류가 발생했습니다.", e);
         }
-        // 업로드 폴더는 서버 PC마다 따로라, DB에는 있는데 이 서버에는 파일이 없을 수 있다
-        if (file == null || !Files.isRegularFile(Paths.get(file.getFilePath()))) {
+        // 내용은 DB에 있다. DB로 옮기기 전의 예전 서류는 올린 PC 디스크에만 있어 이 서버에는 없을 수 있다
+        if (!documentContentService.exists(file)) {
             resp.sendError(HttpServletResponse.SC_NOT_FOUND);
             return;
         }
@@ -108,7 +108,11 @@ public class ShareViewServlet extends HttpServlet {
         String disposition = inline && FileStorageUtil.isPdf(file.getOriginalName()) ? "inline" : "attachment";
         resp.setHeader("Content-Disposition", disposition + "; filename*=UTF-8''"
                 + URLEncoder.encode(file.getOriginalName(), StandardCharsets.UTF_8));
-        FileStorageUtil.writeTo(file.getFilePath(), resp.getOutputStream());
+        try {
+            documentContentService.writeTo(file, resp.getOutputStream());
+        } catch (SQLException e) {
+            throw new ServletException(label + "를 불러오는 중 오류가 발생했습니다.", e);
+        }
     }
 
     @FunctionalInterface

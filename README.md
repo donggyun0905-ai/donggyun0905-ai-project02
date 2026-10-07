@@ -63,7 +63,7 @@ sql/
 ### 요구사항
 
 - JDK 17
-- Tomcat **10.1 또는 11** (서블릿 패키지가 `jakarta.servlet.*`이라 9 이하에서는 동작하지 않습니다). 두 버전 모두에서 같은 화면이 나오도록 JSP에서 읽는 `record`에는 `getX()`와 `x()`를 함께 둡니다
+- Tomcat **10.1 또는 11** (서블릿 패키지가 `jakarta.servlet.*`이라 9 이하에서는 동작하지 않습니다). 두 버전은 JSP가 `record`를 읽는 규칙이 다릅니다(10.1은 `getX()`만, 11은 `x()`만 찾습니다). 그래서 앱 시작 때 `RecordElResolver`를 등록해, record면 `x()` → `getX()` → `isX()` 순서로 찾아 두 버전에서 같은 값이 나오게 했습니다(2026-10-07). 이제 record에 `getX()`와 `x()`를 굳이 둘 다 두지 않아도 됩니다. 기존에 둘 다 둔 record는 그대로 둬도 됩니다
 - MySQL 8.0 이상
 - Maven — 따로 설치하지 않아도 됩니다. 프로젝트에 Maven Wrapper(`mvnw`)가 들어 있어 첫 실행 때 Maven을 자동으로 받습니다.
 
@@ -97,7 +97,8 @@ done
 `28_alter_share_link_scope_age`(공유 링크 나이 공개 — **없으면 공유 링크·면접관 화면이 `Unknown column 'scope_age'` 오류**) ·
 `29_schema_admin_audit_log`(관리자 감사 로그 — 새 DB도 실행. 없으면 관리자 화면에서 바꿀 때 기록이 안 남고 감사 로그 탭이 오류) ·
 `30_alter_share_link_scope_activity`(공유 링크 활동 내역 공개 — 03에도 반영돼 새 DB에서는 불필요. **없으면 공유 링크·면접관 화면이 `Unknown column 'scope_activity'` 오류**) ·
-`31_alter_interviewer_view_upgrade`(면접관 뷰 보강 — 경험 기간·팀 규모/역할·학력 테이블·공유 범위 2종·면접관 검토 상태/평점/메모. 01·03에도 반영돼 새 DB에서는 불필요. **없으면 프로필·공유 링크·면접관 화면이 `Unknown column` 오류**).
+`31_alter_interviewer_view_upgrade`(면접관 뷰 보강 — 경험 기간·팀 규모/역할·학력 테이블·공유 범위 2종·면접관 검토 상태/평점/메모. 01·03에도 반영돼 새 DB에서는 불필요. **없으면 프로필·공유 링크·면접관 화면이 `Unknown column` 오류**) ·
+`32_alter_documents_file_data`(서류 파일 내용을 DB에 저장 — 03에도 반영돼 새 DB에서는 불필요. **없으면 서류 업로드·내려받기가 `Unknown column 'file_data'` 오류**. 예전에 디스크에 올린 서류는 서버를 켤 때 자동으로 DB로 옮겨진다).
 > 25번은 없습니다 — 알림(seongwon)과 시뮬레이션(donghyeon)의 번호가 24로 겹쳐 시뮬레이션 쪽을 26·27로 옮겼습니다.
 > 나이 공개(seongwon)도 원래 22번이었는데 로드맵 이모지 정리와 겹쳐 28번으로 옮겼습니다.
 `05_seed_survey`도 다시 실행하면 새 문항(18문항 중 없는 것)만 추가됩니다(같은 문구는 건너뜀).
@@ -127,7 +128,7 @@ cp src/main/resources/.env.example src/main/resources/.env
 | `DB_URL` | `jdbc:mysql://localhost:3306/spec_odyssey?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8` |
 | `DB_USER` | `root` |
 | `DB_PASSWORD` | (본인 MySQL 비밀번호) |
-| `UPLOAD_DIR` | (선택) `C:/spec-odyssey-uploads` — 없으면 `<홈>/spec-odyssey-uploads` |
+| `UPLOAD_DIR` | (선택) `C:/spec-odyssey-uploads` — 없으면 `<홈>/spec-odyssey-uploads`. 2026-10-07부터 새 서류는 DB에 저장하고, 이 폴더는 그 전에 올린 서류를 읽을 때만 쓴다 |
 | `DB_POOL_SIZE` | (선택) DB 커넥션 풀 최대 크기, 기본 10 — (서버 수 × 값)이 DB `max_connections`를 넘지 않게 |
 | `ADMIN_LOGIN_ID` | (선택) 관리자 로그인 아이디, 기본 `admin` — **그 아이디로 먼저 가입**해 두세요(아래 참고) |
 | `ENABLE_TEST_SHORTCUT` | (선택) 로드맵 `[TEST] 파일 없이 통과` 버튼, 기본 켜짐 — **운영 배포에서는 `false`** |

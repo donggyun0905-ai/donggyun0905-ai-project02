@@ -25,7 +25,8 @@ public class DocumentDao {
     // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
     private static final String COLUMNS =
             "id, user_id, project_id, roadmap_step_id, original_name, stored_name, " +
-            "file_path, file_size, mime_type, checksum, created_at, updated_at, is_deleted";
+            "file_path, file_size, mime_type, checksum, (file_data IS NOT NULL) AS stored_in_db, " +
+            "created_at, updated_at, is_deleted";
 
     public Long insert(DocumentDto document) throws SQLException {
         try (Connection conn = DBUtil.getConnection()) {
@@ -36,7 +37,7 @@ public class DocumentDao {
     public Long insert(Connection conn, DocumentDto document) throws SQLException {
         String sql = "INSERT INTO DOCUMENTS " +
                 "(user_id, project_id, roadmap_step_id, original_name, stored_name, file_path, file_size, " +
-                " mime_type, checksum) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                " mime_type, checksum, file_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setLong(1, document.getUserId());
             setNullableLong(pstmt, 2, document.getProjectId());
@@ -47,6 +48,11 @@ public class DocumentDao {
             pstmt.setLong(7, document.getFileSize());
             pstmt.setString(8, document.getMimeType());
             pstmt.setString(9, document.getChecksum());
+            if (document.getFileData() == null) {
+                pstmt.setNull(10, Types.LONGVARBINARY);
+            } else {
+                pstmt.setBytes(10, document.getFileData());
+            }
             pstmt.executeUpdate();
             try (ResultSet keys = pstmt.getGeneratedKeys()) {
                 return keys.next() ? keys.getLong(1) : null;
@@ -137,12 +143,74 @@ public class DocumentDao {
         }
     }
 
+    // 행은 논리 삭제로 남기되 파일 내용은 비운다 — 디스크에 두던 시절 삭제할 때 파일을 지우던 것과 같은 효과(개인정보)
     public void delete(Connection conn, Long documentId, Long userId) throws SQLException {
-        String sql = "UPDATE DOCUMENTS SET is_deleted = TRUE WHERE id = ? AND user_id = ?";
+        String sql = "UPDATE DOCUMENTS SET is_deleted = TRUE, file_data = NULL WHERE id = ? AND user_id = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, documentId);
             pstmt.setLong(2, userId);
             pstmt.executeUpdate();
+        }
+    }
+
+    // ---------------------------------------------------------------- 파일 내용 (DOCUMENTS.file_data)
+
+    /**
+     * 파일 내용을 그대로 흘려 보낸다(통째로 메모리에 올리지 않는다). 소유자·공개 범위 확인은 호출부가 끝낸 뒤 부른다.
+     * @return 내용이 DB에 없으면 false (예전 디스크 서류)
+     */
+    public boolean writeFileData(Long id, java.io.OutputStream out) throws SQLException, java.io.IOException {
+        String sql = "SELECT file_data FROM DOCUMENTS WHERE id = ? AND file_data IS NOT NULL";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, id);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (!rs.next()) {
+                    return false;
+                }
+                try (java.io.InputStream in = rs.getBinaryStream(1)) {
+                    in.transferTo(out);
+                }
+                return true;
+            }
+        }
+    }
+
+    /** 작은 파일(연습장 노트 등)을 통째로 읽는다. 내용이 DB에 없으면 null */
+    public byte[] readFileData(Long id) throws SQLException {
+        String sql = "SELECT file_data FROM DOCUMENTS WHERE id = ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, id);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? rs.getBytes(1) : null;
+            }
+        }
+    }
+
+    /** 예전(디스크) 서류 중 아직 DB로 옮기지 않은 것 — id와 경로만. DocumentBlobBackfill 전용 */
+    public java.util.Map<Long, String> findDiskOnlyPaths() throws SQLException {
+        String sql = "SELECT id, file_path FROM DOCUMENTS WHERE file_data IS NULL AND file_path IS NOT NULL " +
+                "AND file_path <> '' AND is_deleted = FALSE";
+        java.util.Map<Long, String> paths = new java.util.LinkedHashMap<>();
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+            while (rs.next()) {
+                paths.put(rs.getLong(1), rs.getString(2));
+            }
+        }
+        return paths;
+    }
+
+    /** 예전 서류의 내용을 DB에 채운다. 이미 채워져 있으면 덮어쓰지 않는다(다른 PC가 먼저 옮긴 경우). */
+    public boolean fillFileData(Long id, byte[] data) throws SQLException {
+        String sql = "UPDATE DOCUMENTS SET file_data = ? WHERE id = ? AND file_data IS NULL";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setBytes(1, data);
+            pstmt.setLong(2, id);
+            return pstmt.executeUpdate() > 0;
         }
     }
 
@@ -158,6 +226,7 @@ public class DocumentDao {
         document.setFileSize(rs.getObject("file_size", Long.class));
         document.setMimeType(rs.getString("mime_type"));
         document.setChecksum(rs.getString("checksum"));
+        document.setStoredInDb(rs.getBoolean("stored_in_db"));
         document.setCreatedAt(toLocalDateTime(rs.getTimestamp("created_at")));
         document.setUpdatedAt(toLocalDateTime(rs.getTimestamp("updated_at")));
         document.setDeleted(rs.getBoolean("is_deleted"));

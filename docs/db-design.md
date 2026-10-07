@@ -1303,10 +1303,11 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | `roadmap_step_id` | BIGINT | FK | → ROADMAP_STEP (선택 연결). 공부노트·기술 설명 글(PDF)을 프로젝트 없이 바로 SKILL 단계에 붙일 때 사용 |
 | `original_name` | VARCHAR(255) |  | 원본 파일명 — 화면 표시용 |
 | `stored_name` | VARCHAR(255) |  | 저장 파일명 — 중복 방지 |
-| `file_path` | VARCHAR(500) |  | 저장 경로 |
+| `file_path` | VARCHAR(500) |  | 디스크 저장 경로 — 2026-10-07 이전에 올린 서류만. 새 서류는 NULL |
 | `file_size` | BIGINT |  | 용량 제한 검증 |
 | `mime_type` | VARCHAR(100) |  | 확장자 제한 검증 |
 | `checksum` | VARCHAR(64) |  | 무결성 관리 |
+| `file_data` | LONGBLOB |  | 파일 내용 (2026-10-07부터). 목록 조회에는 싣지 않고 내려받을 때만 따로 읽는다 |
 
 설계 판단:
 
@@ -1315,6 +1316,7 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 - 업로드 시각은 별도 컬럼 없이 공통 컬럼 created_at을 쓴다(예전 문서에 있던 uploaded_at은 실제 DB에 만든 적이 없어 2026-10-01에 문서에서 지웠다).
 - FR-64(AI 챗봇이 서류를 읽어 답변)는 보류 항목이라 스키마만 준비하고 기능은 만들지 않는다.
 - 이 테이블을 가리키는 곳이 늘었다: USERS.resume_document_id(이력서)·cover_letter_document_id(자소서)·PROJECT_DOCUMENT_ITEM.document_id(프로젝트 문서). 이력서·자소서는 project_id 없이 저장하고, 가리키는 쪽에서 "무슨 파일인지"를 정한다.
+- (변경, 2026-10-07) 파일 내용을 file_data(LONGBLOB)에 저장한다(`sql/32_alter_documents_file_data.sql`). DB는 팀이 같이 쓰는데 업로드 폴더(UPLOAD_DIR)는 PC마다 따로라, 디스크에 두면 다른 PC의 서버에서는 이력서·증빙이 404였다. 스펙 아카이브 사진을 DB로 옮긴 것(sql/20)과 같은 이유다. 서류 한 개 최대 20MB라 MEDIUMBLOB(16MB)이 아니라 LONGBLOB이고, MySQL max_allowed_packet이 그보다 커야 한다. 조회 컬럼(DocumentDao.COLUMNS)에는 내용 대신 `file_data IS NOT NULL`만 실어 목록마다 수 MB를 읽지 않게 했다. 예전 서류는 서버를 켤 때 DocumentBlobBackfill이 "그 PC 디스크에 있는 것"만 DB로 옮기고, 옮기기 전까지는 디스크에서 읽는다(DocumentContentService).
 
 #### DDAY_ALERT (D-day 알림)
 
