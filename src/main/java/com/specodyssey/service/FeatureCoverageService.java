@@ -107,6 +107,16 @@ public class FeatureCoverageService {
         public int getUntested() {
             return total - tested;
         }
+
+        // 구성요소가 아닌 파생 값은 x() 형태도 둬야 한다 — Tomcat 11의 RecordELResolver는 record에서
+        // isX()/getX()를 찾지 않는다. 없으면 ${summary.missing}이 Tomcat 11에서만 500이 된다.
+        public int missing() {
+            return getMissing();
+        }
+
+        public int untested() {
+            return getUntested();
+        }
     }
 
     // 리소스는 빌드 산출물이라 요청마다 다시 읽을 필요가 없다

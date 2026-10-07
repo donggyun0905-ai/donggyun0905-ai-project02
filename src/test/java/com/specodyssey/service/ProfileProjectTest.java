@@ -45,6 +45,9 @@ class ProfileProjectTest {
                     TestFixtures.hardDeleteByColumn(conn, "PROJECT_LINK", "project_id", p.getId());
                 }
                 TestFixtures.hardDeleteByColumn(conn, "USER_PROJECTS", "user_id", id);
+                // SpecScoreScheduler는 웹앱이 뜨는 순간 전체 사용자에게 스냅샷을 남긴다 — 누가 같은 공유 DB로
+                // 서버를 띄워 두면 테스트가 방금 만든 사용자 몫까지 생긴다. USERS 바로 앞에서 지운다.
+                TestFixtures.hardDeleteByColumn(conn, "SPEC_SCORE_HISTORY", "user_id", id);
                 TestFixtures.hardDelete(conn, "USERS", id);
             }
         }

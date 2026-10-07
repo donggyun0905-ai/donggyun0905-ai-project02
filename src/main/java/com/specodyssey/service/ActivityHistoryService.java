@@ -60,6 +60,16 @@ public class ActivityHistoryService {
         public boolean isFiller() {
             return date == null;
         }
+
+        // 구성요소가 아닌 파생 값은 x() 형태도 둬야 한다 — Tomcat 11의 RecordELResolver는
+        // record에서 isX()/getX()를 찾지 않는다. ${cell.title}·${cell.filler}가 거기서만 500이었다.
+        public String title() {
+            return getTitle();
+        }
+
+        public boolean filler() {
+            return isFiller();
+        }
     }
 
     /** 타임라인 한 줄 — 화면은 이 문구를 그대로 쓴다. */
