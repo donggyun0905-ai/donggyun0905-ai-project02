@@ -34,6 +34,7 @@ public class RoleFilter implements Filter {
     public static final String ADMIN = "ADMIN";
     public static final String INTERVIEWER_HOME = "/interviewer/shared";
     public static final String APPLICANT_HOME = "/dashboard";
+    public static final String ADMIN_HOME = "/admin";
 
     // 면접관이 "/interviewer/*" 밖에서 쓸 수 있는 경로
     private static final Set<String> INTERVIEWER_PATHS = Set.of("/logout", "/login", "/register");
@@ -56,17 +57,18 @@ public class RoleFilter implements Filter {
             boolean admin = ADMIN.equals(user.getUserType());
             boolean interviewer = INTERVIEWER.equals(user.getUserType());
 
-            // 관리자는 "/admin/*"(+ 공통 경로)만 — 지원자·면접관 화면은 본인 스펙이 없어 의미가 없다.
+            // 관리자는 "/admin"·"/admin/*"(+ 공통 경로)만 — 지원자·면접관 화면은 본인 스펙이 없어 의미가 없다.
+            // ADMIN_HOME("/admin") 자체를 빼먹으면 그 화면에서 다시 자기 자신으로 보내 무한 리다이렉트가 된다.
             if (admin) {
-                if (!path.startsWith("/admin/") && !isCommon(path)) {
-                    resp.sendRedirect(req.getContextPath() + "/admin");
+                if (!isAdminPath(path) && !isCommon(path)) {
+                    resp.sendRedirect(req.getContextPath() + ADMIN_HOME);
                     return;
                 }
                 chain.doFilter(request, response);
                 return;
             }
-            // 관리자가 아니면 "/admin/*"에 못 들어간다.
-            if (path.startsWith("/admin/") || path.equals("/admin")) {
+            // 관리자가 아니면 "/admin"·"/admin/*"에 못 들어간다.
+            if (isAdminPath(path)) {
                 resp.sendRedirect(req.getContextPath() + (interviewer ? INTERVIEWER_HOME : APPLICANT_HOME));
                 return;
             }
@@ -80,6 +82,11 @@ public class RoleFilter implements Filter {
             }
         }
         chain.doFilter(request, response);
+    }
+
+    /** 관리자 화면인지 — "/admin"과 "/admin/*" 둘 다. 두 분기가 같은 기준을 써야 루프가 생기지 않는다. */
+    private static boolean isAdminPath(String path) {
+        return ADMIN_HOME.equals(path) || path.startsWith(ADMIN_HOME + "/");
     }
 
     private boolean isCommon(String path) {
