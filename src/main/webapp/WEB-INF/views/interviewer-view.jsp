@@ -277,7 +277,7 @@
             <div class="card">
                 <h2>활동 내역</h2>
                 <c:choose>
-                    <c:when test="${empty view.activity or view.activity.empty}">
+                    <c:when test="${empty view.activity or view.activity.totalEvents == 0}">
                         <p class="muted" style="margin-top:10px;">아직 쌓인 활동 기록이 없습니다.</p>
                     </c:when>
                     <c:otherwise>
