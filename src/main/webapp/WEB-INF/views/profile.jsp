@@ -22,6 +22,9 @@
     <p class="error-message"><c:out value='${errorMessage}' /></p>
 </c:if>
 
+<%-- FR-114 — 어디까지 채웠고 다음에 무엇을 할지 --%>
+<%@ include file="/WEB-INF/views/common/next-steps.jspf" %>
+
 <%@ include file="/WEB-INF/views/profile/_basic.jspf" %>
 
 <%@ include file="/WEB-INF/views/profile/_education.jspf" %>

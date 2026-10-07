@@ -64,11 +64,44 @@ class OnboardingFilterTest {
         for (String path : new String[] {"/roadmap", "/gap-analysis", "/dashboard", "/mission", "/documents",
                 "/insights", "/dday", "/share-links", "/resume-feedback", "/roadmap-note"}) {
             FakeWeb.Request r = req(user, path);
+            markWelcomeSeen(r); // 안내를 이미 본 세션 — 그 뒤에는 바로 설문으로 보낸다
             FakeWeb.Response resp = FakeWeb.response();
             assertFalse(passes(r, resp), path);
             assertEquals("/job-discovery", resp.redirect, path);
             assertNotNull(r.session.attributes.get(OnboardingFilter.NOTICE_KEY));
         }
+    }
+
+    // FR-115 — 설문으로 바로 보내면 "가입하자마자 설문을 요구하는 화면"이 된다. 왜 설문부터 하는지를
+    // 한 번 보여 주고(진단 → 길 제시 → 미션) 거기서 설문으로 넘긴다.
+    @Test
+    void 설문_전_첫_요청은_설문이_아니라_안내_화면으로_보낸다() throws Exception {
+        UserDto user = newApplicant();
+        FakeWeb.Request first = req(user, "/dashboard");
+        FakeWeb.Response resp = FakeWeb.response();
+
+        assertFalse(passes(first, resp));
+        assertEquals("/welcome", resp.redirect);
+        assertNull(first.session.attributes.get(OnboardingFilter.NOTICE_KEY),
+                "안내 화면으로 보낼 때는 \"설문을 해 주세요\" 문구까지 띄우지 않는다");
+    }
+
+    @Test
+    void 안내_화면은_설문_전에도_열리고_한_번_보면_다시_뜨지_않는다() throws Exception {
+        UserDto user = newApplicant();
+        assertTrue(passes(req(user, "/welcome"), FakeWeb.response()), "안내 화면 자체는 막히면 안 된다");
+
+        FakeWeb.Request second = req(user, "/dashboard");
+        markWelcomeSeen(second);
+        FakeWeb.Response resp = FakeWeb.response();
+
+        assertFalse(passes(second, resp));
+        assertEquals("/job-discovery", resp.redirect, "두 번째부터는 안내를 건너뛰고 설문으로");
+    }
+
+    /** 이 요청의 세션을 "/welcome을 이미 봤다"로 표시한다 — 세션을 새로 끼우면 loginUser가 사라진다 */
+    private static void markWelcomeSeen(FakeWeb.Request r) {
+        r.session.attributes.put(WelcomeServlet.SEEN_KEY, Boolean.TRUE);
     }
 
     @Test

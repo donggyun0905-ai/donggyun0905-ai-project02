@@ -1,12 +1,19 @@
 package com.specodyssey.service;
 
 import com.specodyssey.dto.ProjectDocumentItemDto;
+import com.specodyssey.dto.ShareViewDto;
 import com.specodyssey.dto.ShareViewDto.SubmittedDoc;
 import com.specodyssey.dto.ShareViewDto.TechNote;
 import com.specodyssey.dto.ShareViewDto.TimelineItem;
 import org.junit.jupiter.api.Test;
 
+import com.specodyssey.util.FileStorageUtil;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -61,6 +68,76 @@ class ShareViewProjectDetailTest {
         assertEquals("개인 프로젝트 · 백엔드 · DB 설계", item.getTeamText());
         item.setTeamSize(null);
         assertEquals("백엔드 · DB 설계", item.getTeamText());
+    }
+
+    // 2026-10-07: 타임라인에 프로젝트와 섞여 시간순으로만 들어가 "자격증이 몇 개인지"를 훑을 수 없었다.
+    @Test
+    void 보유_스펙은_자격증_어학_수상_경험_순서로_묶인다() {
+        Map<String, List<TimelineItem>> byType = new LinkedHashMap<>();
+        byType.put("경험", List.of(spec("백엔드 인턴")));
+        byType.put("자격증", List.of(spec("정보처리기사"), spec("SQLD")));
+        byType.put("어학", List.of(spec("TOEIC 900")));
+
+        Map<String, List<TimelineItem>> ordered = ShareViewService.orderedByType(byType);
+
+        assertEquals(List.of("자격증", "어학", "경험"), List.copyOf(ordered.keySet()));
+        assertEquals(2, ordered.get("자격증").size());
+    }
+
+    @Test
+    void 종류_라벨을_모르는_스펙도_빠뜨리지_않는다() {
+        Map<String, List<TimelineItem>> byType = new LinkedHashMap<>();
+        byType.put("자격증", List.of(spec("정보처리기사")));
+        byType.put("MILITARY", List.of(spec("병역 특례"))); // spec_type은 자유 값이다
+
+        Map<String, List<TimelineItem>> ordered = ShareViewService.orderedByType(byType);
+
+        assertEquals(List.of("자격증", "MILITARY"), List.copyOf(ordered.keySet()));
+    }
+
+    // 업로드 폴더는 서버 PC마다 따로다 — DB에는 행만 있고 이 서버에 파일이 없으면 열리지 않는 미리보기를
+    // 그리는 대신 이유를 알려야 한다 (2026-10-07 면접관 이력 보기에서 PDF가 안 보였다).
+    @Test
+    void 이_서버에_파일이_없는_서류는_열기_링크를_만들지_않고_이름만_남긴다() {
+        SubmittedDoc doc = ShareViewService.submittedDocs(List.of(item("README", "SUBMITTED", 11L))).get(0);
+        assertFalse(doc.isFileMissing());
+
+        doc.markMissing("readme.pdf");
+
+        assertTrue(doc.isFileMissing());
+        assertEquals("readme.pdf", doc.getFileName());
+        assertNull(doc.getDocumentId(), "문서 id가 있으면 화면이 열기·내려받기 링크를 만든다");
+        assertNull(doc.getPreviewType(), "미리보기도 그리면 안 된다");
+    }
+
+    @Test
+    void 파일이_없으면_PDF라도_화면_안_미리보기를_켜지_않는다() {
+        ShareViewDto view = new ShareViewDto();
+        view.setResumeFileName("이력서.pdf");
+
+        assertFalse(view.isResumePdf(), "파일이 없는데 미리보기를 켜면 빈 iframe만 남는다");
+
+        view.setResumeFileReadable(true);
+        assertTrue(view.isResumePdf());
+    }
+
+    @Test
+    void 읽을_수_없는_경로는_없는_것으로_본다() throws Exception {
+        assertFalse(FileStorageUtil.isReadable(null));
+        assertFalse(FileStorageUtil.isReadable("  "));
+        assertFalse(FileStorageUtil.isReadable("C:\\Users\\그런사람없음\\없는파일.pdf"));
+
+        Path real = Files.createTempFile("share-view-", ".pdf");
+        try {
+            assertTrue(FileStorageUtil.isReadable(real.toString()));
+        } finally {
+            Files.deleteIfExists(real);
+        }
+        assertFalse(FileStorageUtil.isReadable(real.toString()), "지워진 뒤에는 없는 것으로 봐야 한다");
+    }
+
+    private static TimelineItem spec(String title) {
+        return new TimelineItem("2026-01-01", "자격증", title, null);
     }
 
     private static ProjectDocumentItemDto item(String docType, String status, Long documentId) {

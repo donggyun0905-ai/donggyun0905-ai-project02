@@ -44,6 +44,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -63,8 +64,15 @@ public class ShareViewService {
 
     private static final int GROWTH_POINTS = 6; // 성장 그래프에 보여줄 최근 기록 수
 
-    private static final Map<String, String> SPEC_TYPE_LABELS = Map.of(
-            "CERT", "자격증", "LANGUAGE", "어학", "AWARD", "수상", "EXPERIENCE", "경험");
+    // 화면에 보여 줄 종류 순서까지 담는다 — Map.of는 순서를 보장하지 않아 "보유 스펙" 묶음이 매번 뒤바뀌었다
+    private static final Map<String, String> SPEC_TYPE_LABELS = new LinkedHashMap<>();
+
+    static {
+        SPEC_TYPE_LABELS.put("CERT", "자격증");
+        SPEC_TYPE_LABELS.put("LANGUAGE", "어학");
+        SPEC_TYPE_LABELS.put("AWARD", "수상");
+        SPEC_TYPE_LABELS.put("EXPERIENCE", "경험");
+    }
     private static final String SUBMITTED = "SUBMITTED";
     private static final Map<String, String> PROFICIENCY_LABELS = Map.of(
             "BEGINNER", "입문", "INTERMEDIATE", "중급", "ADVANCED", "고급");
@@ -84,6 +92,7 @@ public class ShareViewService {
     private final SpecScoreHistoryDao specScoreHistoryDao = new SpecScoreHistoryDao();
     private final CertificationDao certificationDao = new CertificationDao();
     private final SkillDao skillDao = new SkillDao();
+    private final DocumentContentService documentContentService = new DocumentContentService();
     private final UserEducationDao educationDao = new UserEducationDao();
     private final RoadmapDao roadmapDao = new RoadmapDao();
     private final RoadmapStepDao roadmapStepDao = new RoadmapStepDao();
@@ -268,10 +277,13 @@ public class ShareViewService {
         if (link.isScopeResume()) {
             DocumentDto resume = findResume(user);
             view.setResumeFileName(resume == null ? null : resume.getOriginalName());
+            view.setResumeFileReadable(documentContentService.exists(resume)); // DB에 있거나(새 서류) 이 PC 디스크에 있을 때
         }
         if (link.isScopeCoverLetter()) {
             DocumentDto coverLetter = findProfileDocument(user, user.getCoverLetterDocumentId());
             view.setCoverLetterFileName(coverLetter == null ? null : coverLetter.getOriginalName());
+            view.setCoverLetterFileReadable(
+                    documentContentService.exists(coverLetter));
         }
         // 활동 내역 — 며칠에 무엇을 했는지까지 드러나 지원자가 켠 링크에서만 (NFR-4)
         if (link.isScopeActivity()) {
@@ -290,6 +302,7 @@ public class ShareViewService {
             throws SQLException {
         List<ProjectEvidence> evidence = new ArrayList<>();
         List<Dated> dated = new ArrayList<>();
+        Map<String, List<TimelineItem>> specsByType = new LinkedHashMap<>();
         RoadmapDto primaryRoadmap = roadmapDao.findPrimaryByUserId(userId);
         for (UserSpecDto spec : userSpecDao.findByUserId(userId)) {
             if ("CERT".equals(spec.getSpecType())) {
@@ -305,10 +318,11 @@ public class ShareViewService {
             String dateText = "EXPERIENCE".equals(spec.getSpecType())
                     ? period(spec.getAcquiredDate(), spec.getEndDate())
                     : spec.getAcquiredDate() == null ? "날짜 미입력" : spec.getAcquiredDate().toString();
-            dated.add(new Dated(spec.getAcquiredDate(), new TimelineItem(
-                    dateText,
-                    SPEC_TYPE_LABELS.getOrDefault(spec.getSpecType(), spec.getSpecType()),
-                    spec.getTitle(), detail, documentId)));
+            String typeLabel = SPEC_TYPE_LABELS.getOrDefault(spec.getSpecType(), spec.getSpecType());
+            TimelineItem specItem = new TimelineItem(dateText, typeLabel, spec.getTitle(), detail, documentId);
+            dated.add(new Dated(spec.getAcquiredDate(), specItem));
+            // 같은 항목을 "보유 스펙" 카드에도 넣는다 — 타임라인은 시간순 서사, 이쪽은 종류별로 훑는 용도
+            specsByType.computeIfAbsent(typeLabel, k -> new ArrayList<>()).add(specItem);
         }
         List<UserProjectDto> projects = userProjectDao.findByUserId(userId);
         view.setProjectCount(projects.size());
@@ -330,7 +344,22 @@ public class ShareViewService {
         for (Dated d : dated) {
             view.getTimeline().add(d.item);
         }
+        view.setSpecGroups(orderedByType(specsByType));
         return evidence;
+    }
+
+    /** SPEC_TYPE_LABELS 순서(자격증 → 어학 → 수상 → 경험)대로 다시 담는다 — 넣은 순서는 사용자마다 다르다. */
+    static Map<String, List<TimelineItem>> orderedByType(Map<String, List<TimelineItem>> byType) {
+        Map<String, List<TimelineItem>> ordered = new LinkedHashMap<>();
+        for (String label : SPEC_TYPE_LABELS.values()) {
+            List<TimelineItem> items = byType.get(label);
+            if (items != null && !items.isEmpty()) {
+                ordered.put(label, items);
+            }
+        }
+        // 라벨을 모르는 spec_type(스키마가 자유 값이다)도 빠뜨리지 않는다
+        byType.forEach(ordered::putIfAbsent);
+        return ordered;
     }
 
     // 면접관이 프로젝트에서 가장 오래 보는 부분 — 팀 규모·내 역할, 회고, 기술별 활용 설명, 어떤 서류까지 갖췄는지.
@@ -358,7 +387,11 @@ public class ShareViewService {
                 }
                 DocumentDto file = documentDao.findById(doc.getSourceDocumentId());
                 if (file != null && file.getUserId().equals(project.getUserId())) {
-                    doc.share(file.getId(), file.getOriginalName(), previewType(file.getOriginalName()));
+                    if (documentContentService.exists(file)) {
+                        doc.share(file.getId(), file.getOriginalName(), previewType(file.getOriginalName()));
+                    } else {
+                        doc.markMissing(file.getOriginalName());
+                    }
                 }
             }
         }

@@ -20,6 +20,8 @@
 </c:if>
 
 <h1>대시보드</h1>
+<%-- FR-114 — 아직 여정을 시작하지 않은 사람에게 "지금 할 한 가지"를 먼저 보여준다 --%>
+<%@ include file="/WEB-INF/views/common/next-steps.jspf" %>
 <p class="muted">
     목표 직무 <strong><c:out value="${empty desiredJobName ? '미설정' : desiredJobName}" /></strong> ·
     <c:choose>

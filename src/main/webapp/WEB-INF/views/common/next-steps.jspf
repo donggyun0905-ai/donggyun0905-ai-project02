@@ -1,0 +1,35 @@
+<%-- FR-114 빈 상태 안내 — 지금 할 한 가지와 여정 진행 상황.
+     호출하는 쪽이 request 속성 nextSteps(NextStepService.Guide)를 담아서 include한다.
+     다 끝낸 사람에게는 아무것도 그리지 않는다 — 할 일이 없는데 카드가 남아 있으면 방해만 된다. --%>
+<c:if test="${not empty nextSteps and not nextSteps.allDone}">
+    <div class="card" style="border-left:4px solid var(--teal);">
+        <div class="spread">
+            <h2 style="margin:0;">다음에 할 일</h2>
+            <span class="muted" style="font-size:0.84rem;">${nextSteps.doneCount} / ${nextSteps.totalCount} 단계</span>
+        </div>
+        <p style="margin:8px 0 0;">
+            <strong><c:out value="${nextSteps.current.title}" /></strong><br>
+            <span class="muted" style="font-size:0.88rem;"><c:out value="${nextSteps.current.hint}" /></span>
+        </p>
+        <p style="margin:10px 0 0;">
+            <a class="btn" href="${pageContext.request.contextPath}<c:out value='${nextSteps.current.path}' />"><c:out value="${nextSteps.current.actionLabel}" /></a>
+        </p>
+        <ul class="item-list" style="margin-top:12px;">
+            <c:forEach var="step" items="${nextSteps.steps}">
+                <li style="padding:4px 0;">
+                    <c:choose>
+                        <c:when test="${step.done}">
+                            <span class="muted"><span class="ic ic-check" aria-hidden="true"></span> <c:out value="${step.title}" /></span>
+                        </c:when>
+                        <c:when test="${step.current}">
+                            <strong><c:out value="${step.title}" /></strong> <span class="chip chip-teal">지금</span>
+                        </c:when>
+                        <c:otherwise>
+                            <span class="muted"><c:out value="${step.title}" /></span>
+                        </c:otherwise>
+                    </c:choose>
+                </li>
+            </c:forEach>
+        </ul>
+    </div>
+</c:if>
