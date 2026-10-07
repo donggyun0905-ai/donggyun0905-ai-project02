@@ -46,6 +46,8 @@ public class ProfileServlet extends HttpServlet {
         } catch (SQLException e) {
             throw new ServletException("프로필을 불러오는 중 오류가 발생했습니다.", e);
         }
+        // 기술·스펙 추가에서 리다이렉트로 넘어온 안내 문구 (중복 입력 등) — 한 번만 보여 준다
+        ProfileNotice.consume(req);
         req.getRequestDispatcher("/WEB-INF/views/profile.jsp").forward(req, resp);
     }
 

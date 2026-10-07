@@ -57,14 +57,14 @@ public class ProfileSpecServlet extends HttpServlet {
                 profileService.deleteSpec(userId, specId);
             } else if ("update".equals(action)) {
                 UserSpecDto spec = parseSpec(req, resp);
-                if (spec == null || rejected(spec, resp)) {
+                if (spec == null || rejected(req, spec, resp)) {
                     return;
                 }
                 spec.setId(Long.valueOf(req.getParameter("specId")));
                 profileService.updateSpec(userId, spec);
             } else {
                 UserSpecDto spec = parseSpec(req, resp);
-                if (spec == null || rejected(spec, resp)) {
+                if (spec == null || rejected(req, spec, resp)) {
                     return;
                 }
                 profileService.addSpec(userId, spec);
@@ -85,19 +85,22 @@ public class ProfileSpecServlet extends HttpServlet {
     }
 
     // 화면의 검사를 거치지 않은 요청도 엉터리 명칭은 저장하지 않는다
-    private boolean rejected(UserSpecDto spec, HttpServletResponse resp) throws SQLException, IOException {
+    private boolean rejected(HttpServletRequest req, UserSpecDto spec, HttpServletResponse resp)
+            throws SQLException, IOException {
         if (!inputChecker.rejectsSpec(spec.getSpecType(), spec.getTitle())) {
             return false;
         }
-        resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "의미 없는 글자처럼 보여요. 명칭을 다시 확인해 주세요.");
+        ProfileNotice.putError(req, "의미 없는 글자처럼 보여요. 명칭을 다시 확인해 주세요.");
+        resp.sendRedirect(req.getContextPath() + "/profile");
         return true;
     }
 
-    // 유효성 검사 실패 시 400 응답을 직접 보내고 null을 반환한다.
+    // 입력 실수는 프로필 화면에서 안내하고(ProfileNotice) null을 반환한다 — 에러 페이지를 띄우지 않는다.
     private UserSpecDto parseSpec(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         String title = req.getParameter("title");
         if (title == null || title.isBlank()) {
-            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "명칭을 입력해주세요.");
+            ProfileNotice.putError(req, "명칭을 입력해주세요.");
+            resp.sendRedirect(req.getContextPath() + "/profile");
             return null;
         }
         UserSpecDto spec = new UserSpecDto();

@@ -66,14 +66,14 @@ public class ProfileSkillServlet extends HttpServlet {
                 profileService.deleteSkill(userId, userSkillId);
             } else if ("update".equals(action)) {
                 UserSkillDto skill = parseSkill(req, resp);
-                if (skill == null || rejected(skill, resp)) {
+                if (skill == null || rejected(req, skill, resp)) {
                     return;
                 }
                 skill.setId(Long.valueOf(req.getParameter("userSkillId")));
                 profileService.updateSkill(userId, skill);
             } else {
                 UserSkillDto skill = parseSkill(req, resp);
-                if (skill == null || rejected(skill, resp)) {
+                if (skill == null || rejected(req, skill, resp)) {
                     return;
                 }
                 profileService.addSkill(userId, skill);
@@ -85,7 +85,9 @@ public class ProfileSkillServlet extends HttpServlet {
             resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "잘못된 요청입니다.");
             return;
         } catch (ProfileService.DuplicateSkillException e) {
-            resp.sendError(HttpServletResponse.SC_CONFLICT, e.getMessage());
+            // 이미 등록된 기술은 흔한 입력 실수다 — 에러 페이지를 띄우지 않고 프로필에서 안내만 한다
+            ProfileNotice.putError(req, e.getMessage());
+            resp.sendRedirect(req.getContextPath() + "/profile");
             return;
         } catch (SQLException e) {
             throw new ServletException("기술 스택 저장 중 오류가 발생했습니다.", e);
@@ -95,19 +97,22 @@ public class ProfileSkillServlet extends HttpServlet {
     }
 
     // 화면의 검사를 거치지 않은 요청도 엉터리 이름은 저장하지 않는다
-    private boolean rejected(UserSkillDto skill, HttpServletResponse resp) throws SQLException, IOException {
+    private boolean rejected(HttpServletRequest req, UserSkillDto skill, HttpServletResponse resp)
+            throws SQLException, IOException {
         if (!inputChecker.rejectsSkill(skill.getRawInput())) {
             return false;
         }
-        resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "의미 없는 글자처럼 보여요. 기술명을 다시 확인해 주세요.");
+        ProfileNotice.putError(req, "의미 없는 글자처럼 보여요. 기술명을 다시 확인해 주세요.");
+        resp.sendRedirect(req.getContextPath() + "/profile");
         return true;
     }
 
-    // 유효성 검사 실패 시 400 응답을 직접 보내고 null을 반환한다.
+    // 입력 실수는 프로필 화면에서 안내하고(ProfileNotice) null을 반환한다 — 에러 페이지를 띄우지 않는다.
     private UserSkillDto parseSkill(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         String rawInput = req.getParameter("rawInput");
         if (rawInput == null || rawInput.isBlank()) {
-            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "기술명을 입력해주세요.");
+            ProfileNotice.putError(req, "기술명을 입력해주세요.");
+            resp.sendRedirect(req.getContextPath() + "/profile");
             return null;
         }
         UserSkillDto skill = new UserSkillDto();
