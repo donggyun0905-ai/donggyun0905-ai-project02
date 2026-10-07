@@ -1,0 +1,1254 @@
+[
+  {
+    "id": "FR-11",
+    "title": "회원가입(아이디·비밀번호)",
+    "priority": "[필수]",
+    "area": "2-1. 회원 / 인증",
+    "controllers": [
+      "RegisterServlet.java"
+    ],
+    "services": [
+      "PersonalInfo.java",
+      "UserService.java"
+    ],
+    "daos": [
+      "UserDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "PersonalInfoTest.java",
+      "RegisterServletTest.java",
+      "UserDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-12",
+    "title": "로그인 / 로그아웃",
+    "priority": "[필수]",
+    "area": "2-1. 회원 / 인증",
+    "controllers": [
+      "LoginServlet.java",
+      "RegisterServlet.java"
+    ],
+    "services": [
+      "UserService.java"
+    ],
+    "daos": [
+      "UserDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "LoginServletTest.java",
+      "RegisterServletTest.java",
+      "UserDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-13",
+    "title": "세션 기반으로 본인 데이터만 접근",
+    "priority": "[필수]",
+    "area": "2-1. 회원 / 인증",
+    "controllers": [
+      "AccountServlet.java",
+      "RegisterServlet.java"
+    ],
+    "services": [
+      "AdminUserService.java",
+      "UserService.java"
+    ],
+    "daos": [
+      "UserDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "AdminUserServiceTest.java",
+      "RegisterServletTest.java",
+      "UserDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-14",
+    "title": "면접관은 로그인 없이 공유 링크로만 접근(이번 범위). 단, 향후 면접관 계정 도입을 위해 사용자 유형(지원자/면접관) 필드는 DB에 미리 마련",
+    "priority": "[필수]",
+    "area": "2-1. 회원 / 인증",
+    "controllers": [
+      "RegisterServlet.java",
+      "SessionFilter.java",
+      "ShareViewServlet.java"
+    ],
+    "services": [
+      "UserService.java"
+    ],
+    "daos": [
+      "UserDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "RegisterServletTest.java",
+      "UserDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-21",
+    "title": "기본 정보(전공·학년·관심분야) 입력·수정",
+    "priority": "[필수]",
+    "area": "2-2. 프로필 입력",
+    "controllers": [
+      "ProfileServlet.java"
+    ],
+    "services": [
+      "AdminUserService.java",
+      "MajorInfoCollector.java",
+      "PersonalInfo.java",
+      "ProfileService.java"
+    ],
+    "daos": [
+      "UserDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "AdminUserServiceTest.java",
+      "PersonalInfoTest.java",
+      "ProfileServiceTest.java",
+      "UserDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-22",
+    "title": "희망 직무 선택 + \"아직 모르겠음\" 옵션",
+    "priority": "[필수]",
+    "area": "2-2. 프로필 입력",
+    "controllers": [
+      "ProfileServlet.java"
+    ],
+    "services": [
+      "AdminUserService.java",
+      "ProfileService.java"
+    ],
+    "daos": [
+      "UserDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "AdminUserServiceTest.java",
+      "ProfileServiceTest.java",
+      "UserDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-23",
+    "title": "자격증·어학·수상 등 스펙 다중 등록(1:N)",
+    "priority": "[필수]",
+    "area": "2-2. 프로필 입력",
+    "controllers": [
+      "ProfileServlet.java",
+      "ProfileSpecServlet.java"
+    ],
+    "services": [
+      "ProfileInputChecker.java",
+      "ProfileService.java"
+    ],
+    "daos": [
+      "UserSpecDao.java"
+    ],
+    "views": [
+      "profile.jsp"
+    ],
+    "tests": [
+      "ProfileInputCheckerTest.java",
+      "ProfileServiceTest.java",
+      "UserSpecDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-24",
+    "title": "프로젝트·경험 다중 등록(1:N)",
+    "priority": "[필수]",
+    "area": "2-2. 프로필 입력",
+    "controllers": [
+      "ProfileProjectServlet.java",
+      "ProfileServlet.java"
+    ],
+    "services": [
+      "ProfileService.java",
+      "ProjectSubmissionService.java"
+    ],
+    "daos": [
+      "ProjectDocumentItemDao.java",
+      "ProjectTechNoteDao.java",
+      "UserProjectDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "ProfileProjectServletTest.java",
+      "ProfileServiceTest.java",
+      "UserProjectDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-25",
+    "title": "보유 기술 스택 입력",
+    "priority": "[권장] → [필수]로 격상 (팀 확정)",
+    "area": "2-2. 프로필 입력",
+    "controllers": [
+      "ProfileServlet.java",
+      "ProfileSkillServlet.java"
+    ],
+    "services": [
+      "ProfileInputChecker.java",
+      "ProfileService.java"
+    ],
+    "daos": [
+      "UserSkillDao.java"
+    ],
+    "views": [
+      "profile.jsp"
+    ],
+    "tests": [
+      "ProfileInputCheckerTest.java",
+      "ProfileServiceTest.java",
+      "ProfileSkillServletTest.java",
+      "UserSkillDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-31",
+    "title": "희망 직무가 있으면 \"현재 나 vs 목표 직무\" 격차 분석 제공",
+    "priority": "[필수]",
+    "area": "2-3. AI 분석 + 길 제시 ★ (프로젝트의 심장)",
+    "controllers": [
+      "GapAnalysisServlet.java"
+    ],
+    "services": [
+      "GapAnalysisService.java"
+    ],
+    "daos": [
+      "GapAnalysisDao.java",
+      "JobRequiredSkillDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "GapAnalysisDaoTest.java",
+      "GapAnalysisServiceTest.java",
+      "JobRequiredSkillDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-32",
+    "title": "다음 목적지를 순서 있는 로드맵으로 제시 (①자격증 → ②프로젝트 → ③스킬)",
+    "priority": "[필수]",
+    "area": "2-3. AI 분석 + 길 제시 ★ (프로젝트의 심장)",
+    "controllers": [
+      "RoadmapServlet.java"
+    ],
+    "services": [
+      "ProjectIdeaService.java",
+      "RoadmapGenerator.java",
+      "RoadmapService.java"
+    ],
+    "daos": [
+      "CertificationDao.java",
+      "JobDao.java",
+      "RoadmapDao.java",
+      "RoadmapStepDao.java",
+      "SkillDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "CertificationDaoTest.java",
+      "JobDaoTest.java",
+      "ProjectIdeaServiceTest.java",
+      "RoadmapDaoTest.java",
+      "RoadmapServiceTest.java",
+      "RoadmapServletTest.java",
+      "RoadmapStepDaoTest.java",
+      "SkillDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-33",
+    "title": "로드맵 각 단계에 \"왜 지금 이걸 해야 하는지\" 이유 제공",
+    "priority": "[권장]",
+    "area": "2-3. AI 분석 + 길 제시 ★ (프로젝트의 심장)",
+    "controllers": [
+      "RoadmapServlet.java"
+    ],
+    "services": [
+      "RoadmapGenerator.java",
+      "RoadmapService.java"
+    ],
+    "daos": [
+      "RoadmapStepDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "RoadmapServiceTest.java",
+      "RoadmapServletTest.java",
+      "RoadmapStepDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-34",
+    "title": "희망 직무가 없으면 어울리는 직무 후보 3~5개 추천",
+    "priority": "[필수]",
+    "area": "2-3. AI 분석 + 길 제시 ★ (프로젝트의 심장)",
+    "controllers": [
+      "JobDiscoveryServlet.java"
+    ],
+    "services": [
+      "JobDiscoveryScorer.java",
+      "JobDiscoveryService.java"
+    ],
+    "daos": [
+      "JobRecommendationDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "JobDiscoveryScorerTest.java",
+      "JobRecommendationDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-35",
+    "title": "추천 직무별 \"하는 일 / 필요 역량 / 전망\" 요약",
+    "priority": "[권장]",
+    "area": "2-3. AI 분석 + 길 제시 ★ (프로젝트의 심장)",
+    "controllers": [],
+    "services": [
+      "JobDiscoveryService.java",
+      "RecommendationDescriber.java"
+    ],
+    "daos": [
+      "JobRecommendationDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "JobRecommendationDaoTest.java",
+      "RecommendationDescriberTest.java"
+    ]
+  },
+  {
+    "id": "FR-36",
+    "title": "로드맵 단계별 완료 체크 → 여정 진행도로 반영",
+    "priority": "[권장]",
+    "area": "2-3. AI 분석 + 길 제시 ★ (프로젝트의 심장)",
+    "controllers": [
+      "RoadmapServlet.java"
+    ],
+    "services": [
+      "RoadmapCompletionService.java",
+      "RoadmapProgressCalculator.java",
+      "RoadmapService.java"
+    ],
+    "daos": [
+      "RoadmapDao.java",
+      "RoadmapStepDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "RoadmapDaoTest.java",
+      "RoadmapProgressCalculatorTest.java",
+      "RoadmapServiceTest.java",
+      "RoadmapServletTest.java",
+      "RoadmapStepDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-37",
+    "title": "AI 분석 결과 DB 캐싱, 프로필 변경 시 재분석",
+    "priority": "[권장]",
+    "area": "2-3. AI 분석 + 길 제시 ★ (프로젝트의 심장)",
+    "controllers": [],
+    "services": [
+      "ProfileService.java",
+      "RoadmapGenerator.java",
+      "RoadmapRefresher.java",
+      "RoadmapService.java"
+    ],
+    "daos": [
+      "GapAnalysisDao.java",
+      "RoadmapDao.java",
+      "UserDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "GapAnalysisDaoTest.java",
+      "ProfileServiceTest.java",
+      "RoadmapDaoTest.java",
+      "RoadmapServiceTest.java",
+      "UserDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-38",
+    "title": "\"아직 모르겠음\" 직무 발굴 방식 — ①간단 흥미·성향 설문 + ②보유 스펙·전공을 임베딩으로 역산, 둘을 AI가 종합해 후보 직무 제시",
+    "priority": "[필수]",
+    "area": "2-3. AI 분석 + 길 제시 ★ (프로젝트의 심장)",
+    "controllers": [
+      "JobDiscoveryServlet.java"
+    ],
+    "services": [
+      "JobDiscoveryScorer.java",
+      "JobDiscoveryService.java",
+      "MajorAffinity.java",
+      "RecommendationDescriber.java"
+    ],
+    "daos": [
+      "JobRecommendationDao.java",
+      "SurveyQuestionDao.java",
+      "UserSurveyAnswerDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "JobDiscoveryScorerTest.java",
+      "JobRecommendationDaoTest.java",
+      "MajorAffinityTest.java",
+      "RecommendationDescriberTest.java",
+      "SurveyQuestionDaoTest.java",
+      "UserSurveyAnswerDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-39",
+    "title": "발굴된 후보 중 하나를 선택하면 곧바로 격차 분석·로드맵 흐름으로 연결(막다른 길 방지)",
+    "priority": "[필수]",
+    "area": "2-3. AI 분석 + 길 제시 ★ (프로젝트의 심장)",
+    "controllers": [
+      "JobDiscoveryServlet.java"
+    ],
+    "services": [
+      "JobDiscoveryService.java"
+    ],
+    "daos": [
+      "JobRecommendationDao.java",
+      "UserDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "JobRecommendationDaoTest.java",
+      "UserDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-41",
+    "title": "스펙 완성도 점수를 게이지/차트로 시각화",
+    "priority": "[필수]",
+    "area": "2-4. 대시보드 / 시각화 (+ 여정 지도 + 데이터 인사이트)",
+    "controllers": [
+      "DashboardServlet.java"
+    ],
+    "services": [
+      "SpecScoreService.java"
+    ],
+    "daos": [
+      "SpecScoreHistoryDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "SpecScoreHistoryDaoTest.java",
+      "SpecScoreServiceTest.java"
+    ]
+  },
+  {
+    "id": "FR-42",
+    "title": "격차 분석을 충족/부족 비교표로 표시",
+    "priority": "[필수]",
+    "area": "2-4. 대시보드 / 시각화 (+ 여정 지도 + 데이터 인사이트)",
+    "controllers": [
+      "DashboardServlet.java",
+      "GapAnalysisServlet.java"
+    ],
+    "services": [
+      "GapAnalysisService.java"
+    ],
+    "daos": [
+      "GapAnalysisDao.java",
+      "GapAnalysisItemDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "GapAnalysisDaoTest.java",
+      "GapAnalysisItemDaoTest.java",
+      "GapAnalysisServiceTest.java"
+    ]
+  },
+  {
+    "id": "FR-43",
+    "title": "여정 지도 시각화 — 로드맵을 지도/항해도처럼(완료 단계·다음 목적지) 표현",
+    "priority": "[필수]",
+    "area": "2-4. 대시보드 / 시각화 (+ 여정 지도 + 데이터 인사이트)",
+    "controllers": [
+      "DashboardServlet.java"
+    ],
+    "services": [],
+    "daos": [],
+    "views": [],
+    "tests": []
+  },
+  {
+    "id": "FR-44",
+    "title": "직무 취업시장 트렌드(키워드·동향) 표시",
+    "priority": "[필수]",
+    "area": "2-4. 대시보드 / 시각화 (+ 여정 지도 + 데이터 인사이트)",
+    "controllers": [
+      "DashboardServlet.java"
+    ],
+    "services": [],
+    "daos": [],
+    "views": [],
+    "tests": []
+  },
+  {
+    "id": "FR-45",
+    "title": "데이터 인사이트 — 또래 비교 벤치마크(같은 전공·학년 평균 대비 내 위치)",
+    "priority": "[필수]",
+    "area": "2-4. 대시보드 / 시각화 (+ 여정 지도 + 데이터 인사이트)",
+    "controllers": [
+      "InsightsServlet.java"
+    ],
+    "services": [
+      "InsightService.java",
+      "MajorInfoCollector.java",
+      "SpecScoreService.java"
+    ],
+    "daos": [
+      "InsightDao.java",
+      "SpecScoreHistoryDao.java"
+    ],
+    "views": [
+      "insights.jsp"
+    ],
+    "tests": [
+      "InsightServiceTest.java",
+      "SpecScoreHistoryDaoTest.java",
+      "SpecScoreServiceTest.java"
+    ]
+  },
+  {
+    "id": "FR-46",
+    "title": "데이터 인사이트 — 직무별 합격자 스펙 역산(참고 루트)",
+    "priority": "[필수]",
+    "area": "2-4. 대시보드 / 시각화 (+ 여정 지도 + 데이터 인사이트)",
+    "controllers": [
+      "InsightsServlet.java"
+    ],
+    "services": [
+      "InsightService.java",
+      "JobBenchmarkSpecService.java"
+    ],
+    "daos": [
+      "JobBenchmarkSpecDao.java"
+    ],
+    "views": [
+      "insights.jsp"
+    ],
+    "tests": [
+      "InsightServiceTest.java",
+      "JobBenchmarkSpecDaoTest.java",
+      "JobBenchmarkSpecRetryTest.java",
+      "JobBenchmarkSpecServiceTest.java"
+    ]
+  },
+  {
+    "id": "FR-47",
+    "title": "데이터 인사이트 — 목표 직무 요구 기술의 시간별 변화 그래프",
+    "priority": "[필수]",
+    "area": "2-4. 대시보드 / 시각화 (+ 여정 지도 + 데이터 인사이트)",
+    "controllers": [
+      "AdminJobSkillTrendServlet.java",
+      "InsightsServlet.java"
+    ],
+    "services": [
+      "InsightService.java"
+    ],
+    "daos": [
+      "InsightDao.java",
+      "JobSkillTrendDao.java"
+    ],
+    "views": [
+      "insights.jsp"
+    ],
+    "tests": [
+      "InsightServiceTest.java",
+      "JobSkillTrendDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-48",
+    "title": "데이터 인사이트 — 부족 역량 약점 히트맵",
+    "priority": "[필수]",
+    "area": "2-4. 대시보드 / 시각화 (+ 여정 지도 + 데이터 인사이트)",
+    "controllers": [
+      "InsightsServlet.java"
+    ],
+    "services": [
+      "InsightService.java"
+    ],
+    "daos": [
+      "GapAnalysisItemDao.java",
+      "InsightDao.java"
+    ],
+    "views": [
+      "insights.jsp"
+    ],
+    "tests": [
+      "GapAnalysisItemDaoTest.java",
+      "InsightServiceTest.java"
+    ]
+  },
+  {
+    "id": "FR-51",
+    "title": "하루 단위로 코테 문제를 N개 제시(일일 미션)",
+    "priority": "[필수]",
+    "area": "2-5. 일일 미션 + 기술 학습 사이드바 ★ (여정을 매일 걷게 함)",
+    "controllers": [
+      "MissionProblemFilter.java",
+      "MissionServlet.java",
+      "SideWidgetFilter.java"
+    ],
+    "services": [
+      "DailyMissionService.java"
+    ],
+    "daos": [
+      "MissionDao.java",
+      "ProblemDao.java",
+      "UserDailyMissionDao.java"
+    ],
+    "views": [
+      "mission.jsp"
+    ],
+    "tests": [
+      "DailyMissionServiceTest.java",
+      "ProblemDaoTest.java",
+      "SideWidgetFilterTest.java",
+      "UserDailyMissionDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-52",
+    "title": "문제 난이도를 사용자의 현재 진행 수준에 맞춰 조정",
+    "priority": "[필수]",
+    "area": "2-5. 일일 미션 + 기술 학습 사이드바 ★ (여정을 매일 걷게 함)",
+    "controllers": [
+      "MissionProblemFilter.java",
+      "MissionServlet.java"
+    ],
+    "services": [
+      "DailyMissionService.java"
+    ],
+    "daos": [
+      "MissionDao.java",
+      "ProblemDao.java",
+      "UserDailyMissionDao.java"
+    ],
+    "views": [
+      "mission.jsp"
+    ],
+    "tests": [
+      "DailyMissionServiceTest.java",
+      "ProblemDaoTest.java",
+      "UserDailyMissionDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-53",
+    "title": "미션 완료 체크 → 연속 수행(스트릭)·진행도 기록",
+    "priority": "[필수]",
+    "area": "2-5. 일일 미션 + 기술 학습 사이드바 ★ (여정을 매일 걷게 함)",
+    "controllers": [
+      "MissionFailServlet.java",
+      "MissionProblemFilter.java",
+      "MissionServlet.java",
+      "MissionSubmitServlet.java"
+    ],
+    "services": [
+      "CodeCompileService.java",
+      "DailyMissionService.java",
+      "MissionStreakService.java",
+      "MissionSubmitService.java"
+    ],
+    "daos": [
+      "MissionDao.java",
+      "ProblemDao.java",
+      "UserDailyMissionDao.java"
+    ],
+    "views": [
+      "mission-submit.jsp",
+      "mission.jsp"
+    ],
+    "tests": [
+      "CodeCompileServiceTest.java",
+      "DailyMissionServiceTest.java",
+      "MissionStreakServiceTest.java",
+      "MissionSubmitServiceTest.java",
+      "ProblemDaoTest.java",
+      "UserDailyMissionDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-54",
+    "title": "우측 사이드바에 뉴스처럼 트렌드 기술 노출",
+    "priority": "[필수]",
+    "area": "2-5. 일일 미션 + 기술 학습 사이드바 ★ (여정을 매일 걷게 함)",
+    "controllers": [
+      "SideWidgetFilter.java"
+    ],
+    "services": [
+      "TrendCollectService.java",
+      "TrendLlmService.java",
+      "TrendSourceClient.java",
+      "TrendWidgetService.java"
+    ],
+    "daos": [
+      "TrendCollectDao.java",
+      "TrendTechDao.java"
+    ],
+    "views": [
+      "footer.jsp",
+      "trend-widget.jsp"
+    ],
+    "tests": [
+      "GroqRetryAfterClientTest.java",
+      "SideWidgetFilterTest.java",
+      "TrendCollectServiceTest.java",
+      "TrendLlmServiceTest.java",
+      "TrendTechDaoTest.java",
+      "TrendWidgetServiceTest.java"
+    ]
+  },
+  {
+    "id": "FR-55",
+    "title": "사이드바 기술을 사용자 직무와 연관지어 필터링(예: 시맨틱 구조 등)",
+    "priority": "[필수]",
+    "area": "2-5. 일일 미션 + 기술 학습 사이드바 ★ (여정을 매일 걷게 함)",
+    "controllers": [
+      "SideWidgetFilter.java"
+    ],
+    "services": [
+      "TrendCollectService.java",
+      "TrendLlmService.java",
+      "TrendSourceClient.java",
+      "TrendWidgetService.java"
+    ],
+    "daos": [
+      "TrendCollectDao.java",
+      "TrendTechJobDao.java"
+    ],
+    "views": [
+      "trend-widget.jsp"
+    ],
+    "tests": [
+      "SideWidgetFilterTest.java",
+      "TrendCollectServiceTest.java",
+      "TrendLlmServiceTest.java",
+      "TrendTechJobDaoTest.java",
+      "TrendWidgetServiceTest.java"
+    ]
+  },
+  {
+    "id": "FR-61",
+    "title": "프로젝트 관련 서류(파일)를 업로드·저장할 수 있어야 함",
+    "priority": "[권장]",
+    "area": "2-6. 서류 보관함",
+    "controllers": [
+      "DocumentsManageServlet.java"
+    ],
+    "services": [
+      "DocumentService.java"
+    ],
+    "daos": [
+      "DocumentDao.java",
+      "ProjectDocumentItemDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "DocumentDaoTest.java",
+      "DocumentServiceTest.java",
+      "FileStorageUtilTest.java"
+    ]
+  },
+  {
+    "id": "FR-62",
+    "title": "저장한 서류를 목록에서 조회·다운로드·삭제할 수 있어야 함",
+    "priority": "[권장]",
+    "area": "2-6. 서류 보관함",
+    "controllers": [
+      "DocumentDownloadServlet.java",
+      "DocumentsManageServlet.java",
+      "ProfileServlet.java"
+    ],
+    "services": [
+      "DocumentService.java"
+    ],
+    "daos": [
+      "DocumentDao.java",
+      "ProjectDocumentItemDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "DocumentDaoTest.java",
+      "DocumentServiceTest.java",
+      "FileStorageUtilTest.java"
+    ]
+  },
+  {
+    "id": "FR-63",
+    "title": "서류를 특정 프로젝트/경험과 연결지어 정리할 수 있어야 함",
+    "priority": "[선택]",
+    "area": "2-6. 서류 보관함",
+    "controllers": [
+      "DocumentsManageServlet.java"
+    ],
+    "services": [
+      "DocumentService.java"
+    ],
+    "daos": [
+      "DocumentDao.java",
+      "ProjectDocumentItemDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "DocumentDaoTest.java",
+      "DocumentServiceTest.java"
+    ]
+  },
+  {
+    "id": "FR-64",
+    "title": "(추후) 저장된 서류를 AI 챗봇이 읽어 답변에 활용 보류",
+    "priority": "[선택]",
+    "area": "2-6. 서류 보관함",
+    "controllers": [],
+    "services": [],
+    "daos": [
+      "DocumentDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "DocumentDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-71",
+    "title": "자격증 시험 접수일·공채 마감일 등을 D-day로 등록·표시",
+    "priority": "[권장]",
+    "area": "2-7. 알림 / D-day",
+    "controllers": [
+      "DdayServlet.java"
+    ],
+    "services": [
+      "DdayService.java"
+    ],
+    "daos": [
+      "CertScheduleDao.java",
+      "DdayAlertDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "CertScheduleDaoTest.java",
+      "DdayAlertDaoTest.java",
+      "DdayServiceTest.java"
+    ]
+  },
+  {
+    "id": "FR-72",
+    "title": "마감 임박 항목을 화면 상단/대시보드에 강조 노출",
+    "priority": "[권장]",
+    "area": "2-7. 알림 / D-day",
+    "controllers": [
+      "DdayBadgeFilter.java",
+      "DdayServlet.java"
+    ],
+    "services": [
+      "DdayService.java"
+    ],
+    "daos": [
+      "DdayAlertDao.java"
+    ],
+    "views": [
+      "dday.jsp"
+    ],
+    "tests": [
+      "DdayAlertDaoTest.java",
+      "DdayServiceTest.java"
+    ]
+  },
+  {
+    "id": "FR-73",
+    "title": "(심화) 이메일 등으로 마감 알림 발송",
+    "priority": "[선택]",
+    "area": "2-7. 알림 / D-day",
+    "controllers": [
+      "DdayServlet.java"
+    ],
+    "services": [],
+    "daos": [],
+    "views": [],
+    "tests": []
+  },
+  {
+    "id": "FR-81",
+    "title": "지원자 이력(전공→자격증→프로젝트→경험)을 시간순 타임라인으로 표시",
+    "priority": "[필수]",
+    "area": "2-8. 면접관 / 평가 뷰",
+    "controllers": [
+      "ShareDocumentServlet.java",
+      "ShareViewServlet.java"
+    ],
+    "services": [
+      "ShareViewService.java",
+      "SpecScoreService.java"
+    ],
+    "daos": [
+      "ActivityDao.java",
+      "UserSpecDao.java"
+    ],
+    "views": [
+      "interviewer-view.jsp"
+    ],
+    "tests": [
+      "ShareViewServiceTest.java",
+      "SpecScoreServiceTest.java",
+      "UserSpecDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-82",
+    "title": "여러 지원자를 나란히 놓고 비교하는 뷰",
+    "priority": "[필수]",
+    "area": "2-8. 면접관 / 평가 뷰",
+    "controllers": [
+      "InterviewerServlet.java",
+      "ShareViewServlet.java"
+    ],
+    "services": [
+      "CompareExcelExporter.java",
+      "CompareSort.java",
+      "InterviewerService.java"
+    ],
+    "daos": [
+      "EvaluationSessionDao.java",
+      "EvaluationSessionItemDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "CompareExcelExporterTest.java",
+      "CompareSortTest.java",
+      "EvaluationSessionDaoTest.java",
+      "EvaluationSessionItemDaoTest.java",
+      "InterviewerServiceTest.java"
+    ]
+  },
+  {
+    "id": "FR-83",
+    "title": "회사 요구사항 입력 시 지원자별 적합도 자동 스코어링",
+    "priority": "[권장]",
+    "area": "2-8. 면접관 / 평가 뷰",
+    "controllers": [
+      "InterviewerServlet.java",
+      "ShareViewServlet.java"
+    ],
+    "services": [
+      "CompareExcelExporter.java",
+      "InterviewerService.java"
+    ],
+    "daos": [
+      "EvaluationCriteriaDao.java"
+    ],
+    "views": [
+      "interviewer-compare.jsp"
+    ],
+    "tests": [
+      "CompareExcelExporterTest.java",
+      "EvaluationCriteriaDaoTest.java",
+      "InterviewerServiceTest.java"
+    ]
+  },
+  {
+    "id": "FR-84",
+    "title": "성장 잠재력 지표(최근 스펙을 얼마나 빠르게 쌓았는지) 제공",
+    "priority": "[선택]",
+    "area": "2-8. 면접관 / 평가 뷰",
+    "controllers": [
+      "ShareViewServlet.java"
+    ],
+    "services": [
+      "InterviewerService.java",
+      "ShareViewService.java",
+      "SpecScoreService.java"
+    ],
+    "daos": [
+      "SpecScoreHistoryDao.java"
+    ],
+    "views": [
+      "interviewer-view.jsp"
+    ],
+    "tests": [
+      "InterviewerServiceTest.java",
+      "ShareViewServiceTest.java",
+      "SpecScoreHistoryDaoTest.java",
+      "SpecScoreServiceTest.java"
+    ]
+  },
+  {
+    "id": "FR-85",
+    "title": "면접관 접근은 공유 링크 방식 — 지원자가 발급한 비공개 링크로만 이력을 읽기 전용으로 열람(면접관 검색·직접 조회 없음)",
+    "priority": "[필수]",
+    "area": "2-8. 면접관 / 평가 뷰",
+    "controllers": [
+      "SessionFilter.java",
+      "ShareDocumentServlet.java",
+      "ShareLinksServlet.java",
+      "ShareViewServlet.java"
+    ],
+    "services": [
+      "InterviewerService.java",
+      "ShareLinkService.java",
+      "ShareViewService.java"
+    ],
+    "daos": [
+      "ShareLinkDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "InterviewerServiceTest.java",
+      "ShareLinkDaoTest.java",
+      "ShareLinkServiceTest.java",
+      "ShareViewServiceTest.java"
+    ]
+  },
+  {
+    "id": "FR-86",
+    "title": "지원자가 공유 링크를 만료·비활성화할 수 있어야 함(언제든 공유 중단)",
+    "priority": "[권장]",
+    "area": "2-8. 면접관 / 평가 뷰",
+    "controllers": [
+      "ShareLinksServlet.java",
+      "ShareViewServlet.java"
+    ],
+    "services": [
+      "InterviewerService.java",
+      "ShareLinkService.java"
+    ],
+    "daos": [
+      "ShareLinkDao.java"
+    ],
+    "views": [],
+    "tests": [
+      "InterviewerServiceTest.java",
+      "ShareLinkDaoTest.java",
+      "ShareLinkServiceTest.java"
+    ]
+  },
+  {
+    "id": "FR-91",
+    "title": "자소서/이력서 텍스트에 AI 피드백 제공",
+    "priority": "[권장]",
+    "area": "2-9. 이력서/자소서 첨삭 + 최신정보",
+    "controllers": [
+      "ResumeFeedbackServlet.java"
+    ],
+    "services": [
+      "ResumeFeedbackService.java"
+    ],
+    "daos": [],
+    "views": [
+      "resume-feedback.jsp"
+    ],
+    "tests": [
+      "ResumeFeedbackServiceTest.java"
+    ]
+  },
+  {
+    "id": "FR-92",
+    "title": "최신 채용 트렌드/키워드를 반영한 첨삭",
+    "priority": "[선택]",
+    "area": "2-9. 이력서/자소서 첨삭 + 최신정보",
+    "controllers": [
+      "ResumeFeedbackServlet.java"
+    ],
+    "services": [
+      "ResumeFeedbackService.java"
+    ],
+    "daos": [],
+    "views": [
+      "resume-feedback.jsp"
+    ],
+    "tests": [
+      "ResumeFeedbackServiceTest.java"
+    ]
+  },
+  {
+    "id": "FR-101",
+    "title": "사용자가 직접 제출한 AI 사용 기록으로 활용 스타일 프로파일링",
+    "priority": "[선택]",
+    "area": "2-10. AI 활용 역량 리포트",
+    "controllers": [
+      "ProfileAiUsageServlet.java",
+      "ProfileServlet.java"
+    ],
+    "services": [
+      "AiUsageLogService.java"
+    ],
+    "daos": [
+      "AiUsageLogDao.java"
+    ],
+    "views": [
+      "_ai-usage.jspf"
+    ],
+    "tests": [
+      "AiUsageLogDaoTest.java",
+      "AiUsageLogServiceTest.java"
+    ]
+  },
+  {
+    "id": "FR-102",
+    "title": "긍정적 강점(AI 리터러시)으로 표현, 공유 여부는 본인 선택",
+    "priority": "[선택]",
+    "area": "2-10. AI 활용 역량 리포트",
+    "controllers": [
+      "ProfileServlet.java"
+    ],
+    "services": [],
+    "daos": [
+      "AiUsageLogDao.java"
+    ],
+    "views": [
+      "_ai-usage.jspf"
+    ],
+    "tests": [
+      "AiUsageLogDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-111",
+    "title": "AI API 실패 대응 — 응답 실패·지연 시 오류 메시지 + 재시도 버튼 제공, 가능하면 직전 캐싱 결과로 대체 표시",
+    "priority": "[필수]",
+    "area": "2-11. 예외 처리 / 빈 상태 / 온보딩",
+    "controllers": [
+      "AiNoticeFilter.java",
+      "AiRetryServlet.java",
+      "GapAnalysisServlet.java",
+      "InsightsServlet.java"
+    ],
+    "services": [
+      "CachingLlmClient.java",
+      "DutyInfoCollector.java",
+      "GapAnalysisService.java",
+      "JobBenchmarkSpecService.java",
+      "JobDiscoveryService.java",
+      "LlmResult.java",
+      "MajorAffinity.java",
+      "ProjectIdeaRetryService.java",
+      "ProjectIdeaService.java",
+      "RecommendationDescriber.java",
+      "RoadmapGenerator.java",
+      "RoadmapRefresher.java",
+      "RoadmapService.java",
+      "SkillDeepenService.java",
+      "Work24Cache.java",
+      "Work24CollectService.java"
+    ],
+    "daos": [
+      "ExternalApiCacheDao.java",
+      "RoadmapStepDao.java"
+    ],
+    "views": [
+      "gap-analysis.jsp",
+      "header.jsp",
+      "insights.jsp"
+    ],
+    "tests": [
+      "AiNoticeFilterTest.java",
+      "AiNoticesTest.java",
+      "CachingLlmClientTest.java",
+      "ExternalApiCacheDaoTest.java",
+      "ExternalApiClientTest.java",
+      "GapAnalysisServiceTest.java",
+      "GroqLlmClientTest.java",
+      "JobBenchmarkSpecRetryTest.java",
+      "JobBenchmarkSpecServiceTest.java",
+      "LlmRetryPolicyTest.java",
+      "MajorAffinityTest.java",
+      "ProjectIdeaServiceTest.java",
+      "RecommendationDescriberTest.java",
+      "RoadmapServiceTest.java",
+      "RoadmapStepDaoTest.java",
+      "StubLlmClientTest.java"
+    ]
+  },
+  {
+    "id": "FR-112",
+    "title": "외부 데이터(워크넷 등) 조회 실패 대응 — API 장애 시 캐싱된 기존 데이터로 대체, 없으면 \"일시적으로 불러올 수 없음\" 안내",
+    "priority": "[필수]",
+    "area": "2-11. 예외 처리 / 빈 상태 / 온보딩",
+    "controllers": [
+      "GapAnalysisServlet.java",
+      "ResumeFeedbackServlet.java"
+    ],
+    "services": [
+      "CachingLlmClient.java",
+      "GapAnalysisService.java",
+      "ResumeFeedbackService.java",
+      "Work24Cache.java"
+    ],
+    "daos": [
+      "ExternalApiCacheDao.java"
+    ],
+    "views": [
+      "resume-feedback.jsp"
+    ],
+    "tests": [
+      "CachingLlmClientTest.java",
+      "ExternalApiCacheDaoTest.java",
+      "ExternalApiClientTest.java",
+      "GapAnalysisServiceTest.java",
+      "ResumeFeedbackServiceTest.java"
+    ]
+  },
+  {
+    "id": "FR-113",
+    "title": "데이터 없는 직무 처리 — On-demand 조회 결과 공고 0건이면 LLM 일반화 요구스펙으로 보완(\"예시적 추정\" 명시)",
+    "priority": "[권장]",
+    "area": "2-11. 예외 처리 / 빈 상태 / 온보딩",
+    "controllers": [
+      "GapAnalysisServlet.java"
+    ],
+    "services": [
+      "DutyInfoCollector.java",
+      "GapAnalysisService.java"
+    ],
+    "daos": [
+      "JobPostingDao.java"
+    ],
+    "views": [
+      "gap-analysis.jsp"
+    ],
+    "tests": [
+      "GapAnalysisRequirementSourceTest.java",
+      "GapAnalysisServiceTest.java",
+      "JobPostingDaoTest.java"
+    ]
+  },
+  {
+    "id": "FR-114",
+    "title": "빈 상태(empty state) — 갓 가입해 입력이 없는 사용자에게 \"먼저 프로필을 채워보세요\" 등 다음 행동 안내",
+    "priority": "[권장]",
+    "area": "2-11. 예외 처리 / 빈 상태 / 온보딩",
+    "controllers": [],
+    "services": [],
+    "daos": [],
+    "views": [],
+    "tests": []
+  },
+  {
+    "id": "FR-115",
+    "title": "온보딩 — 첫 진입 시 서비스 흐름(진단→길 제시→미션)을 간단히 소개",
+    "priority": "[선택]",
+    "area": "2-11. 예외 처리 / 빈 상태 / 온보딩",
+    "controllers": [],
+    "services": [],
+    "daos": [],
+    "views": [],
+    "tests": []
+  }
+]
