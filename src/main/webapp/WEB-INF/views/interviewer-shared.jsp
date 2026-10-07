@@ -80,11 +80,12 @@
                                 <button type="submit" class="link-button">목록에서 빼기</button>
                             </form>
                         </div>
-                        <%-- 내 검토 기록: 상태 · 평점 · 메모 (지원자에게는 보이지 않는다) --%>
-                        <details style="margin-top:8px;" ${not empty applicant.memo or not empty applicant.rating ? 'open' : ''}>
+                        <%-- 내 검토 기록: 상태 · 평점 · 메모 (지원자에게는 보이지 않는다). 기본은 닫힘 — 메모가 있으면 요약 줄에 표시만 --%>
+                        <details style="margin-top:8px;">
                             <summary style="cursor:pointer;">
                                 내 검토 · <strong><c:out value="${applicant.reviewStatusLabel}" /></strong>
                                 <c:if test="${not empty applicant.rating}"> · 평점 ${applicant.rating}/5</c:if>
+                                <c:if test="${not empty applicant.memo}"> · <span class="muted">메모 있음</span></c:if>
                             </summary>
                             <form method="post" action="${pageContext.request.contextPath}/interviewer/shared" style="margin-top:8px;">
                                 <input type="hidden" name="_csrf" value="${csrfToken}">
