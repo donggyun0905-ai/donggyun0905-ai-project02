@@ -2,8 +2,8 @@ package com.specodyssey.controller;
 
 import com.specodyssey.dao.JobDao;
 import com.specodyssey.dto.UserDto;
+import com.specodyssey.service.AdminAuditService;
 import com.specodyssey.service.AdminUserService;
-import com.specodyssey.util.AdminAccess;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -26,11 +26,12 @@ public class AdminUserServlet extends HttpServlet {
     static final String ERROR_KEY = "adminError";
 
     private final AdminUserService adminUserService = new AdminUserService();
+    private final AdminAuditService auditService = new AdminAuditService();
     private final JobDao jobDao = new JobDao();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        if (!isAdmin(req)) {
+        if (!AdminSession.isAdmin(req)) {
             resp.sendError(HttpServletResponse.SC_FORBIDDEN, "관리자 전용 화면입니다.");
             return;
         }
@@ -64,7 +65,7 @@ public class AdminUserServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        if (!isAdmin(req)) {
+        if (!AdminSession.isAdmin(req)) {
             resp.sendError(HttpServletResponse.SC_FORBIDDEN, "관리자 전용 화면입니다.");
             return;
         }
@@ -79,15 +80,26 @@ public class AdminUserServlet extends HttpServlet {
                         blankToNull(req.getParameter("email")), blankToNull(req.getParameter("major")),
                         blankToNull(req.getParameter("grade")), blankToNull(req.getParameter("interestField")),
                         parseLong(req.getParameter("desiredJobId")), blankToNull(req.getParameter("desiredJobStatus")));
+                auditService.record(AdminSession.loginUser(req), AdminAuditService.USER_PROFILE_UPDATE,
+                        "USERS", userId, null);
                 session.setAttribute(MESSAGE_KEY, "프로필을 저장했습니다.");
             } else if ("resetPassword".equals(action)) {
                 adminUserService.resetPassword(userId, req.getParameter("newPassword"));
+                // 새 비밀번호는 기록하지 않는다 — 감사 로그는 관리자만 보지만 평문을 남길 이유가 없다
+                auditService.record(AdminSession.loginUser(req), AdminAuditService.USER_PASSWORD_RESET,
+                        "USERS", userId, null);
                 session.setAttribute(MESSAGE_KEY, "비밀번호를 재설정했습니다. 당사자에게 새 비밀번호를 안전하게 전달해주세요.");
             } else if ("softDelete".equals(action)) {
                 adminUserService.softDelete(userId);
+                auditService.record(AdminSession.loginUser(req), AdminAuditService.USER_SOFT_DELETE,
+                        "USERS", userId, null);
                 session.setAttribute(MESSAGE_KEY, "탈퇴 처리했습니다.");
             } else if ("cancelWithdrawal".equals(action)) {
                 boolean cancelled = adminUserService.cancelWithdrawal(userId);
+                if (cancelled) {
+                    auditService.record(AdminSession.loginUser(req), AdminAuditService.USER_WITHDRAWAL_CANCEL,
+                            "USERS", userId, null);
+                }
                 session.setAttribute(MESSAGE_KEY, cancelled ? "탈퇴를 취소했습니다." : "유예 기간이 지나 취소할 수 없습니다.");
             } else {
                 resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "잘못된 요청입니다.");
@@ -123,9 +135,4 @@ public class AdminUserServlet extends HttpServlet {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
-    private static boolean isAdmin(HttpServletRequest req) {
-        HttpSession session = req.getSession(false);
-        UserDto user = session == null ? null : (UserDto) session.getAttribute("loginUser");
-        return AdminAccess.isAdmin(user);
-    }
 }

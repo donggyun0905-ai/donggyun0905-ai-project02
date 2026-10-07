@@ -51,7 +51,7 @@ docs/
 sql/
   ├── 01~03    스키마 (03 = 확장 스키마, 점수 규칙·게시판 테이블 포함)
   ├── 04~11    시드 데이터 (직무·기술·자격증·설문·기술 별칭·점수 규칙 기본값)
-  ├── 12~27    이미 만든 DB에 덧붙이는 변경(ALTER·데이터 보정) — 아래 "이미 DB가 있다면" 참고
+  ├── 12~29    이미 만든 DB에 덧붙이는 변경(ALTER·데이터 보정) — 아래 "이미 DB가 있다면" 참고
   │            (19_seed_skill_alias_more·23_seed_certification_common은 새 DB에도 필요한 시드)
   └── do-not-run/   ⚠ 실행 금지(모든 데이터를 지우는 스냅샷, 약한 비밀번호의 테스트 계정 시드)
 ```
@@ -92,7 +92,8 @@ done
 `24_schema_notification`(헤더 알림 — 새 DB도 실행. 없으면 알림 버튼만 안 보이고 나머지는 동작) ·
 `26_alter_users_is_test_simulation`(테스트 계정 표시 + 시뮬레이션 진행 상태 — 01·03에도 반영돼 새 DB에서는 불필요. 맨 아래 UPDATE가 테스트용 아이디들을 `is_test = TRUE`로 표시하는데, 그 계정은 시뮬레이션 초기화로 **물리 삭제**될 수 있으니 실제로 쓰는 계정이 섞였는지 먼저 확인) ·
 `27_alter_simulation_target_score`(시뮬레이션을 "70일 고정"에서 "목표 점수에 닿을 때까지"로) ·
-`28_alter_share_link_scope_age`(공유 링크 나이 공개 — **없으면 공유 링크·면접관 화면이 `Unknown column 'scope_age'` 오류**).
+`28_alter_share_link_scope_age`(공유 링크 나이 공개 — **없으면 공유 링크·면접관 화면이 `Unknown column 'scope_age'` 오류**) ·
+`29_schema_admin_audit_log`(관리자 감사 로그 — 새 DB도 실행. 없으면 관리자 화면에서 바꿀 때 기록이 안 남고 감사 로그 탭이 오류).
 > 25번은 없습니다 — 알림(seongwon)과 시뮬레이션(donghyeon)의 번호가 24로 겹쳐 시뮬레이션 쪽을 26·27로 옮겼습니다.
 > 나이 공개(seongwon)도 원래 22번이었는데 로드맵 이모지 정리와 겹쳐 28번으로 옮겼습니다.
 `05_seed_survey`도 다시 실행하면 새 문항(18문항 중 없는 것)만 추가됩니다(같은 문구는 건너뜀).

@@ -1,4 +1,4 @@
-<%-- 관리자 화면 위쪽 탭 — adminTab: rules / trend / articles / users / roadmap / reference --%>
+<%-- 관리자 화면 위쪽 탭 — adminTab: rules / trend / articles / users / roadmap / reference / audit --%>
 <nav class="admin-tabs">
     <a href="${pageContext.request.contextPath}/admin" class="${adminTab == 'rules' ? 'active' : ''}"><span class="ic ic-sliders" aria-hidden="true"></span> 점수·주기 규칙</a>
     <a href="${pageContext.request.contextPath}/admin/job-skill-trend" class="${adminTab == 'trend' ? 'active' : ''}"><span class="ic ic-trending-up" aria-hidden="true"></span> 직무 기술 트렌드 재집계</a>
@@ -6,6 +6,7 @@
     <a href="${pageContext.request.contextPath}/admin/users" class="${adminTab == 'users' ? 'active' : ''}">회원 관리</a>
     <a href="${pageContext.request.contextPath}/admin/roadmap" class="${adminTab == 'roadmap' ? 'active' : ''}">로드맵 수정</a>
     <a href="${pageContext.request.contextPath}/admin/reference" class="${adminTab == 'reference' ? 'active' : ''}">기준 데이터</a>
+    <a href="${pageContext.request.contextPath}/admin/audit" class="${adminTab == 'audit' ? 'active' : ''}">감사 로그</a>
 </nav>
 <style>
     .admin-tabs { display: flex; gap: 8px; margin: 4px 0 18px; flex-wrap: wrap; }

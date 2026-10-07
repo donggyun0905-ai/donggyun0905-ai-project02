@@ -1,8 +1,6 @@
 package com.specodyssey.controller;
 
-import com.specodyssey.dto.UserDto;
 import com.specodyssey.service.ScoringRuleAdminService;
-import com.specodyssey.util.AdminAccess;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -31,7 +29,7 @@ public class AdminServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        if (!isAdmin(req)) {
+        if (!AdminSession.isAdmin(req)) {
             resp.sendError(HttpServletResponse.SC_FORBIDDEN, "관리자 전용 화면입니다.");
             return;
         }
@@ -54,7 +52,7 @@ public class AdminServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        if (!isAdmin(req)) {
+        if (!AdminSession.isAdmin(req)) {
             resp.sendError(HttpServletResponse.SC_FORBIDDEN, "관리자 전용 화면입니다.");
             return;
         }
@@ -76,9 +74,4 @@ public class AdminServlet extends HttpServlet {
         resp.sendRedirect(req.getContextPath() + "/admin");
     }
 
-    private static boolean isAdmin(HttpServletRequest req) {
-        HttpSession session = req.getSession(false);
-        UserDto user = session == null ? null : (UserDto) session.getAttribute("loginUser");
-        return AdminAccess.isAdmin(user);
-    }
 }

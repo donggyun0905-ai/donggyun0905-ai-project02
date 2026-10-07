@@ -8,8 +8,8 @@ import com.specodyssey.dto.RoadmapDto;
 import com.specodyssey.dto.RoadmapStepDto;
 import com.specodyssey.dto.SkillDto;
 import com.specodyssey.dto.UserDto;
+import com.specodyssey.service.AdminAuditService;
 import com.specodyssey.service.AdminRoadmapService;
-import com.specodyssey.util.AdminAccess;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -34,13 +34,14 @@ public class AdminRoadmapServlet extends HttpServlet {
     static final String ERROR_KEY = "adminError";
 
     private final AdminRoadmapService adminRoadmapService = new AdminRoadmapService();
+    private final AdminAuditService auditService = new AdminAuditService();
     private final SkillDao skillDao = new SkillDao();
     private final CertificationDao certificationDao = new CertificationDao();
     private final UserDao userDao = new UserDao();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        if (!isAdmin(req)) {
+        if (!AdminSession.isAdmin(req)) {
             resp.sendError(HttpServletResponse.SC_FORBIDDEN, "관리자 전용 화면입니다.");
             return;
         }
@@ -66,7 +67,7 @@ public class AdminRoadmapServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        if (!isAdmin(req)) {
+        if (!AdminSession.isAdmin(req)) {
             resp.sendError(HttpServletResponse.SC_FORBIDDEN, "관리자 전용 화면입니다.");
             return;
         }
@@ -78,12 +79,18 @@ public class AdminRoadmapServlet extends HttpServlet {
             Long stepId = Long.valueOf(req.getParameter("stepId"));
             if ("complete".equals(action)) {
                 adminRoadmapService.setCompleted(stepId, userId, true);
+                auditService.record(AdminSession.loginUser(req), AdminAuditService.ROADMAP_STEP_COMPLETE,
+                        "ROADMAP_STEP", stepId, "대상 회원 id " + userId);
                 session.setAttribute(MESSAGE_KEY, "완료로 바꿨습니다(점수는 변경되지 않습니다).");
             } else if ("uncomplete".equals(action)) {
                 adminRoadmapService.setCompleted(stepId, userId, false);
+                auditService.record(AdminSession.loginUser(req), AdminAuditService.ROADMAP_STEP_UNCOMPLETE,
+                        "ROADMAP_STEP", stepId, "대상 회원 id " + userId);
                 session.setAttribute(MESSAGE_KEY, "미완료로 바꿨습니다(점수는 변경되지 않습니다).");
             } else if ("delete".equals(action)) {
                 adminRoadmapService.deleteIncompleteStep(stepId, userId);
+                auditService.record(AdminSession.loginUser(req), AdminAuditService.ROADMAP_STEP_DELETE,
+                        "ROADMAP_STEP", stepId, "대상 회원 id " + userId);
                 session.setAttribute(MESSAGE_KEY, "단계를 지웠습니다.");
             } else {
                 resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "잘못된 요청입니다.");
@@ -133,9 +140,4 @@ public class AdminRoadmapServlet extends HttpServlet {
         return labels;
     }
 
-    private static boolean isAdmin(HttpServletRequest req) {
-        HttpSession session = req.getSession(false);
-        UserDto user = session == null ? null : (UserDto) session.getAttribute("loginUser");
-        return AdminAccess.isAdmin(user);
-    }
 }

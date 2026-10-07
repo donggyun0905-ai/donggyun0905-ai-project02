@@ -1,6 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
 <c:set var="pageTitle" value="관리자 · 게시판 관리 - 스펙 오디세이" scope="request" />
 <c:set var="mainWide" value="true" scope="request" />
 <c:set var="adminTab" value="articles" />
@@ -34,7 +33,7 @@
                         <td><c:out value="${report.reporterName}" /></td>
                         <td><c:out value="${report.reasonType}" /></td>
                         <td class="muted"><c:out value="${report.detail}" default="—" /></td>
-                        <td class="muted"><fmt:formatDate value="${report.createdAt}" pattern="yyyy-MM-dd" /></td>
+                        <td class="muted"><c:out value="${report.createdAtText}" /></td>
                         <td style="white-space:nowrap;">
                             <form method="post" action="${pageContext.request.contextPath}/admin/articles" class="inline-form"
                                   onsubmit="return confirm('이 글을 내릴까요?');">
@@ -88,7 +87,7 @@
                                 <div class="muted" style="font-size:0.78rem; margin-top:2px;"><c:out value="${article.hiddenReason}" /></div>
                             </c:if>
                         </td>
-                        <td class="muted"><fmt:formatDate value="${article.createdAt}" pattern="yyyy-MM-dd" /></td>
+                        <td class="muted"><c:out value="${article.createdAtText}" /></td>
                         <td class="muted"><c:out value="${article.viewCount}" /> · <c:out value="${article.likeCount}" /></td>
                         <td style="white-space:nowrap;">
                             <c:choose>

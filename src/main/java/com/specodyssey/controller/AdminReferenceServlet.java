@@ -2,9 +2,8 @@ package com.specodyssey.controller;
 
 import com.specodyssey.dao.JobDao;
 import com.specodyssey.dao.SkillDao;
-import com.specodyssey.dto.UserDto;
+import com.specodyssey.service.AdminAuditService;
 import com.specodyssey.service.AdminReferenceService;
-import com.specodyssey.util.AdminAccess;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -28,12 +27,13 @@ public class AdminReferenceServlet extends HttpServlet {
     private static final String DEFAULT_TAB = "jobs";
 
     private final AdminReferenceService referenceService = new AdminReferenceService();
+    private final AdminAuditService auditService = new AdminAuditService();
     private final SkillDao skillDao = new SkillDao();
     private final JobDao jobDao = new JobDao();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        if (!isAdmin(req)) {
+        if (!AdminSession.isAdmin(req)) {
             resp.sendError(HttpServletResponse.SC_FORBIDDEN, "관리자 전용 화면입니다.");
             return;
         }
@@ -78,7 +78,7 @@ public class AdminReferenceServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        if (!isAdmin(req)) {
+        if (!AdminSession.isAdmin(req)) {
             resp.sendError(HttpServletResponse.SC_FORBIDDEN, "관리자 전용 화면입니다.");
             return;
         }
@@ -88,6 +88,11 @@ public class AdminReferenceServlet extends HttpServlet {
         String tab = req.getParameter("tab");
         try {
             handle(req, action);
+            // 기준 데이터는 액션 종류가 많아 action 이름을 detail에 적어 어느 표를 고쳤는지 남긴다
+            auditService.record(AdminSession.loginUser(req),
+                    action != null && action.startsWith("delete")
+                            ? AdminAuditService.REFERENCE_DELETE : AdminAuditService.REFERENCE_SAVE,
+                    "REFERENCE", null, "탭 " + req.getParameter("tab") + " · " + action);
             session.setAttribute(MESSAGE_KEY, "저장했습니다.");
         } catch (IllegalArgumentException e) {
             session.setAttribute(ERROR_KEY, e.getMessage());
@@ -143,9 +148,4 @@ public class AdminReferenceServlet extends HttpServlet {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
-    private static boolean isAdmin(HttpServletRequest req) {
-        HttpSession session = req.getSession(false);
-        UserDto user = session == null ? null : (UserDto) session.getAttribute("loginUser");
-        return AdminAccess.isAdmin(user);
-    }
 }

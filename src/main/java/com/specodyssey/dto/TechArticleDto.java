@@ -1,9 +1,13 @@
 package com.specodyssey.dto;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 /** TECH_ARTICLE 한 행. authorName·authorTitle은 조회할 때 USERS·LEVEL_TIER에서 JOIN해 채우는 표시용 값이다. */
 public class TechArticleDto {
+
+    // JSTL의 fmt:formatDate는 java.util.Date만 받는다 — 화면에 쓸 문구는 여기서 만든다
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     private Long id;
     private Long userId;
@@ -194,5 +198,10 @@ public class TechArticleDto {
 
     public void setPreviewText(String previewText) {
         this.previewText = previewText;
+    }
+
+    /** 화면 표시용 — JSP는 이 문자열을 그대로 쓴다. */
+    public String getCreatedAtText() {
+        return createdAt == null ? "" : createdAt.format(DATE_FORMAT);
     }
 }

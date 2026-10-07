@@ -1,8 +1,7 @@
 package com.specodyssey.controller;
 
-import com.specodyssey.dto.UserDto;
+import com.specodyssey.service.AdminAuditService;
 import com.specodyssey.service.AdminArticleService;
-import com.specodyssey.util.AdminAccess;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -25,10 +24,11 @@ public class AdminArticleServlet extends HttpServlet {
     static final String ERROR_KEY = "adminError";
 
     private final AdminArticleService adminArticleService = new AdminArticleService();
+    private final AdminAuditService auditService = new AdminAuditService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        if (!isAdmin(req)) {
+        if (!AdminSession.isAdmin(req)) {
             resp.sendError(HttpServletResponse.SC_FORBIDDEN, "관리자 전용 화면입니다.");
             return;
         }
@@ -59,7 +59,7 @@ public class AdminArticleServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        if (!isAdmin(req)) {
+        if (!AdminSession.isAdmin(req)) {
             resp.sendError(HttpServletResponse.SC_FORBIDDEN, "관리자 전용 화면입니다.");
             return;
         }
@@ -69,14 +69,18 @@ public class AdminArticleServlet extends HttpServlet {
             if ("hide".equals(action)) {
                 Long articleId = Long.valueOf(req.getParameter("articleId"));
                 adminArticleService.hideArticle(articleId, req.getParameter("reason"));
+                auditService.record(AdminSession.loginUser(req), AdminAuditService.ARTICLE_HIDE, "TECH_ARTICLE", articleId,
+                        "사유: " + req.getParameter("reason"));
                 session.setAttribute(MESSAGE_KEY, "글을 내렸습니다.");
             } else if ("restore".equals(action)) {
                 Long articleId = Long.valueOf(req.getParameter("articleId"));
                 adminArticleService.restoreArticle(articleId);
+                auditService.record(AdminSession.loginUser(req), AdminAuditService.ARTICLE_RESTORE, "TECH_ARTICLE", articleId, null);
                 session.setAttribute(MESSAGE_KEY, "글을 다시 공개했습니다.");
             } else if ("dismissReport".equals(action)) {
                 Long reportId = Long.valueOf(req.getParameter("reportId"));
                 adminArticleService.dismissReport(reportId);
+                auditService.record(AdminSession.loginUser(req), AdminAuditService.REPORT_DISMISS, "TECH_ARTICLE_REPORT", reportId, null);
                 session.setAttribute(MESSAGE_KEY, "신고를 기각했습니다.");
             } else {
                 resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "잘못된 요청입니다.");
@@ -99,9 +103,4 @@ public class AdminArticleServlet extends HttpServlet {
         }
     }
 
-    private static boolean isAdmin(HttpServletRequest req) {
-        HttpSession session = req.getSession(false);
-        UserDto user = session == null ? null : (UserDto) session.getAttribute("loginUser");
-        return AdminAccess.isAdmin(user);
-    }
 }

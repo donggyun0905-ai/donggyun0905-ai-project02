@@ -1,9 +1,14 @@
 package com.specodyssey.dto;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 /** TECH_ARTICLE_REPORT 한 행. articleTitle·reporterName은 조회할 때 JOIN해 채우는 표시용 값이다. */
 public class TechArticleReportDto {
+
+    // JSTL의 fmt:formatDate는 java.util.Date만 받아서 LocalDateTime을 넘기면 화면이 터진다 —
+    // 화면에 쓸 문구는 여기서 만들어 준다(NotificationDto와 같은 방식).
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     public static final String STATUS_OPEN = "OPEN";
     public static final String STATUS_ACTION_TAKEN = "ACTION_TAKEN";
@@ -108,5 +113,10 @@ public class TechArticleReportDto {
 
     public void setReporterName(String reporterName) {
         this.reporterName = reporterName;
+    }
+
+    /** 화면 표시용 — JSP는 이 문자열을 그대로 쓴다. */
+    public String getCreatedAtText() {
+        return createdAt == null ? "" : createdAt.format(DATE_FORMAT);
     }
 }
