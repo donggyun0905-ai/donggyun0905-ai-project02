@@ -1,0 +1,25 @@
+<%-- 데스크톱 캐릭터 — 바탕화면에서 할 일을 알려 주는 캐릭터(exe) 켜기·연결된 PC 관리 (docs/desktop-companion-plan.md).
+     버튼은 js/companion.js가 처리한다: 일회용 코드를 받아 specodyssey:// 로 캐릭터를 켜고, 안 열리면 내려받기를 묻는다. --%>
+<h2 id="companion" style="margin-top:24px; margin-bottom:10px;">데스크톱 캐릭터</h2>
+<div class="card companion-card" id="companionCard"
+     data-base="${pageContext.request.contextPath}" data-csrf="${csrfToken}">
+    <p class="muted" style="margin-top:0;">바탕화면 구석에서 오늘 할 일·알림을 말풍선으로 알려 주는 캐릭터예요. 윈도우 PC에서 쓸 수 있어요.</p>
+    <button type="button" class="btn" id="companionLaunch">캐릭터 켜기</button>
+    <div class="companion-ask" id="companionAsk" hidden>
+        <p><strong>캐릭터 프로그램이 아직 설치되지 않은 것 같아요.</strong> 내려받을까요?</p>
+        <p class="muted">내려받은 압축 파일을 풀고 <code>SpecOdysseyCompanion.exe</code>를 한 번 실행한 뒤, 다시 "캐릭터 켜기"를 눌러 주세요.</p>
+        <div class="row" style="gap:8px;">
+            <a class="btn" id="companionDownload" href="#" rel="noopener">내려받기</a>
+            <button type="button" class="btn secondary" id="companionRetry">이미 설치했어요</button>
+        </div>
+    </div>
+    <p class="companion-status" id="companionStatus" role="status" aria-live="polite"></p>
+    <h3 style="margin:16px 0 6px; font-size:0.95rem;">연결된 PC</h3>
+    <ul class="item-list" id="companionDevices"><li class="muted">불러오는 중…</li></ul>
+</div>
+<style>
+    .companion-ask { margin-top: 12px; padding: 12px 14px; border-radius: 8px; border-left: 3px solid var(--gold); background: #f6e9cf; }
+    .companion-ask p { margin: 0 0 8px; }
+    .companion-status { margin: 10px 0 0; font-size: 0.88rem; color: var(--ink-soft); min-height: 1em; }
+</style>
+<script src="${pageContext.request.contextPath}/js/companion.js" defer></script>

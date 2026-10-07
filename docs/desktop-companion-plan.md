@@ -3,7 +3,8 @@
 바탕화면 어디서든 떠 있는 캐릭터가 **앞으로 할 일을 말풍선으로 알려 주는** 윈도우 프로그램.
 봉고캣처럼 창 테두리·버튼 없이 캐릭터만 보이고, 내용은 전부 웹 서버에서 받아 온다.
 
-> 상태: 계획 (2026-10-06). 구현 전 팀 합의 필요 — 아래 "남은 결정·주의" 참고.
+> 상태 (2026-10-07): **1~3단계 구현** — 바탕화면 캐릭터 · 웹 버튼 연결 · 할 일/사이트 알림 말풍선 · 설치 폴더 자동 설치 · 업데이트 버튼.
+> 남은 것: 트렌드 순환 · 하루 요약 · 설정 창 · 연습장 연동 (4~5단계). 빌드·배포는 11절.
 
 ## 1. 정해진 것
 
@@ -130,3 +131,35 @@
 - **SessionFilter 공개 경로 추가**는 리뷰어 2명 필요.
 - 코드 서명을 안 하면 설치·첫 실행 때 윈도우 "알 수 없는 게시자" 경고 (학습용이면 감수).
 - 캐릭터 그림이 나오기 전에는 임시 그림(사이트 로고)으로 개발한다.
+
+## 11. 빌드 · 배포 · 업데이트 (구현됨)
+
+**바로 써 보기 (개발 중)**: IntelliJ에서 `desktop-companion/pom.xml`을 Maven 프로젝트로 추가하고 `CompanionApp`을 실행.
+IDE 실행은 설치·`specodyssey://` 등록·업데이트를 하지 않는다 (exe로 실행했을 때만).
+
+**exe 만들기**
+```
+powershell -ExecutionPolicy Bypass -File desktop-companion\build-companion.ps1
+```
+→ `desktop-companion\dist\` 에 `SpecOdysseyCompanion\SpecOdysseyCompanion.exe`(바로 실행 가능), `SpecOdysseyCompanion.zip`(약 45MB, Java 포함),
+`SpecOdysseyCompanion.zip.sha256`. dist는 커밋하지 않는다(.gitignore).
+
+**사용자 PC에서 일어나는 일**
+1. 압축을 풀고 exe 실행 → `%LOCALAPPDATA%\SpecOdysseyCompanion`으로 스스로 복사해 거기서 다시 켜진다.
+2. `specodyssey://` 주소(현재 사용자 레지스트리)와 시작 메뉴 "스펙 오디세이 캐릭터" 바로가기를 만든다 — 관리자 권한 불필요.
+3. 사이트 내 프로필 → **캐릭터 켜기** → 연결. 설정·토큰·말풍선 기록은 `%APPDATA%\SpecOdyssey\companion.json` (업데이트해도 유지).
+4. 지우기: 캐릭터 우클릭 → 연결 해제 → 종료 후 두 폴더와 `HKCU\Software\Classes\specodyssey`, 시작 메뉴 바로가기를 지운다.
+
+**새 버전 내기**
+1. `desktop-companion/pom.xml`의 `<version>`을 올린다 (예: 0.2.0).
+2. 빌드 스크립트 실행.
+3. GitHub Releases에 태그 **`companion-v0.2.0`** 으로 `SpecOdysseyCompanion.zip`과 `.sha256` 두 파일을 올린다. 첫 줄에 바뀐 점을 적으면 캐릭터 말풍선에 나온다.
+4. 설치된 캐릭터는 켤 때·하루 한 번 확인해 "새 버전이 나왔어요 [업데이트]"를 띄운다. 누르면 내려받기 → 확인값 대조 → 교체 → 다시 켜짐 (실패하면 이전 버전으로 되돌림).
+
+- 웹의 [내려받기]는 `releases/latest/download/SpecOdysseyCompanion.zip`이라, 저장소의 **최신 릴리스가 캐릭터 릴리스**여야 한다.
+- 코드 서명을 안 해서 처음 실행 때 윈도우 "알 수 없는 게시자" 경고가 뜰 수 있다 → "추가 정보 → 실행".
+
+**코드 위치**: 웹 `controller/CompanionServlet`(프로필 버튼·연결 목록) · `controller/CompanionApiServlet`(exe용 API) ·
+`service/companion/*` · `profile/_companion.jspf` · `js/companion.js` · `sql/32_schema_companion_device.sql` /
+exe `desktop-companion/src/main/java/com/specodyssey/companion/*` (규칙 `BubbleRules`, 화면 `CharacterWindow`·`BubbleWindow`,
+설치·등록 `WindowsSetup`, 업데이트 `Updater`).

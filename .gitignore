@@ -41,3 +41,6 @@ data/
 
 # Claude Code 작업 폴더 — 로컬 도구 상태라 커밋하지 않는다
 .claude/
+
+# 데스크톱 캐릭터 배포 파일 (GitHub Releases에 올린다)
+desktop-companion/dist/
