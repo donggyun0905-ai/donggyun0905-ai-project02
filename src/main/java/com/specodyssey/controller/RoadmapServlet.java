@@ -398,9 +398,10 @@ public class RoadmapServlet extends HttpServlet {
             testDocument.setOriginalName("test-cert-shortcut.txt");
             testDocument.setStoredName("test-cert-shortcut-" + System.nanoTime() + ".txt");
             testDocument.setFilePath("");
-            testDocument.setFileSize(0L);
+            testDocument.setFileData(DocumentDto.TEST_SHORTCUT_CONTENT);
+            testDocument.setFileSize((long) DocumentDto.TEST_SHORTCUT_CONTENT.length);
             testDocument.setMimeType("text/plain");
-            testDocument.setChecksum("test-shortcut");
+            testDocument.setChecksum(DocumentDto.TEST_SHORTCUT_CHECKSUM);
             try {
                 roadmapService.submitCertProof(userId, stepId, testDocument);
             } catch (IllegalArgumentException e) {
