@@ -558,6 +558,7 @@ CREATE TABLE SHARE_LINK (
     scope_resume     BOOLEAN      NOT NULL DEFAULT FALSE, -- 이력서 파일(USERS.resume_document_id) 공개
     scope_cover_letter BOOLEAN    NOT NULL DEFAULT FALSE, -- 자소서 파일(USERS.cover_letter_document_id) 공개
     scope_age        BOOLEAN      NOT NULL DEFAULT FALSE, -- 나이(USERS.age) 공개 — 면접관 비교 화면의 나이순 정렬용
+    scope_activity   BOOLEAN      NOT NULL DEFAULT FALSE, -- 활동 내역(잔디·타임라인) 공개 — sql/30
     label            VARCHAR(50)  NULL,
     created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

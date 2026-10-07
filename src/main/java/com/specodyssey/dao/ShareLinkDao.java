@@ -23,7 +23,7 @@ public class ShareLinkDao {
     // 매퍼(mapRow)가 읽는 컬럼만 가져온다 — SELECT *는 컬럼이 늘 때(특히 큰 TEXT) 안 쓰는 값까지 실어 나른다.
     private static final String COLUMNS =
             "id, user_id, token, is_active, expires_at, scope_basic, scope_skills, " +
-            "scope_growth, scope_resume, scope_cover_letter, scope_age, label, created_at, " +
+            "scope_growth, scope_resume, scope_cover_letter, scope_age, scope_activity, label, created_at, " +
             "updated_at, is_deleted";
 
     public Long insert(ShareLinkDto link) throws SQLException {
@@ -35,7 +35,7 @@ public class ShareLinkDao {
     public Long insert(Connection conn, ShareLinkDto link) throws SQLException {
         String sql = "INSERT INTO SHARE_LINK " +
                 "(user_id, token, is_active, expires_at, scope_basic, scope_skills, scope_growth, " +
-                " scope_resume, scope_cover_letter, scope_age, label) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                " scope_resume, scope_cover_letter, scope_age, scope_activity, label) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setLong(1, link.getUserId());
             pstmt.setString(2, link.getToken());
@@ -47,7 +47,8 @@ public class ShareLinkDao {
             pstmt.setBoolean(8, link.isScopeResume());
             pstmt.setBoolean(9, link.isScopeCoverLetter());
             pstmt.setBoolean(10, link.isScopeAge());
-            pstmt.setString(11, link.getLabel());
+            pstmt.setBoolean(11, link.isScopeActivity());
+            pstmt.setString(12, link.getLabel());
             pstmt.executeUpdate();
             try (ResultSet keys = pstmt.getGeneratedKeys()) {
                 return keys.next() ? keys.getLong(1) : null;
@@ -100,7 +101,7 @@ public class ShareLinkDao {
     // 본인 소유가 아닌 id는 WHERE 조건에서 자연히 걸러진다 (0행 갱신)
     public void update(Connection conn, ShareLinkDto link, Long userId) throws SQLException {
         String sql = "UPDATE SHARE_LINK SET is_active = ?, expires_at = ?, scope_basic = ?, scope_skills = ?, " +
-                "scope_growth = ?, scope_resume = ?, scope_cover_letter = ?, scope_age = ?, label = ? " +
+                "scope_growth = ?, scope_resume = ?, scope_cover_letter = ?, scope_age = ?, scope_activity = ?, label = ? " +
                 "WHERE id = ? AND user_id = ? AND is_deleted = FALSE";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setBoolean(1, link.isActive());
@@ -111,9 +112,10 @@ public class ShareLinkDao {
             pstmt.setBoolean(6, link.isScopeResume());
             pstmt.setBoolean(7, link.isScopeCoverLetter());
             pstmt.setBoolean(8, link.isScopeAge());
-            pstmt.setString(9, link.getLabel());
-            pstmt.setLong(10, link.getId());
-            pstmt.setLong(11, userId);
+            pstmt.setBoolean(9, link.isScopeActivity());
+            pstmt.setString(10, link.getLabel());
+            pstmt.setLong(11, link.getId());
+            pstmt.setLong(12, userId);
             pstmt.executeUpdate();
         }
     }
@@ -153,6 +155,8 @@ public class ShareLinkDao {
         link.setScopeResume(rs.getBoolean("scope_resume"));
         link.setScopeCoverLetter(rs.getBoolean("scope_cover_letter"));
         link.setScopeAge(rs.getBoolean("scope_age"));
+        link.setScopeActivity(rs.getBoolean("scope_activity"));
+        link.setScopeActivity(rs.getBoolean("scope_activity"));
         link.setLabel(rs.getString("label"));
         link.setCreatedAt(toLocalDateTime(rs.getTimestamp("created_at")));
         link.setUpdatedAt(toLocalDateTime(rs.getTimestamp("updated_at")));

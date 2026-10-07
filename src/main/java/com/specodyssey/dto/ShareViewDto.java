@@ -18,6 +18,7 @@ public class ShareViewDto {
     private boolean scopeResume;
     private boolean scopeCoverLetter;
     private boolean scopeAge;
+    private boolean scopeActivity;
 
     // scope_basic
     private String name;
@@ -44,6 +45,9 @@ public class ShareViewDto {
 
     // scope_growth — 날짜 오름차순
     private List<SpecScoreHistoryDto> growth = new ArrayList<>();
+
+    // scope_activity — 날짜별 활동량(잔디)과 최근 활동 타임라인. 안 켠 링크에서는 null
+    private com.specodyssey.service.ActivityHistoryService.History activity;
 
     /** 타임라인 항목에 붙는 링크 한 개(이름 + 주소). */
     public static class Link {
@@ -277,5 +281,21 @@ public class ShareViewDto {
 
     public void setGrowth(List<SpecScoreHistoryDto> growth) {
         this.growth = growth;
+    }
+
+    public boolean isScopeActivity() {
+        return scopeActivity;
+    }
+
+    public void setScopeActivity(boolean scopeActivity) {
+        this.scopeActivity = scopeActivity;
+    }
+
+    public com.specodyssey.service.ActivityHistoryService.History getActivity() {
+        return activity;
+    }
+
+    public void setActivity(com.specodyssey.service.ActivityHistoryService.History activity) {
+        this.activity = activity;
     }
 }

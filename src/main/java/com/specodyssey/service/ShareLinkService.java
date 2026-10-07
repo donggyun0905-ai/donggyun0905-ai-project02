@@ -65,6 +65,18 @@ public class ShareLinkService {
                                    boolean scopeSkills, boolean scopeGrowth, boolean scopeResume,
                                    boolean scopeCoverLetter, boolean scopeAge)
             throws SQLException {
+        return createLink(userId, label, expiryDays, scopeBasic, scopeSkills, scopeGrowth, scopeResume,
+                scopeCoverLetter, scopeAge, false);
+    }
+
+    /**
+     * @param scopeActivity 활동 내역(잔디·타임라인) 공개 — 며칠에 무엇을 했는지까지 드러나 기본 이력과
+     *                      따로 고른다(scope_age와 같은 판단, NFR-4 본인 선택 공유)
+     */
+    public ShareLinkDto createLink(Long userId, String label, Integer expiryDays, boolean scopeBasic,
+                                   boolean scopeSkills, boolean scopeGrowth, boolean scopeResume,
+                                   boolean scopeCoverLetter, boolean scopeAge, boolean scopeActivity)
+            throws SQLException {
         String trimmedLabel = (label == null || label.isBlank()) ? null : label.trim();
         if (trimmedLabel != null && trimmedLabel.length() > LABEL_MAX_LENGTH) {
             throw new IllegalArgumentException("메모는 " + LABEL_MAX_LENGTH + "자 이내로 입력해주세요.");
@@ -72,7 +84,8 @@ public class ShareLinkService {
         if (expiryDays != null && !ALLOWED_EXPIRY_DAYS.contains(expiryDays)) {
             throw new IllegalArgumentException("만료 기간을 다시 선택해주세요.");
         }
-        if (!scopeBasic && !scopeSkills && !scopeGrowth && !scopeResume && !scopeCoverLetter && !scopeAge) {
+        if (!scopeBasic && !scopeSkills && !scopeGrowth && !scopeResume && !scopeCoverLetter
+                && !scopeAge && !scopeActivity) {
             throw new IllegalArgumentException("공개 범위를 하나 이상 선택해주세요.");
         }
 
@@ -87,6 +100,7 @@ public class ShareLinkService {
         link.setScopeResume(scopeResume);
         link.setScopeCoverLetter(scopeCoverLetter);
         link.setScopeAge(scopeAge);
+        link.setScopeActivity(scopeActivity);
         link.setLabel(trimmedLabel);
         link.setId(shareLinkDao.insert(link));
         return link;
@@ -154,6 +168,9 @@ public class ShareLinkService {
         }
         if (link.isScopeAge()) {
             scopes.add("나이");
+        }
+        if (link.isScopeActivity()) {
+            scopes.add("활동 내역");
         }
         return String.join(", ", scopes);
     }

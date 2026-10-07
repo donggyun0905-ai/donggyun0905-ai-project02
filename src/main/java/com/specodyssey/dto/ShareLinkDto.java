@@ -15,6 +15,7 @@ public class ShareLinkDto {
     private boolean scopeResume;
     private boolean scopeCoverLetter;
     private boolean scopeAge; // 나이 공개 — 지원자가 링크마다 고른다(기본 비공개)
+    private boolean scopeActivity; // 활동 내역(잔디·타임라인) 공개 — 지원자가 링크마다 고른다(기본 비공개)
     private String label;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -138,5 +139,13 @@ public class ShareLinkDto {
 
     public void setDeleted(boolean deleted) {
         this.deleted = deleted;
+    }
+
+    public boolean isScopeActivity() {
+        return scopeActivity;
+    }
+
+    public void setScopeActivity(boolean scopeActivity) {
+        this.scopeActivity = scopeActivity;
     }
 }

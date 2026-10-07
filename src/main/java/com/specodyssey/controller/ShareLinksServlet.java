@@ -78,7 +78,8 @@ public class ShareLinksServlet extends HttpServlet {
                             req.getParameter("scopeGrowth") != null,
                             req.getParameter("scopeResume") != null,
                             req.getParameter("scopeCoverLetter") != null,
-                            req.getParameter("scopeAge") != null);
+                            req.getParameter("scopeAge") != null,
+                            req.getParameter("scopeActivity") != null);
                 } catch (IllegalArgumentException e) {
                     req.setAttribute("errorMessage", e.getMessage());
                     showPage(req, resp, userId);

@@ -63,6 +63,7 @@ public class ShareViewService {
     private final UserDao userDao = new UserDao();
     private final DocumentDao documentDao = new DocumentDao();
     private final JobDao jobDao = new JobDao();
+    private final ActivityHistoryService activityHistoryService = new ActivityHistoryService();
     private final UserSpecDao userSpecDao = new UserSpecDao();
     private final UserProjectDao userProjectDao = new UserProjectDao();
     private final ProjectLinkDao projectLinkDao = new ProjectLinkDao();
@@ -169,6 +170,7 @@ public class ShareViewService {
         view.setScopeResume(link.isScopeResume());
         view.setScopeCoverLetter(link.isScopeCoverLetter());
         view.setScopeAge(link.isScopeAge());
+        view.setScopeActivity(link.isScopeActivity());
 
         if (link.isScopeBasic()) {
             view.setName(user.getName());
@@ -194,6 +196,10 @@ public class ShareViewService {
         if (link.isScopeCoverLetter()) {
             DocumentDto coverLetter = findProfileDocument(user, user.getCoverLetterDocumentId());
             view.setCoverLetterFileName(coverLetter == null ? null : coverLetter.getOriginalName());
+        }
+        // 활동 내역 — 며칠에 무엇을 했는지까지 드러나 지원자가 켠 링크에서만 (NFR-4)
+        if (link.isScopeActivity()) {
+            view.setActivity(activityHistoryService.load(user.getId()));
         }
         if (link.isScopeGrowth()) {
             List<SpecScoreHistoryDto> history = specScoreHistoryDao.findByUserId(user.getId());

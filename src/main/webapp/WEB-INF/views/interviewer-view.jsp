@@ -56,6 +56,7 @@
                 <c:if test="${view.scopeResume}"><span class="chip chip-teal">이력서 파일</span></c:if>
                 <c:if test="${view.scopeCoverLetter}"><span class="chip chip-teal">자소서 파일</span></c:if>
                 <c:if test="${view.scopeAge}"><span class="chip chip-teal">나이</span></c:if>
+                <c:if test="${view.scopeActivity}"><span class="chip chip-teal">활동 내역</span></c:if>
             </p>
         </div>
 
@@ -144,6 +145,57 @@
             </div>
         </c:if>
 
+        <%-- 활동 내역 (2026-10-07) — 날짜별 활동량 잔디 + 최근에 무엇을 했는지.
+             지원자가 링크에서 "활동 내역"을 켠 경우에만 보인다(SHARE_LINK.scope_activity). --%>
+        <c:if test="${view.scopeActivity}">
+            <div class="card">
+                <h2>활동 내역</h2>
+                <c:choose>
+                    <c:when test="${empty view.activity or view.activity.empty}">
+                        <p class="muted" style="margin-top:10px;">아직 쌓인 활동 기록이 없습니다.</p>
+                    </c:when>
+                    <c:otherwise>
+                        <p class="muted" style="margin-top:4px;">
+                            <c:out value="${view.activity.rangeText}" /> · 활동한 날 <strong>${view.activity.activeDays}일</strong>
+                            · 전체 <strong>${view.activity.totalEvents}회</strong>
+                        </p>
+                        <div class="act-grid">
+                            <c:forEach var="week" items="${view.activity.weeks}" varStatus="w">
+                                <div class="act-week">
+                                    <span class="act-month"><c:out value="${view.activity.monthLabels[w.index]}" /></span>
+                                    <c:forEach var="cell" items="${week}">
+                                        <span class="act-cell lv${cell.level}${cell.filler ? ' act-filler' : ''}"
+                                              title="<c:out value='${cell.title}' />"></span>
+                                    </c:forEach>
+                                </div>
+                            </c:forEach>
+                        </div>
+                        <div class="act-legend">
+                            <span class="muted">적음</span>
+                            <span class="act-cell lv0"></span><span class="act-cell lv1"></span>
+                            <span class="act-cell lv2"></span><span class="act-cell lv3"></span>
+                            <span class="act-cell lv4"></span>
+                            <span class="muted">많음</span>
+                        </div>
+
+                        <c:if test="${not empty view.activity.timeline}">
+                            <h3 style="margin:18px 0 8px; font-size:1rem;">최근 활동</h3>
+                            <table style="width:100%; font-size:0.88rem;">
+                                <c:forEach var="entry" items="${view.activity.timeline}">
+                                    <tr>
+                                        <td class="muted" style="width:140px;"><c:out value="${entry.stamp}" /></td>
+                                        <td style="width:150px;"><span class="chip chip-teal"><c:out value="${entry.label}" /></span></td>
+                                        <td><c:out value="${entry.detail}" default="" /></td>
+                                        <td class="muted" style="width:60px; text-align:right;">+${entry.points}</td>
+                                    </tr>
+                                </c:forEach>
+                            </table>
+                        </c:if>
+                    </c:otherwise>
+                </c:choose>
+            </div>
+        </c:if>
+
         <%-- FR-84 성장 잠재력 --%>
         <c:if test="${view.scopeGrowth}">
             <div class="card">
@@ -170,4 +222,18 @@
     </c:otherwise>
 </c:choose>
 
+<style>
+    /* 활동 잔디 (2026-10-07) — 주 단위 열을 옆으로 쌓고, 한 열이 월~일 7칸이다 */
+    .act-grid { display: flex; gap: 3px; margin-top: 10px; overflow-x: auto; padding-bottom: 4px; }
+    .act-week { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; }
+    .act-month { font-size: 0.68rem; color: var(--ink-soft); height: 12px; white-space: nowrap; }
+    .act-cell { width: 12px; height: 12px; border-radius: 3px; background: var(--border); display: inline-block; }
+    .act-cell.lv1 { background: #cfe3dd; }
+    .act-cell.lv2 { background: #9ec9bf; }
+    .act-cell.lv3 { background: #5aa493; }
+    .act-cell.lv4 { background: var(--teal); }
+    .act-cell.act-filler { background: transparent; }
+    .act-legend { display: flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 0.78rem; }
+    .act-legend .muted { margin: 0 4px; }
+</style>
 <jsp:include page="/WEB-INF/views/common/footer.jsp" />
