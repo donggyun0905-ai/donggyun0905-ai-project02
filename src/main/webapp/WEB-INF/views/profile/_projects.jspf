@@ -15,6 +15,9 @@
                 <c:if test="${not empty project.deployUrl}"> · <a href="<c:out value='${project.deployUrl}' />" target="_blank" rel="noopener noreferrer">배포</a></c:if>
                 <c:forEach var="link" items="${projectLinks[project.id]}"> · <a href="<c:out value='${link.url}' />" target="_blank" rel="noopener noreferrer"><c:out value="${link.displayName}" /></a></c:forEach>
             </c:if>
+            <c:if test="${not empty project.retrospective}">
+                <br><span class="muted" style="font-size:0.85rem;">회고: <c:out value='${project.retrospective}' /></span>
+            </c:if>
             <c:forEach var="doc" items="${documents}">
                 <c:if test="${doc.projectId == project.id}">
                     <br><a href="${pageContext.request.contextPath}/documents/${doc.id}" class="file-link"><span class="ic ic-paperclip" aria-hidden="true"></span> <c:out value='${doc.originalName}' /></a>
@@ -48,6 +51,7 @@
                         <button type="submit">저장</button>
                     </form>
                 </details>
+                <a class="link-button" href="${pageContext.request.contextPath}/profile/projects/edit?projectId=${project.id}">자세히 입력 (회고 · 기술 설명서 · 서류)</a>
                 <form action="${pageContext.request.contextPath}/profile/projects" method="post" class="inline-form">
                     <input type="hidden" name="_csrf" value="${csrfToken}">
                     <input type="hidden" name="action" value="delete">
@@ -80,4 +84,9 @@
 <%@ include file="/WEB-INF/views/common/project-link-fields.jspf" %>
         <button type="submit">프로젝트 추가</button>
     </form>
+    <p class="muted" style="margin:10px 0 0; font-size:0.85rem;">
+        회고 · 기술 활용 설명서 · 제출 서류까지 한 번에 적으려면
+        <a href="${pageContext.request.contextPath}/profile/projects/edit">자세히 입력</a>으로 들어가세요.
+        면접관 화면에 보이는 항목이라 채워 두면 좋습니다.
+    </p>
 </div>

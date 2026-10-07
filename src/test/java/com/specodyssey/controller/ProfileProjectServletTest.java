@@ -84,23 +84,43 @@ class ProfileProjectServletTest {
     }
 
     @Test
-    void 잘못된_주소는_400이고_이유를_알려주며_아무것도_저장하지_않는다() throws Exception {
+    void 잘못된_입력은_에러_페이지가_아니라_프로필_안내로_돌아가고_아무것도_저장하지_않는다() throws Exception {
+        // 예전에는 sendError(400)을 썼는데, web.xml에 400 항목이 없어 컨테이너 기본 에러 페이지가 떴다 —
+        // 적던 내용이 통째로 사라져서 세션 안내(ProfileNotice) + /profile 리다이렉트로 바꿨다 (2026-10-07).
         long before = projectDao.findByUserId(user.getId()).size();
+
+        FakeWeb.Request bad = post("나쁜 입력").param("repoUrl", "javascript:alert(1)");
         FakeWeb.Response resp = FakeWeb.response();
+        servlet.doPost(bad.http(), resp.http());
 
-        servlet.doPost(post("나쁜 입력").param("repoUrl", "javascript:alert(1)").http(), resp.http());
-
-        assertEquals(400, resp.errorStatus);
-        assertTrue(resp.errorMessage.contains("코드 저장소"));
+        assertEquals("/profile", resp.redirect);
+        assertEquals(0, resp.errorStatus, "에러 페이지로 보내면 입력하던 내용이 날아간다");
+        assertTrue(notice(bad).contains("코드 저장소"), "실제 문구: " + notice(bad));
         assertEquals(before, projectDao.findByUserId(user.getId()).size());
 
+        FakeWeb.Request badLink = post("링크 나쁨").param("linkLabel_0", "x").param("linkUrl_0", "data:text/html,1");
         FakeWeb.Response resp2 = FakeWeb.response();
-        servlet.doPost(post("링크 나쁨").param("linkLabel_0", "x").param("linkUrl_0", "data:text/html,1").http(), resp2.http());
-        assertEquals(400, resp2.errorStatus);
-        assertNotNull(resp2.errorMessage);
+        servlet.doPost(badLink.http(), resp2.http());
+        assertEquals("/profile", resp2.redirect);
+        assertNotNull(notice(badLink));
 
+        FakeWeb.Request badDate = post("날짜 이상").param("startDate", "어제");
         FakeWeb.Response resp3 = FakeWeb.response();
-        servlet.doPost(post("날짜 이상").param("startDate", "어제").http(), resp3.http());
-        assertEquals(400, resp3.errorStatus);
+        servlet.doPost(badDate.http(), resp3.http());
+        assertEquals("/profile", resp3.redirect);
+        assertNotNull(notice(badDate));
+
+        FakeWeb.Request noTitle = FakeWeb.request().post("/profile/projects").loggedIn(user);
+        FakeWeb.Response resp4 = FakeWeb.response();
+        servlet.doPost(noTitle.http(), resp4.http());
+        assertEquals("/profile", resp4.redirect);
+        assertTrue(notice(noTitle).contains("프로젝트명"));
+
+        assertEquals(before, projectDao.findByUserId(user.getId()).size(), "실패한 요청은 아무것도 남기지 않는다");
+    }
+
+    /** ProfileNotice가 세션에 넣어 둔 문구 — 다음 /profile 조회에서 꺼내 쓴다 */
+    private static String notice(FakeWeb.Request req) {
+        return (String) req.session.attributes.get("profileErrorNotice");
     }
 }

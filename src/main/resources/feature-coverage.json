@@ -166,6 +166,7 @@
     "priority": "[필수]",
     "area": "2-2. 프로필 입력",
     "controllers": [
+      "ProfileProjectEditServlet.java",
       "ProfileProjectServlet.java",
       "ProfileServlet.java"
     ],
@@ -914,6 +915,7 @@
     "area": "2-8. 면접관 / 평가 뷰",
     "controllers": [
       "ProfileEducationServlet.java",
+      "ProfileProjectEditServlet.java",
       "ProfileSpecServlet.java",
       "ShareDocumentServlet.java",
       "ShareViewServlet.java"

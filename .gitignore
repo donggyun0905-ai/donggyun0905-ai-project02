@@ -38,3 +38,6 @@ data/
 *.properties
 # Maven Wrapper 설정은 비밀 정보가 아니므로 커밋한다 (팀원이 Maven 설치 없이 mvnw로 빌드)
 !.mvn/wrapper/maven-wrapper.properties
+
+# Claude Code 작업 폴더 — 로컬 도구 상태라 커밋하지 않는다
+.claude/

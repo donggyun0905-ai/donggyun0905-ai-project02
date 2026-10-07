@@ -51,11 +51,15 @@ public class ProfileProjectServlet extends HttpServlet {
                 profileService.addProject(userId, project, ProjectLinkForm.parse(req));
             }
         } catch (NumberFormatException | DateTimeParseException e) {
-            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "잘못된 요청입니다.");
+            // 입력 실수에 sendError를 쓰면 컨테이너 에러 페이지가 떠서 적던 내용이 통째로 날아간다
+            // (web.xml에 400 항목이 없다) — 프로필 화면에 문구로 돌려준다. 기술·스펙 칸과 같은 방식.
+            ProfileNotice.putError(req, "날짜와 팀 인원은 숫자·날짜 형식으로 입력해주세요.");
+            resp.sendRedirect(req.getContextPath() + "/profile");
             return;
         } catch (IllegalArgumentException e) {
             // 저장소·배포·기타 링크 형식 오류 — 어떤 값이 왜 안 되는지 그대로 알려준다
-            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+            ProfileNotice.putError(req, e.getMessage());
+            resp.sendRedirect(req.getContextPath() + "/profile");
             return;
         } catch (SQLException e) {
             throw new ServletException("프로젝트 저장 중 오류가 발생했습니다.", e);
@@ -64,11 +68,12 @@ public class ProfileProjectServlet extends HttpServlet {
         resp.sendRedirect(req.getContextPath() + "/profile");
     }
 
-    // 유효성 검사 실패 시 400 응답을 직접 보내고 null을 반환한다.
+    // 유효성 검사 실패 시 프로필 화면으로 문구와 함께 돌려보내고 null을 반환한다.
     private UserProjectDto parseProject(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         String title = req.getParameter("title");
         if (title == null || title.isBlank()) {
-            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "프로젝트명을 입력해주세요.");
+            ProfileNotice.putError(req, "프로젝트명을 입력해주세요.");
+            resp.sendRedirect(req.getContextPath() + "/profile");
             return null;
         }
         UserProjectDto project = new UserProjectDto();
@@ -80,7 +85,7 @@ public class ProfileProjectServlet extends HttpServlet {
         project.setStartDate(parseDate(req.getParameter("startDate")));
         project.setEndDate(parseDate(req.getParameter("endDate")));
         String teamSize = trimToNull(req.getParameter("teamSize"));
-        project.setTeamSize(teamSize == null ? null : Integer.valueOf(teamSize)); // 숫자가 아니면 NumberFormatException → 400
+        project.setTeamSize(teamSize == null ? null : Integer.valueOf(teamSize)); // 숫자가 아니면 NumberFormatException → 프로필 화면에 안내
         project.setMyRole(trimToNull(req.getParameter("myRole")));
         return project;
     }

@@ -162,6 +162,16 @@ public class ProjectSubmissionService {
      * @throws IllegalArgumentException 입력이 잘못된 경우 — 메시지를 그대로 화면에 보여준다
      */
     public void validate(ProjectSubmission submission, Long existingProjectId) throws SQLException {
+        validate(submission, existingProjectId, true);
+    }
+
+    /**
+     * @param requireDocs README·실행 화면 캡처를 반드시 받을지. 로드맵 PROJECT 단계는 이 서류가 완료의 증빙이라
+     *                    true다. 프로필에서 직접 등록·수정할 때는 false — 예전에 한 프로젝트를 적어 두는 자리라
+     *                    서류가 없다고 등록을 막으면 아무것도 못 적는다(2026-10-07 사용자 요청).
+     */
+    public void validate(ProjectSubmission submission, Long existingProjectId, boolean requireDocs)
+            throws SQLException {
         UserProjectDto project = submission.getProject();
         UrlRules.requireWebUrlIfPresent(project.getRepoUrl(), "코드 저장소 링크");
         UrlRules.requireWebUrlIfPresent(project.getDeployUrl(), "배포 주소");
@@ -177,6 +187,9 @@ public class ProjectSubmissionService {
             }
         }
 
+        if (!requireDocs) {
+            return;
+        }
         Map<String, DraftDoc> before = existingProjectId == null ? Map.of() : currentDocs(existingProjectId);
         for (String type : DOC_TYPE_LABELS.keySet()) {
             if (!REQUIRED_DOC_TYPES.contains(type)) {
