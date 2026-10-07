@@ -39,7 +39,7 @@ src/main/java/com/specodyssey/
   ├── service/      비즈니스 로직
   ├── dao/          DB 접근 (SQL은 여기에만)
   ├── dto/          데이터 전달 객체
-  └── util/         DB 커넥션, 비밀번호 해시 등 공통 유틸
+  └── util/         DB 커넥션, 비밀번호 해시(Argon2id) 등 공통 유틸
 src/main/webapp/
   ├── WEB-INF/
   │   ├── views/    JSP (직접 접근 불가)

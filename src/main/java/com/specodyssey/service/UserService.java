@@ -247,7 +247,7 @@ public class UserService {
         UserDto pending = userDao.findByIdIncludingDeleted(userId);
         String stored = pending == null ? null : pending.getRecoveryCodeHash();
         if (stored != null) {
-            // 코드가 틀렸을 때도 맞을 때와 같은 횟수의 PBKDF2를 돌린다(응답 시간으로 짐작하지 못하게)
+            // 코드가 틀렸을 때도 맞을 때와 같은 해시 계산을 돌린다(응답 시간으로 짐작하지 못하게)
             boolean matches = PasswordUtil.verify(RecoveryCode.forHash(recoveryCode), stored);
             if (!RecoveryCode.looksValid(recoveryCode) || !matches) {
                 throw new InvalidCredentialException("복구 코드가 올바르지 않습니다.");
