@@ -141,22 +141,6 @@ public final class FileStorageUtil {
     }
 
     // 저장에 실패한 요청에서 이미 디스크에 쓴 파일들을 되돌릴 때 쓴다(부분 업로드 정리).
-    /**
-     * 그 파일을 지금 이 서버에서 실제로 읽을 수 있는지. 업로드 폴더는 서버 PC마다 따로라, 팀원이 올린 서류는
-     * 공유 DB에 행만 있고 이 서버에는 파일이 없다. 화면이 이걸 모르면 열리지 않는 미리보기와 내려받기
-     * 링크를 그려 놓고 조용히 실패한다(2026-10-07 면접관 이력 보기).
-     */
-    public static boolean isReadable(String filePath) {
-        if (filePath == null || filePath.isBlank()) {
-            return false;
-        }
-        try {
-            return Files.isReadable(Paths.get(filePath));
-        } catch (RuntimeException e) {
-            return false; // 경로 문자열 자체가 이 OS에서 올바르지 않은 경우(다른 PC에서 올린 서류)
-        }
-    }
-
     // 새 서류는 디스크에 쓰지 않아 경로가 null이다 — 그때는 아무 것도 하지 않는다.
     public static void deleteQuietly(String filePath) {
         if (filePath == null || filePath.isBlank()) {

@@ -122,18 +122,18 @@ class ShareViewProjectDetailTest {
     }
 
     @Test
-    void 읽을_수_없는_경로는_없는_것으로_본다() throws Exception {
-        assertFalse(FileStorageUtil.isReadable(null));
-        assertFalse(FileStorageUtil.isReadable("  "));
-        assertFalse(FileStorageUtil.isReadable("C:\\Users\\그런사람없음\\없는파일.pdf"));
+    void 디스크에_없는_경로는_없는_것으로_본다() throws Exception {
+        assertFalse(FileStorageUtil.existsOnDisk(null));
+        assertFalse(FileStorageUtil.existsOnDisk("  "));
+        assertFalse(FileStorageUtil.existsOnDisk("C:\\Users\\그런사람없음\\없는파일.pdf"));
 
         Path real = Files.createTempFile("share-view-", ".pdf");
         try {
-            assertTrue(FileStorageUtil.isReadable(real.toString()));
+            assertTrue(FileStorageUtil.existsOnDisk(real.toString()));
         } finally {
             Files.deleteIfExists(real);
         }
-        assertFalse(FileStorageUtil.isReadable(real.toString()), "지워진 뒤에는 없는 것으로 봐야 한다");
+        assertFalse(FileStorageUtil.existsOnDisk(real.toString()), "지워진 뒤에는 없는 것으로 봐야 한다");
     }
 
     private static TimelineItem spec(String title) {

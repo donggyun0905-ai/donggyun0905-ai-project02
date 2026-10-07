@@ -216,10 +216,18 @@ class DocumentServletsTest {
     }
 
     @Test
-    void 디스크에_파일이_없는_서류를_받으면_500이_아니라_404다() throws Exception {
-        // 파일이 옮겨졌거나 지워졌거나, [TEST] 통과 버튼으로 만든(파일 없는) 서류를 가정한다
+    void 내용을_어디에서도_찾을_수_없는_서류를_받으면_500이_아니라_404다() throws Exception {
+        // 서류 내용은 DB(file_data)에 있다(sql/32). 그래서 "없는 서류"는 file_data가 비고 디스크에도
+        // 없는 경우다 — 예전 디스크 서류 중 백필이 안 된 것, [TEST] 통과 버튼으로 만든 서류 등.
         DocumentDto doc = saveDocument(owner, "사라질것.txt", "text/plain");
         FileStorageUtil.deleteQuietly(doc.getFilePath());
+        try (java.sql.Connection conn = com.specodyssey.util.DBUtil.getConnection();
+             java.sql.PreparedStatement p = conn.prepareStatement(
+                     "UPDATE DOCUMENTS SET file_data = NULL, file_path = ? WHERE id = ?")) {
+            p.setString(1, "C:/없는폴더/없는파일.txt");
+            p.setLong(2, doc.getId());
+            p.executeUpdate();
+        }
 
         for (Long id : new Long[] {doc.getId()}) {
             FakeWeb.Request req = FakeWeb.request().loggedIn(owner);
@@ -230,10 +238,11 @@ class DocumentServletsTest {
             assertEquals(404, resp.errorStatus);
             assertEquals(0, resp.body.size());
         }
-        // 경로가 비어 있는 서류(파일 없이 만든 것)도 마찬가지
+        // 내용도 경로도 아예 비어 있는 서류(파일 없이 만든 것)도 마찬가지
         DocumentDto empty = saveDocument(owner, "빈경로.txt", "text/plain");
         try (java.sql.Connection conn = com.specodyssey.util.DBUtil.getConnection();
-             java.sql.PreparedStatement p = conn.prepareStatement("UPDATE DOCUMENTS SET file_path = '' WHERE id = ?")) {
+             java.sql.PreparedStatement p = conn.prepareStatement(
+                     "UPDATE DOCUMENTS SET file_data = NULL, file_path = '' WHERE id = ?")) {
             p.setLong(1, empty.getId());
             p.executeUpdate();
         }

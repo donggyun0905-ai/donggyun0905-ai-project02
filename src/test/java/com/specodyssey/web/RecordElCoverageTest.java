@@ -25,6 +25,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 자동으로 생기지만, 구성요소가 아닌 계산 값(isComparable·getMissing 같은 것)은 x()를 직접 둬야 한다.
  * 없으면 그 화면이 Tomcat 11에서만 500이 난다 — 10.1을 쓰는 팀원 환경에서는 멀쩡해 보인다.
  *
+ * (2026-10-07 추가) seongwon이 RecordElResolver를 만들어 두 버전에서 x() → getX() → isX() 순서로 찾게 했다.
+ * 그래도 이 검사는 남겨 둔다 — 등록(RecordElResolverRegistrar)이 실패하면 경고만 남기고 앱은 뜨므로,
+ * 그때는 각 버전 기본 규칙으로 되돌아간다. 두 접근자를 다 두면 등록이 안 돼도 화면은 산다.
+ *
  * RecordElAccessTest는 검사할 record를 손으로 적어야 해서 새 record가 계속 빠져나갔다(2026-10-06
  * 인사이트 또래 비교, 2026-10-07 기능 설계서 요약 — 둘 다 실제로 화면이 죽었다). 그래서 목록 없이
  * 소스 전체를 훑는다.
