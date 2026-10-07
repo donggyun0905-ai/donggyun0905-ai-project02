@@ -65,7 +65,7 @@
             <version>8.4.0</version>
         </dependency>
 
-        <!-- 커넥션 풀 (강사님 허가 후 도입, 2026-10-03). 로깅은 slf4j → java.util.logging으로 흘려 보낸다 -->
+        <!-- 커넥션 풀. 로깅은 slf4j → java.util.logging으로 흘려 보낸다 -->
         <dependency>
             <groupId>com.zaxxer</groupId>
             <artifactId>HikariCP</artifactId>
