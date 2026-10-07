@@ -99,11 +99,15 @@ public final class FileStorageUtil {
         return originalFilename != null && "pdf".equals(extensionOf(originalFilename).toLowerCase(Locale.ROOT));
     }
 
-    // 원본 파일명은 저장 경로 생성에 전혀 쓰지 않는다(UUID로만 생성) — 경로 조작 공격 자체가 성립하지 않는다.
+    /**
+     * 업로드 파일을 읽어 내용·크기·체크섬을 돌려준다. 디스크에는 쓰지 않는다(2026-10-07) —
+     * 내용은 호출부가 DocumentDto.setFileData로 넘겨 DOCUMENTS.file_data(DB)에 저장한다.
+     * DB는 팀이 같이 쓰는데 업로드 폴더는 PC마다 따로라, 디스크에 두면 다른 PC에서는 서류가 404였다.
+     * 저장명(stored_name)은 예전처럼 UUID로 만든다 — 원본 파일명은 어디에도 경로로 쓰지 않는다.
+     */
     public static SavedFile save(InputStream in, String originalFilename) throws IOException {
         String ext = extensionOf(originalFilename);
         String storedName = UUID.randomUUID() + (ext.isEmpty() ? "" : "." + ext);
-        Path target = UPLOAD_DIR.resolve(storedName);
 
         MessageDigest digest;
         try {
@@ -111,12 +115,29 @@ public final class FileStorageUtil {
         } catch (NoSuchAlgorithmException e) {
             throw new UncheckedIOException(new IOException("SHA-256 알고리즘을 사용할 수 없습니다", e));
         }
+        byte[] data;
         try (DigestInputStream digestIn = new DigestInputStream(in, digest)) {
-            Files.copy(digestIn, target);
+            data = digestIn.readAllBytes();
         }
-        long fileSize = Files.size(target);
         String checksum = HexFormat.of().formatHex(digest.digest());
-        return new SavedFile(storedName, target.toString(), fileSize, checksum);
+        return new SavedFile(storedName, null, data.length, checksum, data);
+    }
+
+    /** 디스크에 실제로 있는 파일인지 — DB로 옮기기 전에 올린 예전 서류용. */
+    public static boolean existsOnDisk(String filePath) {
+        if (filePath == null || filePath.isBlank()) {
+            return false;
+        }
+        try {
+            return Files.isRegularFile(Paths.get(filePath));
+        } catch (java.nio.file.InvalidPathException e) {
+            return false;
+        }
+    }
+
+    /** 예전 서류(디스크)를 DB로 옮길 때 읽는다. */
+    public static byte[] readBytes(String filePath) throws IOException {
+        return Files.readAllBytes(Paths.get(filePath));
     }
 
     // 저장에 실패한 요청에서 이미 디스크에 쓴 파일들을 되돌릴 때 쓴다(부분 업로드 정리).
@@ -136,7 +157,11 @@ public final class FileStorageUtil {
         }
     }
 
+    // 새 서류는 디스크에 쓰지 않아 경로가 null이다 — 그때는 아무 것도 하지 않는다.
     public static void deleteQuietly(String filePath) {
+        if (filePath == null || filePath.isBlank()) {
+            return;
+        }
         try {
             Files.deleteIfExists(Paths.get(filePath));
         } catch (IOException ignored) {
@@ -144,7 +169,7 @@ public final class FileStorageUtil {
         }
     }
 
-    // 다운로드 서블릿이 소유자 확인 후에만 호출한다.
+    // 예전(디스크) 서류·스펙 아카이브 이미지용 — 새 서류는 DocumentContentService가 DB에서 내보낸다.
     public static void writeTo(String filePath, OutputStream out) throws IOException {
         Files.copy(Paths.get(filePath), out);
     }
@@ -186,12 +211,23 @@ public final class FileStorageUtil {
         private final String filePath;
         private final long fileSize;
         private final String checksum;
+        private final byte[] data;
 
         public SavedFile(String storedName, String filePath, long fileSize, String checksum) {
+            this(storedName, filePath, fileSize, checksum, null);
+        }
+
+        public SavedFile(String storedName, String filePath, long fileSize, String checksum, byte[] data) {
             this.storedName = storedName;
             this.filePath = filePath;
             this.fileSize = fileSize;
             this.checksum = checksum;
+            this.data = data;
+        }
+
+        /** 파일 내용 — DOCUMENTS.file_data에 넣는다. */
+        public byte[] getData() {
+            return data;
         }
 
         public String getStoredName() {

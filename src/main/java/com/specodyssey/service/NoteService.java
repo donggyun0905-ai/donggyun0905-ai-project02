@@ -23,6 +23,7 @@ public class NoteService {
     public static final int MAX_LENGTH = 20_000;
 
     private final DocumentDao documentDao = new DocumentDao();
+    private final DocumentContentService documentContentService = new DocumentContentService();
 
     public String load(Long userId) throws SQLException {
         DocumentDto note = findNote(userId);
@@ -30,7 +31,7 @@ public class NoteService {
             return "";
         }
         try {
-            return FileStorageUtil.readText(note.getFilePath());
+            return documentContentService.readText(note);
         } catch (IOException e) {
             return ""; // 파일이 사라진 경우 — 빈 노트로 시작하고 다음 저장 때 다시 만들어진다.
         }
@@ -49,6 +50,7 @@ public class NoteService {
         document.setOriginalName(NOTE_FILE_NAME);
         document.setStoredName(saved.getStoredName());
         document.setFilePath(saved.getFilePath());
+        document.setFileData(saved.getData()); // 파일 내용은 DB(DOCUMENTS.file_data)에
         document.setFileSize(saved.getFileSize());
         document.setMimeType("text/plain; charset=UTF-8");
         document.setChecksum(saved.getChecksum());

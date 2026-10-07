@@ -1,6 +1,7 @@
 package com.specodyssey.controller;
 
 import com.specodyssey.dto.DocumentDto;
+import com.specodyssey.service.DocumentContentService;
 import com.specodyssey.service.ShareViewService;
 import com.specodyssey.util.FileStorageUtil;
 
@@ -13,8 +14,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.sql.SQLException;
 
 /**
@@ -28,6 +27,7 @@ import java.sql.SQLException;
 public class ShareDocumentServlet extends HttpServlet {
 
     private final ShareViewService shareViewService = new ShareViewService();
+    private final DocumentContentService documentContentService = new DocumentContentService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -47,8 +47,8 @@ public class ShareDocumentServlet extends HttpServlet {
 
         try {
             DocumentDto document = shareViewService.loadSharedDocument(token, documentId);
-            // 업로드 폴더는 서버 PC마다 따로라, DB에는 있는데 이 서버에는 파일이 없을 수 있다
-            if (document == null || !Files.isRegularFile(Paths.get(document.getFilePath()))) {
+            // 내용은 DB에 있다. DB로 옮기기 전의 예전 서류는 올린 PC 디스크에만 있어 이 서버에는 없을 수 있다
+            if (!documentContentService.exists(document)) {
                 resp.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
@@ -61,7 +61,7 @@ public class ShareDocumentServlet extends HttpServlet {
             String disposition = FileStorageUtil.isInlineSafe(document.getOriginalName()) ? "inline" : "attachment";
             resp.setHeader("Content-Disposition", disposition + "; filename*=UTF-8''"
                     + URLEncoder.encode(document.getOriginalName(), StandardCharsets.UTF_8));
-            FileStorageUtil.writeTo(document.getFilePath(), resp.getOutputStream());
+            documentContentService.writeTo(document, resp.getOutputStream());
         } catch (SQLException e) {
             throw new ServletException("서류를 불러오는 중 오류가 발생했습니다.", e);
         }

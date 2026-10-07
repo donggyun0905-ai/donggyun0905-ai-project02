@@ -92,6 +92,7 @@ public class ShareViewService {
     private final SpecScoreHistoryDao specScoreHistoryDao = new SpecScoreHistoryDao();
     private final CertificationDao certificationDao = new CertificationDao();
     private final SkillDao skillDao = new SkillDao();
+    private final DocumentContentService documentContentService = new DocumentContentService();
     private final UserEducationDao educationDao = new UserEducationDao();
     private final RoadmapDao roadmapDao = new RoadmapDao();
     private final RoadmapStepDao roadmapStepDao = new RoadmapStepDao();
@@ -276,13 +277,13 @@ public class ShareViewService {
         if (link.isScopeResume()) {
             DocumentDto resume = findResume(user);
             view.setResumeFileName(resume == null ? null : resume.getOriginalName());
-            view.setResumeFileReadable(resume != null && FileStorageUtil.isReadable(resume.getFilePath()));
+            view.setResumeFileReadable(documentContentService.exists(resume)); // DB에 있거나(새 서류) 이 PC 디스크에 있을 때
         }
         if (link.isScopeCoverLetter()) {
             DocumentDto coverLetter = findProfileDocument(user, user.getCoverLetterDocumentId());
             view.setCoverLetterFileName(coverLetter == null ? null : coverLetter.getOriginalName());
             view.setCoverLetterFileReadable(
-                    coverLetter != null && FileStorageUtil.isReadable(coverLetter.getFilePath()));
+                    documentContentService.exists(coverLetter));
         }
         // 활동 내역 — 며칠에 무엇을 했는지까지 드러나 지원자가 켠 링크에서만 (NFR-4)
         if (link.isScopeActivity()) {
@@ -386,7 +387,7 @@ public class ShareViewService {
                 }
                 DocumentDto file = documentDao.findById(doc.getSourceDocumentId());
                 if (file != null && file.getUserId().equals(project.getUserId())) {
-                    if (FileStorageUtil.isReadable(file.getFilePath())) {
+                    if (documentContentService.exists(file)) {
                         doc.share(file.getId(), file.getOriginalName(), previewType(file.getOriginalName()));
                     } else {
                         doc.markMissing(file.getOriginalName());

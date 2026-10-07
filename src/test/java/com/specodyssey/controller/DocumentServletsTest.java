@@ -17,8 +17,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -99,7 +97,7 @@ class DocumentServletsTest {
                 .filter(d -> "메모.txt".equals(d.getOriginalName())).findFirst().orElseThrow();
         assertEquals("text/plain; charset=UTF-8", saved.getMimeType());
         assertEquals(projectId, saved.getProjectId());
-        assertTrue(Files.exists(Paths.get(saved.getFilePath())));
+        assertTrue(saved.isStoredInDb(), "내용은 DB에 저장된다");
     }
 
     @Test
@@ -137,6 +135,7 @@ class DocumentServletsTest {
         d.setOriginalName(name);
         d.setStoredName(saved.getStoredName());
         d.setFilePath(saved.getFilePath());
+        d.setFileData(saved.getData());
         d.setFileSize(saved.getFileSize());
         d.setMimeType(storedMime);
         d.setChecksum(saved.getChecksum());
@@ -145,7 +144,7 @@ class DocumentServletsTest {
     }
 
     @Test
-    void 삭제는_본인_서류만_되고_디스크_파일도_지워진다() throws Exception {
+    void 삭제는_본인_서류만_되고_파일_내용도_지워진다() throws Exception {
         DocumentDto mine = saveDocument(owner, "지울것.txt", "text/plain");
 
         FakeWeb.Request byOther = postAs(other, "delete").param("documentId", String.valueOf(mine.getId()));
@@ -157,7 +156,7 @@ class DocumentServletsTest {
         manage.doPost(byOwner.http(), FakeWeb.response().http());
         assertEquals("서류를 삭제했습니다.", message(byOwner, "documentsMessage"));
         assertNull(documentDao.findById(mine.getId()));
-        assertFalse(Files.exists(Paths.get(mine.getFilePath())));
+        assertNull(documentDao.readFileData(mine.getId()));
 
         FakeWeb.Request bad = postAs(owner, "delete").param("documentId", "abc");
         manage.doPost(bad.http(), FakeWeb.response().http());

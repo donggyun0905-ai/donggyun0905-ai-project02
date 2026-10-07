@@ -43,6 +43,20 @@ class FileStorageUtilTest {
     }
 
     @Test
+    void 저장은_디스크에_쓰지_않고_내용과_체크섬을_돌려준다() throws Exception {
+        byte[] body = "이력서 본문".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        FileStorageUtil.SavedFile saved = FileStorageUtil.save(new java.io.ByteArrayInputStream(body), "내 이력서.pdf");
+
+        assertTrue(java.util.Arrays.equals(body, saved.getData()));
+        assertEquals(body.length, saved.getFileSize());
+        assertEquals(64, saved.getChecksum().length()); // SHA-256 hex
+        assertTrue(saved.getStoredName().endsWith(".pdf"));
+        assertEquals(null, saved.getFilePath()); // 새 서류는 경로가 없다 — DB(file_data)에만 있다
+        assertFalse(FileStorageUtil.existsOnDisk(saved.getFilePath()));
+        FileStorageUtil.deleteQuietly(null); // 경로 없는 서류를 정리해도 예외가 나지 않는다
+    }
+
+    @Test
     void 화면_미리보기는_PDF만_대소문자_무관하게_허용한다() {
         assertTrue(FileStorageUtil.isPdf("이력서.pdf"));
         assertTrue(FileStorageUtil.isPdf("resume.PDF"));

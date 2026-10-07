@@ -18,8 +18,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -73,7 +71,7 @@ class DocumentServiceTest {
     }
 
     @Test
-    void 올리고_연결을_바꾸고_삭제하면_디스크_파일도_지워진다() throws Exception {
+    void 올리고_연결을_바꾸고_삭제하면_파일_내용도_지워진다() throws Exception {
         DocumentDto file = savedFile("설계.pdf");
         Long id = service.upload(userId, file, projectId);
 
@@ -81,7 +79,8 @@ class DocumentServiceTest {
         assertEquals("설계.pdf", view.getOriginalName());
         assertEquals("내 프로젝트", view.getProjectTitle());
         assertEquals("프로젝트 서류", view.getPurpose());
-        assertTrue(Files.exists(Paths.get(file.getFilePath())));
+        assertTrue(documentDao.findById(id).isStoredInDb(), "내용은 DB에 저장된다");
+        assertEquals("테스트 서류", new String(documentDao.readFileData(id), StandardCharsets.UTF_8));
 
         assertTrue(service.changeProject(userId, id, null));
         assertNull(findView(userId, id).getProjectTitle());
@@ -89,7 +88,7 @@ class DocumentServiceTest {
 
         assertTrue(service.delete(userId, id));
         assertNull(documentDao.findById(id));
-        assertFalse(Files.exists(Paths.get(file.getFilePath())));
+        assertNull(documentDao.readFileData(id), "삭제하면 내용도 비운다");
         assertTrue(service.listViews(userId).stream().noneMatch(v -> v.getId().equals(id)));
     }
 
@@ -224,6 +223,7 @@ class DocumentServiceTest {
         document.setOriginalName(originalName);
         document.setStoredName(saved.getStoredName());
         document.setFilePath(saved.getFilePath());
+        document.setFileData(saved.getData());
         document.setFileSize(saved.getFileSize());
         document.setMimeType("application/octet-stream");
         document.setChecksum(saved.getChecksum());

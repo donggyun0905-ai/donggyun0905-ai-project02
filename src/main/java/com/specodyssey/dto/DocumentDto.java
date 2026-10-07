@@ -10,7 +10,9 @@ public class DocumentDto {
     private Long roadmapStepId;
     private String originalName;
     private String storedName;
-    private String filePath;
+    private String filePath;       // 예전(디스크) 서류만 — DB로 옮긴 뒤에 올린 서류는 null
+    private byte[] fileData;       // 저장할 때만 채운다. 조회(mapRow)는 내용을 싣지 않는다 — 목록마다 수 MB를 읽지 않게
+    private boolean storedInDb;    // 조회 시 file_data가 있는지
     private Long fileSize;
     private String mimeType;
     private String checksum;
@@ -120,5 +122,21 @@ public class DocumentDto {
 
     public void setDeleted(boolean deleted) {
         this.deleted = deleted;
+    }
+
+    public byte[] getFileData() {
+        return fileData;
+    }
+
+    public void setFileData(byte[] fileData) {
+        this.fileData = fileData;
+    }
+
+    public boolean isStoredInDb() {
+        return storedInDb;
+    }
+
+    public void setStoredInDb(boolean storedInDb) {
+        this.storedInDb = storedInDb;
     }
 }
