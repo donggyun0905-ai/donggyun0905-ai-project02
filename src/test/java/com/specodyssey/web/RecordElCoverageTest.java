@@ -39,8 +39,13 @@ class RecordElCoverageTest {
     /** `public boolean isX()` · `public String getX()` — 인자 없는 공개 메서드만 */
     private static final Pattern NO_ARG_PUBLIC =
             Pattern.compile("public\\s+[\\w<>\\[\\],.\\s]+?\\s+(\\w+)\\s*\\(\\s*\\)");
-    /** JSP의 `${something.prop}` 에서 prop */
-    private static final Pattern EL_PROPERTY = Pattern.compile("\\$\\{[^}]*?\\.(\\w+)");
+    /** JSP의 `${...}` 한 덩이 */
+    private static final Pattern EL_EXPRESSION = Pattern.compile("\\$\\{[^}]*\\}");
+    /**
+     * 그 안의 `.prop` 전부. 처음에는 표현식에서 첫 조각만 뽑았는데, 그러면 `${view.education.gpaText}`에서
+     * education만 걸려 중첩 속성이 통째로 검사에서 빠졌다 — 그래서 모든 조각을 본다 (2026-10-07).
+     */
+    private static final Pattern EL_PROPERTY = Pattern.compile("\\.\\s*([A-Za-z_]\\w*)");
 
     /**
      * 확인된 오탐 — 이 검사는 타입을 모른 채 "속성 이름"만 보고 짝지으므로, 같은 이름의 속성을
@@ -98,9 +103,12 @@ class RecordElCoverageTest {
         try (Stream<Path> files = Files.walk(WEBAPP)) {
             for (Path file : files.filter(p -> p.toString().endsWith(".jsp") || p.toString().endsWith(".jspf"))
                     .toList()) {
-                Matcher m = EL_PROPERTY.matcher(Files.readString(file));
-                while (m.find()) {
-                    properties.add(m.group(1));
+                Matcher expression = EL_EXPRESSION.matcher(Files.readString(file));
+                while (expression.find()) {
+                    Matcher property = EL_PROPERTY.matcher(expression.group());
+                    while (property.find()) {
+                        properties.add(property.group(1));
+                    }
                 }
             }
         }

@@ -65,7 +65,7 @@ class ActivityHistoryServiceTest {
         ActivityHistoryService.History history = service.load(user.getId(), LocalDate.of(2026, 10, 7));
 
         assertTrue(history.isEmpty());
-        assertTrue(history.empty(), "Tomcat 11 EL이 쓰는 x() 형태도 같은 값이어야 한다");
+        assertEquals(0, history.getTotalEvents(), "화면은 empty 대신 이 값을 본다 — empty는 EL 예약어라 ${x.empty}를 쓸 수 없다");
         assertEquals(ActivityHistoryService.WEEKS, history.getWeeks().size(), "주 수는 항상 같다");
         assertTrue(history.getWeeks().stream().allMatch(w -> w.size() == 7), "한 열은 월~일 7칸");
         assertEquals(0, history.getTotalEvents());

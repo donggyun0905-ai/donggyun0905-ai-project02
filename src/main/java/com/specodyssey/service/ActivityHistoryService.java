@@ -121,13 +121,12 @@ public class ActivityHistoryService {
             return timeline;
         }
 
+        /**
+         * 자바 코드용 — 화면(EL)은 이 값을 읽을 수 없다. empty는 EL 예약어라 ${x.empty}가 속성 접근이 아니라
+         * 파싱 오류가 된다(Tomcat 11의 EL 6.0에서 실제로 화면이 500이었다). 화면은 totalEvents == 0을 쓴다.
+         */
         public boolean isEmpty() {
             return totalEvents == 0;
-        }
-
-        /** Tomcat 11의 RecordELResolver는 record에서 isX()를 안 찾는다 — x() 형태도 둔다 */
-        public boolean empty() {
-            return isEmpty();
         }
     }
 

@@ -46,6 +46,35 @@
             <scope>provided</scope>
         </dependency>
 
+        <!--
+          테스트: JSP를 Tomcat 11의 Jasper로 미리 컴파일해 본다 (JspCompileTest).
+          JSP는 톰캣이 요청받는 순간 컴파일하므로 보통의 단위 테스트로는 EL 문법 오류가 안 잡힌다.
+          팀원 대부분이 10.1을 쓰는데 EL 버전이 달라(10.1=EL 5.0, 11=EL 6.0) 10.1에서 멀쩡한 표현식이
+          11에서만 화면을 500으로 만든 적이 있다(2026-10-07 ${x.empty} — empty는 EL 예약어).
+          그래서 로컬 톰캣이 아니라 11.0.25로 고정한다 — 10.1을 쓰는 사람 환경에서도 11 기준으로 검사된다.
+          tomcat-servlet-api는 제외한다: 위의 jakarta.servlet-api 6.0.0과 같은 패키지라 테스트
+          클래스패스에 둘이 같이 있으면 어느 쪽이 먼저 잡히는지에 따라 다른 테스트가 흔들린다.
+        -->
+        <dependency>
+            <groupId>org.apache.tomcat</groupId>
+            <artifactId>tomcat-jasper</artifactId>
+            <version>11.0.25</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.tomcat</groupId>
+                    <artifactId>tomcat-servlet-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- JspC는 Ant Task를 상속해서 ant가 클래스패스에 있어야 클래스 로딩이 된다 -->
+        <dependency>
+            <groupId>org.apache.ant</groupId>
+            <artifactId>ant</artifactId>
+            <version>1.10.15</version>
+            <scope>test</scope>
+        </dependency>
+
         <!-- JSTL 3.0 (jakarta.tags.* taglib) — Tomcat이 기본 제공하지 않으므로 WAR에 포함 -->
         <dependency>
             <groupId>jakarta.servlet.jsp.jstl</groupId>

@@ -50,6 +50,9 @@ class ShareLinkServiceTest {
             TestFixtures.hardDeleteByColumn(conn, "SHARE_LINK", "user_id", userId);
             // 공유 링크 열람은 알림을 남긴다 — NOTIFICATION이 USERS를 RESTRICT로 잡는다
             TestFixtures.hardDeleteByColumn(conn, "NOTIFICATION", "user_id", userId);
+            // SpecScoreScheduler는 웹앱이 뜨는 순간 전체 사용자에게 스냅샷을 남긴다 — 누가 같은 공유 DB로
+            // 서버를 띄워 두면 테스트가 방금 만든 사용자 몫까지 생긴다. USERS 바로 앞에서 지운다.
+            TestFixtures.hardDeleteByColumn(conn, "SPEC_SCORE_HISTORY", "user_id", userId);
             TestFixtures.hardDelete(conn, "USERS", userId);
         }
     }
