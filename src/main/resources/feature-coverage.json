@@ -1265,21 +1265,39 @@
     "title": "빈 상태(empty state) — 갓 가입해 입력이 없는 사용자에게 \"먼저 프로필을 채워보세요\" 등 다음 행동 안내",
     "priority": "[권장]",
     "area": "2-11. 예외 처리 / 빈 상태 / 온보딩",
-    "controllers": [],
-    "services": [],
+    "controllers": [
+      "DashboardServlet.java",
+      "ProfileServlet.java"
+    ],
+    "services": [
+      "NextStepService.java"
+    ],
     "daos": [],
-    "views": [],
-    "tests": []
+    "views": [
+      "dashboard.jsp",
+      "next-steps.jspf",
+      "profile.jsp"
+    ],
+    "tests": [
+      "NextStepServiceTest.java"
+    ]
   },
   {
     "id": "FR-115",
     "title": "온보딩 — 첫 진입 시 서비스 흐름(진단→길 제시→미션)을 간단히 소개",
     "priority": "[선택]",
     "area": "2-11. 예외 처리 / 빈 상태 / 온보딩",
-    "controllers": [],
+    "controllers": [
+      "OnboardingFilter.java",
+      "WelcomeServlet.java"
+    ],
     "services": [],
     "daos": [],
-    "views": [],
-    "tests": []
+    "views": [
+      "welcome.jsp"
+    ],
+    "tests": [
+      "OnboardingFilterTest.java"
+    ]
   }
 ]

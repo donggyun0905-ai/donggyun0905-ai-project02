@@ -31,8 +31,10 @@ public class OnboardingFilter implements Filter {
     static final String NOTICE_KEY = "onboardingNotice";
     static final String SURVEY_PATH = "/job-discovery";
 
+    static final String WELCOME_PATH = "/welcome";
     private static final Set<String> ALLOWED_PATHS = Set.of(
-            SURVEY_PATH, "/profile", "/logout", "/login", "/register", "/password-reset", "/recovery-code");
+            SURVEY_PATH, WELCOME_PATH, "/profile", "/logout", "/login", "/register", "/password-reset",
+            "/recovery-code");
     private static final String[] ALLOWED_PREFIXES = {
             "/profile/", "/css/", "/js/", "/img/", "/image/", "/share/"
     };
@@ -54,6 +56,11 @@ public class OnboardingFilter implements Filter {
                 try {
                     if (isOnboarded(user.getId())) {
                         session.setAttribute(SESSION_KEY, Boolean.TRUE);
+                    } else if (WelcomeServlet.notSeenYet(session)) {
+                        // FR-115 — 설문으로 바로 보내면 "가입하자마자 설문을 요구하는 화면"이 된다.
+                        // 왜 설문부터 하는지(진단 → 길 제시 → 미션)를 한 번 보여주고 거기서 설문으로 넘긴다.
+                        resp.sendRedirect(req.getContextPath() + WELCOME_PATH);
+                        return;
                     } else {
                         session.setAttribute(NOTICE_KEY, "먼저 직무 찾기 설문을 해 주세요. 설문을 마치기 전에는 설문과 내 프로필만 쓸 수 있습니다.");
                         resp.sendRedirect(req.getContextPath() + SURVEY_PATH);

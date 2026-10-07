@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
+import java.util.List;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -112,6 +113,10 @@ class ShareViewServiceTest {
         assertEquals("Spring Boot · 중급", view.getSkills().get(0));
         assertEquals("Docker", view.getSkills().get(1)); // 숙련도가 없으면 기술명만
         assertEquals(1, new ShareLinkViewLogDao().findByShareLinkId(link.getId()).size());
+        // 같은 스펙을 종류별로도 묶어 준다 — 타임라인은 시간순 서사, 보유 스펙 카드는 훑는 용도 (2026-10-07)
+        assertEquals(List.of("자격증"), List.copyOf(view.getSpecGroups().keySet()));
+        assertEquals("정보처리기능사", view.getSpecGroups().get("자격증").get(0).getTitle());
+        assertTrue(view.isHasSpecs());
     }
 
     @Test

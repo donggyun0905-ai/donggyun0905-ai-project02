@@ -5,6 +5,8 @@ import com.specodyssey.util.FileStorageUtil;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -21,6 +23,10 @@ public class ShareViewDto {
     private boolean scopeCoverLetter;
     private boolean scopeAge;
     private boolean scopeActivity;
+    // 서류 파일이 이 서버에 실제로 있는지 — 업로드 폴더는 서버 PC마다 따로라 DB에 행만 있을 수 있다.
+    // 화면이 이걸 보고 "미리보기"를 그릴지, "파일을 찾을 수 없다"고 알릴지 정한다.
+    private boolean resumeFileReadable;
+    private boolean coverLetterFileReadable;
     private boolean scopeProjectDocs;
     private boolean scopeEducation;
 
@@ -31,6 +37,9 @@ public class ShareViewDto {
     private String grade;
     private String desiredJobName;
     private List<TimelineItem> timeline = new ArrayList<>();
+    // 보유 스펙을 종류별로 묶은 것 — 타임라인에는 프로젝트와 섞여 시간순으로만 들어가서 "자격증이 몇 개인지"를
+    // 훑을 수 없었다(2026-10-07). 같은 데이터를 다르게 보여 주는 것이라 공개 범위도 타임라인과 같다(scope_basic).
+    private Map<String, List<TimelineItem>> specGroups = new LinkedHashMap<>();
     private List<String> certNames = new ArrayList<>(); // 비교 뷰용 — 자격증 이름만
     private int projectCount;
 
@@ -123,6 +132,7 @@ public class ShareViewDto {
         private Long documentId;         // 공개한 링크에서만 채운다. null이면 종류 이름만 보인다
         private String fileName;
         private String previewType;      // "pdf" / "image" — 화면 안 미리보기 가능 형식. 그 외 null
+        private boolean fileMissing;     // 공개는 했지만 이 서버에 파일이 없다(업로드 폴더는 PC마다 따로)
 
         public SubmittedDoc(String docType, String label, Long sourceDocumentId) {
             this.docType = docType;
@@ -154,10 +164,23 @@ public class ShareViewDto {
             return previewType;
         }
 
+        public boolean isFileMissing() {
+            return fileMissing;
+        }
+
         public void share(Long documentId, String fileName, String previewType) {
             this.documentId = documentId;
             this.fileName = fileName;
             this.previewType = previewType;
+        }
+
+        /**
+         * 공개한 서류이지만 이 서버에 파일이 없을 때. documentId를 채우지 않아 열기·내려받기 링크가 안 생기고,
+         * 화면은 이름과 함께 "파일을 찾을 수 없다"고 알린다 — 열리지 않는 미리보기를 그리지 않기 위해서다.
+         */
+        public void markMissing(String fileName) {
+            this.fileName = fileName;
+            this.fileMissing = true;
         }
     }
 
@@ -369,13 +392,30 @@ public class ShareViewDto {
         this.coverLetterFileName = coverLetterFileName;
     }
 
+    public boolean isResumeFileReadable() {
+        return resumeFileReadable;
+    }
+
+    public void setResumeFileReadable(boolean resumeFileReadable) {
+        this.resumeFileReadable = resumeFileReadable;
+    }
+
+    public boolean isCoverLetterFileReadable() {
+        return coverLetterFileReadable;
+    }
+
+    public void setCoverLetterFileReadable(boolean coverLetterFileReadable) {
+        this.coverLetterFileReadable = coverLetterFileReadable;
+    }
+
     // PDF면 면접관 뷰에서 화면 안에 원본 그대로 보여준다. 다른 형식(DOCX·HWP)은 브라우저가 못 그려서 내려받기만.
+    // 파일이 이 서버에 없으면 PDF라도 미리보기를 그리지 않는다 — 열리지 않는 iframe만 남는다.
     public boolean isResumePdf() {
-        return FileStorageUtil.isPdf(resumeFileName);
+        return resumeFileReadable && FileStorageUtil.isPdf(resumeFileName);
     }
 
     public boolean isCoverLetterPdf() {
-        return FileStorageUtil.isPdf(coverLetterFileName);
+        return coverLetterFileReadable && FileStorageUtil.isPdf(coverLetterFileName);
     }
 
     public boolean isScopeProjectDocs() {
@@ -440,6 +480,19 @@ public class ShareViewDto {
 
     public void setTimeline(List<TimelineItem> timeline) {
         this.timeline = timeline;
+    }
+
+    public Map<String, List<TimelineItem>> getSpecGroups() {
+        return specGroups;
+    }
+
+    public void setSpecGroups(Map<String, List<TimelineItem>> specGroups) {
+        this.specGroups = specGroups;
+    }
+
+    /** 보유 스펙이 하나라도 있는지 — 화면이 빈 카드를 그리지 않게 */
+    public boolean isHasSpecs() {
+        return !specGroups.isEmpty();
     }
 
     public List<String> getCertNames() {

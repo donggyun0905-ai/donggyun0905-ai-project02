@@ -67,9 +67,26 @@ public class RoadmapDao {
     // gap_analysis_id는 UNIQUE(1:1)라, 같은 분석으로 로드맵을 또 만들려는 요청(중복 클릭 등)을
     // 막으려면 먼저 이걸로 이미 있는지 확인해야 한다 — FR-32 생성 흐름에서 사용.
     public RoadmapDto findByGapAnalysisId(Long gapAnalysisId) throws SQLException {
-        String sql = "SELECT " + COLUMNS + " FROM ROADMAP WHERE gap_analysis_id = ? AND is_deleted = FALSE";
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        try (Connection conn = DBUtil.getConnection()) {
+            return findByGapAnalysisId(conn, gapAnalysisId);
+        }
+    }
+
+    /** 트랜잭션 안에서 다시 확인할 때 쓴다 — INSERT 직전에 같은 커넥션으로 봐야 의미가 있다. */
+    public RoadmapDto findByGapAnalysisId(Connection conn, Long gapAnalysisId) throws SQLException {
+        return findByGapAnalysisId(conn, gapAnalysisId, false);
+    }
+
+    /**
+     * @param includingDeleted true면 논리 삭제된 행까지 본다. UNIQUE 인덱스(uk_roadmap_gap_analysis_id)는
+     *        is_deleted를 보지 않으므로, 논리 삭제된 행이 있으면 조회에는 안 걸리면서 INSERT는 막는다.
+     *        중복키를 복구할 때는 그 행까지 찾아야 "왜 막혔는지"를 알 수 있다.
+     */
+    public RoadmapDto findByGapAnalysisId(Connection conn, Long gapAnalysisId, boolean includingDeleted)
+            throws SQLException {
+        String sql = "SELECT " + COLUMNS + " FROM ROADMAP WHERE gap_analysis_id = ?"
+                + (includingDeleted ? "" : " AND is_deleted = FALSE");
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, gapAnalysisId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 return rs.next() ? mapRow(rs) : null;

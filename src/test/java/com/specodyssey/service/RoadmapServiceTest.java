@@ -30,6 +30,7 @@ import com.specodyssey.dto.UserProjectDto;
 import com.specodyssey.dto.UserSkillDto;
 import com.specodyssey.dto.UserSpecDto;
 import com.specodyssey.util.DBUtil;
+import com.specodyssey.util.LlmClient;
 import com.specodyssey.util.StubLlmClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +39,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -1512,6 +1514,63 @@ class RoadmapServiceTest {
 
         assertEquals(firstRoadmapId, secondCallRoadmapId);
         assertEquals(1, roadmapDao.findByUserId(userId).size());
+    }
+
+    // 2026-10-06에 실제로 500이 났다: Duplicate entry for key 'roadmap.uk_roadmap_gap_analysis_id'.
+    // 중복 확인은 LLM 호출 "전"에 하고 INSERT는 "후"에 하기 때문에, 그 수 초 사이에 들어온 두 번째
+    // 요청이 같은 확인을 통과해 둘 다 INSERT하면 뒤쪽이 깨졌다. LLM이 불리는 동안 경쟁 로드맵을 넣어
+    // 그 순간을 그대로 재현한다.
+    @Test
+    void LLM을_기다리는_동안_다른_요청이_로드맵을_만들어도_500이_아니라_그것을_쓴다() throws Exception {
+        List<Long> plantedIds = new ArrayList<>();
+        RoadmapService racing = new RoadmapService(new ProjectIdeaService(new LlmClient() {
+            @Override
+            public <T> T completeJson(String prompt, Class<T> type) {
+                if (plantedIds.isEmpty()) {
+                    try {
+                        plantedIds.add(insertCompetingRoadmap()); // 먼저 들어온 요청이 만든 로드맵
+                    } catch (java.sql.SQLException e) {
+                        throw new IllegalStateException(e);
+                    }
+                }
+                return type.cast(new ProjectIdeaService.ProjectIdea("테스트 프로젝트", "테스트용 고정 설명"));
+            }
+        }));
+
+        Long result = racing.generate(userId);
+
+        assertEquals(1, plantedIds.size(), "LLM이 불리지 않으면 이 테스트는 아무것도 검증하지 못한다");
+        assertEquals(plantedIds.get(0), result, "먼저 만들어진 로드맵을 그대로 써야 한다");
+        assertEquals(1, roadmapDao.findByUserId(userId).size(), "로드맵이 둘로 갈라지면 안 된다");
+        assertTrue(roadmapDao.findByGapAnalysisId(gapAnalysisId).isPrimary(), "그 로드맵이 대표가 돼야 한다");
+    }
+
+    // 복구는 "그 UNIQUE 위반"일 때만 해야 한다 — 제약 이름을 문자열로 보고 가리므로, MySQL이 실제로
+    // 그 이름을 담아 주는지 진짜 중복 INSERT를 해서 확인한다(버전이 올라가 메시지가 바뀌면 여기서 깨진다).
+    @Test
+    void 중복키_판별이_MySQL_실제_메시지와_맞는다() throws Exception {
+        roadmapService.generate(userId);
+
+        SQLIntegrityConstraintViolationException duplicate = assertThrows(
+                SQLIntegrityConstraintViolationException.class, this::insertCompetingRoadmap);
+        assertTrue(RoadmapGenerator.isDuplicateGapAnalysisKey(duplicate),
+                "실제 메시지: " + duplicate.getMessage());
+
+        assertFalse(RoadmapGenerator.isDuplicateGapAnalysisKey(
+                        new SQLIntegrityConstraintViolationException("Cannot add or update a child row: fk_something")),
+                "다른 제약 위반은 삼키면 안 된다");
+    }
+
+    /** 같은 격차 분석을 가리키는 로드맵을 직접 하나 넣는다 — 경쟁 요청 흉내 */
+    private Long insertCompetingRoadmap() throws java.sql.SQLException {
+        RoadmapDto competing = new RoadmapDto();
+        competing.setUserId(userId);
+        competing.setGapAnalysisId(gapAnalysisId);
+        competing.setVersion(1);
+        competing.setActive(true);
+        competing.setPrimary(false); // 복구가 대표로 올려 주는지도 함께 확인한다
+        competing.setTargetLevel("EXPERT");
+        return roadmapDao.insert(competing);
     }
 
     // 부족한 기술이 5개(MAX_SKILL_STEPS_PER_TIER)를 넘으면, 넘는 만큼은 버리지 않고 tier=CORE로 남는다.

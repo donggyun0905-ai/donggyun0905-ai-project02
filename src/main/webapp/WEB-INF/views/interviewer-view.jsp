@@ -1,5 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <c:set var="pageTitle" value="지원자 이력 - 스펙 오디세이" scope="request" />
 <jsp:include page="/WEB-INF/views/common/header.jsp" />
 
@@ -91,6 +92,12 @@
                         <c:when test="${empty view.resumeFileName}">
                             <p class="muted" style="margin-top:10px; margin-bottom:0;">이력서 — 지원자가 아직 올리지 않았습니다.</p>
                         </c:when>
+                        <%-- DB에는 등록돼 있는데 이 서버에 파일이 없는 경우. 업로드 폴더는 서버 PC마다 따로라
+                             팀원이 올린 서류는 공유 DB에 행만 남는다. 열리지 않는 미리보기를 그리는 대신 이유를 알린다. --%>
+                        <c:when test="${not view.resumeFileReadable}">
+                            <p style="margin-top:10px; margin-bottom:0;">이력서 · <c:out value="${view.resumeFileName}" /></p>
+                            <p class="muted" style="margin-top:6px; margin-bottom:0; font-size:0.84rem;">이 서버에서 파일을 찾을 수 없어 미리보기와 내려받기를 할 수 없습니다. 지원자에게 다시 올려 달라고 요청해 주세요.</p>
+                        </c:when>
                         <c:otherwise>
                             <p style="margin-top:10px; margin-bottom:0;">
                                 이력서 · <a href="${pageContext.request.contextPath}/share/${token}/resume" class="file-link"><span class="ic ic-download" aria-hidden="true"></span> <c:out value="${view.resumeFileName}" /> 내려받기</a>
@@ -115,6 +122,12 @@
                     <c:choose>
                         <c:when test="${empty view.coverLetterFileName}">
                             <p class="muted" style="margin-top:10px; margin-bottom:0;">자소서 — 지원자가 아직 올리지 않았습니다.</p>
+                        </c:when>
+                        <%-- DB에는 등록돼 있는데 이 서버에 파일이 없는 경우. 업로드 폴더는 서버 PC마다 따로라
+                             팀원이 올린 서류는 공유 DB에 행만 남는다. 열리지 않는 미리보기를 그리는 대신 이유를 알린다. --%>
+                        <c:when test="${not view.coverLetterFileReadable}">
+                            <p style="margin-top:16px; margin-bottom:0;">자소서 · <c:out value="${view.coverLetterFileName}" /></p>
+                            <p class="muted" style="margin-top:6px; margin-bottom:0; font-size:0.84rem;">이 서버에서 파일을 찾을 수 없어 미리보기와 내려받기를 할 수 없습니다. 지원자에게 다시 올려 달라고 요청해 주세요.</p>
                         </c:when>
                         <c:otherwise>
                             <p style="margin-top:16px; margin-bottom:0;">
@@ -193,6 +206,11 @@
                                                                 <c:forEach var="doc" items="${item.submittedDocs}">
                                                                     <c:set var="docUrl" value="${pageContext.request.contextPath}/share/documents/${token}/${doc.documentId}" />
                                                                     <c:choose>
+                                                                        <c:when test="${doc.fileMissing}">
+                                                                            <p style="margin:4px 0;"><span class="chip chip-teal"><c:out value="${doc.label}" /></span>
+                                                                                <c:out value="${doc.fileName}" />
+                                                                                <span class="muted" style="font-size:0.82rem;">— 이 서버에서 파일을 찾을 수 없습니다</span></p>
+                                                                        </c:when>
                                                                         <c:when test="${empty doc.documentId}">
                                                                             <p style="margin:4px 0;"><span class="chip chip-teal"><c:out value="${doc.label}" /></span></p>
                                                                         </c:when>
@@ -237,6 +255,35 @@
                         </table>
                     </c:otherwise>
                 </c:choose>
+            </div>
+        </c:if>
+
+        <%-- 보유 스펙 — 타임라인과 같은 데이터를 종류별로 묶어 보여 준다(2026-10-07 사용자 요청).
+             타임라인은 프로젝트와 섞여 시간순이라 "자격증이 몇 개인지"를 훑을 수 없었다.
+             새로 공개하는 값이 아니므로 공개 범위도 타임라인과 같다(scope_basic). --%>
+        <c:if test="${view.scopeBasic and view.hasSpecs}">
+            <div class="card">
+                <h2>보유 스펙</h2>
+                <c:forEach var="group" items="${view.specGroups}">
+                    <div style="margin-top:12px;">
+                        <div class="muted" style="font-size:0.82rem;"><c:out value="${group.key}" /> <strong>${fn:length(group.value)}</strong>건</div>
+                        <table style="margin-top:4px;">
+                            <c:forEach var="spec" items="${group.value}">
+                                <tr>
+                                    <td><c:out value="${spec.title}" />
+                                        <c:if test="${not empty spec.detail}">
+                                            <span class="muted" style="font-size:0.84rem;"> · <c:out value="${spec.detail}" /></span>
+                                        </c:if>
+                                        <c:if test="${not empty spec.documentId}">
+                                            <a href="${pageContext.request.contextPath}/share/documents/${token}/${spec.documentId}" class="file-link" style="font-size:0.84rem;"><span class="ic ic-paperclip" aria-hidden="true"></span> 증빙</a>
+                                        </c:if>
+                                    </td>
+                                    <td class="muted" style="width:190px; font-size:0.84rem;"><c:out value="${spec.dateText}" /></td>
+                                </tr>
+                            </c:forEach>
+                        </table>
+                    </div>
+                </c:forEach>
             </div>
         </c:if>
 

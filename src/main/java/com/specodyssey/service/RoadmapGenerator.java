@@ -22,12 +22,14 @@ import com.specodyssey.util.ExternalApiClient.ExternalApiException;
 import com.specodyssey.util.LlmRetryPolicy;
 import com.specodyssey.util.TransactionUtil;
 import java.sql.SQLException;
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import static com.specodyssey.service.RoadmapConstants.*;
 
@@ -65,6 +67,9 @@ public class RoadmapGenerator {
     // 예전에는 💡 이모지였다(2026-10-03 이모지 제거, 저장된 값은 sql/22로 바꿈).
     public static final String PROJECT_IDEA_PREFIX = "아이디어: ";
     private static final String COMMON_CATEGORY = "COMMON";
+    // ROADMAP(gap_analysis_id) UNIQUE 제약 이름 — 중복키를 복구할 때 다른 제약과 구분하는 데 쓴다
+    private static final String GAP_ANALYSIS_UNIQUE_KEY = "uk_roadmap_gap_analysis_id";
+    private static final Logger LOG = Logger.getLogger(RoadmapGenerator.class.getName());
 
     // 가장 최근 격차 분석을 기준으로 새 로드맵을 생성한다. 기존 대표 로드맵이 있으면 비활성화한다 (FR-37).
     public Long generate(Long userId) throws SQLException, NoGapAnalysisException {
@@ -78,16 +83,7 @@ public class RoadmapGenerator {
         // 이미 이 분석의 로드맵이 있으면 새로 만들지 않고 대표로만 지정하고 그대로 반환한다(중복 클릭 방지).
         RoadmapDto existingForAnalysis = roadmapDao.findByGapAnalysisId(analysis.getId());
         if (existingForAnalysis != null) {
-            if (!existingForAnalysis.isPrimary()) {
-                RoadmapDto currentPrimary = roadmapDao.findPrimaryByUserId(userId);
-                TransactionUtil.runInTransaction(conn -> {
-                    if (currentPrimary != null) {
-                        roadmapDao.updateActiveAndPrimary(conn, currentPrimary.getId(), userId, false, false);
-                    }
-                    roadmapDao.updateActiveAndPrimary(conn, existingForAnalysis.getId(), userId, true, true);
-                    return null;
-                });
-            }
+            promoteToPrimary(userId, existingForAnalysis);
             return existingForAnalysis.getId();
         }
 
@@ -108,7 +104,38 @@ public class RoadmapGenerator {
         RoadmapDto previousPrimary = roadmapDao.findPrimaryByUserId(userId);
         int nextVersion = nextVersion(userId);
 
+        try {
+            return insertRoadmap(userId, analysis, previousPrimary, nextVersion, job, roundSkillIds,
+                    importanceBySkillId, suggestedCert, commonCert, projectReason);
+        } catch (SQLIntegrityConstraintViolationException e) {
+            // 위에서 확인한 뒤 INSERT까지 사이에 LLM 호출이 끼어 있어 수 초가 걸린다. 그 사이에 같은
+            // 사용자의 두 번째 요청(버튼 두 번 클릭)이 같은 확인을 통과해 둘 다 INSERT하면 여기로 온다.
+            // 2026-10-06에 실제로 500이 났다(Duplicate entry for key 'roadmap.uk_roadmap_gap_analysis_id').
+            // 먼저 들어간 쪽이 만든 로드맵을 쓰는 것이 맞다 — 사용자가 원한 건 "로드맵 하나"다.
+            Long recovered = recoverFromDuplicateGapAnalysis(userId, analysis.getId(), e);
+            if (recovered == null) {
+                throw e; // 다른 제약 위반이면 삼키지 않는다
+            }
+            return recovered;
+        }
+    }
+
+    private Long insertRoadmap(Long userId, GapAnalysisDto analysis, RoadmapDto previousPrimary, int nextVersion,
+                               JobDto job, List<Long> roundSkillIds, Map<Long, String> importanceBySkillId,
+                               CertificationDto suggestedCert, CertificationDto commonCert, String projectReason)
+            throws SQLException {
         return TransactionUtil.runInTransaction(conn -> {
+            // INSERT 직전에 같은 커넥션으로 한 번 더 본다 — 바깥 확인은 LLM 호출 전이라 이미 낡았을 수 있다
+            RoadmapDto raced = roadmapDao.findByGapAnalysisId(conn, analysis.getId());
+            if (raced != null) {
+                if (!raced.isPrimary()) {
+                    if (previousPrimary != null) {
+                        roadmapDao.updateActiveAndPrimary(conn, previousPrimary.getId(), userId, false, false);
+                    }
+                    roadmapDao.updateActiveAndPrimary(conn, raced.getId(), userId, true, true);
+                }
+                return raced.getId();
+            }
             if (previousPrimary != null) {
                 roadmapDao.updateActiveAndPrimary(conn, previousPrimary.getId(), userId, false, false);
             }
@@ -304,6 +331,60 @@ public class RoadmapGenerator {
         names.add(key);
         return ownedTitles.stream().map(title -> title.replace(" ", ""))
                 .anyMatch(title -> names.stream().anyMatch(title::contains));
+    }
+
+    /** 이 로드맵을 대표로 세우고, 대표였던 것은 내린다. 이미 대표면 아무것도 하지 않는다. */
+    private void promoteToPrimary(Long userId, RoadmapDto target) throws SQLException {
+        if (target.isPrimary()) {
+            return;
+        }
+        RoadmapDto currentPrimary = roadmapDao.findPrimaryByUserId(userId);
+        TransactionUtil.runInTransaction(conn -> {
+            if (currentPrimary != null && !currentPrimary.getId().equals(target.getId())) {
+                roadmapDao.updateActiveAndPrimary(conn, currentPrimary.getId(), userId, false, false);
+            }
+            roadmapDao.updateActiveAndPrimary(conn, target.getId(), userId, true, true);
+            return null;
+        });
+    }
+
+    /**
+     * INSERT가 gap_analysis_id UNIQUE에 걸렸을 때, 이미 있는 로드맵을 대표로 세우고 그 id를 돌려준다.
+     * 이 분석의 로드맵을 못 찾으면 null — 다른 제약 위반이라는 뜻이니 호출부가 예외를 그대로 올린다.
+     */
+    private Long recoverFromDuplicateGapAnalysis(Long userId, Long gapAnalysisId,
+                                                 SQLIntegrityConstraintViolationException cause) throws SQLException {
+        if (!isDuplicateGapAnalysisKey(cause)) {
+            return null;
+        }
+        RoadmapDto existing = roadmapDao.findByGapAnalysisId(gapAnalysisId);
+        if (existing == null) {
+            // UNIQUE 인덱스는 is_deleted를 보지 않는다 — 논리 삭제된 행이 인덱스를 잡고 있으면 조회에는
+            // 안 걸리면서 INSERT만 막힌다. 코드에는 로드맵을 논리 삭제하는 경로가 없으니 DB를 직접 고친
+            // 경우다. 조용히 넘기면 원인을 영원히 모르므로, 무엇을 봐야 하는지 남기고 예외를 올린다.
+            LOG.warning("격차 분석 " + gapAnalysisId + "의 로드맵이 조회에는 없는데 UNIQUE가 막는다 — "
+                    + "논리 삭제된 ROADMAP 행이 있는지 확인하세요(SELECT * FROM ROADMAP WHERE gap_analysis_id = "
+                    + gapAnalysisId + ").");
+            return null;
+        }
+        LOG.info("같은 격차 분석(" + gapAnalysisId + ")으로 로드맵이 이미 만들어져 있어 그것을 씁니다 — roadmapId="
+                + existing.getId());
+        promoteToPrimary(userId, existing);
+        return existing.getId();
+    }
+
+    /**
+     * 그 UNIQUE 제약 위반인지 확인한다. 한 트랜잭션 안에서 단계·점수도 쓰기 때문에 다른 제약 위반이
+     * 섞여 들어올 수 있어, 제약 이름으로 가린다. MySQL 메시지: Duplicate entry '…' for key 'roadmap.uk_…'
+     */
+    static boolean isDuplicateGapAnalysisKey(SQLIntegrityConstraintViolationException e) {
+        for (Throwable t = e; t != null && t != t.getCause(); t = t.getCause()) {
+            String message = t.getMessage();
+            if (message != null && message.contains(GAP_ANALYSIS_UNIQUE_KEY)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private int nextVersion(Long userId) throws SQLException {

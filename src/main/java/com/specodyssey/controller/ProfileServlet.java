@@ -9,6 +9,7 @@ import com.specodyssey.dto.UserDto;
 import com.specodyssey.dto.UserProjectDto;
 import com.specodyssey.service.AiUsageLogService;
 import com.specodyssey.service.EducationService;
+import com.specodyssey.service.NextStepService;
 import com.specodyssey.service.PersonalInfo;
 import com.specodyssey.service.ProfileService;
 import com.specodyssey.service.ResumeService;
@@ -36,6 +37,7 @@ public class ProfileServlet extends HttpServlet {
     private final JobAliasDao jobAliasDao = new JobAliasDao();
     private final DocumentDao documentDao = new DocumentDao();
     private final ProfileService profileService = new ProfileService();
+    private final NextStepService nextStepService = new NextStepService();
     private final AiUsageLogService aiUsageLogService = new AiUsageLogService();
     private final ResumeService resumeService = new ResumeService();
     private final EducationService educationService = new EducationService();
@@ -175,6 +177,9 @@ public class ProfileServlet extends HttpServlet {
     }
 
     private void loadProfileAttributes(HttpServletRequest req, Long userId) throws SQLException {
+        // FR-114 — 어디까지 채웠고 다음에 무엇을 할지. 저장 실패로 폼을 다시 그릴 때도 같이 나와야 해서
+        // doGet이 아니라 여기에 둔다(여러 곳에서 이 메서드를 부른다).
+        req.setAttribute("nextSteps", nextStepService.load(userId));
         UserDto user = userDao.findById(userId);
         req.setAttribute("user", user);
         List<JobDto> jobs = jobDao.findAll();

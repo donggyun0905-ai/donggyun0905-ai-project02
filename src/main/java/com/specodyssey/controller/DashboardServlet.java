@@ -18,6 +18,7 @@ import com.specodyssey.dto.SkillDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.dto.UserScoreSummaryDto;
 import com.specodyssey.service.GapAnalysisService;
+import com.specodyssey.service.NextStepService;
 import com.specodyssey.service.RoadmapService;
 import com.specodyssey.service.TierProgress;
 import com.specodyssey.service.RoadmapProgress;
@@ -64,6 +65,7 @@ public class DashboardServlet extends HttpServlet {
     private final RoadmapService roadmapService = new RoadmapService();
     private final ScoreService scoreService = new ScoreService();
     private final SpecScoreService specScoreService = new SpecScoreService();
+    private final NextStepService nextStepService = new NextStepService();
     private final JobDiscoveryService jobDiscoveryService = new JobDiscoveryService();
     private final DailyMissionService dailyMissionService = new DailyMissionService();
     private final DdayAlertDao ddayAlertDao = new DdayAlertDao();
@@ -86,6 +88,8 @@ public class DashboardServlet extends HttpServlet {
             loadGapAnalysis(req, userId);
             // 설문 문항이 바뀌어 아직 답하지 않은 문항이 있으면 다시 풀어 보라고 알린다
             req.setAttribute("newQuestionCount", jobDiscoveryService.countNewQuestions(userId));
+            // FR-114 — 여정을 아직 못 시작한 사람에게 "지금 할 한 가지"를 안내한다. 다 끝낸 사람에게는 안 보인다.
+            req.setAttribute("nextSteps", nextStepService.load(userId));
         } catch (SQLException e) {
             throw new ServletException("대시보드를 불러오는 중 오류가 발생했습니다.", e);
         }
