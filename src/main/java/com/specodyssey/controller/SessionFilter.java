@@ -43,8 +43,10 @@ public class SessionFilter implements Filter {
     // (FR-14), 접근 제어는 로그인이 아니라 ShareLinkDao.findByToken의 토큰·활성·만료 확인이 대신한다.
     // "/image/"(로고·등급 로고 등)는 사용자별 데이터가 아니라 공용 정적 자산이라 css/js와 같이 공개한다
     // — 없으면 로그인 전 화면(로그인·회원가입)에서 헤더 로고가 못 뜬다.
+    // "/api/companion/"은 데스크톱 캐릭터(exe)용 — 쿠키 세션 대신 CompanionApiServlet이 캐릭터 전용 토큰으로 사용자를
+    // 확인한다(토큰은 웹 로그인 사용자가 받은 일회용 코드로만 발급). docs/desktop-companion-plan.md 3·6절.
     private static final String[] PUBLIC_PREFIXES = {
-            "/css/", "/js/", "/img/", "/image/", "/share/"
+            "/css/", "/js/", "/img/", "/image/", "/share/", "/api/companion/"
     };
 
     private final ScoreService scoreService = new ScoreService();

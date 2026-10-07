@@ -814,6 +814,29 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 - ref_id에 적립 근거 레코드의 id를 넣어 중복 적립을 막는다. 같은 로드맵 단계를 체크 해제했다가 다시 체크해도 점수가 두 번 들어가면 안 된다.
 - 배점은 명세서 TD-5 값을 그대로 쓴다 — 로드맵 단계 완료 +100, 코테 정답 +10~30(난이도별), 문제 풀이 +5, 서류 등록 +30, 자가진단 초기 1회 +0~50.
 
+#### COMPANION_DEVICE (데스크톱 캐릭터 연결) — 신설
+
+관련 요구사항: 없음(추가 기능) · `sql/32_schema_companion_device.sql` · 계획 `docs/desktop-companion-plan.md`
+
+바탕화면 캐릭터(exe)와 웹 계정의 연결. 웹 "캐릭터 켜기" → 일회용 코드(1분) → exe가 캐릭터 전용 토큰으로 교환. 한 행 = 한 PC.
+
+| 컬럼 | 타입 | 키 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK | 식별자 |
+| `user_id` | BIGINT | FK | → USERS |
+| `device_name` | VARCHAR(100) |  | PC 이름 (exe가 알려 줌) |
+| `connect_code_hash` | CHAR(64) | UNIQUE | 일회용 코드 SHA-256 — 토큰으로 바꾸면 NULL |
+| `code_expires_at` | DATETIME |  | 코드 만료 (발급 1분 뒤) |
+| `token_hash` | CHAR(64) | UNIQUE | 캐릭터 전용 토큰 SHA-256 — 연결 전 NULL |
+| `connected_at` · `last_used_at` | DATETIME |  | 연결 시각 · 마지막 요청 시각 |
+| `revoked_at` | DATETIME |  | 연결 해제 시각 — 있으면 토큰으로 요청할 수 없다 |
+
+설계 판단:
+
+- 웹 세션(쿠키)을 exe에 넘기지 않는다 — 주소에 남으면 계정 전체가 노출되고, 세션이 끝나면 캐릭터도 끊긴다.
+- 코드·토큰 원문은 저장하지 않는다(해시만). 코드 교환은 UPDATE 한 문장이라 같은 코드로 두 번 연결되지 않는다.
+- `/api/companion/*`은 SessionFilter 공개 경로 — 세션 대신 이 토큰으로 사용자를 확인한다.
+
 #### SIMULATION_STATE (테스트 계정 시뮬레이션 진행 상태) — 신설
 
 관련 요구사항: 없음(개발·시연 도구) · `sql/26_alter_users_is_test_simulation.sql`, `sql/27_alter_simulation_target_score.sql`

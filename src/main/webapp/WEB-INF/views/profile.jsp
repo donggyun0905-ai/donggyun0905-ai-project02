@@ -39,6 +39,8 @@
 
 <%@ include file="/WEB-INF/views/profile/_ai-usage.jspf" %>
 
+<%@ include file="/WEB-INF/views/profile/_companion.jspf" %>
+
 <c:set var="passwordAction" value="/profile/password" />
 <%@ include file="/WEB-INF/views/common/password-change.jspf" %>
 <%@ include file="/WEB-INF/views/profile/_withdraw.jspf" %>
