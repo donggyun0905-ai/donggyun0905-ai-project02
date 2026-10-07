@@ -17,7 +17,7 @@ public class UserService {
 
     private static final int LOGIN_ID_MAX_LENGTH = 50; // USERS.login_id VARCHAR(50)
     private static final int PASSWORD_MIN_LENGTH = 8;
-    private static final int PASSWORD_MAX_LENGTH = 100; // 과도하게 긴 입력으로 PBKDF2 반복 비용을 늘리는 것을 방지
+    private static final int PASSWORD_MAX_LENGTH = 100; // 과도하게 긴 입력으로 해시 계산 비용을 늘리는 것을 방지
     // 탈퇴 유예 기간(팀 확인 2026-10-03) — 이 기간에는 아이디를 잡아 두고, 다시 로그인하면 탈퇴를 취소할 수 있다
     public static final int WITHDRAWAL_GRACE_DAYS = 30;
 
@@ -159,6 +159,12 @@ public class UserService {
         if (!PasswordUtil.verify(rawPassword, user.getPasswordHash())) {
             throw new InvalidCredentialException("아이디 또는 비밀번호가 올바르지 않습니다.");
         }
+        // 예전 PBKDF2 해시(또는 설정이 바뀐 Argon2id)면 평문을 알고 있는 지금 새 방식으로 바꿔 저장한다
+        if (PasswordUtil.needsRehash(user.getPasswordHash())) {
+            String upgraded = PasswordUtil.hash(rawPassword);
+            userDao.updatePasswordHash(user.getId(), upgraded);
+            user.setPasswordHash(upgraded);
+        }
         userDao.updateLastLogin(user.getId());
         return user;
     }
@@ -250,7 +256,7 @@ public class UserService {
         }
         String stored = user == null ? null : user.getRecoveryCodeHash();
         boolean formatOk = RecoveryCode.looksValid(recoveryCode);
-        // 어떤 경우든 같은 횟수의 PBKDF2를 돌려 응답 시간으로 계정 상태를 짐작하지 못하게 한다
+        // 어떤 경우든 같은 횟수의 해시 계산을 돌려 응답 시간으로 계정 상태를 짐작하지 못하게 한다
         boolean matches = PasswordUtil.verify(RecoveryCode.forHash(recoveryCode), stored == null ? DUMMY_HASH : stored);
         if (user == null || stored == null || !formatOk || !matches) {
             throw new InvalidCredentialException("아이디 또는 복구 코드가 올바르지 않습니다.");
