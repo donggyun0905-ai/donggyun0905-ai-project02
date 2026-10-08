@@ -471,7 +471,20 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
 
     /** 우클릭 메뉴 — 캐릭터를 누를 때 창이 활성화되므로, 메뉴 밖을 누르면 창이 비활성화되며 Swing이 메뉴를 닫는다 */
     private void showMenu(JPopupMenu menu, MouseEvent e) {
-        menu.show(e.getComponent(), e.getX(), e.getY());
+        // 마우스 자리에 띄우면 커서에 가려진다 — 캐릭터 머리 위 가운데에 띄운다 (위에 자리가 없으면 캐릭터 왼쪽)
+        java.awt.Dimension size = menu.getPreferredSize();
+        Rectangle ch = character.characterBounds();
+        Rectangle screen = character.screenBounds();
+        int x = ch.x + ch.width / 2 - size.width / 2;
+        int y = ch.y - size.height - 6;
+        if (y < screen.y) {
+            x = ch.x - size.width - 6;
+            y = ch.y;
+        }
+        x = Math.max(screen.x, Math.min(x, screen.x + screen.width - size.width));
+        y = Math.max(screen.y, Math.min(y, screen.y + screen.height - size.height));
+        java.awt.Point origin = e.getComponent().getLocationOnScreen();
+        menu.show(e.getComponent(), x - origin.x, y - origin.y);
     }
 
     private void setQuiet(long until) {
