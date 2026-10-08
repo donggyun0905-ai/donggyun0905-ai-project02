@@ -17,9 +17,19 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * 메뉴 "성장 도구" 맨 위의 [캐릭터 내려받기]를 보일지 정한다 (common/header.jsp) — 요청 속성 showCompanionDownload.
- * 브라우저는 PC에 프로그램이 설치됐는지 알려 주지 않으므로, 이 계정에 연결된 PC가 있으면 설치된 것으로 보고 숨긴다.
- * 올라간 설치 파일이 없을 때도 숨긴다 (이건 1분씩 기억해 요청마다 DB를 보지 않는다).
+ * 메뉴 "성장 도구" 맨 위에 데스크톱 캐릭터 항목을 무엇으로 보일지 정한다
+ * (common/companion-nav.jspf) — 요청 속성 {@code companionNavState}.
+ *
+ *   null       아무것도 안 보인다. 올라간 설치 파일이 없거나, 이미 연결된 PC가 있어 할 일이 없다.
+ *   "download" [캐릭터 내려받기] — 아직 설치 파일을 받아간 적이 없다.
+ *   "launch"   [캐릭터 켜기]     — 받아갔으니 프로필의 [캐릭터 켜기]와 같은 일을 한다.
+ *
+ * 브라우저는 PC에 프로그램이 설치됐는지 알려 주지 않는다. 그래서 두 가지 간접 신호를 쓴다:
+ * 연결된 PC가 있으면 설치·연결까지 끝난 것으로 보고 항목을 아예 숨기고, 설치 파일을 받아간 기록
+ * (세션 {@link CompanionServlet#DOWNLOADED_ATTR})이 있으면 켜기로 바꾼다. 둘 다 틀릴 수 있어서
+ * 켜기를 눌러 안 열리면 프로필 칸으로 보내 "이미 설치했어요 / 내려받기"를 다시 고를 수 있게 한다.
+ *
+ * 설치 파일이 있는지는 1분씩 기억해 요청마다 DB를 보지 않는다.
  */
 @WebFilter(urlPatterns = {"/*"})
 public class CompanionNavFilter implements Filter {
@@ -42,10 +52,11 @@ public class CompanionNavFilter implements Filter {
         if (loginUser instanceof UserDto user && !RoleFilter.INTERVIEWER.equals(user.getUserType()) && !skip(req.getServletPath())) {
             try {
                 if (hasRelease() && deviceDao.findConnectedByUserId(user.getId()).isEmpty()) {
-                    req.setAttribute("showCompanionDownload", true);
+                    boolean downloaded = Boolean.TRUE.equals(session.getAttribute(CompanionServlet.DOWNLOADED_ATTR));
+                    req.setAttribute("companionNavState", downloaded ? "launch" : "download");
                 }
             } catch (Exception e) {
-                LOG.log(Level.WARNING, "캐릭터 내려받기 메뉴 확인 실패 — 메뉴 없이 표시합니다", e);
+                LOG.log(Level.WARNING, "캐릭터 메뉴 확인 실패 — 메뉴 없이 표시합니다", e);
             }
         }
         chain.doFilter(request, response);

@@ -85,6 +85,7 @@
     "views": [],
     "tests": [
       "RegisterServletTest.java",
+      "SessionFilterPublicPathTest.java",
       "UserDaoTest.java"
     ]
   },
@@ -1071,6 +1072,7 @@
     "views": [],
     "tests": [
       "InterviewerServiceTest.java",
+      "SessionFilterPublicPathTest.java",
       "ShareLinkDaoTest.java",
       "ShareLinkServiceTest.java",
       "ShareViewServiceTest.java"

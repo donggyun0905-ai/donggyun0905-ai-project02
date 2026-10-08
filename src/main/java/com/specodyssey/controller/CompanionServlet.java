@@ -39,6 +39,15 @@ import java.util.logging.Logger;
 public class CompanionServlet extends HttpServlet {
 
 
+    /**
+     * 이 브라우저(세션)가 설치 파일을 받아갔다는 표시. 메뉴의 [캐릭터 내려받기]를 [캐릭터 켜기]로
+     * 바꿔 주는 스위치다 (CompanionNavFilter → common/companion-nav.jspf).
+     * 브라우저는 PC에 설치가 끝났는지 알려 주지 않으니, "설치 파일을 받아갔다"가 우리가 아는 가장
+     * 가까운 사실이다. 세션이라 다시 로그인하면 지워지고, 그걸 보정하는 것은 브라우저 localStorage다
+     * (js/companion-nav.js).
+     */
+    static final String DOWNLOADED_ATTR = "companionDownloaded";
+
     private static final Logger LOG = Logger.getLogger(CompanionServlet.class.getName());
     private static final Gson GSON = new Gson();
     private static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
@@ -51,7 +60,7 @@ public class CompanionServlet extends HttpServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         Long userId = currentUserId(req);
         if ("/download".equals(req.getPathInfo())) {
-            download(resp);
+            download(req, resp);
             return;
         }
         if (!"/devices".equals(req.getPathInfo())) {
@@ -104,7 +113,7 @@ public class CompanionServlet extends HttpServlet {
         }
     }
 
-    private void download(HttpServletResponse resp) throws IOException {
+    private void download(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         try {
             CompanionReleaseDto r = releaseService.latest();
             if (r == null) {
@@ -115,6 +124,12 @@ public class CompanionServlet extends HttpServlet {
             resp.setContentLengthLong(r.getFileSize());
             resp.setHeader("Content-Disposition", "attachment; filename=\"" + r.getFileName() + "\"");
             releaseService.writeTo(r, resp.getOutputStream());
+            // 파일을 다 보냈으니 메뉴를 [캐릭터 켜기]로 바꾼다. 보내기 전에 표시하면 중간에 끊겨도
+            // 켜기로 바뀌어, 사용자가 설치되지 않은 프로그램을 켜려고 하게 된다.
+            HttpSession session = req.getSession(false);
+            if (session != null) {
+                session.setAttribute(DOWNLOADED_ATTR, Boolean.TRUE);
+            }
         } catch (SQLException e) {
             LOG.log(Level.WARNING, "캐릭터 설치 파일 내려받기 실패", e);
             if (!resp.isCommitted()) {
