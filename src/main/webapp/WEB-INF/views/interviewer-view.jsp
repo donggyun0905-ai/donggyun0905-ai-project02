@@ -374,20 +374,53 @@
             <div class="card">
                 <h2>성장 잠재력</h2>
                 <c:choose>
-                    <c:when test="${empty view.growth}">
+                    <c:when test="${empty view.growthChart}">
                         <p class="muted" style="margin-top:10px;">아직 스펙 완성도 기록이 쌓이지 않았습니다.</p>
                     </c:when>
                     <c:otherwise>
-                        <p class="muted" style="margin-top:10px;">스펙 완성도(100점 만점)가 시간에 따라 변한 기록입니다.</p>
-                        <div class="row" style="margin-top:10px; align-items:flex-end; gap:20px;">
-                            <c:forEach var="point" items="${view.growth}">
-                                <div style="text-align:center;">
-                                    <div>${point.completenessScore}</div>
-                                    <div style="width:24px; height:${point.completenessScore * 0.8}px; background:var(--teal); margin:4px auto 0;"></div>
-                                    <div class="muted" style="font-size:0.78rem;">${point.snapshotDate}</div>
+                        <c:set var="chart" value="${view.growthChart}" />
+                        <p class="muted" style="margin-top:10px;">
+                            스펙 완성도(100점 만점) — 기간마다 마지막 값을 막대로, 직전 기간 대비 증감을 함께 보여 줍니다 (첫 막대는 그 기간 안의 증감).
+                        </p>
+                        <p class="growth-summary"><c:out value="${chart.summaryText}" /></p>
+                        <%-- 주·월·년 탭 — 라디오 버튼 + CSS만으로 전환 (스크립트 없음) --%>
+                        <div class="growth-tabs">
+                            <c:forEach var="period" items="${chart.periods}" varStatus="st">
+                                <input type="radio" name="growth-period" id="growth-${period.key}" class="growth-radio"
+                                       ${st.first ? 'checked' : ''}>
+                            </c:forEach>
+                            <div class="growth-tab-labels">
+                                <c:forEach var="period" items="${chart.periods}">
+                                    <label for="growth-${period.key}" class="growth-tab-${period.key}"><c:out value="${period.name}" /></label>
+                                </c:forEach>
+                            </div>
+                            <c:forEach var="period" items="${chart.periods}">
+                                <div class="growth-panel growth-panel-${period.key}">
+                                    <p class="growth-change ${period.down ? 'down' : 'up'}"><c:out value="${period.changeText}" /></p>
+                                    <div class="growth-plot">
+                                        <div class="growth-axis">
+                                            <span>${chart.axisMax}</span>
+                                            <span>${chart.axisMin}</span>
+                                        </div>
+                                        <div class="growth-bars">
+                                            <c:forEach var="bar" items="${period.bars}">
+                                                <div class="growth-col">
+                                                    <div class="growth-delta ${bar.down ? 'down' : ''}"><c:out value="${bar.deltaText}" /></div>
+                                                    <div class="growth-score"><c:out value="${bar.scoreText}" /></div>
+                                                    <div class="growth-track">
+                                                        <div class="growth-bar" style="height:${bar.heightPercent}%;"></div>
+                                                    </div>
+                                                    <div class="growth-label"><c:out value="${bar.label}" /></div>
+                                                </div>
+                                            </c:forEach>
+                                        </div>
+                                    </div>
                                 </div>
                             </c:forEach>
                         </div>
+                        <p class="muted" style="font-size:0.78rem; margin-top:6px;">
+                            세로축은 ${chart.axisMin}~${chart.axisMax}점 구간만 확대해 보여 줍니다.
+                        </p>
                     </c:otherwise>
                 </c:choose>
             </div>
@@ -408,5 +441,36 @@
     .act-cell.act-filler { background: transparent; }
     .act-legend { display: flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 0.78rem; }
     .act-legend .muted { margin: 0 4px; }
+
+    /* 성장 잠재력 (2026-10-08) — 주·월·년 탭. 라디오가 체크된 기간의 패널만 보인다 */
+    .growth-summary { margin-top: 6px; font-weight: 600; }
+    .growth-radio { position: absolute; opacity: 0; pointer-events: none; }
+    .growth-tab-labels { display: inline-flex; margin-top: 12px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    /* 공통 label(style.css)의 아래 여백 4px 때문에 선택 색이 테두리 끝까지 안 칠해져서 여기서 0으로 */
+    .growth-tab-labels label { display: block; margin: 0; padding: 6px 18px; line-height: 1.4; cursor: pointer;
+                               font-size: 0.88rem; color: var(--ink-soft); transition: background 0.15s; }
+    .growth-tab-labels label:hover { background: var(--teal-bg); }
+    .growth-tab-labels label + label { border-left: 1px solid var(--border); }
+    #growth-week:checked ~ .growth-tab-labels .growth-tab-week,
+    #growth-month:checked ~ .growth-tab-labels .growth-tab-month,
+    #growth-year:checked ~ .growth-tab-labels .growth-tab-year { background: var(--teal); color: #fff; font-weight: 600; }
+    .growth-panel { display: none; }
+    #growth-week:checked ~ .growth-panel-week,
+    #growth-month:checked ~ .growth-panel-month,
+    #growth-year:checked ~ .growth-panel-year { display: block; }
+    .growth-change { margin-top: 10px; font-weight: 600; color: var(--teal); }
+    .growth-change.down, .growth-delta.down { color: var(--danger); }
+    .growth-plot { display: flex; gap: 8px; margin-top: 8px; }
+    .growth-axis { display: flex; flex-direction: column; justify-content: space-between; font-size: 0.72rem;
+                   color: var(--ink-soft); height: 160px; margin-top: 36px; text-align: right; min-width: 22px; }
+    .growth-bars { display: flex; gap: 10px; align-items: flex-end; overflow-x: auto; padding-bottom: 4px; flex: 1; }
+    .growth-col { text-align: center; flex: 0 0 auto; min-width: 42px; }
+    .growth-delta { font-size: 0.72rem; color: var(--teal); height: 16px; }
+    .growth-score { font-size: 0.85rem; font-weight: 600; height: 20px; }
+    .growth-track { height: 160px; display: flex; align-items: flex-end; justify-content: center;
+                    border-bottom: 1px solid var(--border); }
+    .growth-bar { width: 26px; background: var(--teal); border-radius: 4px 4px 0 0; }
+    .growth-col:last-child .growth-bar { background: #155c51; }
+    .growth-label { font-size: 0.74rem; color: var(--ink-soft); margin-top: 4px; white-space: nowrap; }
 </style>
 <jsp:include page="/WEB-INF/views/common/footer.jsp" />

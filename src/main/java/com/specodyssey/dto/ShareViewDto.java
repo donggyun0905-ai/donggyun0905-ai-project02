@@ -57,8 +57,10 @@ public class ShareViewDto {
     // scope_cover_letter — 자소서 파일 이름. 공개했지만 올린 자소서가 없으면 null
     private String coverLetterFileName;
 
-    // scope_growth — 날짜 오름차순
+    // scope_growth — 날짜 오름차순, 전체 기록
     private List<SpecScoreHistoryDto> growth = new ArrayList<>();
+    // scope_growth — 주·월·년 단위로 묶은 그래프 (기록이 없으면 null)
+    private com.specodyssey.service.GrowthChart.Chart growthChart;
     // 학력 공개 링크에서만 채운다. 지원자가 입력하지 않았으면 null
     private UserEducationDto education;
 
@@ -545,6 +547,14 @@ public class ShareViewDto {
 
     public void setGrowth(List<SpecScoreHistoryDto> growth) {
         this.growth = growth;
+    }
+
+    public com.specodyssey.service.GrowthChart.Chart getGrowthChart() {
+        return growthChart;
+    }
+
+    public void setGrowthChart(com.specodyssey.service.GrowthChart.Chart growthChart) {
+        this.growthChart = growthChart;
     }
 
     public boolean isScopeActivity() {

@@ -44,7 +44,10 @@ class RecordElAccessTest {
             InsightViewDto.HeatmapView.class,
             InsightViewDto.HeatRow.class,
             InsightViewDto.HeatCell.class,
-            InsightViewDto.Notice.class);
+            InsightViewDto.Notice.class,
+            GrowthChart.Bar.class,
+            GrowthChart.Period.class,
+            GrowthChart.Chart.class);
 
     @Test
     void 화면에_쓰는_record는_구성요소마다_getter가_있다() {
