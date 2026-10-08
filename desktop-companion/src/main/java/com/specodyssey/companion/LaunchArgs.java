@@ -5,7 +5,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 
 /**
- * 실행할 때 받은 값 — 웹 "캐릭터 켜기"가 연 specodyssey://connect?code=…&server=… 와 업데이트 뒤의 --updated.
+ * 실행할 때 받은 값 — 웹 "캐릭터 연결"이 연 specodyssey://connect?code=…&server=… 와 업데이트 뒤의 --updated.
  */
 public record LaunchArgs(String code, String server, boolean updated) {
 

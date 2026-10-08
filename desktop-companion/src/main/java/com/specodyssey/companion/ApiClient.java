@@ -37,8 +37,12 @@ public class ApiClient {
     public record Trend(String name, String summary, String url) {
     }
 
+    /**
+     * @param signedOut 그 PC 브라우저에서 사이트를 로그아웃했다 — 다른 값은 비어 있고 siteUrl은 로그인 화면
+     * @param account   연결된 계정 (사용자 id) — 이 PC 브라우저에서 다른 계정으로 로그인하면 바뀐다
+     */
     public record Snapshot(String userName, Tier tier, List<Message> messages, String siteUrl, List<Trend> trends,
-                           String summary) {
+                           String summary, boolean signedOut, Long account) {
     }
 
     /** 서버에 올라간 최신 설치 파일 (없으면 version이 null) */
@@ -59,14 +63,22 @@ public class ApiClient {
             .followRedirects(HttpClient.Redirect.NEVER)
             .build();
 
-    /** 일회용 코드 → 캐릭터 전용 토큰 */
-    public String exchange(String server, String code, String deviceName) throws IOException, InterruptedException {
-        JsonObject body = post(server, "/token", null, Map.of("code", code, "device", deviceName == null ? "" : deviceName));
+    /**
+     * 일회용 코드 → 캐릭터 전용 토큰.
+     * @param previousToken 이 PC가 들고 있던 예전 토큰 — 서버가 그 연결을 끊어 한 PC에 연결이 하나만 남는다
+     */
+    public String exchange(String server, String code, String deviceName, String previousToken)
+            throws IOException, InterruptedException {
+        JsonObject body = post(server, "/token", null, Map.of("code", code, "device", deviceName == null ? "" : deviceName,
+                "previous", previousToken == null ? "" : previousToken));
         return body.get("token").getAsString();
     }
 
     public Snapshot messages(String server, String token, int eveningHour) throws IOException, InterruptedException {
         JsonObject body = post(server, "/messages", token, Map.of("eveningHour", String.valueOf(eveningHour)));
+        if (body.has("signedOut") && body.get("signedOut").getAsBoolean()) {
+            return new Snapshot(null, null, List.of(), str(body, "siteUrl"), List.of(), null, true, null);
+        }
         List<Message> list = new ArrayList<>();
         JsonArray arr = body.getAsJsonArray("messages");
         if (arr != null) {
@@ -86,7 +98,18 @@ public class ApiClient {
                 trends.add(new Trend(str(t, "name"), str(t, "summary"), str(t, "url")));
             }
         }
-        return new Snapshot(str(body, "userName"), tier, list, str(body, "siteUrl"), trends, str(body, "summary"));
+        Long account = body.has("account") && !body.get("account").isJsonNull() ? body.get("account").getAsLong() : null;
+        return new Snapshot(str(body, "userName"), tier, list, str(body, "siteUrl"), trends, str(body, "summary"), false, account);
+    }
+
+    /** 가벼운 확인 — 지금 이 PC의 캐릭터가 어느 계정인지, 로그아웃해 쉬는 중인지 */
+    public record WhoAmI(Long account, boolean signedOut) {
+    }
+
+    public WhoAmI whoami(String server, String token) throws IOException, InterruptedException {
+        JsonObject b = post(server, "/whoami", token, Map.of());
+        Long account = b.has("account") && !b.get("account").isJsonNull() ? b.get("account").getAsLong() : null;
+        return new WhoAmI(account, b.has("signedOut") && b.get("signedOut").getAsBoolean());
     }
 
     public Latest latest(String server, String token) throws IOException, InterruptedException {

@@ -74,7 +74,8 @@ public class HistoryWindow extends JFrame {
         JLabel head = new JLabel(TIME.format(Instant.ofEpochMilli(item.time)) + "  ·  " + (item.label == null ? "" : item.label));
         head.setFont(Theme.font(Font.BOLD, 12));
         head.setForeground(Theme.kindColor(item.kind));
-        JLabel body = new JLabel("<html><body style='width:280px'>" + escape(item.text) + "</body></html>");
+        // 280px이면 윈도우 배율(125% 등)에서 창 밖으로 넘쳐 글자가 잘렸다 — 창(380) 안에 들어오게 줄인다
+        JLabel body = new JLabel("<html><body style='width:230px'>" + escape(item.text) + "</body></html>");
         body.setFont(Theme.font(Font.PLAIN, 13));
         body.setForeground(Theme.INK);
         card.add(head, BorderLayout.NORTH);

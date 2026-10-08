@@ -31,7 +31,13 @@ import java.util.concurrent.TimeUnit;
 public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.Listener {
 
     private static final long POLL_SECONDS = 10; // 사이트에서 한 일이 10초 안에 반영되게
+    /** 계정이 바뀌었는지·로그아웃했는지만 묻는 간격 — 바뀌면 바로 할 말을 다시 받는다 (누르지 않아도 모습이 바로 바뀌게) */
+    private static final long WHOAMI_SECONDS = 2;
     private static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
+    /** 사이트에서 로그아웃해 쉬는 중 안내 */
+    private static final String SIGNED_OUT_KEY = "signed-out";
+    /** 지금 로그아웃해 쉬는 중인가 — 2초 확인과 비교한다 (worker·화면 스레드가 같이 읽는다) */
+    private volatile boolean resting;
 
     private final Settings settings = Settings.load();
     private final ApiClient api = new ApiClient();
@@ -119,6 +125,7 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
             extras.add(connectGuide());
         }
         worker.scheduleWithFixedDelay(this::poll, 0, POLL_SECONDS, TimeUnit.SECONDS);
+        worker.scheduleWithFixedDelay(this::checkWhoAmI, WHOAMI_SECONDS, WHOAMI_SECONDS, TimeUnit.SECONDS);
         worker.scheduleWithFixedDelay(this::checkUpdate, 15, 24 * 60 * 60, TimeUnit.SECONDS);
         new Timer(1000, e -> tick()).start();
         tick();
@@ -129,19 +136,24 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
     private void connect(String code, String server) {
         worker.execute(() -> {
             try {
-                String token = api.exchange(server, code, System.getenv("COMPUTERNAME"));
+                // 들고 있던 토큰을 같이 보낸다 — 서버가 예전 연결을 끊어 이 PC의 연결이 하나만 남는다
+                String token = api.exchange(server, code, System.getenv("COMPUTERNAME"), settings.token);
                 settings.server = server;
                 settings.token = token;
                 settings.save();
                 SwingUtilities.invokeLater(() -> {
                     extras.removeIf(m -> m.key().equals("connect-guide"));
+                    // 연결 전에 켜 두어 "연결해 주세요" 말풍선이 떠 있었으면 거둔다 — 안 그러면 인사가 그 뒤에서 기다린다
+                    if (rules.current() != null && rules.current().key().equals("connect-guide")) {
+                        closeBubble(rules.current(), false);
+                    }
                     greetAfterConnect = true;
                     character.unpeek();
                 });
                 poll();
             } catch (IOException e) {
                 SwingUtilities.invokeLater(() -> forceShow(Message.local("connect-fail:" + System.currentTimeMillis(), Message.WARN,
-                        "연결", "연결하지 못했어요. " + e.getMessage(), "사이트 열기", profileUrl())));
+                        "연결", "연결하지 못했어요. " + e.getMessage(), "사이트 열기", botUrl())));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -165,8 +177,48 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
         }
     }
 
+    /**
+     * 2초마다 — 이 PC 브라우저에서 다른 계정으로 로그인했거나 로그아웃했으면 10초를 기다리지 않고 바로 다시 받는다.
+     * 서버는 이 확인에서 DB에 쓰지 않는다 (/whoami).
+     */
+    private void checkWhoAmI() {
+        if (!settings.isConnected()) {
+            return;
+        }
+        try {
+            ApiClient.WhoAmI me = api.whoami(settings.server, settings.token);
+            boolean changed = me.signedOut() != resting
+                    || (!me.signedOut() && me.account() != null && !me.account().equals(settings.account));
+            if (changed) {
+                poll();
+            }
+        } catch (ApiClient.UnauthorizedException e) {
+            poll(); // 연결이 끊겼다 — poll이 정리한다
+        } catch (IOException e) {
+            // 서버가 잠깐 안 되면 다음 확인에서
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
     private void onSnapshot(ApiClient.Snapshot snap) {
+        resting = snap.signedOut();
+        if (snap.signedOut()) {
+            onSignedOut(snap.siteUrl());
+            return;
+        }
         character.setOffline(false);
+        if (extras.removeIf(m -> m.key().equals(SIGNED_OUT_KEY))) {
+            // 다시 로그인했다 — 쉬는 안내를 거두고, 돌아온(또는 새로 옮겨 온) 계정 이름으로 인사한다
+            if (rules.current() != null && rules.current().key().equals(SIGNED_OUT_KEY)) {
+                closeBubble(rules.current(), false);
+            }
+            greetAfterConnect = true;
+        }
+        if (snap.account() != null && settings.account != null && !snap.account().equals(settings.account)) {
+            onAccountSwitched();
+        }
+        settings.account = snap.account();
         serverMessages = snap.messages();
         summaryText = snap.summary();
         siteUrl = snap.siteUrl();
@@ -198,8 +250,57 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
         tick();
     }
 
+    /**
+     * 이 PC 브라우저에서 사이트를 로그아웃했다 — 연결은 둔 채 쉰다. 다시 로그인하면(다른 계정이어도) 저절로 이어진다.
+     * 그동안은 그 계정의 할 일을 말하지 않는다.
+     */
+    private void onSignedOut(String loginUrl) {
+        character.setOffline(true);
+        serverMessages = List.of();
+        summaryText = null;
+        trends = List.of();
+        // 그 계정 앞으로 줄 서 있던 말(하루 요약·등급 상승·인사)도 거둔다 — 로그아웃한 사이에 그 계정 할 일이 뜨지 않게
+        urgent.clear();
+        if (rules.current() != null && !rules.current().local()) {
+            closeBubble(rules.current(), false);
+        }
+        if (extras.stream().noneMatch(m -> m.key().equals(SIGNED_OUT_KEY))) {
+            Message resting = Message.local(SIGNED_OUT_KEY, Message.INFO, "쉬는 중",
+                    "사이트에서 로그아웃해서 쉬고 있어요. 이 PC에서 다시 로그인하면 그 계정으로 저절로 이어져요.",
+                    "로그인하기", loginUrl != null ? loginUrl : settings.siteBase() + "/login");
+            extras.add(resting);
+            // 막 로그아웃했다 — 떠 있던 말풍선(인사 등)을 거두고 쉬는 안내를 바로 한 번 보여 준다
+            if (rules.current() != null) {
+                closeBubble(rules.current(), false);
+            }
+            forceShow(resting);
+        }
+        dirty = true;
+        tick();
+    }
+
+    /**
+     * 이 PC 브라우저에서 다른 계정으로 로그인해 캐릭터가 그 계정으로 옮겨 왔다 — 지난 계정의 말을 거둔다.
+     * 말풍선 기록은 계정마다 따로 남아 있어 지우지 않는다 (기록 창은 지금 계정 것만 보여 준다).
+     */
+    private void onAccountSwitched() {
+        if (rules.current() != null) {
+            closeBubble(rules.current(), false);
+        }
+        urgent.clear();
+        settings.spokenKeys = new java.util.HashSet<>();
+        settings.lastTier = 0;            // 새 계정 등급을 "등급 상승"으로 축하하지 않게
+        settings.lastSummaryDate = null;  // 새 계정의 하루 요약은 다시
+        rules = new BubbleRules(settings.intervalMinutes * 60_000L, settings.spokenKeys);
+        noteWindow.reset();
+        greetAfterConnect = true;
+    }
+
     private void onDisconnected() {
         settings.token = null;
+        settings.account = null;
+        noteWindow.reset();
+        extras.removeIf(m -> m.key().equals(SIGNED_OUT_KEY));
         serverMessages = List.of();
         if (extras.stream().noneMatch(m -> m.key().equals("connect-guide"))) {
             extras.add(connectGuide());
@@ -266,7 +367,7 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
         }
         // 하루 요약 — 정한 시각(기본 9시)이 지났고 오늘 아직 안 했으면 한 번 (그날 처음 켜질 때도)
         String today = java.time.LocalDate.now(ZONE).toString();
-        if (summaryText != null && settings.isConnected() && !today.equals(settings.lastSummaryDate)
+        if (summaryText != null && settings.isConnected() && !resting && !today.equals(settings.lastSummaryDate)
                 && java.time.LocalTime.now(ZONE).getHour() >= settings.summaryHour) {
             settings.lastSummaryDate = today;
             urgent.add(Message.local("summary:" + today, Message.TODO, "하루 요약", summaryText, "대시보드", siteUrl));
@@ -399,11 +500,13 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
             settingsMoved();
             return;
         }
-        Message top = BubbleRules.mostUrgent(available());
+        Message top = resting
+                ? extras.stream().filter(m -> m.key().equals(SIGNED_OUT_KEY)).findFirst().orElse(null)
+                : BubbleRules.mostUrgent(available());
         if (top == null) {
             top = Message.local("none:" + System.currentTimeMillis(), Message.PRAISE, "지금 할 일",
                     settings.isConnected() ? "지금은 급한 일이 없어요. 잘하고 있어요!" : "먼저 사이트와 연결해 주세요.",
-                    settings.isConnected() ? null : "사이트 열기", settings.isConnected() ? null : profileUrl());
+                    settings.isConnected() ? null : "사이트 열기", settings.isConnected() ? null : botUrl());
         }
         if (bubble.isShowing(top)) {
             character.talk();
@@ -430,7 +533,7 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
     public void onMenu(MouseEvent e) {
         JPopupMenu menu = new JPopupMenu();
         item(menu, "지금 할 일 말해 줘", this::onCharacterClick);
-        item(menu, "말풍선 기록", () -> history.showItems(settings.history));
+        item(menu, "말풍선 기록", () -> history.showItems(settings.historyFor(settings.account)));
         item(menu, "연습장", noteWindow::open);
         menu.addSeparator();
 
@@ -462,7 +565,7 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
         if (settings.isConnected()) {
             item(menu, "연결 해제", this::disconnect);
         } else {
-            item(menu, "연결하기", () -> browse(profileUrl()));
+            item(menu, "연결하기", () -> browse(botUrl()));
         }
         item(menu, "종료", this::exit);
         Theme.style(menu);
@@ -555,7 +658,7 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
         System.exit(0);
     }
 
-    /** 이미 켜진 캐릭터에게 다른 실행이 넘긴 값 (웹 "캐릭터 켜기"를 또 누른 경우 등) */
+    /** 이미 켜진 캐릭터에게 다른 실행이 넘긴 값 (웹 "캐릭터 연결"을 또 누른 경우 등) */
     void onForwarded(String line) {
         LaunchArgs args = LaunchArgs.parse(line.isBlank() ? new String[0] : line.split(" "));
         SwingUtilities.invokeLater(() -> {
@@ -574,11 +677,12 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
 
     private Message connectGuide() {
         return Message.local("connect-guide", Message.INFO, "연결",
-                "사이트 내 프로필에서 '캐릭터 켜기'를 누르면 할 일을 알려 드릴게요.", "사이트 열기", profileUrl());
+                "사이트 '오셍이들' 메뉴에서 '캐릭터 연결'을 누르면 할 일을 알려 드릴게요.", "사이트 열기", botUrl());
     }
 
-    private String profileUrl() {
-        return settings.siteBase() + "/profile#companion";
+    /** 사이트의 "오셍이들" 화면 — 캐릭터 연결·연결된 PC 관리 (예전에는 내 프로필에 있었다) */
+    private String botUrl() {
+        return settings.siteBase() + "/bot";
     }
 
     private JMenuItem item(java.awt.Container menu, String text, Runnable action) {

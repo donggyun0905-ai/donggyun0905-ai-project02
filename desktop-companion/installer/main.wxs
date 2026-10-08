@@ -77,11 +77,12 @@
       <ComponentGroupRef Id="Shortcuts"/>
       <ComponentGroupRef Id="Files"/>
       <ComponentGroupRef Id="FileAssociations"/>
-      <ComponentGroupRef Id="FragmentOsCondition"/>
+      <!-- FragmentOsCondition(윈도우 버전 검사)은 뺐다 — JDK 22+ jpackage가 더는 만들지 않아 light.exe가 LGHT0094로 실패한다.
+           JDK 17~21에서 빌드하면 그 조각이 생기지만 참조하지 않으니 그냥 쓰이지 않는다 (2026-10-08) -->
       <ComponentRef Id="SoProtocol"/>
     </Feature>
 
-    <!-- 스펙 오디세이: 웹 "캐릭터 켜기"가 여는 specodyssey:// 주소를 이 프로그램으로 연결 (현재 사용자 레지스트리, 지우면 같이 지워진다) -->
+    <!-- 스펙 오디세이: 웹 "캐릭터 켜기·연결"이 여는 specodyssey:// 주소를 이 프로그램으로 연결 (현재 사용자 레지스트리, 지우면 같이 지워진다) -->
     <DirectoryRef Id="INSTALLDIR">
       <Component Id="SoProtocol" Guid="9c1f4a52-3b7e-4d61-8f0a-5e2b7c9d1a34">
         <RegistryKey Root="HKCU" Key="Software\Classes\specodyssey">

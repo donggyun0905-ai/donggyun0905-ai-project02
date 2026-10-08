@@ -20,12 +20,17 @@ import java.util.Set;
 public class Settings {
 
     public static final int HISTORY_MAX = 100;
-    /** 연결 전 안내에서 열 사이트 (팀 개발 서버 기본 주소) */
-    public static final String DEFAULT_SERVER = "http://localhost/spec_odyssey";
+    /**
+     * 연결 전 안내에서 열 사이트 (팀 개발 서버 기본 주소).
+     * 예전 값 spec_odyssey(밑줄)는 없는 주소라, 설치 직후 "사이트 열기"가 오류 화면으로 갔다 (2026-10-08 수정).
+     */
+    public static final String DEFAULT_SERVER = "http://localhost/spec-odyssey";
 
     public String server;
     public String token;
     public String userName;
+    /** 지금 연결된 계정 (서버의 사용자 id) — 바뀌면 지난 계정의 말풍선 기록·연습장을 지운다 */
+    public Long account;
     public Integer x;
     public Integer y;
     public String size = "M";
@@ -46,6 +51,8 @@ public class Settings {
 
     public static class HistoryItem {
         public long time;
+        /** 이 말을 들은 계정 — 말풍선 기록은 지금 계정 것만 보여 준다 (예전 기록은 null이라 안 보인다) */
+        public Long account;
         public String kind;
         public String label;
         public String text;
@@ -54,8 +61,9 @@ public class Settings {
         public HistoryItem() {
         }
 
-        public HistoryItem(long time, Message m) {
+        public HistoryItem(long time, Message m, Long account) {
             this.time = time;
+            this.account = account;
             this.kind = m.kind();
             this.label = m.label();
             this.text = m.text();
@@ -132,10 +140,24 @@ public class Settings {
     }
 
     public synchronized void addHistory(long now, Message m) {
-        history.add(0, new HistoryItem(now, m));
+        history.add(0, new HistoryItem(now, m, account));
         while (history.size() > HISTORY_MAX) {
             history.remove(history.size() - 1);
         }
+    }
+
+    /** 지금 연결된 계정의 말풍선 기록만 (최근 순) — 이 PC에서 계정을 바꿔 쓰면 서로의 기록이 섞이지 않게 */
+    public synchronized List<HistoryItem> historyFor(Long account) {
+        List<HistoryItem> mine = new ArrayList<>();
+        if (account == null) {
+            return mine;
+        }
+        for (HistoryItem item : history) {
+            if (account.equals(item.account)) {
+                mine.add(item);
+            }
+        }
+        return mine;
     }
 
     public boolean isConnected() {
