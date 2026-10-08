@@ -446,7 +446,10 @@
     .growth-summary { margin-top: 6px; font-weight: 600; }
     .growth-radio { position: absolute; opacity: 0; pointer-events: none; }
     .growth-tab-labels { display: inline-flex; margin-top: 12px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-    .growth-tab-labels label { padding: 5px 18px; cursor: pointer; font-size: 0.88rem; color: var(--ink-soft); }
+    /* 공통 label(style.css)의 아래 여백 4px 때문에 선택 색이 테두리 끝까지 안 칠해져서 여기서 0으로 */
+    .growth-tab-labels label { display: block; margin: 0; padding: 6px 18px; line-height: 1.4; cursor: pointer;
+                               font-size: 0.88rem; color: var(--ink-soft); transition: background 0.15s; }
+    .growth-tab-labels label:hover { background: var(--teal-bg); }
     .growth-tab-labels label + label { border-left: 1px solid var(--border); }
     #growth-week:checked ~ .growth-tab-labels .growth-tab-week,
     #growth-month:checked ~ .growth-tab-labels .growth-tab-month,
