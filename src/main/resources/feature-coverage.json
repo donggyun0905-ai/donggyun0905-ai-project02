@@ -1298,16 +1298,21 @@
       "ProfileServlet.java"
     ],
     "services": [
-      "NextStepService.java"
+      "NextStepService.java",
+      "SkillCooccurrenceService.java"
     ],
-    "daos": [],
+    "daos": [
+      "SkillCooccurrenceDao.java"
+    ],
     "views": [
       "dashboard.jsp",
       "next-steps.jspf",
       "profile.jsp"
     ],
     "tests": [
-      "NextStepServiceTest.java"
+      "NextStepServiceTest.java",
+      "SkillCooccurrenceDaoTest.java",
+      "SkillCooccurrenceServiceTest.java"
     ]
   },
   {

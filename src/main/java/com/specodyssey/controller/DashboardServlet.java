@@ -19,6 +19,7 @@ import com.specodyssey.dto.UserDto;
 import com.specodyssey.dto.UserScoreSummaryDto;
 import com.specodyssey.service.GapAnalysisService;
 import com.specodyssey.service.NextStepService;
+import com.specodyssey.service.SkillCooccurrenceService;
 import com.specodyssey.service.RoadmapService;
 import com.specodyssey.service.TierProgress;
 import com.specodyssey.service.RoadmapProgress;
@@ -66,6 +67,7 @@ public class DashboardServlet extends HttpServlet {
     private final ScoreService scoreService = new ScoreService();
     private final SpecScoreService specScoreService = new SpecScoreService();
     private final NextStepService nextStepService = new NextStepService();
+    private final SkillCooccurrenceService skillCooccurrenceService = new SkillCooccurrenceService();
     private final JobDiscoveryService jobDiscoveryService = new JobDiscoveryService();
     private final DailyMissionService dailyMissionService = new DailyMissionService();
     private final DdayAlertDao ddayAlertDao = new DdayAlertDao();
@@ -90,6 +92,9 @@ public class DashboardServlet extends HttpServlet {
             req.setAttribute("newQuestionCount", jobDiscoveryService.countNewQuestions(userId));
             // FR-114 — 여정을 아직 못 시작한 사람에게 "지금 할 한 가지"를 안내한다. 다 끝낸 사람에게는 안 보인다.
             req.setAttribute("nextSteps", nextStepService.load(userId));
+            // 같은 직무를 목표로 한 사람들이 함께 익힌 기술 (2026-10-08). 표본이 모자라면 빈 목록이라
+            // 화면이 아무것도 그리지 않는다 — 2~3명으로 "많이 익혔다"고 말하지 않는다.
+            req.setAttribute("peerSkillSuggestions", skillCooccurrenceService.suggest(userId));
         } catch (SQLException e) {
             throw new ServletException("대시보드를 불러오는 중 오류가 발생했습니다.", e);
         }
