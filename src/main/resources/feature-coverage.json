@@ -1221,6 +1221,7 @@
       "AiNoticeFilterTest.java",
       "AiNoticesTest.java",
       "CachingLlmClientTest.java",
+      "CircuitBreakerTest.java",
       "ExternalApiCacheDaoTest.java",
       "ExternalApiClientTest.java",
       "GapAnalysisServiceTest.java",
@@ -1236,7 +1237,8 @@
       "RoadmapServiceTest.java",
       "RoadmapStepDaoTest.java",
       "SkillPrerequisiteServiceTest.java",
-      "StubLlmClientTest.java"
+      "StubLlmClientTest.java",
+      "TokenBucketTest.java"
     ]
   },
   {
@@ -1252,7 +1254,9 @@
       "CachingLlmClient.java",
       "GapAnalysisService.java",
       "ResumeFeedbackService.java",
-      "Work24Cache.java"
+      "TrendSourceClient.java",
+      "Work24Cache.java",
+      "Work24Client.java"
     ],
     "daos": [
       "ExternalApiCacheDao.java"
@@ -1262,10 +1266,12 @@
     ],
     "tests": [
       "CachingLlmClientTest.java",
+      "CircuitBreakerTest.java",
       "ExternalApiCacheDaoTest.java",
       "ExternalApiClientTest.java",
       "GapAnalysisServiceTest.java",
-      "ResumeFeedbackServiceTest.java"
+      "ResumeFeedbackServiceTest.java",
+      "TokenBucketTest.java"
     ]
   },
   {

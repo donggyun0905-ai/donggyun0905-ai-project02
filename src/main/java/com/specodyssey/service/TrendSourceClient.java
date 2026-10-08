@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.specodyssey.util.CircuitBreaker;
 import com.specodyssey.util.ExternalApiClient;
 import com.specodyssey.util.ExternalApiClient.ExternalApiException;
 import org.w3c.dom.Element;
@@ -19,6 +20,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -32,6 +34,14 @@ import java.util.logging.Logger;
  * 소스 하나가 실패해도 나머지로 진행할 수 있도록, 각 fetch는 예외를 던지고 호출부(TrendCollectService)가 소스 단위로 처리한다.
  */
 public class TrendSourceClient {
+
+    // 출처별 서킷 — 이름(= 화면·로그에 쓰는 이름)으로 하나씩 둔다. 수집은 스케줄러와 관리자 화면이 같이 부르므로
+    // JVM 전체에서 공유해야 "연속 실패"가 제대로 세어진다.
+    private static final Map<String, CircuitBreaker> BREAKERS = new ConcurrentHashMap<>();
+    /** 한 수집 회차에서 한 출처가 이만큼 연속 실패하면 끊는다 */
+    private static final int FAILURE_THRESHOLD = 3;
+    /** 끊고 나서 다시 떠보기까지 — 수집은 하루 한 번이라 10분이면 그 회차는 건너뛰고 다음에 다시 본다 */
+    private static final long OPEN_MILLIS = 10 * 60_000L;
 
     private static final Logger LOG = Logger.getLogger(TrendSourceClient.class.getName());
     private static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
@@ -99,7 +109,14 @@ public class TrendSourceClient {
         List<Candidate> fetch() throws Exception;
     }
 
+    /**
+     * 출처 하나를 감싼다. 여기에 <b>출처별</b> 서킷 브레이커를 둔다 (2026-10-08) —
+     * 깃허브가 403을 계속 주는 동안 다른 출처 수집까지 멈추면 안 되고, 반대로 깃허브에만 같은 실패를
+     * 매번 반복하며 타임아웃만큼 기다릴 이유도 없다. 끊긴 출처는 그 수집 회차에서 조용히 건너뛴다(FR-112).
+     */
     private static Source source(String name, Fetcher fetcher) {
+        CircuitBreaker breaker = BREAKERS.computeIfAbsent(name,
+                key -> new CircuitBreaker(key, FAILURE_THRESHOLD, OPEN_MILLIS));
         return new Source() {
             @Override
             public String name() {
@@ -108,7 +125,19 @@ public class TrendSourceClient {
 
             @Override
             public List<Candidate> fetch() throws Exception {
-                return fetcher.fetch();
+                if (!breaker.allowRequest()) {
+                    LOG.info(() -> name + " 수집을 건너뜁니다 — 연속 실패로 끊긴 상태 ("
+                            + breaker.millisUntilRetry() / 1000 + "초 뒤 재시도)");
+                    return List.of();
+                }
+                try {
+                    List<Candidate> candidates = fetcher.fetch();
+                    breaker.recordSuccess();
+                    return candidates;
+                } catch (Exception e) {
+                    breaker.recordFailure();
+                    throw e;
+                }
             }
         };
     }

@@ -34,6 +34,23 @@ public class GroqLlmClient implements LlmClient {
     private final String apiKey;
     private final String model;
     private final Duration timeout;
+    /**
+     * 분당 호출 한도 — Groq 무료 한도가 분당 요청 수로 걸린다. 넉넉히 30으로 두고 한꺼번에 10개까지
+     * 몰아 쓸 수 있게 한다(화면 하나가 추천 이유를 여러 개 만들 때 쓴다). 운영에서는 JVM 전체에서
+     * 하나를 공유한다 — 한도는 API 키 단위라 클라이언트를 몇 개 만들든 합쳐서 세야 한다.
+     */
+    private static final TokenBucket SHARED_RATE_LIMIT = new TokenBucket(10, 30);
+    /**
+     * 연속 5번 실패하면 1분 끊는다. 한도 초과·키 만료·장애가 모두 여기로 들어온다 —
+     * 매 요청이 같은 실패를 반복하며 타임아웃만큼 기다리는 것을 막는다.
+     */
+    private static final CircuitBreaker SHARED_BREAKER = new CircuitBreaker("Groq", 5, 60_000);
+
+    // 인스턴스 필드로 둔다 — 기본값은 위의 공유 객체지만, 테스트는 자기 것을 끼운다.
+    // 공유 객체를 그대로 쓰면 테스트 수백 개가 같은 버킷을 비워 뒤쪽 테스트가 429로 깨진다(실제로 그랬다).
+    private final TokenBucket rateLimit;
+    private final CircuitBreaker breaker;
+
     private final LlmRetryPolicy retryPolicy;
     private final double temperature;
     private final int maxCompletionTokens;
@@ -42,8 +59,23 @@ public class GroqLlmClient implements LlmClient {
         this(endpoint, apiKey, model, timeout, retryPolicy, DEFAULT_TEMPERATURE, DEFAULT_MAX_COMPLETION_TOKENS);
     }
 
+    /** 테스트용 — 호출 한도·서킷을 직접 끼운다. 운영 코드는 공유 객체를 쓰는 위 생성자를 쓴다. */
+    GroqLlmClient(String endpoint, String apiKey, String model, Duration timeout, LlmRetryPolicy retryPolicy,
+            TokenBucket rateLimit, CircuitBreaker breaker) {
+        this(endpoint, apiKey, model, timeout, retryPolicy, DEFAULT_TEMPERATURE, DEFAULT_MAX_COMPLETION_TOKENS,
+                rateLimit, breaker);
+    }
+
     private GroqLlmClient(String endpoint, String apiKey, String model, Duration timeout, LlmRetryPolicy retryPolicy,
             double temperature, int maxCompletionTokens) {
+        this(endpoint, apiKey, model, timeout, retryPolicy, temperature, maxCompletionTokens,
+                SHARED_RATE_LIMIT, SHARED_BREAKER);
+    }
+
+    private GroqLlmClient(String endpoint, String apiKey, String model, Duration timeout, LlmRetryPolicy retryPolicy,
+            double temperature, int maxCompletionTokens, TokenBucket rateLimit, CircuitBreaker breaker) {
+        this.rateLimit = rateLimit;
+        this.breaker = breaker;
         this.endpoint = endpoint;
         this.apiKey = apiKey;
         this.model = model == null ? DEFAULT_MODEL : model;
@@ -58,12 +90,15 @@ public class GroqLlmClient implements LlmClient {
      * 예: 트렌드 정리는 후보 80건을 한 번에 보내 출력이 길어서 토큰 한도를 8000으로 넉넉히 둔다.
      */
     public GroqLlmClient withSettings(double temperature, int maxCompletionTokens) {
-        return new GroqLlmClient(endpoint, apiKey, model, timeout, retryPolicy, temperature, maxCompletionTokens);
+        // 사본도 같은 호출 한도·서킷을 쓴다 — 설정만 바꾼 같은 API 키이므로 한도를 따로 세면 안 된다
+        return new GroqLlmClient(endpoint, apiKey, model, timeout, retryPolicy, temperature, maxCompletionTokens,
+                rateLimit, breaker);
     }
 
     /** 재시도 규칙을 바꾼 사본 — 화면 요청은 DEFAULT(짧게), 스케줄러 배치는 BATCH(429에 오래 기다림) */
     public GroqLlmClient withRetryPolicy(LlmRetryPolicy policy) {
-        return new GroqLlmClient(endpoint, apiKey, model, timeout, policy, temperature, maxCompletionTokens);
+        return new GroqLlmClient(endpoint, apiKey, model, timeout, policy, temperature, maxCompletionTokens,
+                rateLimit, breaker);
     }
 
     /** .env(또는 환경변수)의 GROQ_API_KEY·GROQ_MODEL로 만든다. 키가 없어도 만들어지고, 호출할 때 401로 실패한다. */
@@ -103,14 +138,31 @@ public class GroqLlmClient implements LlmClient {
                 Map.of("role", "user", "content", prompt)));
         Map<String, String> headers = Map.of("Authorization", "Bearer " + apiKey);
 
+        // 보내기 전에 막는다 (2026-10-08) — 한도를 넘거나 상대가 죽어 있으면 어차피 거절될 호출이다.
+        // 429를 받고 20·40·60초 기다리는 것보다, 바로 실패로 돌려 호출부가 캐시·안내 문구로 넘어가는 게 낫다(FR-111).
+        if (!rateLimit.tryAcquire()) {
+            throw new ExternalApiException("LLM 분당 호출 한도에 걸렸습니다 ("
+                    + rateLimit.millisUntilNext() / 1000 + "초 뒤 다시 가능)", null, 429);
+        }
+        if (!breaker.allowRequest()) {
+            throw new ExternalApiException("LLM 호출이 연속 실패해 잠시 끊었습니다 ("
+                    + breaker.millisUntilRetry() / 1000 + "초 뒤 다시 시도)", null, 503);
+        }
+
         long start = System.nanoTime();
         for (int attempt = 1; ; attempt++) {
             try {
                 String response = ExternalApiClient.postJson(endpoint, body, headers, timeout);
-                return parse(response, type);
+                T parsed = parse(response, type);
+                breaker.recordSuccess();
+                return parsed;
             } catch (ExternalApiException e) {
                 Duration elapsed = Duration.ofNanos(System.nanoTime() - start);
                 if (!retryPolicy.shouldRetry(e.getStatusCode(), attempt, elapsed)) {
+                    // 형식 오류(422)는 상대가 살아 있다는 뜻이라 서킷 실패로 세지 않는다 — 우리 프롬프트 문제다
+                    if (e.getStatusCode() != LlmRetryPolicy.FORMAT_ERROR) {
+                        breaker.recordFailure();
+                    }
                     throw e;
                 }
                 sleep(retryPolicy.backoffMillis(attempt), e);

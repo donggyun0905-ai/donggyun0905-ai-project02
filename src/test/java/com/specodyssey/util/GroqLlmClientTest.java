@@ -198,7 +198,10 @@ class GroqLlmClientTest {
     private GroqLlmClient client(String apiKey) throws IOException {
         startServer();
         String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/chat";
-        return new GroqLlmClient(url, apiKey, null, Duration.ofSeconds(5), NO_WAIT);
+        // 호출 한도·서킷은 테스트마다 새로 만든다 — 운영 기본값은 JVM 전체에서 공유하는 객체라
+        // 테스트 수백 개가 같은 버킷을 비워 뒤쪽 테스트가 429로 깨진다 (2026-10-08)
+        return new GroqLlmClient(url, apiKey, null, Duration.ofSeconds(5), NO_WAIT,
+                new TokenBucket(1000, 100_000), new CircuitBreaker("테스트", 1000, 1));
     }
 
     private void respond(int status, String body) {
