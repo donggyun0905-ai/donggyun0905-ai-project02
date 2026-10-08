@@ -7,7 +7,7 @@
 <div class="row" style="justify-content:space-between; align-items:center;">
     <h1>알림</h1>
     <c:if test="${notiUnreadCount > 0}">
-        <form method="post" action="${ctx}/notifications">
+        <form method="post" action="${ctx}/notifications" class="noti-page-readall">
             <input type="hidden" name="_csrf" value="${csrfToken}">
             <input type="hidden" name="action" value="readAll">
             <button type="submit" class="secondary">모두 읽음</button>
@@ -41,4 +41,5 @@
     </c:choose>
 </div>
 
+<script src="${ctx}/js/notifications-page.js" defer></script>
 <jsp:include page="/WEB-INF/views/common/footer.jsp" />

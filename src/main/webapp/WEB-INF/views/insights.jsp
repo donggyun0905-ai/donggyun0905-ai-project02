@@ -27,6 +27,10 @@
     .insight-notice { border-left:4px solid var(--primary); }
     .insight-notice ul { margin:8px 0 0; padding-left:18px; }
     .insight-notice li { margin:4px 0; }
+    /* 약점 히트맵 — 수준 머리글·칸은 가운데, 분야 열만 왼쪽. 칸마다 세로줄 (2026-10-08) */
+    .heatmap-table { margin-top:10px; border:1px solid var(--border); }
+    .heatmap-table th, .heatmap-table td { text-align:center; border:1px solid var(--border); }
+    .heatmap-table th:first-child, .heatmap-table td:first-child { text-align:left; }
 </style>
 
 <h1>데이터 인사이트</h1>
@@ -189,14 +193,14 @@
                 </c:when>
                 <c:otherwise>
                     <p class="muted" style="margin-top:4px;">분야와 요구 수준별 부족한 기술 수 / 요구 기술 수 · 색이 진할수록 많이 부족합니다</p>
-                    <table style="margin-top:10px; text-align:center;">
+                    <table class="heatmap-table">
                         <tr>
-                            <th style="text-align:left;">분야</th>
+                            <th>분야</th>
                             <c:forEach var="lv" items="${heat.levels}"><th>${lv}</th></c:forEach>
                         </tr>
                         <c:forEach var="row" items="${heat.rows}">
                             <tr>
-                                <td style="text-align:left;"><c:out value="${row.category}" /></td>
+                                <td><c:out value="${row.category}" /></td>
                                 <c:forEach var="cell" items="${row.cells}">
                                     <c:choose>
                                         <c:when test="${cell.total == 0}"><td class="muted">·</td></c:when>

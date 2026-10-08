@@ -23,7 +23,8 @@ document.addEventListener('submit', function (event) {
         return;
     }
     event.preventDefault();
-    fetch(form.action, {
+    // form.action은 안의 <input name="action">에 가려져 입력칸이 나온다 — 속성값으로 읽는다
+    fetch(form.getAttribute('action'), {
         method: 'POST',
         headers: {'X-Requested-With': 'fetch'},
         body: new URLSearchParams(new FormData(form)),
