@@ -32,7 +32,7 @@ class GrowthChartTest {
 
         GrowthChart.Period week = chart.periods().get(0);
         assertEquals("week", week.key());
-        assertEquals(List.of("9/21주", "9/28주", "10/5주"), week.bars().stream().map(GrowthChart.Bar::label).toList());
+        assertEquals(List.of("9/21~9/27", "9/28~10/4", "10/5~10/11"), week.bars().stream().map(GrowthChart.Bar::label).toList());
         assertEquals(List.of("40", "45", "50"), week.bars().stream().map(GrowthChart.Bar::scoreText).toList());
         assertEquals(List.of("", "+5", "+5"), week.bars().stream().map(GrowthChart.Bar::deltaText).toList());
         assertEquals("최근 3주 동안 +10점", week.changeText());

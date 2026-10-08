@@ -110,7 +110,7 @@ public final class GrowthChart {
         boolean oneYear = rows.get(0).getSnapshotDate().getYear() == rows.get(rows.size() - 1).getSnapshotDate().getYear();
 
         List<Bucket> weeks = lastN(bucket(rows, d -> d.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)),
-                d -> d.getMonthValue() + "/" + d.getDayOfMonth() + "주"), MAX_WEEKS);
+                d -> monthDay(d) + "~" + monthDay(d.plusDays(6))), MAX_WEEKS);
         List<Bucket> months = lastN(bucket(rows, d -> d.withDayOfMonth(1),
                 d -> oneYear ? d.getMonthValue() + "월" : (d.getYear() % 100) + "." + d.getMonthValue() + "월"), MAX_MONTHS);
         List<Bucket> years = lastN(bucket(rows, d -> d.withDayOfYear(1), d -> d.getYear() + "년"), MAX_YEARS);
@@ -201,6 +201,11 @@ public final class GrowthChart {
         BigDecimal change = shown.get(shown.size() - 1).last.subtract(shown.get(0).first);
         String range = shown.size() == 1 ? shown.get(0).label : "최근 " + shown.size() + unit;
         return new Period(key, name, range + " 동안 " + delta(change) + "점", change.signum() < 0, bars);
+    }
+
+    // 주 이름 — 월요일~일요일 기간 그대로 (예: 8/31~9/6)
+    private static String monthDay(LocalDate d) {
+        return d.getMonthValue() + "/" + d.getDayOfMonth();
     }
 
     static int height(BigDecimal score, int axisMin, int axisMax) {
