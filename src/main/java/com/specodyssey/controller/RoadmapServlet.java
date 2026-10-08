@@ -199,7 +199,8 @@ public class RoadmapServlet extends HttpServlet {
                 }
             } else if ("completeReview".equals(action)) {
                 int points = roadmapService.completeReview(userId, Long.valueOf(req.getParameter("stepId")),
-                        req.getParameter("reviewNote"));
+                        req.getParameter("reviewNote"),
+                        com.specodyssey.service.SpacedRepetition.Recall.of(req.getParameter("recall")));
                 if (points > 0) {
                     req.getSession().setAttribute("roadmapNotice", "복습 완료! +" + points + "점을 받았어요.");
                 }

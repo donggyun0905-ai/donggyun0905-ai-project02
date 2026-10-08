@@ -8,7 +8,17 @@
                                                 <input type="hidden" name="stepId" value="${step.id}">
                                                 <p><label>복습 기록 (20자 이상) — 기억나는 핵심 개념, 헷갈렸던 점, 다시 찾아본 내용</label>
                                                     <textarea name="reviewNote" minlength="20" maxlength="1000" required></textarea></p>
-                                                <p class="muted" style="font-size:0.8rem;">같은 기술을 복습할수록 받는 점수가 줄어요 (40 → 30 → 20 → 10 → 5점).</p>
+                                                <%-- 자기 평가로 다음 복습일을 기술마다 다르게 잡는다(SM-2, 2026-10-08).
+                                                     기본값은 "보통" — 고르지 않아도 제출이 막히지 않아야 한다. --%>
+                                                <fieldset style="border:1px solid var(--border); border-radius:6px; padding:8px 10px; margin:10px 0;">
+                                                    <legend style="font-size:0.86rem;">얼마나 기억났나요? — 다음 복습 시기를 여기에 맞춥니다</legend>
+                                                    <label style="display:inline; font-weight:normal; margin-right:10px;"><input type="radio" name="recall" value="FORGOT" style="width:auto;"> 거의 잊었다</label>
+                                                    <label style="display:inline; font-weight:normal; margin-right:10px;"><input type="radio" name="recall" value="HARD" style="width:auto;"> 어려웠다</label>
+                                                    <label style="display:inline; font-weight:normal; margin-right:10px;"><input type="radio" name="recall" value="NORMAL" style="width:auto;" checked> 보통</label>
+                                                    <label style="display:inline; font-weight:normal;"><input type="radio" name="recall" value="EASY" style="width:auto;"> 쉬웠다</label>
+                                                </fieldset>
+                                                <p class="muted" style="font-size:0.8rem;">같은 기술을 복습할수록 받는 점수가 줄어요 (40 → 30 → 20 → 10 → 5점).
+                                                    쉬웠다고 하면 다음 복습이 더 멀어지고, 거의 잊었다면 일주일 뒤에 다시 나옵니다.</p>
                                                 <button type="submit">복습 완료</button>
                                             </form>
                                         </dialog>

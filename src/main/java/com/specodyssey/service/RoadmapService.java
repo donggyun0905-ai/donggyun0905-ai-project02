@@ -148,6 +148,12 @@ public class RoadmapService {
         return reviews.completeReview(userId, stepId, note);
     }
 
+    /** @param recall 자기 평가 — 다음 복습일을 기술마다 다르게 잡는다(SM-2, 2026-10-08) */
+    public int completeReview(Long userId, Long stepId, String note, SpacedRepetition.Recall recall)
+            throws SQLException {
+        return reviews.completeReview(userId, stepId, note, recall);
+    }
+
     // 프로젝트 업데이트·기술 글 업데이트·트렌딩 학습 → RoadmapUpkeepService
     public int appendDueUpkeep(Long userId, LocalDateTime now) throws SQLException {
         return upkeep.appendDueUpkeep(userId, now);

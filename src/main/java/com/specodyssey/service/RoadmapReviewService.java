@@ -3,9 +3,11 @@ package com.specodyssey.service;
 import com.specodyssey.util.AppClock;
 import com.specodyssey.dao.RoadmapDao;
 import com.specodyssey.dao.RoadmapStepDao;
+import com.specodyssey.dao.SkillReviewScheduleDao;
 import com.specodyssey.dao.SkillDao;
 import com.specodyssey.dto.RoadmapDto;
 import com.specodyssey.dto.RoadmapStepDto;
+import com.specodyssey.dto.SkillReviewScheduleDto;
 import com.specodyssey.dto.SkillDto;
 import com.specodyssey.util.TransactionUtil;
 import java.sql.SQLException;
@@ -26,6 +28,7 @@ public class RoadmapReviewService {
     private final SkillDao skillDao = new SkillDao();
     private final RoadmapDao roadmapDao = new RoadmapDao();
     private final RoadmapStepDao roadmapStepDao = new RoadmapStepDao();
+    private final SkillReviewScheduleDao reviewScheduleDao = new SkillReviewScheduleDao();
     private final ScoreService scoreService = new ScoreService();
     private final RoadmapStepWriter stepWriter = new RoadmapStepWriter();
 
@@ -106,13 +109,19 @@ public class RoadmapReviewService {
             }
         }
 
+        // 간격 반복(SM-2) 일정이 있으면 그 due_at을 쓴다. 한 번도 복습하지 않은 기술은 일정이 없고,
+        // 그때는 예전처럼 "마지막으로 익힌 날 + 티어 기본 주기"로 본다 (2026-10-08).
+        Map<Long, SkillReviewScheduleDto> schedules = reviewScheduleDao.findByUserId(userId);
         Map<Long, LocalDateTime> dueAt = new HashMap<>();
         for (Map.Entry<Long, String> entry : highestTier.entrySet()) {
             LocalDateTime done = lastDone.get(entry.getKey());
             if (done == null || openReviewSkills.contains(entry.getKey())) {
                 continue;
             }
-            LocalDateTime due = done.plusDays(reviewIntervalDays(entry.getValue()));
+            SkillReviewScheduleDto schedule = schedules.get(entry.getKey());
+            LocalDateTime due = schedule != null && schedule.getDueAt() != null
+                    ? schedule.getDueAt()
+                    : done.plusDays(reviewIntervalDays(entry.getValue()));
             if (!now.isBefore(due)) {
                 dueAt.put(entry.getKey(), due);
             }
@@ -142,10 +151,63 @@ public class RoadmapReviewService {
     }
 
     /**
+     * 자기 평가로 다음 복습일을 다시 잡는다(SM-2). 복습 단계에 기술이 없으면(이론상 없다) 아무것도 안 한다.
+     * 같은 트랜잭션 안에서 쓴다 — 점수는 들어갔는데 다음 일정이 안 잡히면 그 기술이 영원히 안 돌아온다.
+     */
+    private void updateSchedule(java.sql.Connection conn, Long userId, Long skillId,
+                                SpacedRepetition.Recall recall, LocalDateTime reviewedAt) throws SQLException {
+        if (skillId == null) {
+            return;
+        }
+        SkillReviewScheduleDto previous = reviewScheduleDao.find(conn, userId, skillId);
+        String tier = highestCompletedTier(userId, skillId);
+        SpacedRepetition.Next next = SpacedRepetition.next(recall,
+                previous == null ? 0 : previous.getIntervalDays(),
+                previous == null ? SpacedRepetition.DEFAULT_EASE : previous.getEaseFactor(),
+                previous == null ? 0 : previous.getRepetitions(),
+                reviewIntervalDays(tier));
+
+        SkillReviewScheduleDto schedule = new SkillReviewScheduleDto();
+        schedule.setUserId(userId);
+        schedule.setSkillId(skillId);
+        schedule.setEaseFactor(next.easeFactor());
+        schedule.setIntervalDays(next.intervalDays());
+        schedule.setRepetitions(next.repetitions());
+        schedule.setLastQuality(recall.getQuality());
+        schedule.setLastReviewedAt(reviewedAt);
+        schedule.setDueAt(reviewedAt.plusDays(next.intervalDays()));
+        reviewScheduleDao.upsert(conn, schedule);
+    }
+
+    /** 그 기술로 도달한 가장 높은 티어 — 첫 복습의 간격(티어 기본 주기)을 정한다 */
+    private String highestCompletedTier(Long userId, Long skillId) throws SQLException {
+        String highest = null;
+        for (RoadmapStepDto row : roadmapStepDao.findCompletedSkillRowsByUser(userId)) {
+            if (!java.util.Objects.equals(skillId, row.getRelatedSkillId())
+                    || STEP_TYPE_REVIEW.equals(row.getStepType())) {
+                continue;
+            }
+            if (highest == null || SKILL_TIER_ORDER.indexOf(row.getTier()) > SKILL_TIER_ORDER.indexOf(highest)) {
+                highest = row.getTier();
+            }
+        }
+        return highest;
+    }
+
+    /**
      * 복습 단계를 끝낸다 — 복습 기록(REVIEW_NOTE_MIN_LENGTH자 이상)을 내야 하고, 점수는 reviewPoints로 감쇠한다.
      * @return 받은 점수. 이미 끝났거나 소유자가 아니면 0
      */
     public int completeReview(Long userId, Long stepId, String note) throws SQLException {
+        return completeReview(userId, stepId, note, SpacedRepetition.Recall.NORMAL);
+    }
+
+    /**
+     * @param recall 얼마나 기억났는지 — 이 값으로 다음 복습일을 기술마다 다르게 잡는다(SM-2, 2026-10-08).
+     *               예전 두 인자 버전은 "보통"으로 본다.
+     */
+    public int completeReview(Long userId, Long stepId, String note, SpacedRepetition.Recall recall)
+            throws SQLException {
         String trimmed = note == null ? "" : note.trim();
         if (trimmed.length() < REVIEW_NOTE_MIN_LENGTH) {
             throw new IllegalArgumentException("복습 기록을 " + REVIEW_NOTE_MIN_LENGTH + "자 이상 적어주세요.");
@@ -169,9 +231,11 @@ public class RoadmapReviewService {
                             && java.util.Objects.equals(r.getRelatedSkillId(), step.getRelatedSkillId()))
                     .count();
             int points = reviewPoints(prior);
+            LocalDateTime completedAt = AppClock.now();
             roadmapStepDao.updateProof(conn, stepId, userId, PROOF_REVIEW_NOTE, trimmed, null,
-                    SkillProofGrader.PASSED, "복습 기록 제출", true, AppClock.now());
+                    SkillProofGrader.PASSED, "복습 기록 제출", true, completedAt);
             scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId, points);
+            updateSchedule(conn, userId, step.getRelatedSkillId(), recall, completedAt);
             return points;
         });
     }

@@ -1165,3 +1165,34 @@ CREATE TABLE SKILL_PREREQUISITE (
         FOREIGN KEY (prereq_skill_id) REFERENCES SKILL (id)
         ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
+-- SKILL_REVIEW_SCHEDULE (간격 반복 복습 일정) — 신설 (36번)
+-- 관련 요구사항: FR-39 로드맵 복습
+-- UNIQUE: (user_id, skill_id) — 두 줄이면 어느 일정이 맞는지 알 수 없다
+-- 복습 주기가 티어로만 고정이던 것을 SM-2(Anki 공식)로 기술마다 다르게 잡는다.
+-- 행이 없는 기술은 아직 복습한 적이 없고, 그때는 "마지막으로 익힌 날 + 티어 기본 주기"를 쓴다.
+-- =========================================================
+CREATE TABLE SKILL_REVIEW_SCHEDULE (
+    id               BIGINT       NOT NULL AUTO_INCREMENT,
+    user_id          BIGINT       NOT NULL,
+    skill_id         BIGINT       NOT NULL,
+    ease_factor      DECIMAL(4,2) NOT NULL DEFAULT 2.50, -- SM-2 EF, 하한 1.30 상한 2.80
+    interval_days    INT          NOT NULL,              -- 이번에 적용한 간격
+    repetitions      INT          NOT NULL DEFAULT 0,    -- 연속 통과 횟수
+    last_quality     TINYINT      NULL,                  -- 마지막 자기 평가 0~5 (SM-2 q)
+    last_reviewed_at DATETIME     NULL,
+    due_at           DATETIME     NOT NULL,              -- 다음 복습 예정
+    created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted       BOOLEAN      NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_skill_review_schedule (user_id, skill_id),
+    KEY idx_skill_review_schedule_due (user_id, due_at),
+    CONSTRAINT fk_skill_review_schedule_user
+        FOREIGN KEY (user_id) REFERENCES USERS (id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_skill_review_schedule_skill
+        FOREIGN KEY (skill_id) REFERENCES SKILL (id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

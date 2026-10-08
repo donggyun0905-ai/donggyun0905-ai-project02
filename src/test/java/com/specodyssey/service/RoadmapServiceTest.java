@@ -10,6 +10,8 @@ import com.specodyssey.dao.ProjectTechNoteDao;
 import com.specodyssey.dao.RoadmapDao;
 import com.specodyssey.dao.RoadmapStepDao;
 import com.specodyssey.dao.SkillDao;
+import com.specodyssey.dao.SkillReviewScheduleDao;
+import com.specodyssey.dto.SkillReviewScheduleDto;
 import com.specodyssey.dao.TestFixtures;
 import com.specodyssey.dao.UserDao;
 import com.specodyssey.dao.DocumentDao;
@@ -175,6 +177,8 @@ class RoadmapServiceTest {
             }
             TestFixtures.hardDeleteByColumn(conn, "ROADMAP", "user_id", userId);
             TestFixtures.hardDeleteByColumn(conn, "SCORE_LOG", "user_id", userId);
+            // 간격 반복 복습 일정 — USERS·SKILL을 RESTRICT로 잡는다 (2026-10-08)
+            TestFixtures.hardDeleteByColumn(conn, "SKILL_REVIEW_SCHEDULE", "user_id", userId);
             // 공유 DB라 다른 실행(대시보드·자정 스케줄러)이 테스트 사용자에게 점수 기록을 남길 수 있다 — 안 지우면 USERS 삭제가 FK에 막힌다
             TestFixtures.hardDeleteByColumn(conn, "SPEC_SCORE_HISTORY", "user_id", userId);
             TestFixtures.hardDeleteByColumn(conn, "USER_SCORE_SUMMARY", "user_id", userId);
@@ -740,11 +744,53 @@ class RoadmapServiceTest {
         assertEquals(0, roadmapService.completeReview(userId, review.getId(), "복습 기록을 충분히 길게 적었습니다. 핵심 개념 정리"),
                 "이미 끝낸 복습에 또 점수를 주지 않는다");
 
-        // 한 주기 뒤 두 번째 복습 — 점수가 30으로 줄어든다
+        // 한 주기 뒤 두 번째 복습 — 점수가 30으로 줄어든다.
+        // 2026-10-08부터 복습 주기는 SM-2 일정(due_at)을 따른다. 첫 복습을 "보통"으로 끝냈으니
+        // 입문 기본 주기(30일) 뒤가 다음 차례다 — 그 시점으로 불러야 복습이 생긴다.
         setCompletedAt(review.getId(), LocalDateTime.now().minusDays(31));
-        assertEquals(1, roadmapService.appendDueReviews(userId, LocalDateTime.now()));
+        assertEquals(1, roadmapService.appendDueReviews(userId, LocalDateTime.now().plusDays(31)));
         RoadmapStepDto second = lastStep(roadmapId);
         assertEquals(30, roadmapService.completeReview(userId, second.getId(), "두 번째 복습 기록도 충분히 길게 적습니다 하하"));
+    }
+
+    // 2026-10-08 — 복습 주기가 티어로만 고정이어서 쉬운 기술과 어려운 기술을 같은 주기로 복습했다.
+    // "쉬웠다"고 하면 다음 복습이 멀어지고 "거의 잊었다"면 일주일 뒤에 다시 나오는지 DB까지 확인한다.
+    @Test
+    void 쉬웠다고_하면_다음_복습이_멀어지고_거의_잊었다면_일주일_뒤에_다시_나온다() throws Exception {
+        Long roadmapId = roadmapService.generate(userId);
+        RoadmapStepDto entry = firstEntrySkillStep(roadmapId);
+        roadmapService.completeStep(userId, entry.getId(), true);
+        setCompletedAt(entry.getId(), LocalDateTime.now().minusDays(31));
+        roadmapService.appendDueReviews(userId, LocalDateTime.now());
+        RoadmapStepDto review = lastStep(roadmapId);
+
+        roadmapService.completeReview(userId, review.getId(), "쉽게 다 기억났습니다. 핵심 개념 정리 완료",
+                SpacedRepetition.Recall.EASY);
+
+        SkillReviewScheduleDto schedule = new SkillReviewScheduleDao().findByUserId(userId)
+                .get(review.getRelatedSkillId());
+        assertNotNull(schedule, "복습을 끝내면 다음 일정이 생겨야 한다 — 없으면 그 기술이 영원히 안 돌아온다");
+        assertEquals(30, schedule.getIntervalDays(), "첫 통과는 티어 기본 주기(입문 30일)");
+        assertEquals(2.6, schedule.getEaseFactor(), 0.001, "쉬웠다면 EF가 올라간다");
+        assertEquals(1, schedule.getRepetitions());
+        assertEquals(5, schedule.getLastQuality());
+
+        // 30일이 안 지났으면 일정대로 복습이 생기지 않는다
+        setCompletedAt(review.getId(), LocalDateTime.now().minusDays(31));
+        assertEquals(0, roadmapService.appendDueReviews(userId, LocalDateTime.now()),
+                "완료 시각이 아니라 일정(due_at)을 봐야 한다");
+
+        // 두 번째 복습을 "거의 잊었다"로 끝내면 일주일 뒤로 당겨진다
+        assertEquals(1, roadmapService.appendDueReviews(userId, LocalDateTime.now().plusDays(31)));
+        RoadmapStepDto second = lastStep(roadmapId);
+        roadmapService.completeReview(userId, second.getId(), "거의 기억나지 않아 처음부터 다시 봤습니다",
+                SpacedRepetition.Recall.FORGOT);
+
+        SkillReviewScheduleDto relearn = new SkillReviewScheduleDao().findByUserId(userId)
+                .get(second.getRelatedSkillId());
+        assertEquals(SpacedRepetition.RELEARN_DAYS, relearn.getIntervalDays(), "못 외웠으면 짧게 다시");
+        assertEquals(0, relearn.getRepetitions(), "연속 기록이 0으로 돌아간다");
+        assertTrue(relearn.getEaseFactor() < 2.6, "EF도 내려간다: " + relearn.getEaseFactor());
     }
 
     private RoadmapStepDto firstEntrySkillStep(Long roadmapId) throws Exception {
