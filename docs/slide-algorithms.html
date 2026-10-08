@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>스펙 오디세이 — 알고리즘 8종</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sea:#0E1A24; --sea-2:#13232F; --sea-3:#1A2E3C;
+  --paper:#FBFAF7; --paper-2:#C8D4DC; --mute:#8FA6B4;
+  --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.18);
+  --a1:#2E7D6B; --a2:#7A5CB8; --a3:#B5841B; --a4:#2B6CB0;
+  --a5:#C2571A; --a6:#B03A48; --a7:#5A8F7B; --a8:#8A6AA8;
+  --ok:#52B788; --warn:#E0A458; --bad:#E06C6C;
+  --sans:'IBM Plex Sans KR',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--sea);color:var(--paper);font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;overflow:hidden}
+
+/* ---------- 상단 바 ---------- */
+#bar{position:fixed;top:0;left:0;right:0;height:52px;z-index:30;display:flex;align-items:center;
+  gap:14px;padding:0 18px;background:rgba(14,26,36,.96);border-bottom:1px solid var(--line);
+  backdrop-filter:blur(8px)}
+#bar h1{margin:0;font-size:15px;font-weight:600;letter-spacing:-.01em;white-space:nowrap}
+#bar h1 span{color:var(--mute);font-weight:400;font-size:13px;margin-left:8px}
+#back{margin-left:auto;background:rgba(255,255,255,.07);border:1px solid var(--line-2);color:var(--paper-2);
+  font-family:var(--sans);font-size:12.5px;padding:6px 13px;border-radius:6px;cursor:pointer;display:none}
+#back:hover{background:rgba(255,255,255,.14)}
+
+/* ---------- 격자 (쉬는 상태) ---------- */
+#grid{position:fixed;inset:52px 0 0 0;overflow-y:auto;padding:22px 18px 28px;
+  display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-content:start}
+.card{position:relative;background:var(--sea-2);border:1px solid var(--line);border-radius:10px;
+  padding:14px 15px 13px;cursor:pointer;text-align:left;color:inherit;font:inherit;
+  display:flex;flex-direction:column;gap:9px;min-height:172px;
+  transition:border-color .16s ease,transform .12s ease,background .16s ease}
+.card:hover{border-color:var(--line-2);background:var(--sea-3);transform:translateY(-2px)}
+.card:focus-visible{outline:2px solid var(--edge-hi,#F2C879);outline-offset:2px}
+.card .no{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--accent)}
+.card h2{margin:0;font-size:14.5px;font-weight:600;line-height:1.42;letter-spacing:-.01em}
+.card .where{font-size:11.5px;color:var(--mute);line-height:1.5}
+.card .mini{margin-top:auto;height:44px;border-radius:6px;background:rgba(0,0,0,.22);
+  border:1px solid var(--line);overflow:hidden}
+.card .mini canvas{display:block;width:100%;height:100%}
+
+/* ---------- 상세 ---------- */
+#detail{position:fixed;inset:52px 0 0 0;display:none;grid-template-columns:minmax(0,1.45fr) minmax(300px,1fr)}
+#detail.on{display:grid}
+#stageWrap{position:relative;display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--line)}
+#canvasBox{flex:1;min-height:0;position:relative;background:
+  radial-gradient(ellipse at 50% 0%,rgba(255,255,255,.045),transparent 62%),var(--sea)}
+#canvasBox canvas{position:absolute;inset:0;width:100%;height:100%}
+#controls{flex:none;display:flex;align-items:center;gap:10px;padding:10px 16px;
+  border-top:1px solid var(--line);background:rgba(0,0,0,.18)}
+#controls button{background:rgba(255,255,255,.07);border:1px solid var(--line-2);color:var(--paper-2);
+  font-family:var(--sans);font-size:12.5px;padding:6px 12px;border-radius:6px;cursor:pointer}
+#controls button:hover{background:rgba(255,255,255,.15);color:var(--paper)}
+#controls button.primary{background:var(--accent);border-color:transparent;color:#fff;font-weight:600}
+#step{font-family:var(--mono);font-size:12px;color:var(--mute);font-variant-numeric:tabular-nums;
+  margin-left:auto;white-space:nowrap}
+#track{flex:1;height:3px;background:rgba(255,255,255,.12);border-radius:2px;overflow:hidden;max-width:260px}
+#track i{display:block;height:100%;background:var(--accent);width:0;transition:width .25s ease}
+
+#side{overflow-y:auto;padding:20px 22px 30px;display:flex;flex-direction:column;gap:16px;background:var(--sea-2)}
+#side .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--accent);text-transform:uppercase}
+#side h2{margin:0;font-size:19px;font-weight:600;line-height:1.38;letter-spacing:-.015em}
+#side .lead{font-size:13.5px;line-height:1.75;color:var(--paper-2)}
+.sec{display:flex;flex-direction:column;gap:6px}
+.sec h3{margin:0;font-size:12px;font-weight:600;color:var(--mute);letter-spacing:.02em}
+.sec ul{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:5px;font-size:12.5px;
+  line-height:1.72;color:var(--paper-2)}
+.sec li::marker{color:var(--accent)}
+.narr{font-size:13px;line-height:1.72;color:var(--paper);background:rgba(255,255,255,.05);
+  border-left:3px solid var(--accent);border-radius:0 6px 6px 0;padding:11px 13px;min-height:68px}
+.meta{display:flex;flex-wrap:wrap;gap:6px}
+.meta span{font-family:var(--mono);font-size:10.5px;padding:2px 8px;border-radius:3px;
+  border:1px solid var(--line-2);color:var(--mute)}
+.meta span.hi{border-color:var(--accent);color:var(--accent)}
+code{font-family:var(--mono);font-size:.88em;background:rgba(0,0,0,.3);padding:1px 5px;border-radius:3px}
+
+@media (max-width:1100px){ #grid{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:900px){
+  #detail.on{grid-template-columns:1fr;grid-template-rows:minmax(240px,46%) 1fr}
+  #stageWrap{border-right:none;border-bottom:1px solid var(--line)}
+}
+@media (max-width:560px){ #grid{grid-template-columns:1fr} #bar h1 span{display:none} }
+@media (prefers-reduced-motion:reduce){ .card{transition:none} }
+</style>
+</head>
+<body>
+
+<div id="bar">
+  <h1>알고리즘 8종<span id="sub">상자를 누르면 동작을 움직여서 봅니다</span></h1>
+  <button id="back" type="button">← 목록</button>
+</div>
+
+<div id="grid"></div>
+
+<div id="detail">
+  <div id="stageWrap">
+    <div id="canvasBox"><canvas id="cv"></canvas></div>
+    <div id="controls">
+      <button id="play" class="primary" type="button">재생</button>
+      <button id="prev" type="button">이전</button>
+      <button id="next" type="button">다음</button>
+      <div id="track"><i></i></div>
+      <span id="step">1 / 1</span>
+    </div>
+  </div>
+  <aside id="side"></aside>
+</div>
+
+<script>
+'use strict';
+/* =========================================================================
+ * 스펙 오디세이 발표용 — 알고리즘 8종 동작 시연 (2026-10-08)
+ *
+ * PPT에 이 페이지를 임베딩해서 쓴다. 상자 8개 중 하나를 누르면 왼쪽에 동작이
+ * 단계별로 움직이고 오른쪽에 설명이 붙는다. GIF 대신 캔버스로 그리는 이유:
+ *   - 발표 중에 "이전/다음"으로 원하는 단계에 멈춰 세울 수 있다
+ *   - 화면 크기에 맞춰 선명하게 다시 그린다 (프로젝터에서 깨지지 않는다)
+ *   - 숫자를 고치면 그림이 따라 바뀐다 — 코드와 어긋나지 않는다
+ *
+ * 각 알고리즘은 steps[] 하나로 정의한다. 한 칸 = 슬라이드 한 장이라고 보면 된다.
+ * draw(g, s) 는 그 단계의 그림을, narr 는 그때 할 말을 담는다.
+ * ========================================================================= */
+
+/* ---------- 작은 그리기 도우미 ---------- */
+function helper(ctx, W, H){
+  const g = {
+    ctx, W, H,
+    clear(){ ctx.clearRect(0,0,W,H); },
+    /* 둥근 상자 */
+    box(x,y,w,h,{fill='#13232F',stroke='rgba(255,255,255,.18)',r=8,lw=1.5,dash=null}={}){
+      ctx.save(); if(dash) ctx.setLineDash(dash);
+      ctx.beginPath(); ctx.roundRect(x,y,w,h,r);
+      ctx.fillStyle=fill; ctx.fill();
+      ctx.lineWidth=lw; ctx.strokeStyle=stroke; ctx.stroke(); ctx.restore();
+    },
+    text(t,x,y,{size=13,color='#FBFAF7',weight=400,align='center',base='middle',mono=false}={}){
+      ctx.save();
+      ctx.fillStyle=color; ctx.textAlign=align; ctx.textBaseline=base;
+      ctx.font=weight+' '+size+'px '+(mono?"'IBM Plex Mono',monospace":"'IBM Plex Sans KR',sans-serif");
+      ctx.fillText(t,x,y); ctx.restore();
+    },
+    line(x1,y1,x2,y2,{color='rgba(255,255,255,.28)',lw=1.5,dash=null}={}){
+      ctx.save(); if(dash) ctx.setLineDash(dash);
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+      ctx.lineWidth=lw; ctx.strokeStyle=color; ctx.stroke(); ctx.restore();
+    },
+    /* 화살표 (곡선 없이 직선 + 삼각 촉) */
+    arrow(x1,y1,x2,y2,{color='rgba(255,255,255,.32)',lw=1.6,head=7,dash=null}={}){
+      const a=Math.atan2(y2-y1,x2-x1);
+      const ex=x2-Math.cos(a)*head, ey=y2-Math.sin(a)*head;
+      g.line(x1,y1,ex,ey,{color,lw,dash});
+      ctx.save(); ctx.fillStyle=color; ctx.beginPath();
+      ctx.moveTo(x2,y2);
+      ctx.lineTo(x2-Math.cos(a-0.42)*head*1.5, y2-Math.sin(a-0.42)*head*1.5);
+      ctx.lineTo(x2-Math.cos(a+0.42)*head*1.5, y2-Math.sin(a+0.42)*head*1.5);
+      ctx.closePath(); ctx.fill(); ctx.restore();
+    },
+    circle(x,y,r,{fill='#13232F',stroke='rgba(255,255,255,.2)',lw=1.5}={}){
+      ctx.save(); ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+      ctx.fillStyle=fill; ctx.fill(); ctx.lineWidth=lw; ctx.strokeStyle=stroke; ctx.stroke(); ctx.restore();
+    },
+    /* 화면 위쪽 가운데 제목 띠 */
+    caption(t,{color='#8FA6B4'}={}){ g.text(t, W/2, 26, {size:13,color,weight:500}); }
+  };
+  return g;
+}
+
+/* 색 헬퍼 — 알고리즘 강조색에 투명도를 입힌다 */
+function tint(hex,a){
+  const n=parseInt(hex.slice(1),16);
+  return 'rgba('+(n>>16&255)+','+(n>>8&255)+','+(n&255)+','+a+')';
+}
+
+/* =========================================================================
+ * 1. 위상 정렬 (Kahn) + DFS 순환 검사
+ * ========================================================================= */
+const ALGO_TOPO = (function(){
+  const C='#2E7D6B';
+  /* 그래프: HTML → CSS → JS → React,  JS → Node → Express */
+  const N={
+    html:{t:'HTML',x:.14,y:.30}, css:{t:'CSS',x:.34,y:.16},
+    js:{t:'JavaScript',x:.34,y:.52}, react:{t:'React',x:.60,y:.30},
+    node:{t:'Node.js',x:.60,y:.72}, exp:{t:'Express',x:.84,y:.72}
+  };
+  const E=[['html','css'],['html','js'],['css','react'],['js','react'],['js','node'],['node','exp']];
+  /* 각 단계: 꺼낸 노드 / 큐 상태 / 확정 순서 */
+  const seq=[
+    {out:[],ready:['html'],deg:{html:0,css:1,js:1,react:2,node:1,exp:1},pick:null},
+    {out:['html'],ready:['css','js'],deg:{css:0,js:0,react:2,node:1,exp:1},pick:'html'},
+    {out:['html','css'],ready:['js'],deg:{js:0,react:1,node:1,exp:1},pick:'css'},
+    {out:['html','css','js'],ready:['react','node'],deg:{react:0,node:0,exp:1},pick:'js'},
+    {out:['html','css','js','react'],ready:['node'],deg:{node:0,exp:1},pick:'react'},
+    {out:['html','css','js','react','node'],ready:['exp'],deg:{exp:0},pick:'node'},
+    {out:['html','css','js','react','node','exp'],ready:[],deg:{},pick:'exp'}
+  ];
+  function drawBase(g,st,cycle){
+    const {W,H}=g;
+    const px=k=>N[k].x*W, py=k=>N[k].y*(H-120)+70;
+    E.forEach(([a,b])=>{
+      const done = st && st.out.includes(a);
+      g.arrow(px(a)+44,py(a), px(b)-44,py(b), {color:done?tint(C,.55):'rgba(255,255,255,.16)',lw:done?2:1.4});
+    });
+    if(cycle){ /* 순환 검사 장면에서만 그리는 되돌아가는 간선 */
+      g.arrow(px('react')-10,py('react')+26, px('html')+10,py('html')-20,
+        {color:'#E06C6C',lw:2.2,dash:[6,4]});
+      g.text('React → HTML 을 추가하면?', (px('react')+px('html'))/2, py('html')-44,
+        {size:12,color:'#E06C6C',weight:600});
+    }
+    Object.keys(N).forEach(k=>{
+      const picked = st && st.pick===k;
+      const done = st && st.out.includes(k) && !picked;
+      const ready = st && st.ready.includes(k);
+      const fill = picked?C : done?tint(C,.22) : ready?'rgba(242,200,121,.14)' : '#13232F';
+      const stroke = picked?'#fff' : done?tint(C,.6) : ready?'#F2C879' : 'rgba(255,255,255,.18)';
+      g.box(px(k)-44,py(k)-19,88,38,{fill,stroke,r:19,lw:picked?2.4:1.5});
+      g.text(N[k].t,px(k),py(k),{size:12,weight:picked?600:400,
+        color:picked?'#fff':done?'#C8D4DC':'#FBFAF7'});
+      if(st && st.deg[k]!==undefined && !done && !picked){
+        g.circle(px(k)+44,py(k)-19,11,{fill:'#0E1A24',stroke:ready?'#F2C879':'rgba(255,255,255,.25)'});
+        g.text(String(st.deg[k]),px(k)+44,py(k)-19,{size:11,mono:true,
+          color:ready?'#F2C879':'#8FA6B4',weight:600});
+      }
+    });
+  }
+  function drawOut(g,out){
+    const {W,H}=g, y=H-44;
+    g.text('확정된 순서',18,y-26,{size:11,color:'#8FA6B4',align:'left'});
+    out.forEach((k,i)=>{
+      const x=18+i*104;
+      g.box(x,y-14,94,30,{fill:tint(C,.25),stroke:tint(C,.7),r:6});
+      g.text(N[k].t,x+47,y+1,{size:11.5,color:'#FBFAF7',weight:500});
+      if(i<out.length-1) g.text('›',x+99,y+1,{size:14,color:'#5A6472'});
+    });
+  }
+  const steps=seq.map((st,i)=>({
+    narr: i===0
+      ? '먼저 각 기술에 <b>들어오는 화살표 수</b>를 센다. 0인 것(HTML)만 지금 당장 배울 수 있다.'
+      : '<b>'+N[st.pick].t+'</b>을(를) 꺼내 순서에 넣고, 여기서 나가는 화살표를 지운다. 그러면 '
+        + (st.ready.length ? '<b>'+st.ready.map(k=>N[k].t).join(' · ')+'</b>의 차례가 열린다.'
+                           : '남은 기술이 없다 — 순서가 완성됐다.'),
+    draw(g){
+      g.caption(i===0?'① 들어오는 화살표 수(진입차수)를 센다'
+                     :'② 0인 것을 꺼내고, 그 화살표를 지운다 — 반복');
+      drawBase(g,st,false); drawOut(g,st.out);
+    }
+  }));
+  steps.push({
+    narr:'관리자가 <b>React → HTML</b> 같은 관계를 넣으려 하면 순환이 생긴다. '
+        +'추가하기 전에 DFS로 거슬러 올라가 막는다. 순환이 있으면 "먼저 할 것"을 정할 수 없다.',
+    draw(g){ g.caption('③ 순환이 생기는 관계는 등록 자체를 막는다'); drawBase(g,seq[6],true); drawOut(g,seq[6].out); }
+  });
+  return {
+    steps,
+    no:'01', color:C, title:'위상 정렬 (Kahn) + DFS 순환 검사',
+    where:'로드맵 단계 순서', file:'SkillPrerequisiteService.java',
+    lead:'“이걸 모르면 저걸 공부할 수 없다”를 그래프로 두고, 그래프에서 배우는 순서를 뽑아낸다. 로드맵의 단계 순서가 우리 취향이 아니라 데이터에서 나오게 하는 알고리즘.',
+    why:['순서를 사람이 정하면 “왜 이 순서냐”에 답할 수 없다. 선수관계는 설명 가능한 근거가 된다.',
+         '진입차수가 0인 것만 꺼내므로, 앞 단계를 건너뛴 추천이 원천적으로 나오지 않는다.'],
+    ours:['꺼낼 수 있는 것이 여럿이면 <b>원래 중요도 순위가 높은 것</b>을 먼저 꺼낸다. 위상 정렬만 쓰면 순서는 맞지만 급한 것이 뒤로 밀린다.',
+          '순환이 남아 못 꺼낸 기술은 버리지 않고 <b>원래 순서로 뒤에 붙인다</b>. 데이터가 잘못돼도 로드맵 생성이 멈추면 안 된다.',
+          '순환 검사는 재귀 대신 <b>스택을 직접 쓰는 반복 DFS</b>다. 기술이 늘어나도 스택이 넘치지 않는다.'],
+    meta:['O(V+E)','선수관계 19쌍','기술 177개']
+  };
+})();
+
+/* =========================================================================
+ * 2. SM-2 간격 반복
+ * ========================================================================= */
+const ALGO_SM2 = (function(){
+  const C='#7A5CB8';
+  /* 자기 평가에 따른 간격 변화 — 실제 상수(EF 2.5 기본, 상한 2.8, 하한 1.3) */
+  const runs=[
+    {label:'1회차',q:'보통',ef:2.50,iv:7,  note:'첫 통과는 티어 기본 주기 7일'},
+    {label:'2회차',q:'쉬웠다',ef:2.60,iv:18, note:'7 × 2.6 ≈ 18일'},
+    {label:'3회차',q:'쉬웠다',ef:2.70,iv:49, note:'18 × 2.7 ≈ 49일'},
+    {label:'4회차',q:'거의 잊었다',ef:2.18,iv:7, note:'간격을 7일로 되돌린다'},
+    {label:'5회차',q:'보통',ef:2.18,iv:15, note:'7 × 2.18 ≈ 15일'}
+  ];
+  function drawAxis(g,upto){
+    const {W,H}=g, left=70, right=W-40, base=H-86;
+    g.line(left,base,right,base,{color:'rgba(255,255,255,.18)'});
+    const maxIv=55;
+    runs.forEach((r,i)=>{
+      if(i>upto) return;
+      const x=left+(right-left)*((i+0.5)/runs.length);
+      const h=(r.iv/maxIv)*(base-96);
+      const cur=i===upto;
+      const bad=r.q==='거의 잊었다';
+      const col=bad?'#E06C6C':C;
+      g.box(x-34,base-h,68,h,{fill:cur?tint(col,.85):tint(col,.3),
+        stroke:cur?'#fff':tint(col,.55),r:6,lw:cur?2:1.2});
+      g.text(r.iv+'일',x,base-h-15,{size:12.5,weight:600,mono:true,
+        color:cur?'#FBFAF7':'#8FA6B4'});
+      g.text(r.label,x,base+18,{size:11.5,color:cur?'#FBFAF7':'#8FA6B4',weight:cur?600:400});
+      g.text(r.q,x,base+36,{size:11,color:cur?(bad?'#E06C6C':'#F2C879'):'#5A6472'});
+      if(cur){
+        g.box(x-52,base-h-66,104,36,{fill:'rgba(0,0,0,.55)',stroke:tint(col,.6),r:6});
+        g.text('EF '+r.ef.toFixed(2),x,base-h-48,{size:12,mono:true,weight:600,color:'#F2C879'});
+      }
+    });
+    g.text('복습 간격',left-18,base-(base-96)/2,{size:11,color:'#8FA6B4',align:'right'});
+  }
+  const steps=runs.map((r,i)=>({
+    narr:'<b>'+r.label+'</b> — 사용자가 “'+r.q+'”를 골랐다. '+r.note+'. '
+        +(r.q==='거의 잊었다'
+            ? '잊었다고 답하면 간격을 늘리지 않고 <b>처음으로 되돌린다</b>. 난이도 계수(EF)도 같이 내려가서 이후 간격이 더 촘촘해진다.'
+            : '잘 기억했다고 답할수록 난이도 계수가 올라가고, 다음 간격이 그만큼 길어진다.'),
+    draw(g){ g.caption('자기 평가 → 다음 복습일'); drawAxis(g,i); }
+  }));
+  steps.push({
+    narr:'상한을 두지 않으면 “쉬웠다”가 이어질 때 간격이 <b>몇 년</b>까지 벌어진다. '
+        +'그래서 난이도 계수에 상한 2.8과 간격 상한 365일을 걸었다 — 원래 공식에 없는 우리 수정이다.',
+    draw(g){
+      const {W,H}=g;
+      g.caption('우리가 고친 곳 — 상한이 없으면 이렇게 된다');
+      const base=H-110, left=80, right=W-50;
+      const unbound=[7,18,49,132,357,964,2604];
+      const bound  =[7,18,49,132,357,365,365];
+      const maxV=2604;
+      g.text('상한 없음 (원래 공식)',left,base-170,{size:12,color:'#E06C6C',align:'left',weight:600});
+      g.text('상한 365일 (우리 것)',left,base-150,{size:12,color:C,align:'left',weight:600});
+      const sx=i=>left+(right-left)*(i/(unbound.length-1));
+      const sy=v=>base-(Math.log(v)/Math.log(maxV))*(base-210);
+      for(let i=0;i<unbound.length-1;i++){
+        g.line(sx(i),sy(unbound[i]),sx(i+1),sy(unbound[i+1]),{color:'#E06C6C',lw:2.4});
+        g.line(sx(i),sy(bound[i]),sx(i+1),sy(bound[i+1]),{color:C,lw:2.4});
+      }
+      unbound.forEach((v,i)=>{
+        g.circle(sx(i),sy(v),4,{fill:'#E06C6C',stroke:'#0E1A24',lw:2});
+        g.circle(sx(i),sy(bound[i]),4,{fill:C,stroke:'#0E1A24',lw:2});
+        g.text((i+1)+'회',sx(i),base+20,{size:11,color:'#8FA6B4'});
+      });
+      g.text('2604일 ≈ 7년',sx(6),sy(2604)-18,{size:11.5,mono:true,color:'#E06C6C',weight:600});
+      g.text('365일',sx(6),sy(365)+22,{size:11.5,mono:true,color:C,weight:600});
+    }
+  });
+  return {
+    steps,
+    no:'02', color:C, title:'SM-2 간격 반복',
+    where:'복습 일정', file:'SpacedRepetition.java',
+    lead:'완료한 단계가 때가 되면 다시 올라온다. 다음 복습일을 “며칠 뒤”로 고정하지 않고, 사용자가 고른 자기 평가에 따라 늘리거나 줄인다.',
+    why:['티어마다 고정 주기를 쓰면 쉬운 기술도 어려운 기술도 똑같이 돌아온다. 쉬운 것은 시간 낭비, 어려운 것은 이미 잊은 뒤다.',
+         'Anki가 쓰는 공식이라 효과가 검증돼 있고, 계산이 네 줄이라 DB 한 행으로 상태를 전부 담을 수 있다.'],
+    ours:['난이도 계수에 <b>상한 2.8</b>을 걸었다. 원래 공식에는 없는데, 없으면 간격이 몇 년이 된다.',
+          '첫 통과는 원래의 “1일 뒤 · 6일 뒤” 대신 <b>티어 기본 주기</b>를 쓴다. 글로 정리해 내는 복습에 1일은 너무 짧다.',
+          '행이 없는 기술은 아직 복습한 적이 없다는 뜻이다. 미리 만들어 두지 않고, 그때는 “마지막으로 익힌 날 + 기본 주기”를 쓴다.'],
+    meta:['EF 1.30 ~ 2.80','최대 간격 365일','자기 평가 4단계']
+  };
+})();
+
+/* =========================================================================
+ * 3. 0/1 배낭 DP
+ * ========================================================================= */
+const ALGO_KNAP = (function(){
+  const C='#B5841B';
+  /* 실제 반례: 용량 6에서 그리디 55 vs DP 100 */
+  const items=[
+    {n:'React 심화',   d:3, v:45},
+    {n:'SQL 튜닝',     d:3, v:55},
+    {n:'Docker 입문',  d:2, v:30},
+    {n:'테스트 코드',  d:4, v:70}
+  ];
+  const CAP=6;
+  /* DP 표 계산 */
+  const n=items.length;
+  const best=[]; for(let i=0;i<=n;i++) best.push(new Array(CAP+1).fill(0));
+  for(let i=1;i<=n;i++)for(let d=0;d<=CAP;d++){
+    const w=items[i-1].d, v=items[i-1].v;
+    best[i][d] = d<w ? best[i-1][d] : Math.max(best[i-1][d], best[i-1][d-w]+v);
+  }
+  /* 역추적 */
+  const picked=[]; {let d=CAP; for(let i=n;i>0;i--){ if(best[i][d]!==best[i-1][d]){picked.unshift(i-1); d-=items[i-1].d;} }}
+  function table(g,uptoRow,hi){
+    const {W,H}=g;
+    const cw=Math.min(62,(W-300)/(CAP+1)), ch=36;
+    const x0=W/2-(cw*(CAP+1))/2+40, y0=96;
+    g.text('남은 날 →',x0-46,y0-18,{size:11,color:'#8FA6B4',align:'right'});
+    for(let d=0;d<=CAP;d++) g.text(String(d),x0+cw*d+cw/2,y0-18,{size:11.5,mono:true,color:'#8FA6B4'});
+    for(let i=0;i<=n;i++){
+      const lab = i===0?'(없음)':items[i-1].n;
+      g.text(lab,x0-12,y0+ch*i+ch/2,{size:11.5,align:'right',
+        color:i<=uptoRow?'#C8D4DC':'#3E4C57'});
+      if(i>0) g.text(items[i-1].d+'일 · '+items[i-1].v+'점',x0-12,y0+ch*i+ch/2+14,
+        {size:10,align:'right',mono:true,color:i<=uptoRow?'#5A6472':'#2D3842'});
+      for(let d=0;d<=CAP;d++){
+        const on=i<=uptoRow;
+        const isHi=hi&&hi.i===i&&hi.d===d;
+        const inPath=hi&&hi.path&&hi.path.some(p=>p.i===i&&p.d===d);
+        g.box(x0+cw*d,y0+ch*i,cw-3,ch-3,{
+          fill: isHi?tint(C,.85) : inPath?tint(C,.4) : on?'rgba(255,255,255,.05)':'rgba(255,255,255,.015)',
+          stroke: isHi?'#fff' : inPath?tint(C,.8) : 'rgba(255,255,255,.08)', r:4, lw:isHi?2:1});
+        g.text(String(best[i][d]),x0+cw*d+(cw-3)/2,y0+ch*i+(ch-3)/2,
+          {size:12,mono:true,weight:isHi||inPath?600:400,
+           color:isHi?'#fff':on?(inPath?'#FBFAF7':'#8FA6B4'):'#2D3842'});
+      }
+    }
+    return {x0,y0,cw,ch};
+  }
+  const steps=[];
+  steps.push({narr:'시험까지 <b>6일</b> 남았다. 할 일 네 개는 각각 걸리는 날과 올릴 수 있는 점수가 다르다. '
+    +'6일 안에 담을 수 있는 조합 중 점수가 가장 높은 것을 찾는 문제다.',
+    draw(g){ const {W,H}=g; g.caption('남은 6일에 무엇을 담을까');
+      items.forEach((it,i)=>{
+        const bw=Math.min(190,(W-120)/4), x=60+i*(bw+14), y=H/2-60;
+        g.box(x,y,bw,112,{fill:'#13232F',stroke:'rgba(255,255,255,.18)',r:9});
+        g.text(it.n,x+bw/2,y+34,{size:13.5,weight:600});
+        g.text(it.d+'일',x+bw/2,y+62,{size:12,mono:true,color:'#8FA6B4'});
+        g.text('+'+it.v+'점',x+bw/2,y+86,{size:15,mono:true,weight:600,color:C});
+      });
+      g.text('용량 6일',W/2,H-70,{size:14,weight:600,color:'#F2C879'});
+    }});
+  for(let i=1;i<=n;i++) steps.push({
+    narr:'<b>'+items[i-1].n+'</b>까지 고려한 줄을 채운다. 각 칸은 “그 날짜만큼 남았을 때 지금까지의 할 일로 낼 수 있는 최고 점수”다. '
+        +'담지 않은 경우와 담은 경우를 비교해 큰 쪽을 적는다.',
+    draw(g){ g.caption('표를 한 줄씩 채운다 — 담지 않은 경우 vs 담은 경우'); table(g,i,null); }
+  });
+  steps.push({
+    narr:'표를 거꾸로 따라가면 <b>무엇을 담았는지</b>까지 복원된다. 점수만 알려 주면 사용자가 뭘 해야 할지 모른다 — '
+        +'그래서 역추적까지 해서 목록으로 보여준다.',
+    draw(g){
+      const path=[]; let d=CAP;
+      for(let i=n;i>0;i--){ path.push({i,d}); if(best[i][d]!==best[i-1][d]) d-=items[i-1].d; }
+      path.push({i:0,d});
+      g.caption('표를 거꾸로 따라가 담은 것을 되살린다');
+      const m=table(g,n,{path});
+      const chosen=picked.map(i=>items[i].n).join(' + ');
+      g.text('고른 것 — '+chosen,g.W/2,m.y0+m.ch*(n+1)+34,{size:14,weight:600,color:C});
+      g.text('합계 '+best[n][CAP]+'점 · '+picked.reduce((a,i)=>a+items[i].d,0)+'일',
+        g.W/2,m.y0+m.ch*(n+1)+58,{size:12.5,mono:true,color:'#8FA6B4'});
+    }
+  });
+  steps.push({
+    narr:'“점수 ÷ 소요일이 높은 것부터” 담는 그리디가 직관적이지만 <b>틀린다</b>. '
+        +'용량 6일에서 그리디는 Docker(15.0) → SQL(18.3)… 순으로 담아 <b>55점</b>, DP는 <b>100점</b>이다. '
+        +'한 칸 차이로 더 좋은 조합을 놓친다.',
+    draw(g){
+      const {W,H}=g;
+      g.caption('그리디로는 왜 안 되는가 — 용량 6일');
+      const cx=W/2, top=110;
+      const greedy=[{n:'SQL 튜닝',d:3,v:55}];
+      const dp=[{n:'React 심화',d:3,v:45},{n:'SQL 튜닝',d:3,v:55}];
+      function col(title,list,total,x,color){
+        g.text(title,x,top,{size:13,weight:600,color});
+        let y=top+28;
+        list.forEach(it=>{
+          g.box(x-100,y,200,42,{fill:tint(color,.2),stroke:tint(color,.6),r:7});
+          g.text(it.n,x,y+16,{size:12.5,weight:500});
+          g.text(it.d+'일 · +'+it.v+'점',x,y+32,{size:11,mono:true,color:'#8FA6B4'});
+          y+=52;
+        });
+        g.text(total+'점',x,y+28,{size:28,weight:700,mono:true,color});
+      }
+      col('밀도 그리디',greedy,55,cx-170,'#E06C6C');
+      col('0/1 배낭 DP',dp,100,cx+170,C);
+      g.text('그리디는 밀도 1등(Docker 15.0)을 먼저 담고 남은 4일에 테스트(4일·70점)를 못 넣는다',
+        cx,H-54,{size:11.5,color:'#8FA6B4'});
+      g.text('→ 한 칸 앞만 보면 뒤에서 손해를 본다',cx,H-34,{size:11.5,color:'#E06C6C'});
+    }
+  });
+  return {
+    steps,
+    no:'03', color:C, title:'0/1 배낭 (동적 계획법)',
+    where:'D-day 할 일 계획', file:'DdayPlanner.java',
+    lead:'시험일까지 남은 날에 담을 수 있는 할 일 조합 중 점수가 가장 높은 것을 고른다. 쪼갤 수 없는 할 일이라 0/1 배낭이다.',
+    why:['“급한 것부터”나 “짧은 것부터”는 쉽지만 한 칸 앞만 본다. 남은 날을 딱 맞게 쓰는 조합을 놓친다.',
+         '할 일은 반만 할 수 없다. 담거나 안 담거나 둘 중 하나라서 0/1 배낭이 정확히 들어맞는다.'],
+    ours:['표만 채우고 끝내지 않고 <b>역추적</b>해서 무엇을 담았는지 목록으로 보여준다. 점수만 알려 주면 쓸 수 없다.',
+          '잠긴 티어의 할 일은 후보에서 뺀다. 지금 시작할 수 없는 것을 계획에 넣으면 안 된다.',
+          '후보를 60개, 기간을 365일로 잘랐다. 표 크기가 후보 × 날짜라서 상한이 없으면 화면이 멈춘다.'],
+    meta:['O(n × 용량)','후보 60개 상한','기간 365일 상한']
+  };
+})();
+
+/* =========================================================================
+ * 4. RRF 하이브리드 검색
+ * ========================================================================= */
+const ALGO_RRF = (function(){
+  const C='#2B6CB0', K=60;
+  const lex=['스프링','스프링 시큐리티','스프링부트','스프링 배치'];
+  const sem=['스프링부트','스프링','Spring MVC','스프링 배치'];
+  const all=[...new Set([...lex,...sem])];
+  function rrf(name){
+    let s=0;
+    const li=lex.indexOf(name), si=sem.indexOf(name);
+    if(li>=0) s+=1/(K+li+1);
+    if(si>=0) s+=1/(K+si+1);
+    return s;
+  }
+  const fused=all.map(n=>({n,s:rrf(n)})).sort((a,b)=>b.s-a.s);
+  function list(g,title,arr,x,color,showRank){
+    const {H}=g;
+    g.text(title,x,96,{size:12.5,weight:600,color});
+    arr.forEach((n,i)=>{
+      const y=124+i*48;
+      g.box(x-118,y,236,40,{fill:tint(color,.14),stroke:tint(color,.45),r:7});
+      if(showRank){
+        g.circle(x-96,y+20,13,{fill:tint(color,.3),stroke:tint(color,.7)});
+        g.text(String(i+1),x-96,y+20,{size:11.5,mono:true,weight:600,color:'#FBFAF7'});
+      }
+      g.text(typeof n==='string'?n:n.n,x+12,y+20,{size:12.5,align:'center'});
+    });
+  }
+  const steps=[
+    {narr:'사용자가 프로필에 <b>“스프링부트”</b>라고 적었다. 우리 기술 목록의 어느 항목인지 찾아야 한다. '
+        +'방법이 두 가지인데, 각자 다른 답을 내놓는다.',
+     draw(g){ const {W,H}=g; g.caption('입력한 기술명을 표준 기술에 잇는다');
+       g.box(W/2-150,H/2-40,300,80,{fill:'#13232F',stroke:'#F2C879',r:10,lw:2});
+       g.text('"스프링부트"',W/2,H/2,{size:22,weight:600});
+       g.text('사용자가 직접 쓴 글자',W/2,H/2+58,{size:12,color:'#8FA6B4'}); }},
+    {narr:'<b>글자 유사도</b>는 겹치는 글자가 많은 것을 위로 올린다. “스프링”이 1등이 되는데, 사실 사용자가 말한 건 스프링부트다.',
+     draw(g){ g.caption('① 글자가 비슷한 순서'); list(g,'글자 유사도 순위',lex,g.W/2,'#C2571A',true); }},
+    {narr:'<b>의미 유사도</b>(로컬 임베딩)는 뜻이 가까운 것을 위로 올린다. 이쪽은 스프링부트를 1등으로 맞춘다. '
+        +'하지만 의미만 쓰면 엉뚱한 기술을 가까운 것으로 볼 때가 있다.',
+     draw(g){ g.caption('② 뜻이 가까운 순서'); list(g,'의미 유사도 순위',sem,g.W/2,'#7A5CB8',true); }},
+    {narr:'두 순위를 <b>점수가 아니라 등수로</b> 합친다. 각 등수를 <code>1/(60+등수)</code>로 바꿔 더하는 게 RRF다. '
+        +'점수를 직접 더하면 척도가 달라 비교가 안 되는데, 등수는 어느 방법이든 같은 의미다.',
+     draw(g){
+       const {W,H}=g;
+       g.caption('③ 등수를 1/(60+등수)로 바꿔 더한다 — RRF');
+       list(g,'글자 순위',lex,W/2-250,'#C2571A',true);
+       list(g,'의미 순위',sem,W/2+250,'#7A5CB8',true);
+       g.text('score(d) = Σ 1 / (60 + 등수)',W/2,H-56,{size:14,mono:true,weight:600,color:C});
+     }},
+    {narr:'합친 결과는 <b>스프링부트</b>가 1등이다. 두 방법이 모두 상위 3등 안에 올린 것만 자동으로 잇고, '
+        +'아니면 사용자에게 되묻는다 — 틀린 매칭은 격차 분석 전체를 틀리게 만든다.',
+     draw(g){
+       const {W,H}=g;
+       g.caption('④ 합친 순위 — 두 방법이 함께 밀어 올린 것이 1등');
+       fused.forEach((f,i)=>{
+         const y=120+i*54, w=440;
+         const hi=i===0;
+         g.box(W/2-w/2,y,w,46,{fill:hi?tint(C,.4):'rgba(255,255,255,.05)',
+           stroke:hi?'#fff':'rgba(255,255,255,.14)',r:8,lw:hi?2:1});
+         g.circle(W/2-w/2+26,y+23,14,{fill:hi?C:'rgba(255,255,255,.08)',stroke:hi?'#fff':'rgba(255,255,255,.2)'});
+         g.text(String(i+1),W/2-w/2+26,y+23,{size:12,mono:true,weight:600});
+         g.text(f.n,W/2-w/2+60,y+23,{size:13.5,align:'left',weight:hi?600:400});
+         g.text(f.s.toFixed(5),W/2+w/2-20,y+23,{size:12,mono:true,align:'right',
+           color:hi?'#F2C879':'#8FA6B4'});
+       });
+       g.text('두 순위 모두 상위 3등 안 → 자동 연결. 아니면 사용자에게 확인을 받는다',
+         W/2,H-48,{size:12,color:'#8FA6B4'});
+     }}
+  ];
+  return {
+    steps,
+    no:'04', color:C, title:'RRF 하이브리드 검색',
+    where:'기술명 매칭', file:'RankFusion.java · HybridSkillMatcher.java',
+    lead:'글자가 비슷한 순서와 뜻이 가까운 순서를 하나로 합친다. 점수를 더하지 않고 등수를 더하는 것이 핵심.',
+    why:['글자만 보면 “스프링부트”가 “스프링”에 끌려간다. 뜻만 보면 관계없는 기술이 가깝게 나올 때가 있다.',
+         '두 방법의 점수는 척도가 다르다(한쪽은 0~1 편집거리, 한쪽은 코사인). 그대로 더하면 한쪽이 항상 이긴다. 등수는 척도가 없다.'],
+    ours:['먼저 기존 임베딩 매칭을 그대로 써 보고, <b>거기서 못 찾았을 때만</b> RRF를 돌린다. 잘 되던 경로를 바꾸지 않았다.',
+          '두 순위 모두 <b>상위 3등 안</b>에 든 것만 자동 연결한다. 한쪽만 밀어 올린 것은 사용자에게 확인을 받는다.',
+          '상수 60은 원 논문 값 그대로다. 등수 차이가 위쪽에서만 크게 벌어지지 않게 눌러 주는 값이다.'],
+    meta:['k = 60','상위 3등 합의','후보 10개']
+  };
+})();
+
+/* =========================================================================
+ * 5. 자카드 공출현
+ * ========================================================================= */
+const ALGO_JAC = (function(){
+  const C='#C2571A';
+  const me=['Java','Spring','MySQL'];
+  const peers=[
+    {n:'지원자 A',s:['Java','Spring','MySQL','Docker','Redis'],},
+    {n:'지원자 B',s:['Java','Spring','JPA','Docker'],},
+    {n:'지원자 C',s:['Python','Django','MySQL'],}
+  ];
+  function jac(a,b){
+    const A=new Set(a),B=new Set(b);
+    const inter=[...A].filter(x=>B.has(x)).length;
+    const uni=new Set([...a,...b]).size;
+    return {inter,uni,v:inter/uni};
+  }
+  const scored=peers.map(p=>({...p,...jac(me,p.s)}));
+  function venn(g,peer,cx,cy,R){
+    const j=jac(me,peer.s);
+    g.circle(cx-R*0.45,cy,R,{fill:tint(C,.16),stroke:tint(C,.6),lw:2});
+    g.circle(cx+R*0.45,cy,R,{fill:'rgba(46,125,107,.16)',stroke:'rgba(46,125,107,.7)',lw:2});
+    g.text('나',cx-R*1.15,cy-R-14,{size:12,color:C,weight:600});
+    g.text(peer.n,cx+R*1.15,cy-R-14,{size:12,color:'#5FBFA6',weight:600});
+    const A=new Set(me),B=new Set(peer.s);
+    const only=me.filter(x=>!B.has(x)), both=me.filter(x=>B.has(x)), other=peer.s.filter(x=>!A.has(x));
+    only.forEach((t,i)=>g.text(t,cx-R*1.0,cy-18+i*20,{size:11.5,color:'#C8D4DC'}));
+    both.forEach((t,i)=>g.text(t,cx,cy-((both.length-1)*20)/2+i*20,{size:12,color:'#FBFAF7',weight:600}));
+    other.forEach((t,i)=>g.text(t,cx+R*1.0,cy-((other.length-1)*20)/2+i*20,{size:11.5,color:'#C8D4DC'}));
+    g.text('겹친 '+j.inter+' / 합친 '+j.uni+' = '+j.v.toFixed(2),cx,cy+R+30,
+      {size:13,mono:true,weight:600,color:j.v>=0.5?C:'#5A6472'});
+  }
+  const steps=[
+    {narr:'대시보드의 “다음에 할 일”은 임의 추천이 아니다. <b>나와 기술이 겹치는 사람들</b>이 추가로 가진 기술에서 고른다.',
+     draw(g){ const {W,H}=g; g.caption('내가 가진 기술');
+       me.forEach((t,i)=>{ const x=W/2+(i-(me.length-1)/2)*150;
+         g.box(x-66,H/2-26,132,52,{fill:tint(C,.25),stroke:tint(C,.7),r:9});
+         g.text(t,x,H/2,{size:14,weight:600}); });
+       g.text('이 사람에게 다음으로 무엇을 권할까',W/2,H/2+76,{size:12.5,color:'#8FA6B4'}); }},
+    ...peers.map((p,i)=>({
+      narr:'<b>'+p.n+'</b>와 얼마나 비슷한지를 자카드로 잰다 — <code>겹친 개수 ÷ 합친 개수</code>. '
+          +(jac(me,p.s).v>=0.5
+             ? '비슷하다고 보고 이 사람이 더 가진 기술을 후보에 넣는다.'
+             : '많이 다르다. 이 사람의 기술은 참고하지 않는다 — 전공이 아예 다른 사람의 길을 권하면 안 된다.'),
+      draw(g){ g.caption('① 나와 얼마나 겹치는가 (자카드 유사도)');
+        venn(g,p,g.W/2,g.H/2-10,Math.min(120,g.H/5)); }
+    })),
+    {narr:'비슷한 사람들이 <b>공통으로 더 가진</b> 기술에 유사도를 가중치로 얹어 점수를 낸다. '
+        +'Docker가 1등 — 두 사람 모두 가지고 있고, 둘 다 나와 비슷하다.',
+     draw(g){
+       const {W,H}=g;
+       g.caption('② 비슷한 사람일수록 그 사람의 기술에 무게를 더 준다');
+       const cand=[
+         {n:'Docker',from:'A(0.60) + B(0.50)',score:1.10},
+         {n:'Redis', from:'A(0.60)',           score:0.60},
+         {n:'JPA',   from:'B(0.50)',           score:0.50}
+       ];
+       cand.forEach((c,i)=>{
+         const y=130+i*68, w=460, hi=i===0;
+         g.box(W/2-w/2,y,w,56,{fill:hi?tint(C,.35):'rgba(255,255,255,.05)',
+           stroke:hi?'#fff':'rgba(255,255,255,.14)',r:9,lw:hi?2:1});
+         g.text(c.n,W/2-w/2+22,y+22,{size:14.5,align:'left',weight:600});
+         g.text(c.from,W/2-w/2+22,y+40,{size:11,align:'left',mono:true,color:'#8FA6B4'});
+         const bw=(c.score/1.1)*170;
+         g.box(W/2+w/2-200,y+22,bw,14,{fill:hi?C:tint(C,.4),stroke:'transparent',r:7,lw:0});
+         g.text(c.score.toFixed(2),W/2+w/2-20,y+29,{size:12.5,mono:true,align:'right',
+           weight:600,color:hi?'#F2C879':'#8FA6B4'});
+       });
+       g.text('추천: Docker — "같은 직무를 준비하는 사람들이 이 다음에 익혔습니다"',
+         W/2,H-54,{size:12.5,color:C,weight:600});
+     }}
+  ];
+  return {
+    steps,
+    no:'05', color:C, title:'자카드 유사도 기반 공출현 추천',
+    where:'대시보드 “다음에 할 일”', file:'SkillCooccurrenceService.java',
+    lead:'나와 기술이 겹치는 사람들을 찾고, 그 사람들이 추가로 가진 기술을 권한다. 얼마나 겹치는지는 자카드 유사도로 잰다.',
+    why:['“인기 있는 기술”을 권하면 모두에게 같은 답이 나간다. 내가 지금 선 자리에서 다음 한 걸음이어야 한다.',
+         '자카드는 가진 개수가 다른 사람끼리도 공평하게 비교된다. 많이 가진 사람이 무조건 비슷해 보이지 않는다.'],
+    ours:['비슷한 사람이 <b>3명 미만</b>이면 추천을 아예 내지 않는다. 한두 명으로 “다들 이걸 합니다”라고 말할 수 없다.',
+          '후보 기술도 <b>2명 이상</b>이 가진 것만 쓴다. 한 사람만 가진 기술은 우연이다.',
+          '탈퇴 신청·테스트 계정·논리 삭제된 행은 모수에서 뺀다. 데모용 계정이 추천을 흔들면 안 된다.'],
+    meta:['J = |∩| / |∪|','최소 또래 3명','최소 보유 2명']
+  };
+})();
+
+/* =========================================================================
+ * 6. EWMA + z-score 급상승 감지
+ * ========================================================================= */
+const ALGO_SPIKE = (function(){
+  const C='#B03A48';
+  const months=['4월','5월','6월','7월','8월','9월','10월'];
+  const steady=[12,11,13,12,14,13,26];   /* 마지막에 진짜 급상승 */
+  const jumpy =[ 8,19, 7,21, 9,20,27];   /* 원래 들쭉날쭉 — 급상승 아님 */
+  function ewma(a,alpha){ let m=a[0]; for(let i=1;i<a.length;i++) m=alpha*a[i]+(1-alpha)*m; return m; }
+  function sd(a,m){ return Math.sqrt(a.reduce((s,v)=>s+(v-m)*(v-m),0)/a.length); }
+  function chart(g,data,color,cx,label,showBand,showZ){
+    const {H}=g;
+    const hist=data.slice(0,-1), cur=data[data.length-1];
+    const base=ewma(hist,0.4), s=sd(hist,base);
+    const top=120, bot=H-120, w=300;
+    const maxV=30;
+    const px=i=>cx-w/2+(w*i)/(data.length-1);
+    const py=v=>bot-(v/maxV)*(bot-top);
+    g.text(label,cx,top-32,{size:13,weight:600,color});
+    if(showBand){
+      const y1=py(base+2*s), y2=py(base-2*s);
+      g.box(cx-w/2-10,y1,w+20,y2-y1,{fill:tint(color,.12),stroke:tint(color,.35),r:4,lw:1,dash:[4,3]});
+      g.line(cx-w/2-10,py(base),cx+w/2+10,py(base),{color:tint(color,.8),lw:1.8,dash:[6,4]});
+      g.text('평소 범위',cx+w/2+16,py(base),{size:10.5,color:tint(color,.9),align:'left'});
+    }
+    for(let i=0;i<data.length-1;i++)
+      g.line(px(i),py(data[i]),px(i+1),py(data[i+1]),{color:i===data.length-2?color:'rgba(255,255,255,.3)',lw:2.2});
+    data.forEach((v,i)=>{
+      const last=i===data.length-1;
+      g.circle(px(i),py(v),last?7:4,{fill:last?color:'#13232F',stroke:last?'#fff':'rgba(255,255,255,.4)',lw:last?2.4:1.5});
+      g.text(months[i],px(i),bot+20,{size:10,color:'#5A6472'});
+    });
+    if(showZ){
+      const z=s<0.2?0:(cur-base)/s;
+      const rising=z>=2 && cur-base>=1;
+      g.box(cx-78,py(cur)-58,156,34,{fill:'rgba(0,0,0,.6)',stroke:rising?'#E0A458':'rgba(255,255,255,.2)',r:6});
+      g.text('z = '+z.toFixed(1)+(rising?'  급상승':'  평소 범위'),cx,py(cur)-41,
+        {size:12,mono:true,weight:600,color:rising?'#E0A458':'#8FA6B4'});
+    }
+    return {base,s};
+  }
+  const steps=[
+    {narr:'10월에 두 기술 모두 크게 올랐다. 지난달과만 비교하면 <b>둘 다 급상승</b>이다. 그런데 정말 그럴까?',
+     draw(g){ g.caption('이번 달에 둘 다 올랐다 — 둘 다 급상승일까?');
+       chart(g,steady,'#5FBFA6',g.W/2-200,'기술 A',false,false);
+       chart(g,jumpy ,'#B03A48',g.W/2+200,'기술 B',false,false); }},
+    {narr:'<b>과거 달로 기준선</b>을 만든다. 최근 달에 가중치를 더 주는 지수 이동 평균(EWMA)이라 '
+        +'오래된 값의 영향이 자연스럽게 줄어든다. <b>이번 달 값은 기준선에 넣지 않는다</b> — 넣으면 기준선이 스스로 끌려 올라가 급상승을 가린다.',
+     draw(g){ g.caption('① 지난달까지로 "평소"를 만든다 (EWMA, α=0.4)');
+       chart(g,steady,'#5FBFA6',g.W/2-200,'기술 A',true,false);
+       chart(g,jumpy ,'#B03A48',g.W/2+200,'기술 B',true,false); }},
+    {narr:'기준선에서 <b>표준편차 몇 배만큼</b> 벗어났는지(z-score)를 본다. '
+        +'A는 늘 12 언저리였다가 26이 됐으니 z가 크다. B는 원래 7과 21을 오가던 기술이라 27도 평소 범위 안이다. '
+        +'<b>A만 급상승</b>이다.',
+     draw(g){ g.caption('② 평소 변동폭 대비 얼마나 튀었는가 (z-score ≥ 2.0)');
+       chart(g,steady,'#5FBFA6',g.W/2-200,'기술 A',true,true);
+       chart(g,jumpy ,'#B03A48',g.W/2+200,'기술 B',true,true); }},
+    {narr:'“지난달보다 올랐다”로 판정했다면 B에도 급상승 배지가 붙었을 것이다. '
+        +'배지가 아무 데나 붙으면 아무도 안 믿는다 — <b>안 붙이는 쪽</b>이 더 중요한 기능이다.',
+     draw(g){
+       const {W,H}=g;
+       g.caption('판정 결과');
+       const rows=[
+         {n:'기술 A',sub:'늘 12 언저리 → 26',z:'z = 4.6',ok:true},
+         {n:'기술 B',sub:'원래 7~21을 오감 → 27',z:'z = 1.1',ok:false}
+       ];
+       rows.forEach((r,i)=>{
+         const y=H/2-90+i*110, w=520;
+         g.box(W/2-w/2,y,w,88,{fill:r.ok?'rgba(224,164,88,.16)':'rgba(255,255,255,.04)',
+           stroke:r.ok?'#E0A458':'rgba(255,255,255,.14)',r:10,lw:r.ok?2:1});
+         g.text(r.n,W/2-w/2+26,y+32,{size:16,align:'left',weight:600});
+         g.text(r.sub,W/2-w/2+26,y+58,{size:12,align:'left',color:'#8FA6B4'});
+         g.text(r.z,W/2+w/2-130,y+44,{size:13,mono:true,align:'right',color:'#C8D4DC'});
+         if(r.ok){
+           g.box(W/2+w/2-108,y+28,84,32,{fill:'#E0A458',stroke:'transparent',r:16,lw:0});
+           g.text('급상승',W/2+w/2-66,y+44,{size:12.5,weight:700,color:'#1A1200'});
+         } else {
+           g.text('배지 없음',W/2+w/2-66,y+44,{size:12,color:'#5A6472'});
+         }
+       });
+     }}
+  ];
+  return {
+    steps,
+    no:'06', color:C, title:'EWMA 기준선 + z-score 급상승 감지',
+    where:'데이터 인사이트 급상승 배지', file:'SpikeDetector.java',
+    lead:'“이번 달이 지난달보다 높다”로는 급상승을 가릴 수 없다. 과거로 평소 범위를 만들고, 거기서 얼마나 벗어났는지로 판정한다.',
+    why:['원래 들쭉날쭉한 기술은 매달 20~30%씩 오르내린다. 전월 대비로 보면 거의 매달 급상승이 된다.',
+         'EWMA는 최근 달에 가중치를 더 줘서, 6개월 전 값이 지금 판정을 흔들지 않는다.'],
+    ours:['<b>이번 달 값은 기준선에 넣지 않는다.</b> 넣으면 기준선이 스스로 끌려 올라가 정작 급상승을 가린다.',
+          '표준편차가 너무 작으면(0.2 미만) 아예 판정하지 않는다. 거의 변하지 않던 값은 조금만 움직여도 z가 터진다.',
+          '절대 증가폭 조건을 함께 건다. 1%가 2%가 된 것은 비율로는 2배지만 의미가 없다.',
+          '과거 데이터가 3개월 미만이면 판정하지 않는다.'],
+    meta:['α = 0.4','z ≥ 2.0','최소 3개월']
+  };
+})();
+
+/* =========================================================================
+ * 7. 토큰 버킷 + 서킷 브레이커
+ * ========================================================================= */
+const ALGO_GUARD = (function(){
+  const C='#5A8F7B';
+  function bucket(g,cx,cy,tokens,cap,taking){
+    const w=130,h=180;
+    g.box(cx-w/2,cy-h/2,w,h,{fill:'rgba(0,0,0,.25)',stroke:'rgba(255,255,255,.25)',r:10,lw:2});
+    const fillH=(tokens/cap)*(h-12);
+    if(fillH>0) g.box(cx-w/2+6,cy+h/2-6-fillH,w-12,fillH,
+      {fill:tint(C,.55),stroke:'transparent',r:6,lw:0});
+    for(let i=0;i<tokens && i<cap;i++){
+      const perRow=4, r=9;
+      const col=i%perRow, row=Math.floor(i/perRow);
+      g.circle(cx-w/2+22+col*30, cy+h/2-20-row*26, r,
+        {fill:'#F2C879',stroke:'rgba(0,0,0,.3)',lw:1});
+    }
+    g.text(tokens+' / '+cap,cx,cy-h/2-18,{size:13,mono:true,weight:600,
+      color:tokens===0?'#E06C6C':'#F2C879'});
+    g.text('토큰',cx,cy+h/2+22,{size:11.5,color:'#8FA6B4'});
+    if(taking!==undefined){
+      g.arrow(cx+w/2+16,cy,cx+w/2+76,cy,{color:taking?C:'#E06C6C',lw:2.4});
+      g.text(taking?'호출 통과':'거절 — 기다린다',cx+w/2+86,cy,
+        {size:12.5,align:'left',weight:600,color:taking?C:'#E06C6C'});
+    }
+  }
+  function breaker(g,cx,cy,state,fails){
+    const states=[
+      {k:'CLOSED', ko:'닫힘 — 정상 통과', c:'#52B788'},
+      {k:'OPEN',   ko:'열림 — 보내지 않음', c:'#E06C6C'},
+      {k:'HALF_OPEN', ko:'반쯤 — 한 번만 떠본다', c:'#E0A458'}
+    ];
+    states.forEach((s,i)=>{
+      const x=cx+(i-1)*230, on=s.k===state;
+      g.box(x-100,cy-40,200,80,{fill:on?tint(s.c,.3):'rgba(255,255,255,.04)',
+        stroke:on?s.c:'rgba(255,255,255,.14)',r:12,lw:on?2.5:1});
+      g.text(s.k,x,cy-12,{size:14,mono:true,weight:600,color:on?s.c:'#5A6472'});
+      g.text(s.ko,x,cy+14,{size:11.5,color:on?'#C8D4DC':'#3E4C57'});
+      if(i<2) g.arrow(x+104,cy,x+124,cy,{color:'rgba(255,255,255,.2)',lw:1.4});
+    });
+    if(fails!==undefined){
+      g.text('연속 실패 '+fails+'회',cx,cy+70,{size:12.5,mono:true,
+        color:fails>=3?'#E06C6C':'#8FA6B4',weight:600});
+    }
+  }
+  const steps=[
+    {narr:'외부 LLM은 초당 받을 수 있는 횟수가 정해져 있다. 넘기면 429를 돌려준다. '
+        +'<b>토큰 버킷</b>은 보내기 전에 우리 쪽에서 먼저 세는 장치다.',
+     draw(g){ g.caption('토큰 버킷 — 보내도 되는 횟수를 먼저 센다');
+       bucket(g,g.W/2,g.H/2,30,30,undefined);
+       g.text('일정 속도로 토큰이 다시 채워진다',g.W/2,g.H-70,{size:12,color:'#8FA6B4'}); }},
+    {narr:'호출할 때마다 토큰을 하나 꺼낸다. 남아 있으면 그대로 보낸다.',
+     draw(g){ g.caption('① 토큰이 있으면 통과'); bucket(g,g.W/2-60,g.H/2,12,30,true); }},
+    {narr:'토큰이 바닥나면 <b>보내지 않는다</b>. 어차피 429를 받을 호출이라 네트워크만 쓰고 끝난다. '
+        +'대신 2초까지만 기다렸다 다시 시도한다 — 무한정 기다리면 화면이 멈춘다.',
+     draw(g){ g.caption('② 바닥나면 보내지 않고 짧게 기다린다'); bucket(g,g.W/2-60,g.H/2,0,30,false); }},
+    {narr:'그런데 외부가 <b>아예 죽어 있을 때</b>는 기다려도 소용없다. 이때는 서킷 브레이커가 맡는다. '
+        +'평소에는 닫혀 있고 호출이 그대로 나간다.',
+     draw(g){ g.caption('서킷 브레이커 — 평소에는 닫혀 있다'); breaker(g,g.W/2,g.H/2,'CLOSED',0); }},
+    {narr:'연속 <b>3번</b> 실패하면 회로를 <b>연다</b>. 이후 10분 동안은 호출을 시도조차 하지 않고 '
+        +'바로 캐시된 결과나 안내 문구로 간다. 죽은 서버를 계속 두드리면 사용자만 10초씩 기다린다.',
+     draw(g){ g.caption('③ 연속 실패가 쌓이면 회로를 연다'); breaker(g,g.W/2,g.H/2,'OPEN',3); }},
+    {narr:'10분이 지나면 <b>딱 한 번</b> 떠본다. 성공하면 다시 닫고, 또 실패하면 다시 연다. '
+        +'전부 열어 두고 몰려가면 겨우 살아난 서버가 다시 죽는다.',
+     draw(g){ g.caption('④ 시간이 지나면 한 번만 떠본다'); breaker(g,g.W/2,g.H/2,'HALF_OPEN',0); }},
+    {narr:'안전장치도 <b>과하면 장애가 된다</b>. 처음에 버킷을 너무 좁게 잡았더니, 70일치를 연속으로 도는 '
+        +'시뮬레이션이 중간에 끊겼다. 테스트가 잡아서 폭을 넓히고 짧은 대기를 더했다.',
+     draw(g){
+       const {W,H}=g;
+       g.caption('우리가 낸 사고 — 좁게 잡은 버킷이 기능을 끊었다');
+       const rows=[
+         {t:'처음 — 버킷 10개',sub:'시뮬레이션이 11일째에 멈춤',c:'#E06C6C'},
+         {t:'지금 — 버킷 30개 + 2초 대기',sub:'70일치가 끝까지 돈다',c:'#52B788'}
+       ];
+       rows.forEach((r,i)=>{
+         const y=H/2-80+i*110, w=520;
+         g.box(W/2-w/2,y,w,88,{fill:tint(r.c,.14),stroke:r.c,r:10,lw:1.8});
+         g.text(r.t,W/2,y+34,{size:15,weight:600});
+         g.text(r.sub,W/2,y+60,{size:12.5,color:'#8FA6B4'});
+       });
+       g.text('테스트가 단독 실행에서는 통과하고 전체 실행에서만 깨져서 찾았다',
+         W/2,H-54,{size:12,color:'#8FA6B4'});
+     }}
+  ];
+  return {
+    steps,
+    no:'07', color:C, title:'토큰 버킷 + 서킷 브레이커',
+    where:'외부 API 호출 (LLM · 워크넷 · 트렌드)', file:'TokenBucket.java · CircuitBreaker.java',
+    lead:'어차피 거절될 호출을 보내지 않는다. 속도는 토큰 버킷이, 죽은 외부는 서킷 브레이커가 맡는다.',
+    why:['외부가 429를 돌려줄 걸 알면서 보내면 네트워크와 대기 시간만 쓴다.',
+         '외부가 죽었을 때 계속 두드리면 사용자가 매번 타임아웃만큼 기다린다. 끊어 두면 즉시 대체 화면이 나간다.'],
+    ours:['둘 다 시계를 <b>밖에서 주입</b>받는다. 그래서 테스트가 <code>sleep</code> 없이 시간을 돌릴 수 있다.',
+          '외부별로 브레이커를 따로 둔다. 트렌드 수집이 죽었다고 LLM까지 막으면 안 된다.',
+          '기본값은 공유하되 인스턴스마다 갈아 끼울 수 있게 했다 — 테스트가 자기 설정을 넣는다.',
+          '버킷이 비면 <b>2초까지만</b> 기다린다. 무한 대기는 장애를 화면으로 옮기는 것일 뿐이다.'],
+    meta:['3실패 / 10분','버킷 30 · 보충 120','대기 상한 2초']
+  };
+})();
+
+/* =========================================================================
+ * 8. MySQL FULLTEXT (ngram)
+ * ========================================================================= */
+const ALGO_NGRAM = (function(){
+  const C='#8A6AA8';
+  const doc='스프링 트랜잭션 정리';
+  const q='랜잭';
+  function grams(s){
+    const t=s.replace(/\s/g,''); const out=[];
+    for(let i=0;i<t.length-1;i++) out.push(t.slice(i,i+2));
+    return out;
+  }
+  const G=grams(doc);
+  const steps=[
+    {narr:'사용자가 <b>“랜잭”</b>으로 검색했다. 제목은 “스프링 트랜잭션 정리”다. '
+        +'단어 가운데가 잘린 조각이라 단어 단위 검색으로는 찾을 수 없다.',
+     draw(g){ const {W,H}=g; g.caption('한국어는 단어 가운데로 검색한다');
+       g.box(W/2-230,H/2-70,460,56,{fill:'#13232F',stroke:'rgba(255,255,255,.2)',r:9});
+       g.text(doc,W/2,H/2-42,{size:19,weight:600});
+       g.text('저장된 글 제목',W/2,H/2-90,{size:11.5,color:'#8FA6B4'});
+       g.box(W/2-90,H/2+20,180,52,{fill:tint(C,.25),stroke:C,r:9,lw:2});
+       g.text('"'+q+'"',W/2,H/2+46,{size:19,weight:600,color:'#F2C879'});
+       g.text('검색어',W/2,H/2+94,{size:11.5,color:'#8FA6B4'}); }},
+    {narr:'기본 FULLTEXT 파서는 <b>공백으로 단어를 자른다</b>. 영어는 맞지만 한국어는 조사가 붙고 합성어가 많아 '
+        +'“트랜잭션”이 통째로 하나의 단어가 된다. “랜잭”은 어느 단어와도 같지 않아 결과가 0건이다.',
+     draw(g){ const {W,H}=g; g.caption('① 기본 파서 — 공백으로 자른다');
+       const words=doc.split(' ');
+       words.forEach((w,i)=>{ const x=W/2+(i-(words.length-1)/2)*170;
+         g.box(x-78,H/2-80,156,48,{fill:'rgba(255,255,255,.05)',stroke:'rgba(255,255,255,.18)',r:8});
+         g.text(w,x,H/2-56,{size:14}); });
+       g.text('검색어 "'+q+'" 와 같은 단어가 없다',W/2,H/2+10,{size:14,color:'#E06C6C',weight:600});
+       g.text('0건',W/2,H/2+50,{size:26,mono:true,weight:700,color:'#E06C6C'}); }},
+    {narr:'<b>ngram 파서</b>는 두 글자씩 겹쳐 가며 자른다. 공백을 지우고 “스프 / 프링 / 링트 / 트랜 / 랜잭 / 잭션 …”으로 쪼갠다. '
+        +'이 조각들이 인덱스에 들어간다.',
+     draw(g){ const {W,H}=g; g.caption('② ngram 파서 — 두 글자씩 겹쳐 자른다 (token_size = 2)');
+       const perRow=6;
+       G.forEach((t,i)=>{
+         const row=Math.floor(i/perRow), col=i%perRow;
+         const rowN=Math.min(perRow,G.length-row*perRow);
+         const x=W/2+(col-(rowN-1)/2)*96, y=H/2-60+row*62;
+         const hit=t===q;
+         g.box(x-42,y-22,84,44,{fill:hit?tint(C,.6):'rgba(255,255,255,.05)',
+           stroke:hit?'#F2C879':'rgba(255,255,255,.16)',r:7,lw:hit?2.2:1});
+         g.text(t,x,y,{size:14,weight:hit?700:400,color:hit?'#FBFAF7':'#C8D4DC'});
+       });
+       g.text('검색어 "'+q+'" 가 조각 하나와 정확히 일치한다',W/2,H-80,{size:13.5,color:C,weight:600}); }},
+    {narr:'인덱스에 그 조각이 있으므로 <b>전수 스캔 없이</b> 바로 찾는다. '
+        +'<code>LIKE \'%랜잭%\'</code>은 같은 결과를 내지만 모든 행을 읽어야 한다.',
+     draw(g){ const {W,H}=g; g.caption('③ 인덱스로 바로 찾는다');
+       const rows=[{t:"LIKE '%랜잭%'",s:'모든 행을 읽는다 — 글이 늘수록 느려진다',c:'#E06C6C'},
+                   {t:'MATCH … AGAINST (ngram)',s:'인덱스에서 조각을 찾아 바로 간다',c:C}];
+       rows.forEach((r,i)=>{ const y=H/2-80+i*110, w=520;
+         g.box(W/2-w/2,y,w,88,{fill:tint(r.c,.14),stroke:r.c,r:10,lw:1.8});
+         g.text(r.t,W/2,y+34,{size:15,mono:true,weight:600});
+         g.text(r.s,W/2,y+60,{size:12.5,color:'#8FA6B4'}); }); }},
+    {narr:'다만 <b>한 글자 검색</b>은 걸리지 않는다. 조각이 두 글자 단위라 “랜”과 똑같은 조각이 없기 때문이다. '
+        +'그래서 한 글자이면 <code>LIKE</code>로 떨어뜨린다 — 느리지만 결과가 0건으로 나오는 것보다 낫다.',
+     draw(g){ const {W,H}=g; g.caption('④ 한 글자는 LIKE로 떨어뜨린다');
+       g.box(W/2-70,H/2-140,140,52,{fill:tint(C,.25),stroke:C,r:9,lw:2});
+       g.text('"랜"',W/2,H/2-114,{size:20,weight:600,color:'#F2C879'});
+       g.arrow(W/2,H/2-80,W/2,H/2-36,{color:'rgba(255,255,255,.3)',lw:2});
+       g.box(W/2-210,H/2-30,420,52,{fill:'rgba(224,108,108,.14)',stroke:'#E06C6C',r:9});
+       g.text('두 글자 미만 → 검색어에서 뺀다',W/2,H/2-4,{size:13.5,color:'#E06C6C'});
+       g.arrow(W/2,H/2+30,W/2,H/2+70,{color:'rgba(255,255,255,.3)',lw:2});
+       g.box(W/2-210,H/2+76,420,52,{fill:tint(C,.2),stroke:C,r:9,lw:2});
+       g.text("LIKE '%랜%' 로 폴백",W/2,H/2+102,{size:13.5,mono:true,weight:600}); }}
+  ];
+  return {
+    steps,
+    no:'08', color:C, title:'MySQL FULLTEXT — ngram 파서',
+    where:'스펙 아카이브 글 검색', file:'TechArticleDao.java',
+    lead:'한국어는 단어 가운데로 검색한다. 기본 파서는 공백으로만 자르기 때문에 부분 일치가 안 된다. ngram 파서로 두 글자씩 쪼개 인덱스를 만든다.',
+    why:['<code>LIKE \'%검색어%\'</code>는 인덱스를 못 쓴다. 글이 늘어나면 매번 전부 읽는다.',
+         '한국어는 조사가 붙고 합성어가 많아 단어 경계가 공백과 일치하지 않는다.'],
+    ours:['검색어를 불리언 모드로 바꿀 때 <b>연산자로 쓰이는 글자를 지운다</b>. 사용자가 친 <code>+</code>나 <code>-</code>가 쿼리 문법으로 해석되면 엉뚱한 결과가 나온다.',
+          '<code>C#</code>은 그대로 둔다 — <code>#</code>은 불리언 모드 연산자가 아니다. 반면 <code>C++</code>은 조각이 남지 않아 자동으로 LIKE로 떨어진다.',
+          '두 글자 미만만 남으면 불리언 쿼리를 아예 만들지 않고 <b>LIKE로 폴백</b>한다. 느린 것이 0건보다 낫다.'],
+    meta:['ngram_token_size = 2','불리언 모드','한 글자는 LIKE 폴백']
+  };
+})();
+
+const ALGOS=[ALGO_TOPO,ALGO_SM2,ALGO_KNAP,ALGO_RRF,ALGO_JAC,ALGO_SPIKE,ALGO_GUARD,ALGO_NGRAM];
+
+/* =========================================================================
+ * 화면 제어
+ * ========================================================================= */
+const gridEl=document.getElementById('grid');
+const detailEl=document.getElementById('detail');
+const sideEl=document.getElementById('side');
+const backBtn=document.getElementById('back');
+const cv=document.getElementById('cv');
+const playBtn=document.getElementById('play');
+const prevBtn=document.getElementById('prev');
+const nextBtn=document.getElementById('next');
+const stepEl=document.getElementById('step');
+const trackFill=document.querySelector('#track i');
+const subEl=document.getElementById('sub');
+
+let cur=null, idx=0, timer=null;
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---- 격자 ---- */
+ALGOS.forEach((a,i)=>{
+  const b=document.createElement('button');
+  b.className='card'; b.type='button'; b.style.setProperty('--accent',a.color);
+  b.innerHTML='<span class="no">'+a.no+'</span>'
+    +'<h2>'+a.title+'</h2>'
+    +'<p class="where">'+a.where+'</p>'
+    +'<div class="mini"><canvas></canvas></div>';
+  b.onclick=()=>open(i);
+  gridEl.appendChild(b);
+  /* 카드 미리보기 — 마지막 장면을 작게 한 번 그린다 */
+  requestAnimationFrame(()=>paintMini(b.querySelector('canvas'),a));
+});
+
+function sizeCanvas(c){
+  const r=c.getBoundingClientRect();
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  c.width=Math.max(1,Math.round(r.width*dpr));
+  c.height=Math.max(1,Math.round(r.height*dpr));
+  const ctx=c.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return {ctx,W:r.width,H:r.height};
+}
+
+function paintMini(c,a){
+  const {ctx,W,H}=sizeCanvas(c);
+  ctx.clearRect(0,0,W,H);
+  /* 색 띠 + 점 — 내용 대신 "무엇의 자리인지"만 알려 주는 표식 */
+  const n=a.steps.length;
+  for(let i=0;i<n;i++){
+    const w=(W-16-(n-1)*4)/n, x=8+i*(w+4);
+    ctx.fillStyle = i===0 ? a.color : tint(a.color,.22);
+    ctx.beginPath(); ctx.roundRect(x,H/2-7,w,14,4); ctx.fill();
+  }
+  ctx.fillStyle='rgba(255,255,255,.5)';
+  ctx.font="500 10px 'IBM Plex Mono',monospace";
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(n+'단계',W/2,H-11);
+}
+
+/* ---- 상세 ---- */
+function open(i){
+  cur=ALGOS[i]; idx=0;
+  document.documentElement.style.setProperty('--accent',cur.color);
+  detailEl.style.setProperty('--accent',cur.color);
+  gridEl.style.display='none';
+  detailEl.classList.add('on');
+  backBtn.style.display='inline-block';
+  subEl.textContent=cur.no+' · '+cur.title;
+  renderSide();
+  render();
+  if(!reduced) play();
+}
+function close(){
+  stop(); cur=null;
+  detailEl.classList.remove('on');
+  gridEl.style.display='grid';
+  backBtn.style.display='none';
+  subEl.textContent='상자를 누르면 동작을 움직여서 봅니다';
+  document.querySelectorAll('.card .mini canvas').forEach((c,i)=>paintMini(c,ALGOS[i]));
+}
+backBtn.onclick=close;
+document.addEventListener('keydown',e=>{
+  if(!cur) return;
+  if(e.key==='Escape') close();
+  else if(e.key==='ArrowRight'){stop();go(1);}
+  else if(e.key==='ArrowLeft'){stop();go(-1);}
+  else if(e.key===' '){e.preventDefault();timer?stop():play();}
+});
+
+function renderSide(){
+  const a=cur;
+  sideEl.innerHTML=
+     '<div><p class="eyebrow">'+a.no+' · '+a.where+'</p><h2>'+a.title+'</h2></div>'
+    +'<p class="lead">'+a.lead+'</p>'
+    +'<div class="narr" id="narr"></div>'
+    +'<div class="sec"><h3>왜 이걸 썼나</h3><ul>'+a.why.map(t=>'<li>'+t+'</li>').join('')+'</ul></div>'
+    +'<div class="sec"><h3>교과서와 다르게 한 것</h3><ul>'+a.ours.map(t=>'<li>'+t+'</li>').join('')+'</ul></div>'
+    +'<div class="meta">'+a.meta.map((m,i)=>'<span'+(i===0?' class="hi"':'')+'>'+m+'</span>').join('')
+      +'<span>'+a.file+'</span></div>';
+}
+
+function render(){
+  if(!cur) return;
+  const {ctx,W,H}=sizeCanvas(cv);
+  const g=helper(ctx,W,H);
+  g.clear();
+  cur.steps[idx].draw(g);
+  stepEl.textContent=(idx+1)+' / '+cur.steps.length;
+  trackFill.style.width=(((idx+1)/cur.steps.length)*100)+'%';
+  const n=document.getElementById('narr');
+  if(n) n.innerHTML=cur.steps[idx].narr;
+}
+function go(d){
+  if(!cur) return;
+  idx=(idx+d+cur.steps.length)%cur.steps.length;
+  render();
+}
+function play(){
+  stop();
+  playBtn.textContent='멈춤';
+  timer=setInterval(()=>{
+    if(idx===cur.steps.length-1){ stop(); return; }
+    go(1);
+  },2600);
+}
+function stop(){
+  if(timer){clearInterval(timer);timer=null;}
+  playBtn.textContent='재생';
+}
+playBtn.onclick=()=>timer?stop():(idx===cur.steps.length-1?(idx=0,render(),play()):play());
+prevBtn.onclick=()=>{stop();go(-1);};
+nextBtn.onclick=()=>{stop();go(1);};
+
+window.addEventListener('resize',()=>{
+  if(cur) render();
+  else document.querySelectorAll('.card .mini canvas').forEach((c,i)=>paintMini(c,ALGOS[i]));
+});
+
+/* 주소에 #3 처럼 번호를 붙이면 그 알고리즘으로 바로 연다 — PPT 슬라이드마다 다른 주소를 쓰려고 */
+(function(){
+  const m=location.hash.match(/^#(\d)$/);
+  if(m){ const i=parseInt(m[1],10)-1; if(i>=0&&i<ALGOS.length) open(i); }
+})();
+</script>
+</body>
+</html>

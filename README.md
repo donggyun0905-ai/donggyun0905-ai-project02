@@ -193,6 +193,13 @@ mvnw.cmd clean package -DskipTests   # Windows
   프로젝트에 쓴 알고리즘 8종(위상 정렬·SM-2·0/1 배낭·RRF·자카드·EWMA·서킷 브레이커·FULLTEXT).
   "왜 썼는지 · 어떻게 동작하는지 · 더 단순한 방법으로는 왜 안 되는지" 순서로 정리했다.
   HTML 쪽에는 배낭 표를 용량을 바꿔 직접 채워 보는 데모가 있다
+- [`docs/slide-algorithms.html`](docs/slide-algorithms.html) — **발표용.** 알고리즘 8종을 상자로 두고
+  누르면 동작이 단계별로 움직인다(총 47단계). 옆에 "왜 썼나 · 교과서와 다르게 한 것"이 붙는다.
+  주소 끝에 `#1`~`#8`을 붙이면 그 알고리즘으로 바로 열린다 — PPT 슬라이드마다 다른 주소를 쓰려고.
+- [`docs/slide-diagrams.html`](docs/slide-diagrams.html) — **발표용.** 계층도(`#arch`) · 핵심 5테이블 흐름(`#data`) ·
+  AI 역할 분리(`#ai`) 세 장. 탭과 좌우 방향키로 넘긴다.
+- [`docs/spec-odyssey-erd.html`](docs/spec-odyssey-erd.html) — 전체 ERD 58개. 확대·이동, 테이블 드래그,
+  검색, 묶음별 켜고 끄기, 클릭하면 컬럼·설계 근거가 열린다.
 - [`docs/team-todo.md`](docs/team-todo.md) — **넘기기 전에 사람이 해야 하는 일.**
   `/api/companion/` 공개 경로 2차 리뷰, `header.jsp` 담당 공유, 로컬 DB에 `sql/34`~`38` 적용
 - [`claude.md`](claude.md) — 프로젝트 팀 규칙 (환경, 명명 규칙, 코드/보안 규칙)

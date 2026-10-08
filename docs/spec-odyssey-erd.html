@@ -109,8 +109,17 @@ body{background:var(--sea);font-family:var(--sans);color:var(--paper);overflow:h
 #hint{position:fixed;left:18px;bottom:16px;z-index:20;font-size:11.5px;color:#7E96A6;
   background:rgba(14,26,36,.9);border:1px solid rgba(255,255,255,.09);border-radius:6px;padding:7px 12px;line-height:1.7}
 #hint b{color:#B6C8D3;font-weight:500}
+/* 좁은 폭에서도 범례(그룹 토글)는 반드시 남긴다 — PPT에 임베딩하면 창이 좁아지는데,
+   예전에는 640px 아래에서 #legend를 통째로 숨겨서 "기능이 빠진 것처럼" 보였다 (2026-10-08). */
+@media (max-width:860px){
+  #bar{flex-wrap:wrap;height:auto;padding-bottom:8px}
+  #legend{margin-left:0;width:100%;order:3;overflow-x:auto;flex-wrap:nowrap;padding-bottom:2px}
+  #legend::-webkit-scrollbar{height:4px}
+  #legend::-webkit-scrollbar-thumb{background:rgba(255,255,255,.25);border-radius:4px}
+  .lg{flex:none}
+}
 @media (max-width:640px){
-  #legend{display:none}#hint{display:none}#bar h1 span{display:none}
+  #hint{display:none}#bar h1 span{display:none}
   #side{width:100%;top:56px}
 }
 </style>
@@ -443,11 +452,46 @@ const T = [
  role:'테스트 계정의 하루씩 진행 시뮬레이션 상태. 서버를 다시 켜도 이어서 할 수 있게 DB에 둔다.',
  notes:['USERS.is_test = TRUE인 계정에만 시뮬레이션·일시정지·초기화 버튼이 보이고, 서버도 요청마다 다시 확인한다.','초기화는 테스트 계정에 한해 예외로 물리 삭제를 허용한다 — started_at 이후에 생긴 프로필 행을 지우는 기준이 된다.','target_score에 닿으면 멈춘다. total_days(365)는 끝내 닿지 못할 때 끝없이 돌지 않게 하는 상한이다.','날짜는 AppClock(ThreadLocal 모의 날짜)으로 앞당긴다 — 점수·복습 주기가 실제 날짜 대신 이 값을 본다.'],
  uk:'(user_id)',
- cols:[['id','BIGINT','PK','식별자'],['user_id','BIGINT','FK UK','→ USERS'],['status','VARCHAR(10)','','RUNNING / PAUSED / DONE'],['persona','VARCHAR(20)','','DILIGENT(성실) / STEADY(보통) / ON_OFF(작심삼일)'],['target_score','INT','','이 점수에 닿으면 멈춘다'],['start_date','DATE','','시뮬레이션 첫날'],['total_days','INT','','최대 날 수 (365)'],['days_done','INT','','끝낸 날 수 — 일시정지 후 이 다음 날부터 이어 간다'],['started_at','DATETIME','','처음 시작한 실제 시각'],['last_error','VARCHAR(500)','','마지막 실패 사유']]}
+ cols:[['id','BIGINT','PK','식별자'],['user_id','BIGINT','FK UK','→ USERS'],['status','VARCHAR(10)','','RUNNING / PAUSED / DONE'],['persona','VARCHAR(20)','','DILIGENT(성실) / STEADY(보통) / ON_OFF(작심삼일)'],['target_score','INT','','이 점수에 닿으면 멈춘다'],['start_date','DATE','','시뮬레이션 첫날'],['total_days','INT','','최대 날 수 (365)'],['days_done','INT','','끝낸 날 수 — 일시정지 후 이 다음 날부터 이어 간다'],['started_at','DATETIME','','처음 시작한 실제 시각'],['last_error','VARCHAR(500)','','마지막 실패 사유']]},
 /* ===== 2026-10-06 추가 (실제 DB 51개 테이블) — 알림(seongwon) · 시뮬레이션(donghyeon) ===== */
+/* ===== 2026-10-08 보강: 운영 DB에 있는데 ERD에 빠져 있던 7개 ===== */
+{n:'USER_EDUCATION',ko:'학력',g:'user',x:60,y:1740,new:1,req:'FR-22 · 83(면접관 공유 범위)',
+ role:'학교·졸업 상태·학점을 한 줄로 담는다. 한 사람당 한 줄(UNIQUE)이라 1:1이다. 면접관 공유에서 학력은 기본 이력과 분리된 별도 범위라서, 지원자가 켜지 않으면 보이지 않는다.',
+ notes:['USERS에 컬럼으로 붙이지 않고 테이블을 나눈 이유는 공유 범위 때문이다. 기본 이력과 한 덩어리로 두면 "이름은 보여주되 학력은 숨긴다"가 불가능해진다 — 블라인드 채용 취지(NFR-4).','gpa와 gpa_max를 함께 받는다. 4.5 만점과 4.0 만점을 섞어 두면 숫자만으로는 비교가 안 된다.','graduation_date는 졸업일과 졸업 예정일을 겸한다. 어느 쪽인지는 graduation_status가 알려 준다.'],
+ cols:[['id','BIGINT','PK','식별자'],['user_id','BIGINT','FK·UK','→ USERS (한 사람당 한 줄)'],['school_name','VARCHAR(100)','','학교명'],['graduation_status','VARCHAR(20)','','ENROLLED(재학) / LEAVE(휴학) / EXPECTED(졸업 예정) / GRADUATED(졸업)'],['graduation_date','DATE','','졸업일 또는 졸업 예정일'],['gpa','DECIMAL(3,2)','','학점'],['gpa_max','DECIMAL(3,2)','','만점 기준 — 4.5 / 4.3 / 4.0']]},
+
+{n:'SKILL_PREREQUISITE',ko:'기술 선수관계',g:'job',x:420,y:2250,new:1,req:'FR-33 · 39',
+ role:'"A를 하기 전에 B를 알아야 한다"를 한 줄씩 담는 그래프. 로드맵은 이 그래프를 위상 정렬(Kahn)해서 단계 순서를 정한다. 순서가 취향이 아니라 데이터에서 나오게 하는 테이블.',
+ notes:['UNIQUE(skill_id, prereq_skill_id) — 같은 관계가 두 번 들어가면 위상 정렬의 진입차수가 어긋나 순서가 깨진다.','자기 참조(A의 선수과목이 A)와 순환(A→B→A)은 CHECK 제약 대신 코드에서 막는다. FK에 ON UPDATE CASCADE가 걸린 컬럼은 CHECK에 쓸 수 없다(MySQL ERROR 3823). 관리자 화면이 추가 전에 DFS로 순환을 검사한다.','관계가 없는 기술은 원래 중요도 순위를 그대로 쓴다. 순환이 남아 못 꺼낸 기술도 뒤에 붙여서 로드맵 생성이 멈추지 않게 했다.'],
+ cols:[['id','BIGINT','PK','식별자'],['skill_id','BIGINT','FK·UK','→ SKILL. 뒤에 와야 하는 기술'],['prereq_skill_id','BIGINT','FK·UK','→ SKILL. 먼저 와야 하는 기술']]},
+
+{n:'SKILL_REVIEW_SCHEDULE',ko:'복습 일정(SM-2)',g:'road',x:790,y:1850,new:1,req:'FR-39 · 114 · 115',
+ role:'기술마다 다음 복습일을 따로 잡는다. 완료한 단계가 때가 되면 로드맵에 다시 올라오는 근거. 간격은 사용자가 고른 자기 평가(거의 잊었다 / 어려웠다 / 보통 / 쉬웠다)로 늘거나 줄어든다.',
+ notes:['UNIQUE(user_id, skill_id) — 두 줄이면 어느 일정이 맞는지 알 수 없다.','ease_factor는 SM-2의 EF다. 하한 1.30은 원래 공식대로지만 상한 2.80은 우리가 더했다 — 없으면 간격이 몇 년까지 벌어진다.','행이 없는 기술은 아직 복습한 적이 없다는 뜻이고, 그때는 "마지막으로 익힌 날 + 티어 기본 주기"를 쓴다. 미리 행을 만들어 두지 않는다.','(user_id, due_at) 인덱스로 "오늘 복습할 것"을 한 번에 꺼낸다.'],
+ cols:[['id','BIGINT','PK','식별자'],['user_id','BIGINT','FK·UK','→ USERS'],['skill_id','BIGINT','FK·UK','→ SKILL'],['ease_factor','DECIMAL(4,2)','','SM-2 난이도 계수. 기본 2.50, 하한 1.30, 상한 2.80'],['interval_days','INT','','이번에 적용한 간격'],['repetitions','INT','','연속 통과 횟수'],['last_quality','TINYINT','','마지막 자기 평가 0~5 (SM-2 q)'],['last_reviewed_at','DATETIME','','마지막 복습 시각'],['due_at','DATETIME','','다음 복습 예정 — 로드맵에 다시 올라오는 시점']]},
+
+{n:'ADMIN_AUDIT_LOG',ko:'관리자 감사 로그',g:'sys',x:1740,y:2250,new:1,req:'NFR-4 · 관리자 운영',
+ role:'관리자가 무엇을 바꿨는지 남긴다. 회원 상태 변경, 기준 데이터 수정, 캐릭터 설치 파일 업로드처럼 되돌리기 어려운 동작이 대상. "누가 · 언제 · 무엇을" 세 가지를 한 줄로 답하게 하는 테이블.',
+ notes:['admin_login_id를 admin_user_id와 함께 적는 이유 — 계정이 지워져도 누구였는지 남아야 한다. FK가 ON DELETE SET NULL이라 id는 사라지지만 아이디 문자열은 남는다.','target_type + target_id로 대상을 가리킨다. 테이블마다 FK를 거는 대신 문자열로 둔 이유는, 감사 로그가 특정 테이블에 묶이면 그 테이블을 정리할 때 로그까지 끌려가기 때문이다.','조회하는 축이 셋(시간순 / 동작별 / 대상별)이라 인덱스도 셋이다.'],
+ cols:[['id','BIGINT','PK','식별자'],['admin_user_id','BIGINT','FK','→ USERS. 계정이 지워지면 NULL'],['admin_login_id','VARCHAR(50)','','계정이 지워져도 남기는 아이디'],['action','VARCHAR(40)','','무엇을 했는지'],['target_type','VARCHAR(30)','','대상 종류'],['target_id','BIGINT','','대상 식별자'],['detail','VARCHAR(500)','','상세']]},
+
+{n:'COMPANION_DEVICE',ko:'캐릭터 연결 PC',g:'sys',x:2270,y:1650,new:1,req:'데스크톱 캐릭터',
+ role:'바탕화면 캐릭터(exe)가 어느 계정의 것인지 잇는 줄. 한 행 = 한 PC. 브라우저 쿠키 세션을 쓸 수 없어서, 웹에서 받은 일회용 코드를 캐릭터 전용 토큰으로 바꿔 쓴다.',
+ notes:['코드와 토큰 모두 원문을 저장하지 않고 SHA-256 해시만 둔다. DB가 새어도 그 값으로는 접근할 수 없다.','일회용 코드는 SecureRandom 24바이트(192비트), 유효 60초, 한 번 쓰면 NULL이 된다.','revoked_at으로 연결을 끊는다. 사용자가 프로필에서 PC별로 해제할 수 있다.'],
+ cols:[['id','BIGINT','PK','식별자'],['user_id','BIGINT','FK','→ USERS'],['device_name','VARCHAR(100)','','PC 이름 — 연결할 때 exe가 알려 준다'],['connect_code_hash','CHAR(64)','UK','일회용 코드 해시 — 토큰으로 바꾸면 NULL'],['code_expires_at','DATETIME','','코드 만료 (발급 1분 뒤)'],['token_hash','CHAR(64)','UK','캐릭터 전용 토큰 해시'],['connected_at','DATETIME','','연결 시각'],['last_used_at','DATETIME','','마지막 사용'],['revoked_at','DATETIME','','연결 해제 시각']]},
+
+{n:'COMPANION_RELEASE',ko:'캐릭터 설치 파일',g:'sys',x:2270,y:1990,new:1,req:'데스크톱 캐릭터',
+ role:'관리자가 올린 Setup.exe의 버전 정보. 사이트 내려받기와 캐릭터 자동 업데이트가 모두 이 테이블의 최신 버전을 본다.',
+ notes:['파일을 디스크가 아니라 DB에 둔 이유 — 팀원마다 서버가 달라 업로드 폴더가 PC마다 다르다. DB에 두면 누구 환경에서 띄워도 같은 파일이 나간다.','sha256은 캐릭터가 내려받은 파일을 검사하는 값이다. 중간에 깨진 파일을 설치하지 않게 한다.','file_name은 올린 사람이 보낸 이름이 아니라 서버가 고정한 이름이다 — 내려받기 응답 헤더에 그대로 들어가므로 사용자 입력을 쓰면 헤더 주입이 된다.'],
+ cols:[['id','BIGINT','PK','식별자'],['version','VARCHAR(20)','UK','예: 0.2.0'],['notes','VARCHAR(500)','','바뀐 점 — 캐릭터 말풍선에 나온다'],['file_name','VARCHAR(100)','','서버가 고정한 파일명'],['file_size','BIGINT','','바이트 수'],['sha256','CHAR(64)','','내려받은 파일 검사용'],['uploaded_by','BIGINT','FK','→ USERS (올린 관리자)']]},
+
+{n:'COMPANION_RELEASE_CHUNK',ko:'설치 파일 조각',g:'sys',x:2640,y:1990,new:1,req:'데스크톱 캐릭터',
+ role:'설치 파일을 8MB씩 잘라 담는 곳. 내려받을 때 seq 순서로 이어 붙여 그대로 내보낸다.',
+ notes:['한 행에 통째로 넣지 않고 쪼갠 이유 — MySQL max_allowed_packet을 넘기지 않으려고. 그리고 조각 단위면 흘려보낼 수 있어 전체 파일을 메모리에 올리지 않는다.','오래된 버전은 data를 NULL로 비운다. 버전 기록은 남기되 용량만 회수한다 — 최근 2개만 내용을 들고 있다.','UNIQUE(release_id, seq) — 조각 순서가 겹치면 이어 붙인 파일이 깨진다.'],
+ cols:[['id','BIGINT','PK','식별자'],['release_id','BIGINT','FK·UK','→ COMPANION_RELEASE'],['seq','INT','UK','0부터 순서대로'],['data','MEDIUMBLOB','','최대 8MB. 오래된 버전은 NULL']]},
 ];
 
-const R = [
+let R = [
  ['USERS','NOTIFICATION','1:N','알림 수신'],['USERS','SIMULATION_STATE','1:1','시뮬레이션 상태'],
  ['USERS','USER_SPECS','1:N','보유'],['USERS','USER_PROJECTS','1:N','보유'],['USERS','USER_SKILLS','1:N','보유'],
  ['USERS','USER_SURVEY_ANSWER','1:N','응답'],['USERS','GAP_ANALYSIS','1:N','직무별 진단'],['USERS','JOB_RECOMMENDATION','1:N','수신'],
@@ -467,8 +511,15 @@ const R = [
  ['JOB','JOB_ALIAS','1:N','별칭'],
  ['USERS','ROADMAP','1:N','소유'],['SKILL','ROADMAP_STEP','1:N','목표 역량'],
  /* 2026-10-01 보강: 이미 DB에 있던 관계 + 게시판·프로젝트 문서 */
- ['DOCUMENTS','PROJECT_DOCUMENT_ITEM','1:N','제출 파일'],['USER_PROJECTS','PROJECT_LINK','1:N','기타 링크'],['JOB','JOB_POSTING','1:N','채용공고'],['ROADMAP_STEP','DOCUMENTS','1:N','증빙 서류'],['ROADMAP_STEP','TECH_ARTICLE','1:1','EXPERT 증빙'],['SKILL','PROJECT_TECH_NOTE','1:N','기술'],['SKILL','SKILL_ALIAS','1:N','별칭'],['SKILL','TECH_ARTICLE','1:N','기술별 글'],['TECH_ARTICLE','TECH_ARTICLE_COMMENT','1:N','댓글'],['TECH_ARTICLE','TECH_ARTICLE_LIKE','1:N','하트'],['TECH_ARTICLE','TECH_ARTICLE_BOOKMARK','1:N','북마크'],['TECH_ARTICLE','TECH_ARTICLE_VIEW_LOG','1:N','조회'],['TECH_ARTICLE','TECH_ARTICLE_REPORT','1:N','신고'],['TECH_ARTICLE_COMMENT','TECH_ARTICLE_COMMENT','1:N','대댓글'],['USERS','EVALUATION_SESSION','1:1','면접관 비교 목록'],['USERS','TECH_ARTICLE','1:N','작성'],['USERS','TECH_ARTICLE_COMMENT','1:N','작성'],['USERS','TECH_ARTICLE_LIKE','1:N','누름'],['USERS','TECH_ARTICLE_BOOKMARK','1:N','저장'],['USERS','TECH_ARTICLE_VIEW_LOG','1:N','열람'],['USERS','TECH_ARTICLE_REPORT','1:N','신고함'],['USER_PROJECTS','PROJECT_TECH_NOTE','1:N','기술 활용 설명'],['USER_PROJECTS','PROJECT_DOCUMENT_ITEM','1:N','문서 체크리스트'],['USER_PROJECTS','ROADMAP_STEP','1:N','증빙 프로젝트'],['USER_PROJECTS','USER_PROJECTS','1:N','업그레이드 이력']
+ ['DOCUMENTS','PROJECT_DOCUMENT_ITEM','1:N','제출 파일'],['USER_PROJECTS','PROJECT_LINK','1:N','기타 링크'],['JOB','JOB_POSTING','1:N','채용공고'],['ROADMAP_STEP','DOCUMENTS','1:N','증빙 서류'],['ROADMAP_STEP','TECH_ARTICLE','1:1','EXPERT 증빙'],['SKILL','PROJECT_TECH_NOTE','1:N','기술'],['SKILL','SKILL_ALIAS','1:N','별칭'],['SKILL','TECH_ARTICLE','1:N','기술별 글'],['TECH_ARTICLE','TECH_ARTICLE_COMMENT','1:N','댓글'],['TECH_ARTICLE','TECH_ARTICLE_LIKE','1:N','하트'],['TECH_ARTICLE','TECH_ARTICLE_BOOKMARK','1:N','북마크'],['TECH_ARTICLE','TECH_ARTICLE_VIEW_LOG','1:N','조회'],['TECH_ARTICLE','TECH_ARTICLE_REPORT','1:N','신고'],['TECH_ARTICLE_COMMENT','TECH_ARTICLE_COMMENT','1:N','대댓글'],['USERS','EVALUATION_SESSION','1:1','면접관 비교 목록'],['USERS','TECH_ARTICLE','1:N','작성'],['USERS','TECH_ARTICLE_COMMENT','1:N','작성'],['USERS','TECH_ARTICLE_LIKE','1:N','누름'],['USERS','TECH_ARTICLE_BOOKMARK','1:N','저장'],['USERS','TECH_ARTICLE_VIEW_LOG','1:N','열람'],['USERS','TECH_ARTICLE_REPORT','1:N','신고함'],['USER_PROJECTS','PROJECT_TECH_NOTE','1:N','기술 활용 설명'],['USER_PROJECTS','PROJECT_DOCUMENT_ITEM','1:N','문서 체크리스트'],['USER_PROJECTS','ROADMAP_STEP','1:N','증빙 프로젝트'],['USER_PROJECTS','USER_PROJECTS','1:N','업그레이드 이력'],
  ['TECH_ARTICLE','TECH_ARTICLE_ATTACHMENT','1:N','첨부'],
+ /* 2026-10-08 보강 */
+ ['USERS','USER_EDUCATION','1:1','학력'],
+ ['SKILL','SKILL_PREREQUISITE','1:N','선수관계'],
+ ['USERS','SKILL_REVIEW_SCHEDULE','1:N','복습 일정'],['SKILL','SKILL_REVIEW_SCHEDULE','1:N','복습 대상'],
+ ['USERS','ADMIN_AUDIT_LOG','1:N','관리자 기록'],
+ ['USERS','COMPANION_DEVICE','1:N','연결 PC'],
+ ['USERS','COMPANION_RELEASE','1:N','업로드'],['COMPANION_RELEASE','COMPANION_RELEASE_CHUNK','1:N','파일 조각'],
 ];
 
 const byName = {}; T.forEach(t=>byName[t.n]=t);
@@ -511,6 +562,14 @@ T.forEach(t=>{
 });
 
 /* ---- wires ---- */
+/* 쉼표 하나가 빠지면 ['A',…]['B',…] 가 "배열 인덱싱"으로 읽혀 undefined 한 칸이 생긴다.
+   그대로 두면 아래 forEach가 던지면서 확대·이동·범례까지 전부 죽는다 — 실제로 한 번 겪었다(2026-10-08).
+   그래서 여기서 걸러 내고 콘솔에만 알린다. 그림 한 줄이 빠지는 게 화면 전체가 죽는 것보다 낫다. */
+(function(){
+  const broken=R.filter(r=>!Array.isArray(r)||r.length<3||!byName[r[0]]||!byName[r[1]]);
+  if(broken.length){console.warn('ERD: 잘못된 관계 '+broken.length+'개를 건너뜁니다 — const R 배열의 쉼표를 확인하세요.',broken);}
+  R=R.filter(r=>Array.isArray(r)&&r.length>=3&&byName[r[0]]&&byName[r[1]]);
+})();
 R.forEach(r=>{
   const p=document.createElementNS(NS,'path'); p.setAttribute('class','wire');
   const tx=document.createElementNS(NS,'text'); tx.setAttribute('class','wcap'); tx.textContent=r[2];
@@ -665,8 +724,14 @@ function applyFilter(){
   });
 }
 
-drawWires(); fit();
-window.addEventListener('resize',()=>{drawWires();});
+/* 좁은 폭에서 상단 바가 두 줄이 되면 56px 가정이 깨진다 — 실제 높이를 재서 캔버스 위치를 맞춘다 */
+function fitBar(){
+  const h=document.getElementById('bar').offsetHeight;
+  stage.style.top=h+'px';
+  document.getElementById('side').style.top=h+'px';
+}
+fitBar(); drawWires(); fit();
+window.addEventListener('resize',()=>{fitBar();drawWires();});
 </script>
 </body>
 </html>
