@@ -155,7 +155,14 @@ public class InsightService {
             }
             Integer before = previous == null ? null : byMonth.get(previous);
             Integer change = before == null ? null : byMonth.get(latest) - before;
-            skills.add(new TrendSkill(names.get(skillId), series, change));
+            // 급상승 — 전월 대비 증감만으로는 "원래 늘 높은 기술"과 "요즘 뜨는 기술"을 가를 수 없다.
+            // 과거 달들의 EWMA를 기준선으로 두고 이번 달이 얼마나 벗어났는지(z-score) 본다 (2026-10-08).
+            List<Double> asDouble = new ArrayList<>();
+            for (Integer ratio : series) {
+                asDouble.add(ratio == null ? null : ratio.doubleValue());
+            }
+            SpikeDetector.Spike spike = SpikeDetector.detect(asDouble);
+            skills.add(new TrendSkill(names.get(skillId), series, change, spike.rising(), spike.multiple()));
         }
 
         List<String> months = new ArrayList<>();

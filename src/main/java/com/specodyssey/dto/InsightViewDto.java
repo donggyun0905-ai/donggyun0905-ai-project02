@@ -71,7 +71,13 @@ public class InsightViewDto {
     }
 
     /** ratios: 달마다 0~100 정수, 그 달에 언급이 없으면 null. change: 직전 달 대비 증감(%p), 비교 불가면 null. */
-    public record TrendSkill(String skillName, List<Integer> ratios, Integer change) {
+    /**
+     * @param rising        평소보다 크게 튀었는지 (EWMA 기준선 + z-score, 2026-10-08).
+     *                      "언급 비율 높은 순"으로만 보면 원래 늘 높은 기술이 1등이라 뜨는 기술을 알 수 없다.
+     * @param spikeMultiple 평소의 몇 배인지 — 배지 문구에 쓴다
+     */
+    public record TrendSkill(String skillName, List<Integer> ratios, Integer change,
+                             boolean rising, double spikeMultiple) {
         public String getSkillName() {
             return skillName;
         }
@@ -82,6 +88,14 @@ public class InsightViewDto {
 
         public Integer getChange() {
             return change;
+        }
+
+        public boolean isRising() {
+            return rising;
+        }
+
+        public double getSpikeMultiple() {
+            return spikeMultiple;
         }
     }
 

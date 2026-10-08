@@ -599,7 +599,8 @@
     ],
     "services": [
       "InsightService.java",
-      "JobTrendDigest.java"
+      "JobTrendDigest.java",
+      "SpikeDetector.java"
     ],
     "daos": [
       "InsightDao.java",
@@ -611,7 +612,8 @@
     "tests": [
       "InsightServiceTest.java",
       "JobSkillTrendDaoTest.java",
-      "JobTrendDigestTest.java"
+      "JobTrendDigestTest.java",
+      "SpikeDetectorTest.java"
     ]
   },
   {
@@ -623,7 +625,8 @@
       "InsightsServlet.java"
     ],
     "services": [
-      "InsightService.java"
+      "InsightService.java",
+      "SpikeDetector.java"
     ],
     "daos": [
       "GapAnalysisItemDao.java",
@@ -634,7 +637,8 @@
     ],
     "tests": [
       "GapAnalysisItemDaoTest.java",
-      "InsightServiceTest.java"
+      "InsightServiceTest.java",
+      "SpikeDetectorTest.java"
     ]
   },
   {

@@ -67,7 +67,10 @@
                         </tr>
                         <c:forEach var="s" items="${insight.trend.skills}">
                             <tr>
-                                <td><c:out value="${s.skillName}" /></td>
+                                <td><c:out value="${s.skillName}" />
+                                    <%-- 급상승: 평소(과거 달 EWMA)보다 크게 튄 기술만 (2026-10-08) --%>
+                                    <c:if test="${s.rising}"><span class="chip" style="background:var(--danger); color:#fff;">급상승<c:if test="${s.spikeMultiple > 0}"> ${s.spikeMultiple}배</c:if></span></c:if>
+                                </td>
                                 <c:forEach var="r" items="${s.ratios}">
                                     <td style="min-width:72px;">
                                         <c:choose>
