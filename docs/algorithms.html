@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>스펙 오디세이 알고리즘 가이드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F6F7F5; --paper-2:#ECEEEA; --card:#FFFFFF; --ink:#17232D; --ink-2:#4B5B67; --ink-3:#7A8791;
+  --rule:#D9DDD8; --code-bg:#EEF1EE; --hl:#FFF0C2;
+  --sea:#0E1A24; --sea-2:#15252F; --sea-ink:#DCE6EC; --sea-dim:#8198A6; --sea-rule:rgba(255,255,255,.08);
+  --g-graph:#7A5CB8; --g-dp:#2B6CB0; --g-num:#2E7D6B; --g-ir:#B5841B; --g-ops:#B03A48; --g-db:#C2571A;
+  --red:#B03A48; --red-bg:#FBEDEF; --green:#2E7D6B; --green-bg:#E9F4F0; --yellow:#8F6A10; --yellow-bg:#FAF4DF;
+  --sans:'IBM Plex Sans KR',system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#111B22; --paper-2:#17242D; --card:#162029; --ink:#E4ECF0; --ink-2:#A9BAC5; --ink-3:#7F929E;
+    --rule:#26343E; --code-bg:#1C2A33; --hl:#4A3E14;
+    --red:#F08A96; --red-bg:#3A1E23; --green:#6CC9AE; --green-bg:#18332B; --yellow:#E8C660; --yellow-bg:#352E15;
+    --g-graph:#B49BE8; --g-dp:#7FB3E8; --g-num:#6CC9AE; --g-ir:#E8C660; --g-ops:#F08A96; --g-db:#F0A868;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#111B22; --paper-2:#17242D; --card:#162029; --ink:#E4ECF0; --ink-2:#A9BAC5; --ink-3:#7F929E;
+  --rule:#26343E; --code-bg:#1C2A33; --hl:#4A3E14;
+  --red:#F08A96; --red-bg:#3A1E23; --green:#6CC9AE; --green-bg:#18332B; --yellow:#E8C660; --yellow-bg:#352E15;
+  --g-graph:#B49BE8; --g-dp:#7FB3E8; --g-num:#6CC9AE; --g-ir:#E8C660; --g-ops:#F08A96; --g-db:#F0A868;
+}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 16px);scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%;margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15.5px;line-height:1.7;-webkit-text-size-adjust:100%}
+a{color:inherit}
+code{font-family:var(--mono);font-size:.86em;background:var(--code-bg);padding:.1em .38em;border-radius:4px}
+strong{font-weight:600}
+:focus-visible{outline:2px solid var(--g-graph);outline-offset:2px}
+
+/* ---------- layout ---------- */
+.shell{display:grid;grid-template-columns:276px minmax(0,1fr);min-height:100%}
+nav#side{position:sticky;top:env(safe-area-inset-top,0px);height:calc(100dvh - env(safe-area-inset-top,0px));overflow-y:auto;background:var(--sea);color:var(--sea-ink);padding:22px 18px 40px;overscroll-behavior:contain}
+.brand{margin:0 0 4px;font-size:17px;font-weight:700;letter-spacing:-.01em}
+.brand-sub{margin:0 0 20px;font-size:12.5px;color:var(--sea-dim)}
+.navsec{margin:0 0 20px}
+.navsec h2{font-size:12px;font-weight:600;color:var(--sea-dim);margin:0 0 6px}
+.navsec a{display:flex;align-items:center;gap:8px;text-decoration:none;font-size:13.5px;padding:5px 8px;border-radius:6px;color:var(--sea-ink)}
+.navsec a:hover{background:var(--sea-2)}
+.navsec a.on{background:var(--sea-2);box-shadow:inset 2px 0 0 currentColor}
+.navsec a i{width:9px;height:9px;border-radius:2px;display:block;flex:none}
+.navsec a .n{font-family:var(--mono);font-size:11.5px;color:var(--sea-dim);width:12px;flex:none}
+.sidenote{font-size:11.5px;color:var(--sea-dim);line-height:1.6;border-top:1px solid var(--sea-rule);padding-top:14px}
+.sidenote code{background:rgba(255,255,255,.07);color:var(--sea-ink)}
+
+main{padding:40px clamp(18px,5vw,64px) 140px;max-width:1040px}
+.hero{border-bottom:1px solid var(--rule);padding-bottom:26px}
+.hero h1{font-size:clamp(26px,3.4vw,34px);line-height:1.25;letter-spacing:-.02em;margin:0 0 12px}
+.hero p{margin:0;max-width:70ch;color:var(--ink-2)}
+.stats{display:flex;flex-wrap:wrap;gap:24px;margin-top:22px}
+.stat{display:flex;flex-direction:column}
+.stat b{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}
+.stat span{font-size:12.5px;color:var(--ink-3)}
+
+section.alg{padding-top:46px;scroll-margin-top:20px}
+section.alg>h2{font-size:22px;letter-spacing:-.015em;margin:0 0 4px;display:flex;align-items:baseline;gap:10px}
+section.alg>h2 .num{font-family:var(--mono);font-size:15px;color:var(--ink-3);font-weight:500}
+.tagrow{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 18px}
+.tag{font-family:var(--mono);font-size:11.5px;padding:2px 8px;border-radius:3px;border:1px solid currentColor;background:var(--card)}
+h3{font-size:16.5px;margin:28px 0 10px;letter-spacing:-.01em}
+p{max-width:72ch;margin:0 0 14px}
+ul,ol{max-width:72ch;padding-left:1.2em;margin:0 0 14px}
+li{margin:4px 0}
+
+/* blocks */
+.why{border-left:3px solid var(--g-num);background:var(--card);padding:12px 16px;margin:0 0 18px;border-radius:0 8px 8px 0}
+.why b{display:block;font-size:13px;color:var(--ink-2);margin-bottom:4px}
+.why p{margin:0}
+.warn{border-left:3px solid var(--red);background:var(--red-bg);padding:12px 16px;margin:0 0 18px;border-radius:0 8px 8px 0}
+.warn b{display:block;font-size:13px;margin-bottom:4px;color:var(--red)}
+.warn p:last-child{margin:0}
+.ok{border-left:3px solid var(--green);background:var(--green-bg);padding:12px 16px;margin:0 0 18px;border-radius:0 8px 8px 0}
+.ok b{display:block;font-size:13px;margin-bottom:4px;color:var(--green)}
+.ok p:last-child{margin:0}
+
+.tw{overflow-x:auto;margin:6px 0 18px;border:1px solid var(--rule);border-radius:8px;background:var(--card)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{text-align:left;font-weight:600;font-size:12.5px;color:var(--ink-2);background:var(--paper-2);padding:9px 12px;border-bottom:1px solid var(--rule)}
+td{padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.num,th.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+.code{position:relative;margin:4px 0 18px}
+.code pre{margin:0;background:var(--sea);color:#DCE6EC;border-radius:8px;padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:13px;line-height:1.65}
+.copy{position:absolute;top:8px;right:8px;font:inherit;font-size:12px;color:#DCE6EC;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:6px;padding:3px 9px;cursor:pointer}
+.copy:hover{background:rgba(255,255,255,.16)}
+.formula{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:14px 18px;margin:4px 0 18px;font-family:var(--mono);font-size:13.5px;line-height:1.9;overflow-x:auto}
+.formula em{font-style:normal;color:var(--ink-3)}
+
+/* overview cards */
+.ov{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin:18px 0 0}
+.ovc{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:13px 15px;text-decoration:none;display:block}
+.ovc:hover{border-color:var(--ink-3)}
+.ovc h3{margin:0 0 4px;font-size:14.5px;display:flex;align-items:center;gap:7px}
+.ovc h3 i{width:9px;height:9px;border-radius:2px;display:block;flex:none}
+.ovc p{margin:0;font-size:12.5px;color:var(--ink-2)}
+
+/* knapsack demo */
+.demo{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:16px 18px;margin:6px 0 18px}
+.demo h4{margin:0 0 10px;font-size:14px}
+.demo .ctl{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px;font-size:13.5px}
+.demo input[type=number]{font:inherit;font-size:13.5px;width:72px;padding:4px 7px;border:1px solid var(--rule);border-radius:6px;background:var(--paper);color:var(--ink)}
+.demo button{font:inherit;font-size:13px;padding:5px 12px;border:1px solid var(--rule);border-radius:6px;background:var(--paper-2);color:var(--ink);cursor:pointer}
+.demo button:hover{border-color:var(--ink-3)}
+.ktable{overflow-x:auto}
+.ktable table{font-family:var(--mono);font-size:12px;width:auto}
+.ktable th,.ktable td{padding:4px 8px;text-align:right;white-space:nowrap}
+.ktable td.on{background:var(--hl);font-weight:600}
+.ktable th.rowh{text-align:left;background:var(--paper-2)}
+.kout{margin-top:12px;font-size:13.5px}
+.kout b{color:var(--g-dp)}
+
+.files{font-family:var(--mono);font-size:12.5px;color:var(--ink-2);background:var(--paper-2);border-radius:8px;padding:12px 15px;margin:6px 0 0;line-height:1.9;overflow-wrap:anywhere}
+.files b{color:var(--ink);font-family:var(--sans);font-size:12px;display:block;margin-bottom:3px}
+
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr}
+  nav#side{position:static;height:auto;padding:18px 16px 24px}
+  .navsec{margin-bottom:14px}
+  main{padding:28px 16px 90px}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<nav id="side">
+  <p class="brand">알고리즘 가이드</p>
+  <p class="brand-sub">스펙 오디세이 · 2026-10-08</p>
+
+  <div class="navsec">
+    <h2>문서</h2>
+    <a href="#top"><span class="n">—</span> 한눈에 보기</a>
+    <a href="#study"><span class="n">—</span> 공부 순서</a>
+    <a href="#bigO"><span class="n">—</span> 복잡도 정리</a>
+  </div>
+
+  <div class="navsec" id="nav-alg">
+    <h2>알고리즘 8종</h2>
+    <a href="#a1" style="color:var(--g-graph)"><span class="n">1</span><i style="background:var(--g-graph)"></i> 위상 정렬 + DFS</a>
+    <a href="#a2" style="color:var(--g-num)"><span class="n">2</span><i style="background:var(--g-num)"></i> 간격 반복 SM-2</a>
+    <a href="#a3" style="color:var(--g-dp)"><span class="n">3</span><i style="background:var(--g-dp)"></i> 0/1 배낭 (DP)</a>
+    <a href="#a4" style="color:var(--g-ir)"><span class="n">4</span><i style="background:var(--g-ir)"></i> RRF 순위 융합</a>
+    <a href="#a5" style="color:var(--g-num)"><span class="n">5</span><i style="background:var(--g-num)"></i> 자카드 + 동시출현</a>
+    <a href="#a6" style="color:var(--g-num)"><span class="n">6</span><i style="background:var(--g-num)"></i> EWMA + z-score</a>
+    <a href="#a7" style="color:var(--g-ops)"><span class="n">7</span><i style="background:var(--g-ops)"></i> 버킷 + 서킷</a>
+    <a href="#a8" style="color:var(--g-db)"><span class="n">8</span><i style="background:var(--g-db)"></i> FULLTEXT ngram</a>
+  </div>
+
+  <p class="sidenote">
+    같은 내용의 마크다운: <code>docs/algorithms.md</code><br>
+    테스트를 돌려 보며 읽는 것이 가장 빠릅니다 — 각 절 끝의 <code>mvn -o test</code> 명령을 쓰세요.
+  </p>
+</nav>
+
+<main>
+<div class="hero" id="top">
+  <h1>스펙 오디세이에 쓴 알고리즘</h1>
+  <p>프로젝트에 실제로 들어간 알고리즘 8종을 <strong>왜 썼는지 · 어떻게 동작하는지 · 더 단순한 방법으로는
+  왜 안 되는지</strong> 순서로 정리했습니다. 알고리즘을 쓰려고 기능을 만든 것은 하나도 없고,
+  전부 이미 있는 화면의 아쉬운 점에서 출발했습니다.</p>
+  <div class="stats">
+    <div class="stat"><b>8</b><span>알고리즘</span></div>
+    <div class="stat"><b>1,316</b><span>알고리즘 코드 줄</span></div>
+    <div class="stat"><b>123</b><span>전용 테스트</span></div>
+    <div class="stat"><b>100</b><span>DB 없이 도는 테스트</span></div>
+    <div class="stat"><b>1,016</b><span>전체 테스트</span></div>
+  </div>
+
+  <div class="ov">
+    <a class="ovc" href="#a1"><h3><i style="background:var(--g-graph)"></i>1. 위상 정렬 + DFS</h3><p>로드맵 순서 — Spring이 Java보다 먼저 나오던 문제</p></a>
+    <a class="ovc" href="#a2"><h3><i style="background:var(--g-num)"></i>2. 간격 반복 SM-2</h3><p>복습 주기 — 쉬운 기술과 어려운 기술이 같은 주기였다</p></a>
+    <a class="ovc" href="#a3"><h3><i style="background:var(--g-dp)"></i>3. 0/1 배낭 (DP)</h3><p>D-day 계획 — "며칠 남았다"만 알려 줬다</p></a>
+    <a class="ovc" href="#a4"><h3><i style="background:var(--g-ir)"></i>4. RRF 순위 융합</h3><p>기술명 매칭 — 두 신호가 모두 "조금 비슷"하면 놓쳤다</p></a>
+    <a class="ovc" href="#a5"><h3><i style="background:var(--g-num)"></i>5. 자카드 + 동시출현</h3><p>대시보드 추천 — 비슷한 사람들이 뭘 더 했는지</p></a>
+    <a class="ovc" href="#a6"><h3><i style="background:var(--g-num)"></i>6. EWMA + z-score</h3><p>트렌드 — 원래 늘 높은 기술이 1등이었다</p></a>
+    <a class="ovc" href="#a7"><h3><i style="background:var(--g-ops)"></i>7. 버킷 + 서킷</h3><p>외부 API — 실패한 뒤에 기다렸다</p></a>
+    <a class="ovc" href="#a8"><h3><i style="background:var(--g-db)"></i>8. FULLTEXT ngram</h3><p>스펙 아카이브 — 검색이 없었다</p></a>
+  </div>
+</div>
+
+<!-- ============ 1 ============ -->
+<section class="alg" id="a1">
+  <h2><span class="num">01</span> 기술 선수관계 그래프 — 위상 정렬(Kahn) + DFS 순환 검사</h2>
+  <div class="tagrow">
+    <span class="tag" style="color:var(--g-graph)">그래프</span>
+    <span class="tag" style="color:var(--ink-3)">O(V+E)</span>
+    <span class="tag" style="color:var(--ink-3)">SkillPrerequisiteService</span>
+  </div>
+
+  <h3>문제</h3>
+  <p>로드맵 순서를 "필수냐 우대냐"와 티어로만 정했습니다. 그래서 <strong>Spring이 Java보다 먼저</strong>
+  나오는 순서가 만들어질 수 있었고, "왜 이 순서냐"에 답할 근거가 없었습니다.</p>
+
+  <div class="why">
+    <b>왜 위상 정렬인가</b>
+    <p>"A를 하기 전에 B"는 방향 그래프의 간선입니다. 이런 제약을 모두 지키는 일렬 순서를 찾는 것이
+    위상 정렬이고, 그 순서가 존재하려면 순환이 없어야(DAG) 합니다. 단순 정렬로는 안 됩니다 —
+    "Spring 전에 Java"는 SQL이 어디 들어갈지를 말해 주지 않으므로 비교 함수를 만들 수 없습니다.</p>
+  </div>
+
+  <h3>동작 — Kahn 알고리즘</h3>
+  <div class="formula">
+진입차수(indegree) <em>= 그 노드가 기다려야 하는 선수 노드 수</em><br><br>
+1. 진입차수 0인 노드를 전부 준비 큐에 넣는다<br>
+2. 큐에서 하나 꺼내 결과에 붙인다<br>
+3. 그 노드가 풀어 주는 노드들의 진입차수를 1 줄인다<br>
+4. 0이 된 노드를 큐에 넣는다 — 큐가 빌 때까지 반복<br><br>
+결과 길이 &lt; 노드 수 &nbsp;→&nbsp; <em>순환이 있다 (못 꺼낸 노드가 남는다)</em>
+  </div>
+
+  <p>입력 순위 <code>[Spring, SQL, Java]</code>, 간선 <code>Spring → Java</code>일 때:</p>
+  <div class="tw"><table>
+    <tr><th>단계</th><th>진입차수</th><th>준비 큐</th><th>결과</th></tr>
+    <tr><td>시작</td><td class="num">Spring:1, SQL:0, Java:0</td><td>SQL, Java</td><td>—</td></tr>
+    <tr><td class="num">1회</td><td></td><td>Java</td><td>SQL</td></tr>
+    <tr><td class="num">2회</td><td class="num">Spring:0</td><td>Spring</td><td>SQL, Java</td></tr>
+    <tr><td class="num">3회</td><td></td><td>—</td><td>SQL, Java, Spring</td></tr>
+  </table></div>
+
+  <h3>우리 코드에서 바꾼 것</h3>
+  <ol>
+    <li><strong>원래 순위를 최대한 유지합니다.</strong> 준비 큐에서 아무거나 꺼내면 매번 다른 순서가
+    나옵니다. 항상 "지금 꺼낼 수 있는 것 중 격차 분석 순위가 가장 앞선 것"을 꺼냅니다 — 위 예시에서
+    SQL이 Java보다 먼저 나온 것이 그 효과입니다. 관계없는 기술은 자기 자리를 지킵니다.</li>
+    <li><strong>순환이 있어도 멈추지 않습니다.</strong> 교과서는 "순환이면 오류"로 끝냅니다. 우리는
+    정렬하지 못한 노드를 원래 순서로 뒤에 붙입니다 — 관리자 화면이 막지만 DB를 직접 고치면 생길 수
+    있고, 그때 로드맵 생성이 실패하면 안 됩니다(FR-111과 같은 태도).</li>
+    <li><strong>라운드 밖 노드는 끌어오지 않습니다.</strong> 끌어오면 이번 라운드 구성이 통째로 바뀌고,
+    그 기술은 다음 라운드에 어차피 들어옵니다.</li>
+  </ol>
+
+  <h3>순환 검사는 DFS</h3>
+  <p>관리자가 "A 전에 B"를 추가할 때, <strong>B에서 간선을 따라가다 A에 닿으면</strong> 순환입니다.</p>
+  <div class="code"><button class="copy" type="button">복사</button><pre>wouldCreateCycle(A, B):
+    A == B 이면 true              # 자기 자신이 가장 짧은 순환
+    스택 = [B];  visited = {}
+    while 스택이 비지 않음:
+        현재 = 스택.pop()
+        현재를 visited에 넣지 못하면 continue    # 이미 본 곳
+        현재 == A 이면 true
+        현재의 선수들을 스택에 push
+    return false</pre></div>
+  <p>재귀가 아니라 <strong>명시적 스택</strong>을 쓴 이유는 관계가 길게 이어지면 스택이 넘칠 수 있기
+  때문입니다. <code>visited</code>가 있는 이유는 기존 데이터에 이미 순환이 있어도 검사가 무한히 돌지
+  않아야 하기 때문입니다 — 망가진 데이터 위에서도 관리자가 다른 관계를 추가할 수 있어야 합니다.</p>
+
+  <div class="warn">
+    <b>DB 제약에서 막힌 것</b>
+    <p><code>CHECK (skill_id &lt;&gt; prereq_skill_id)</code>를 걸려다 MySQL이 거부했습니다 —
+    <code>ERROR 3823: Column 'skill_id' cannot be used in a check constraint: needed in a foreign key
+    constraint referential action</code>. <code>ON UPDATE CASCADE</code>가 걸린 컬럼은 CHECK에 쓸 수
+    없습니다. FK 관례를 깨지 않고, 자기 참조는 DFS가 잡는 가장 짧은 순환으로 코드에서 막았습니다.</p>
+  </div>
+
+  <h3>직접 확인하기</h3>
+  <div class="code"><button class="copy" type="button">복사</button><pre>mvn -o test -Dtest=SkillPrerequisiteServiceTest   # 위상 정렬·순환 검사 14개 (DB 없음)
+mvn -o test -Dtest=SkillPrerequisiteDbTest        # DB 왕복 7개 (시드 그래프 순환 없음도 확인)</pre></div>
+  <div class="files"><b>관련 파일</b>
+    service/SkillPrerequisiteService.java · dao/SkillPrerequisiteDao.java ·
+    sql/34_schema_skill_prerequisite.sql · sql/35_seed_skill_prerequisite.sql
+  </div>
+</section>
+
+<!-- ============ 2 ============ -->
+<section class="alg" id="a2">
+  <h2><span class="num">02</span> 간격 반복 복습 — SM-2</h2>
+  <div class="tagrow">
+    <span class="tag" style="color:var(--g-num)">수치 모델</span>
+    <span class="tag" style="color:var(--ink-3)">O(1)</span>
+    <span class="tag" style="color:var(--ink-3)">SpacedRepetition</span>
+  </div>
+
+  <h3>문제</h3>
+  <p>복습 주기가 티어로만 고정이었습니다(입문 30일 · 핵심 60 · 심화 90 · 전문가 120). 같은 사람이
+  <strong>쉬운 기술과 어려운 기술을 같은 주기로</strong> 복습했습니다.</p>
+
+  <div class="why">
+    <b>왜 SM-2인가</b>
+    <p>사람의 기억은 복습할수록 오래 갑니다(간격 효과). SM-2는 Anki·SuperMemo가 쓰는 공식으로,
+    사용자의 자기 평가를 받아 항목마다 다음 간격을 늘리거나 줄입니다. 고정 주기로는 사람마다·기술마다
+    잊는 속도가 다른 것을 반영할 수 없고, 통과/실패 2단계로는 정보가 너무 적습니다.</p>
+  </div>
+
+  <h3>동작</h3>
+  <div class="formula">
+EF' = EF + (0.1 − (5−q) × (0.08 + (5−q) × 0.02))<br><br>
+q=5 <em>쉬웠다</em> &nbsp;→&nbsp; EF +0.10<br>
+q=4 <em>보통</em> &nbsp;&nbsp;&nbsp;→&nbsp; EF 변화 없음<br>
+q=3 <em>어려웠다</em> →&nbsp; EF −0.14<br>
+q=2 <em>거의 잊음</em> →&nbsp; EF −0.32, 연속 기록 초기화<br><br>
+다음 간격 = 지난 간격 × EF'
+  </div>
+
+  <p>입문 기술, EF 2.5에서 시작했을 때:</p>
+  <div class="tw"><table>
+    <tr><th>복습</th><th>평가</th><th class="num">EF</th><th class="num">간격</th></tr>
+    <tr><td class="num">1회</td><td>보통 (q=4)</td><td class="num">2.50</td><td class="num">30일 <em>티어 기본</em></td></tr>
+    <tr><td class="num">2회</td><td>보통 (q=4)</td><td class="num">2.50</td><td class="num">30 × 2.5 = <strong>75일</strong></td></tr>
+    <tr><td class="num">3회</td><td>어려움 (q=3)</td><td class="num">2.36</td><td class="num">75 × 2.36 = <strong>177일</strong></td></tr>
+    <tr><td class="num">4회</td><td>거의 잊음 (q=2)</td><td class="num">2.04</td><td class="num"><strong>7일</strong> <em>연속 기록 0</em></td></tr>
+  </table></div>
+
+  <h3>우리 코드에서 바꾼 것</h3>
+  <div class="ok">
+    <b>첫 간격을 1일·6일이 아니라 티어 기본 주기로</b>
+    <p>원래 SM-2는 매일 카드를 보는 플래시카드용이라 I(1)=1일, I(2)=6일로 시작합니다. 우리 복습은
+    <strong>"기술 하나를 다시 정리해 글로 내는"</strong> 일이라 하루 뒤에 또 하라고 하면 쓸 수 없습니다.
+    팀이 정한 티어 주기를 출발점으로 두고 두 번째부터 EF로 늘립니다 — 덕분에 기존 동작과도 이어집니다.</p>
+  </div>
+  <ul>
+    <li><strong>EF 상한 2.8을 추가</strong> — 원래 공식에는 하한(1.3)만 있습니다. 상한이 없으면
+    "쉬웠다"를 몇 번 누르는 것만으로 간격이 몇 년이 됩니다.</li>
+    <li><strong>못 외운 경우는 1일이 아니라 7일</strong> — 글로 내는 복습에 하루는 너무 짧습니다.</li>
+    <li><strong>간격 자체를 1년으로 끊음</strong> — 넘기면 사실상 다시 안 보게 됩니다.</li>
+    <li><strong>일정 갱신을 점수 적립과 같은 트랜잭션에서</strong> — 점수는 들어갔는데 다음 일정이
+    안 잡히면 그 기술이 영원히 돌아오지 않습니다.</li>
+  </ul>
+
+  <h3>직접 확인하기</h3>
+  <div class="code"><button class="copy" type="button">복사</button><pre>mvn -o test -Dtest=SpacedRepetitionTest   # 공식 12개 (DB 없음)</pre></div>
+  <div class="files"><b>관련 파일</b>
+    service/SpacedRepetition.java · service/RoadmapReviewService.java ·
+    dao/SkillReviewScheduleDao.java · sql/36_schema_skill_review_schedule.sql
+  </div>
+</section>
+
+<!-- ============ 3 ============ -->
+<section class="alg" id="a3">
+  <h2><span class="num">03</span> D-day 계획 — 0/1 배낭 문제 (동적 계획법)</h2>
+  <div class="tagrow">
+    <span class="tag" style="color:var(--g-dp)">동적 계획법</span>
+    <span class="tag" style="color:var(--ink-3)">O(n × 용량)</span>
+    <span class="tag" style="color:var(--ink-3)">DdayPlanner</span>
+  </div>
+
+  <h3>문제</h3>
+  <p>D-day 화면은 "며칠 남았다"만 보여 줬습니다. 남은 기간에 무엇부터 하면 좋은지는 사용자가 직접
+  골라야 했습니다.</p>
+
+  <div class="tw"><table>
+    <tr><th>배낭 문제</th><th>우리 문제</th></tr>
+    <tr><td>가방 용량</td><td>D-day까지 남은 일수</td></tr>
+    <tr><td>물건 무게</td><td>그 단계를 끝내는 데 걸리는 일수</td></tr>
+    <tr><td>물건 가치</td><td>그 단계로 받는 점수 (<code>StepPointCalculator</code>)</td></tr>
+  </table></div>
+  <p><strong>0/1</strong>인 이유: 한 단계는 쪼갤 수 없고(절반만 완료는 없다) 한 번만 담을 수 있습니다.
+  쪼갤 수 있으면 분할 가능 배낭이고 그건 그리디로 최적이 나옵니다.</p>
+
+  <div class="why">
+    <b>왜 그리디가 아니라 DP인가</b>
+    <p>점수/일수(밀도)가 높은 것부터 담는 그리디는 <strong>밀도 1등을 담고 남은 칸에 아무것도 안
+    들어가는</strong> 경우에 무너집니다. 후보가 (6일 100점)·(4일 60점)·(3일 55점)일 때 남은 기간이
+    <strong>6일</strong>이면 그리디는 밀도 1등인 3일 55점을 담고 남은 3일을 버려 <strong>55점</strong>에서
+    멈추지만, DP는 6일 100점 하나로 <strong>100점</strong>을 찾습니다. 용량이 작을수록 그 확률이 커집니다.
+    DP는 "담지 않는 선택"도 표에 남기기 때문에 그걸 피합니다.</p>
+    <p style="font-size:13.5px;color:var(--ink-3);margin-bottom:0">어느 기준을 쓰든 그리디는 0/1 배낭에서
+    최적을 보장하지 않습니다 — 쪼갤 수 있는 분할 가능 배낭에서만 밀도 그리디가 최적입니다.
+    아래 데모에서 용량을 바꿔 보면 차이가 나는 지점을 바로 볼 수 있습니다.</p>
+  </div>
+
+  <h3>동작</h3>
+  <div class="formula">
+best[i][d] <em>= 앞의 i개 물건만 쓰고 용량이 d일 때의 최대 가치</em><br><br>
+best[0][*] = 0<br>
+best[i][d] = max( best[i−1][d],&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<em>i번째를 안 담는다</em><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;best[i−1][d − w(i)] + v(i) )&nbsp;&nbsp;<em>담는다 (d ≥ w(i)일 때만)</em><br><br>
+답 = best[n][용량]
+  </div>
+
+  <div class="demo">
+    <h4>표를 직접 채워 보기</h4>
+    <div class="ctl">
+      <label>용량(남은 일수) <input id="kcap" type="number" min="1" max="12" value="6"></label>
+      <button type="button" id="krun">계산</button>
+      <span class="muted" style="color:var(--ink-3);font-size:12.5px">물건: (6일 100점) · (4일 60점) · (3일 55점)</span>
+    </div>
+    <div class="ktable" id="ktable"></div>
+    <p class="kout" id="kout"></p>
+  </div>
+
+  <h3>무엇을 담았는지 되살리기</h3>
+  <div class="code"><button class="copy" type="button">복사</button><pre>d = 용량
+for i = n ... 1:
+    best[i][d] != best[i-1][d] 이면 i번째를 담은 것 → d -= w(i)</pre></div>
+  <p>1차원 배열로 공간을 줄일 수도 있지만, 되살리기가 필요해 2차원을 썼습니다.</p>
+
+  <h3>우리 코드에서 바꾼 것</h3>
+  <div class="ok">
+    <b>잠긴 단계는 후보에서 뺍니다</b>
+    <p>로드맵은 앞 티어를 끝내야 다음이 열리는 계단식 잠금입니다. 잠긴 단계를 추천하면
+    <strong>"할 수 없는 일"을 알려 주는 셈</strong>입니다. 복습처럼 사다리에 없는 티어는 언제든 할 수 있습니다.</p>
+  </div>
+  <ul>
+    <li><strong>표 크기 상한 두 군데</strong> — 계획 기간 1년(넘는 D-day에 계획은 의미가 없다),
+    후보 60개(로드맵이 길면 미완료가 수백 개 — 밀도 높은 것부터 자르므로 좋은 후보는 남는다).
+    상한 때문에 최적해를 놓칠 수 있다는 것은 인지하고 채택했습니다.</li>
+    <li><strong>무게를 규칙 테이블로</strong> — 소요 일수는 추정이라 <code>SCORING_RULE</code>의
+    <code>EFFORT_DAYS_*</code>로 둬서 관리자가 조정할 수 있습니다. 입문 3 · 핵심 7 · 심화 5 ·
+    전문가 4 · 자격증 21 · 프로젝트 10 · 복습 1.</li>
+    <li><strong>화면 순서는 짧게 끝나는 것부터</strong> — DP가 고른 집합은 순서가 없습니다.
+    "오늘 뭐부터"로 읽히게 정렬합니다.</li>
+  </ul>
+
+  <h3>직접 확인하기</h3>
+  <div class="code"><button class="copy" type="button">복사</button><pre>mvn -o test -Dtest=DdayPlannerTest       # 배낭 14개 (DB 없음)
+mvn -o test -Dtest=DdayPlanServiceTest   # 후보 고르기(잠금) 4개</pre></div>
+  <div class="files"><b>관련 파일</b>
+    service/DdayPlanner.java · service/DdayPlanService.java · service/ScoringRules.java
+  </div>
+</section>
+
+<!-- ============ 4 ============ -->
+<section class="alg" id="a4">
+  <h2><span class="num">04</span> 하이브리드 기술명 매칭 — RRF 순위 융합</h2>
+  <div class="tagrow">
+    <span class="tag" style="color:var(--g-ir)">정보 검색</span>
+    <span class="tag" style="color:var(--ink-3)">O(목록 길이 합)</span>
+    <span class="tag" style="color:var(--ink-3)">RankFusion · HybridSkillMatcher</span>
+  </div>
+
+  <h3>문제</h3>
+  <p>기술명 매칭은 "정확 일치 → 접두·부분 → 편집거리(0.75) → 임베딩(0.75)"을 <strong>차례로</strong>
+  시도하고 각 단계가 자기 임계값을 못 넘으면 거기서 끝입니다. 그래서 <strong>두 신호가 모두
+  "조금 비슷하다"고 말하는 입력</strong>을 놓쳤습니다.</p>
+
+  <div class="why">
+    <b>왜 점수를 더하지 않고 RRF인가</b>
+    <p>편집거리 유사도와 코사인 유사도는 분포가 전혀 다릅니다. 완전히 무관한 두 기술도 문장 임베딩에서는
+    코사인이 0.5~0.7이 나옵니다(바닥이 높음). 그대로 더하면 코사인이 항상 이기고, 정규화하려면 각 분포를
+    알아야 하는데 입력에 따라 달라집니다. <strong>RRF는 점수가 아니라 순위만 씁니다.</strong></p>
+  </div>
+
+  <div class="formula">
+score(d) = Σ<sub>i∈목록</sub> &nbsp; 1 / (k + rank<sub>i</sub>(d))&nbsp;&nbsp;&nbsp;&nbsp;<em>k = 60 (정보 검색 관례값)</em><br><br>
+<em>k가 작으면 1등에 너무 쏠리고, 크면 순위 차이가 뭉개진다</em>
+  </div>
+
+  <p>동작 예시:</p>
+  <div class="code"><button class="copy" type="button">복사</button><pre>글자 순위:  1. Spring   2. Spring Boot   3. SQL
+의미 순위:  1. Java     2. Spring Boot   3. Kotlin
+
+Spring       = 1/(60+1)              = 0.01639
+Spring Boot  = 1/(60+2) + 1/(60+2)   = 0.03226   ← 양쪽에서 2등이지만 1등
+Java         = 1/(60+1)              = 0.01639</pre></div>
+  <p><strong>한쪽 1등보다 양쪽 2등이 이깁니다</strong> — 이게 RRF를 쓰는 이유입니다.</p>
+
+  <h3>우리 코드에서 바꾼 것</h3>
+  <div class="ok">
+    <b>기존 동작을 전혀 바꾸지 않습니다</b>
+    <p>종속(임베딩 → 편집거리)이 뭐라도 찾으면 그대로 돌려주고, <strong>못 찾았을 때만</strong> RRF가
+    돕니다. 없던 결과만 더하고 있던 결과는 안 건드립니다. 기존 매칭 테스트가 하나도 깨지지 않은 것이
+    그 증거입니다.</p>
+  </div>
+
+  <p><strong>"합의" 조건</strong> — RRF 1등이 두 순위에서 <strong>모두 상위 3등 안</strong>에 있어야
+  받습니다. 한쪽만 좋아하는 후보가 바로 알려진 오탐입니다. 코드에 적혀 있는 실측값이 근거입니다.</p>
+  <div class="tw"><table>
+    <tr><th>쌍</th><th class="num">코사인</th><th>뜻</th></tr>
+    <tr><td>Java ↔ JavaScript <strong>(다른 기술)</strong></td><td class="num">0.805</td><td>임베딩만 보면 1등인데 글자로는 전혀 아니다</td></tr>
+    <tr><td>자바 ↔ Java <strong>(같은 기술)</strong></td><td class="num">0.680</td><td>오히려 더 낮다</td></tr>
+    <tr><td>"웹 서버 구축 기술" ↔ "백엔드 서버 개발 능력"</td><td class="num">0.783</td><td>진짜 비슷한 문장이 오탐 쌍보다 낮다</td></tr>
+  </table></div>
+  <p>두 신호가 같이 가리킬 때만 받으면 이 종류를 막습니다. 그래서 각 신호의 개별 바닥을 종속보다
+  낮춰도 됩니다(글자 0.45 · 의미 0.60) — <strong>합의가 확신을 대신합니다.</strong></p>
+
+  <ul>
+    <li><strong>글자 유사도는 편집거리와 2-gram Dice 중 높은 쪽</strong> — 편집거리만 쓰면 앞에 글자가
+    붙은 쌍("myspringboot" vs "springboot")에 약하고, 2-gram만 쓰면 짧은 이름의 오타에 약합니다.
+    <code>2×|공통 묶음| / (|A| + |B|)</code>, 예: <code>"abc"{ab,bc}</code>와
+    <code>"abd"{ab,bd}</code> → <code>2×1/(2+2)=0.5</code></li>
+    <li><strong>화면에 남기는 점수는 두 신호의 평균</strong> — RRF 내부 값은 0.03 같은 수라 "유사도"로
+    쓸 수 없고, <code>SKILL.similarity_score</code>는 <code>DECIMAL(5,4)</code>라 0~1이어야 합니다.</li>
+  </ul>
+
+  <div class="warn">
+    <b>한계 (코드에도 적어 뒀습니다)</b>
+    <p>표기 체계가 아예 다른 입력("리액트" vs "React.js")은 글자 순위가 전혀 못 잡아 <strong>합의가
+    성립하지 않습니다.</strong> 그건 <code>SKILL_ALIAS</code> 사전이 맡는 영역이고, 억지로 받으면
+    오탐이 늘어납니다. 임베딩 모델이 없는 PC에서는 합의할 두 번째 신호가 없어 이 단계를 건너뜁니다.</p>
+  </div>
+
+  <h3>직접 확인하기</h3>
+  <div class="code"><button class="copy" type="button">복사</button><pre>mvn -o test -Dtest=RankFusionTest          # RRF 융합 8개
+mvn -o test -Dtest=HybridSkillMatcherTest  # 경계·글자 유사도 10개</pre></div>
+  <div class="files"><b>관련 파일</b>
+    service/RankFusion.java · service/HybridSkillMatcher.java · service/EmbeddingMatcher.java
+  </div>
+</section>
+
+<!-- ============ 5 ============ -->
+<section class="alg" id="a5">
+  <h2><span class="num">05</span> 함께 익힌 기술 추천 — 자카드 유사도 + 동시 출현</h2>
+  <div class="tagrow">
+    <span class="tag" style="color:var(--g-num)">협업 필터링</span>
+    <span class="tag" style="color:var(--ink-3)">O(또래 수 × 기술 수)</span>
+    <span class="tag" style="color:var(--ink-3)">SkillCooccurrenceService</span>
+  </div>
+
+  <h3>문제</h3>
+  <p>"같은 직무를 준비하는 사람들이 <strong>실제로</strong> 무엇을 더 익혔는지"를 보여 줄 수 없었습니다.
+  <code>JOB_REQUIRED_SKILL</code>은 "직무가 요구하는 것"이라 다른 정보입니다.</p>
+
+  <div class="why">
+    <b>왜 단순 빈도가 아니라 자카드로 가중하나</b>
+    <p>인기 기술은 아무 상관 없는 사람도 갖고 있습니다. 단순 빈도로 세면 늘 같은 기술이 1등입니다.
+    나와 기술 구성이 비슷한 사람이 가진 기술에 더 무게를 주면 "나와 비슷한 길을 걷는 사람들의 다음 걸음"에
+    가까워집니다.</p>
+  </div>
+
+  <div class="formula">
+자카드(A, B) = |A ∩ B| / |A ∪ B|<br><br>
+추천 점수(기술 X) = Σ<sub>X를 가진 또래</sub> 자카드(내 기술, 그 사람 기술)
+  </div>
+
+  <h3>합집합으로 나누는 것이 왜 중요한가</h3>
+  <p>교집합만 세면 <strong>기술을 아주 많이 등록한 사람</strong>이 늘 "비슷한 사람"이 됩니다.</p>
+  <div class="tw"><table>
+    <tr><th>내 기술 = {Java, Spring}</th><th class="num">교집합</th><th class="num">합집합</th><th class="num">자카드</th></tr>
+    <tr><td>또래 A = {Java, Spring, SQL}</td><td class="num">2</td><td class="num">3</td><td class="num"><strong>0.67</strong></td></tr>
+    <tr><td>또래 B = {Java, Spring, +8개 더}</td><td class="num">2</td><td class="num">10</td><td class="num">0.20</td></tr>
+  </table></div>
+  <p>A가 "비슷한 길"이고 B는 "아무거나 많이 넣은 사람"입니다. 합집합이 그 차이를 잡습니다
+  (테스트로 고정했습니다).</p>
+
+  <h3>우리 코드에서 바꾼 것</h3>
+  <div class="warn">
+    <b>개인정보 — 집계만 내보냅니다</b>
+    <p>누가 가졌는지는 돌려주지 않고 화면에는 "N명 중 M명"만 나갑니다. 표본이 모자라면 아무것도 보여
+    주지 않습니다 — <strong>또래 3명 미만</strong>이거나 <strong>그 기술을 가진 사람이 2명 미만</strong>이면
+    추천하지 않습니다. 2~3명으로 "많이 익혔다"고 말하면 틀린 말이고, 사람이 적을 때는 추천 자체가
+    특정 개인의 프로필을 드러낼 수 있습니다. 데이터 인사이트의 또래 비교와 같은 태도입니다.</p>
+  </div>
+  <ul>
+    <li><strong>겹치는 기술이 하나도 없는 사람은 제외</strong> — 자카드 0인 사람의 기술은 추천 근거가 아닙니다.</li>
+    <li><strong>조회에서 빼는 대상</strong>: 본인 · 논리 삭제 · 탈퇴 신청 · 테스트 계정(<code>is_test</code>) ·
+    <code>skill_id IS NULL</code>. 제외가 실제로 걸리는지 DB 테스트로 확인했습니다 — SQL 컬럼 이름
+    오타는 런타임에만 드러납니다.</li>
+    <li><strong>동점이면 <code>skillId</code> 순으로 고정</strong> — 호출마다 추천 순서가 바뀌면
+    사용자가 혼란스럽습니다.</li>
+  </ul>
+
+  <h3>직접 확인하기</h3>
+  <div class="code"><button class="copy" type="button">복사</button><pre>mvn -o test -Dtest=SkillCooccurrenceServiceTest  # 자카드·순위 13개 (DB 없음)
+mvn -o test -Dtest=SkillCooccurrenceDaoTest      # 제외 조건이 실제로 걸리는지 2개</pre></div>
+  <div class="files"><b>관련 파일</b>
+    service/SkillCooccurrenceService.java · dao/SkillCooccurrenceDao.java
+  </div>
+</section>
+
+<!-- ============ 6 ============ -->
+<section class="alg" id="a6">
+  <h2><span class="num">06</span> 급상승 기술 감지 — EWMA + z-score</h2>
+  <div class="tagrow">
+    <span class="tag" style="color:var(--g-num)">시계열 이상 감지</span>
+    <span class="tag" style="color:var(--ink-3)">O(달 수)</span>
+    <span class="tag" style="color:var(--ink-3)">SpikeDetector</span>
+  </div>
+
+  <h3>문제</h3>
+  <p>트렌드가 "이번 달 언급 비율 높은 순"이면 <strong>원래 항상 높은 기술</strong>(Java처럼 늘 30%대)이
+  늘 1등이라 "요즘 뜨는 기술"을 알 수 없습니다. 알고 싶은 것은 절대값이 아니라
+  <strong>평소보다 얼마나 튀었는지</strong>입니다.</p>
+
+  <div class="why">
+    <b>왜 단순 평균이 아니라 EWMA인가</b>
+    <p>단순 평균은 1년 전 값과 지난달 값을 같게 봅니다. 채용 시장은 최근이 더 중요합니다.
+    EWMA(지수가중이동평균)는 최근에 큰 가중을 줘서 "평소"에 더 가깝습니다.</p>
+  </div>
+
+  <div class="formula">
+mean<sub>t</sub> = α · x<sub>t</sub> + (1−α) · mean<sub>t−1</sub><br>
+var<sub>t</sub>&nbsp;&nbsp;= α · (x<sub>t</sub> − mean<sub>t−1</sub>)² + (1−α) · var<sub>t−1</sub><br><br>
+z = (이번 달 값 − 과거 기준선) / 과거 표준편차<br><br>
+<em>α = 0.4 — 쌓인 달이 많지 않아(수집 시작 2026-09) 과거에 눌리지 않게 잡은 값.<br>
+더 크면 기준선이 지난달 하나에 휘둘린다.</em>
+  </div>
+
+  <h3>동작 예시</h3>
+  <div class="code"><button class="copy" type="button">복사</button><pre>언급 비율(%)  1.0  1.1  0.9  1.0  →  이번 달 5.0
+과거 EWMA 기준선 ≈ 1.0, 표준편차 ≈ 0.2 (바닥값)
+z = (5.0 - 1.0) / 0.2 = 20        →  급상승 ✅  "평소의 5배"
+
+Java 같은 기술: 30.0  31.0  29.5  30.5  →  이번 달 31.0
+기준선 ≈ 30.4,  z ≈ 0.9           →  급상승 아님 ✅  (절대값은 1등이어도)</pre></div>
+
+  <h3>우리 코드에서 바꾼 것</h3>
+  <div class="ok">
+    <b>이번 달 값은 기준선에 넣지 않습니다</b>
+    <p>넣으면 자기 자신 때문에 기준선이 올라가 z가 작아집니다 — 테스트로 고정했습니다.</p>
+  </div>
+  <p>배지를 아껴 붙이려고 조건 넷을 뒀습니다.</p>
+  <div class="tw"><table>
+    <tr><th>조건</th><th class="num">값</th><th>이유</th></tr>
+    <tr><td>z 임계값</td><td class="num">≥ 2.0</td><td>정규분포라면 상위 약 2%</td></tr>
+    <tr><td>비율 바닥</td><td class="num">≥ 1%</td><td>0.1%→0.4%도 z는 크지만 공고 몇 건 차이다</td></tr>
+    <tr><td>최소 과거</td><td class="num">3달</td><td>수집을 막 시작했으면 "평소"를 모른다</td></tr>
+    <tr><td>표준편차 바닥</td><td class="num">0.2</td><td>완전히 평평했던 기술은 작은 변화에 z가 무한대로 튄다</td></tr>
+  </table></div>
+  <ul>
+    <li><strong>위로 튄 것만 봅니다</strong> — 아래로 떨어진 달도 z의 절댓값은 큽니다.</li>
+    <li><strong>빠진 달(null)은 0건으로</strong> 보고 계산을 멈추지 않습니다.</li>
+  </ul>
+
+  <h3>직접 확인하기</h3>
+  <div class="code"><button class="copy" type="button">복사</button><pre>mvn -o test -Dtest=SpikeDetectorTest   # 12개 (DB 없음)</pre></div>
+  <div class="files"><b>관련 파일</b>
+    service/SpikeDetector.java · service/InsightService.java
+  </div>
+</section>
+
+<!-- ============ 7 ============ -->
+<section class="alg" id="a7">
+  <h2><span class="num">07</span> 토큰 버킷 + 서킷 브레이커 (안정성 패턴)</h2>
+  <div class="tagrow">
+    <span class="tag" style="color:var(--g-ops)">안정성 패턴</span>
+    <span class="tag" style="color:var(--ink-3)">O(1)</span>
+    <span class="tag" style="color:var(--ink-3)">TokenBucket · CircuitBreaker</span>
+  </div>
+
+  <h3>문제</h3>
+  <p>지금까지는 <strong>실패한 뒤에 기다렸습니다.</strong> Groq 한도를 넘으면 429를 받고 재시도 정책이
+  20·40·60초를 기다리고, 깃허브 403이나 고용24 장애에서는 사용자마다·요청마다 같은 실패를 반복하며
+  타임아웃만큼 멈췄습니다. 두 장치는 <strong>보내기 전에</strong> 막아서 FR-111·112가 말하는
+  "캐시·안내 문구로 대체"가 즉시 일어나게 합니다.</p>
+
+  <h3>토큰 버킷 — 호출 횟수 제한</h3>
+  <div class="formula">
+남은 토큰 = min(capacity, 남은 토큰 + 경과 시간 × 초당 채우는 수)<br><br>
+호출마다 토큰 하나를 쓴다 — 없으면 거절
+  </div>
+  <div class="why">
+    <b>창(window)을 끊어 세는 방식과 다른 점</b>
+    <p>"분당 30회"를 창으로 세면 창이 바뀌는 순간 60회가 몰릴 수 있습니다(경계 문제). 토큰 버킷은
+    연속적으로 채워서 그 문제가 없고, 평소에 안 쓰면 쌓인 토큰으로 잠깐 몰리는 호출을 받아 줍니다.</p>
+  </div>
+  <p>적용: Groq 분당 30회, 한꺼번에 10개까지(화면 하나가 추천 이유를 여러 개 만듭니다).
+  <strong>시계가 뒤로 가도 토큰을 깎지 않습니다</strong> — 시간 동기화로 음수가 되면 영원히 막힙니다.</p>
+
+  <h3>서킷 브레이커 — 계속 실패하면 끊는다</h3>
+  <div class="code"><button class="copy" type="button">복사</button><pre>        연속 실패 누적                시간 경과
+CLOSED ──────────────▶ OPEN ──────────────▶ HALF_OPEN
+  ▲                      ▲                      │
+  │        실패          │         성공         │
+  └──────────────────────┴──────────────────────┘
+
+CLOSED     평소. 전부 통과
+OPEN       끊긴 상태. 전부 거절 (바로 대체 동작으로)
+HALF_OPEN  한 번만 떠본다. 성공이면 CLOSED, 실패면 다시 OPEN</pre></div>
+  <div class="why">
+    <b>반만 열어 한 번 떠보는 단계가 필요한 이유</b>
+    <p>바로 CLOSED로 돌리면 아직 죽어 있는 상대에게 모든 요청이 동시에 몰려 또 한꺼번에 실패합니다.
+    HALF_OPEN에서는 떠보는 호출 <strong>하나만</strong> 통과시킵니다.</p>
+  </div>
+
+  <div class="tw"><table>
+    <tr><th>대상</th><th class="num">임계값</th><th class="num">차단</th><th>비고</th></tr>
+    <tr><td>Groq</td><td class="num">연속 5회</td><td class="num">1분</td><td>형식 오류(422)는 실패로 세지 않는다 — 상대는 살아 있고 우리 프롬프트 문제다</td></tr>
+    <tr><td>트렌드 수집</td><td class="num">연속 3회</td><td class="num">10분</td><td><strong>출처별로 하나씩</strong> (깃허브·HN·dev.to·Lobsters·GeekNews)</td></tr>
+    <tr><td>고용24</td><td class="num">연속 3회</td><td class="num">5분</td><td>응답은 왔지만 API가 오류 코드를 준 경우(키 만료·한도)도 실패로 센다</td></tr>
+  </table></div>
+  <p>트렌드를 출처별로 나눈 이유: 깃허브가 403을 주는 동안 <strong>다른 출처 수집까지 멈추면 안 되고</strong>,
+  반대로 깃허브에만 같은 실패를 매번 반복할 이유도 없습니다. 끊긴 출처는 그 회차에서 조용히 건너뜁니다.</p>
+
+  <h3>두 장치의 역할 차이</h3>
+  <div class="tw"><table>
+    <tr><th></th><th>토큰 버킷</th><th>서킷 브레이커</th></tr>
+    <tr><td>막는 이유</td><td><strong>우리가</strong> 너무 많이 보낸다</td><td><strong>상대가</strong> 받지 못한다</td></tr>
+    <tr><td>상태</td><td>남은 토큰 수</td><td>연속 실패 수 + 끊긴 시각</td></tr>
+    <tr><td>풀리는 조건</td><td>시간이 지나 토큰이 채워짐</td><td>차단 시간 경과 후 떠본 호출이 성공</td></tr>
+  </table></div>
+
+  <div class="warn">
+    <b>설계를 한 번 되돌렸습니다</b>
+    <p>처음에 호출 한도를 <code>static</code>으로 뒀더니 <strong>테스트 수백 개가 같은 버킷을 비워</strong>
+    뒤쪽 테스트가 429로 깨졌습니다. 운영은 JVM 전체 공유가 맞지만(한도는 API 키 단위)
+    <strong>인스턴스 필드로 바꿔</strong> 기본값만 공유 객체로 두고 테스트가 자기 것을 끼우게 했습니다.
+    설정을 바꾼 사본도 같은 한도·서킷을 이어 씁니다 — 같은 API 키라 따로 세면 안 됩니다.</p>
+  </div>
+  <p><strong>시간을 주입받게 만든 이유</strong>: <code>sleep</code> 없이 테스트하려면 시간을 앞으로
+  돌려야 합니다. 테스트가 느려지면 전체 1,000여 개가 같이 느려집니다. 프로젝트의 <code>AppClock</code>은
+  시뮬레이션용 <strong>날짜</strong> 기반이라 밀리초 단위에 맞지 않아 <code>LongSupplier</code>를 따로 받습니다.</p>
+
+  <h3>직접 확인하기</h3>
+  <div class="code"><button class="copy" type="button">복사</button><pre>mvn -o test -Dtest=TokenBucketTest       # 8개, sleep 없음
+mvn -o test -Dtest=CircuitBreakerTest    # 9개, sleep 없음</pre></div>
+  <div class="files"><b>관련 파일</b>
+    util/TokenBucket.java · util/CircuitBreaker.java · util/GroqLlmClient.java ·
+    service/TrendSourceClient.java · service/work24/Work24Client.java
+  </div>
+</section>
+
+<!-- ============ 8 ============ -->
+<section class="alg" id="a8">
+  <h2><span class="num">08</span> 스펙 아카이브 검색 — FULLTEXT 역색인 (ngram)</h2>
+  <div class="tagrow">
+    <span class="tag" style="color:var(--g-db)">검색 엔진</span>
+    <span class="tag" style="color:var(--ink-3)">역색인</span>
+    <span class="tag" style="color:var(--ink-3)">TechArticleDao</span>
+  </div>
+
+  <h3>문제</h3>
+  <p>스펙 아카이브에 <strong>검색이 아예 없었습니다.</strong> 제목·본문을 <code>LIKE '%키워드%'</code>로
+  찾으면 앞에 와일드카드가 있어 <strong>인덱스를 전혀 타지 못하고</strong>, 본문이 <code>TEXT</code>라
+  글이 쌓일수록 전수 조회가 됩니다.</p>
+
+  <div class="why">
+    <b>왜 기본 FULLTEXT 파서로는 안 되나</b>
+    <p>기본 파서는 <strong>공백으로 단어를 자릅니다.</strong> 한국어는 조사가 붙고 복합어를 띄어 쓰지
+    않는 경우가 많아, "스프링 부트"를 한 덩이로만 보고 <strong>"프링"으로는 못 찾습니다.</strong></p>
+  </div>
+
+  <div class="formula">
+ngram 파서 — 글자 N개씩 겹쳐 쪼개 넣는다 <em>(ngram_token_size, 기본 2)</em><br><br>
+"스프링 부트" &nbsp;→&nbsp; 스프, 프링, 부트<br>
+검색 "프링" &nbsp;&nbsp;&nbsp;→&nbsp; 토큰 "프링"이 있으니 걸린다 ✅
+  </div>
+
+  <h3>적용 전에 실측했습니다</h3>
+  <p>공유 DB: <strong>MySQL 9.7.2 · ngram 플러그인 ACTIVE · <code>ngram_token_size = 2</code></strong></p>
+  <div class="tw"><table>
+    <tr><th>검색어</th><th>결과</th></tr>
+    <tr><td><code>스프링</code></td><td>스프링 부트 · 스프링 프레임워크 ✅</td></tr>
+    <tr><td><code>프링</code> (중간 글자)</td><td>둘 다 ✅</td></tr>
+    <tr><td><code>Spring</code> (영문)</td><td>Spring Boot ✅</td></tr>
+    <tr><td><code>스프링 부트</code> (자연어 모드)</td><td>점수순 — 부트 1.06, 프레임워크 0.46 ✅</td></tr>
+    <tr><td><code>자</code> (한 글자)</td><td><strong>0건</strong> — token_size가 2라 인덱스에 토큰이 없다</td></tr>
+  </table></div>
+  <p><code>EXPLAIN</code>으로 인덱스 사용까지 확인했습니다.</p>
+  <div class="code"><button class="copy" type="button">복사</button><pre>-&gt; Full-text index search on TECH_ARTICLE using ft_tech_article_text (title = '스프링')</pre></div>
+
+  <h3>우리 코드에서 바꾼 것</h3>
+  <ul>
+    <li><strong>한 글자만 LIKE 폴백</strong> — 인덱스를 못 타지만 "검색은 되는데 한 글자만 안 된다"가
+    더 이상합니다. <code>token_size</code>를 1로 낮추는 선택도 있었지만 인덱스가 급격히 커지고 흔한
+    글자가 전부 걸려 느려집니다.</li>
+    <li><strong>사용자 입력을 BOOLEAN MODE 검색식으로</strong> — 낱말마다 <code>+</code>와 따옴표를 붙여
+    "모두 포함"으로 만듭니다(<code>"스프링 부트"</code> → <code>+"스프링" +"부트"</code>).
+    입력에 든 연산자(<code>+ - * ~ &lt; &gt; ( ) " @</code>)는 <strong>전부 지웁니다</strong> —
+    안 지우면 "C++"의 <code>+</code>가 연산자로 해석돼 구문 오류나 엉뚱한 결과가 됩니다.
+    <code>#</code>은 연산자가 아니라 남깁니다(<strong>"C#"은 실제 기술명</strong>). "C++"처럼 연산자를
+    지우면 한 글자가 되는 입력은 자연히 LIKE 폴백이 받습니다.</li>
+  </ul>
+
+  <div class="ok">
+    <b>관리자 회원 검색에는 넣지 않았습니다</b>
+    <p><code>USERS</code>는 <strong>쓰기가 잦은 표</strong>라 FULLTEXT 인덱스의 유지 비용이 붙습니다.
+    관리자 검색은 호출이 드물고 대상 행도 적어 LIKE로 충분합니다 — 가장 바쁜 표에 인덱스를 더할 이유가
+    없습니다. <strong>알고리즘을 적용하지 않는 것도 판단입니다.</strong></p>
+  </div>
+
+  <h3>직접 확인하기</h3>
+  <div class="code"><button class="copy" type="button">복사</button><pre>mvn -o test -Dtest=TechArticleSearchTest   # 10개 (실제 DB — 한글 부분 일치·AND·폴백)</pre></div>
+  <div class="files"><b>관련 파일</b>
+    dao/TechArticleDao.java · service/archive/SpecArchiveService.java ·
+    sql/37_alter_tech_article_fulltext.sql
+  </div>
+</section>
+
+<!-- ============ 복잡도 ============ -->
+<section class="alg" id="bigO">
+  <h2>복잡도 정리</h2>
+  <div class="tw"><table>
+    <tr><th>알고리즘</th><th>시간</th><th>공간</th><th>우리 규모에서의 실제 비용</th></tr>
+    <tr><td>위상 정렬</td><td class="num">O(V + E)</td><td class="num">O(V + E)</td><td>라운드 기술 5개 — 무시할 수준</td></tr>
+    <tr><td>DFS 순환 검사</td><td class="num">O(V + E)</td><td class="num">O(V)</td><td>관계 수십 개 — 무시할 수준</td></tr>
+    <tr><td>SM-2</td><td class="num">O(1)</td><td class="num">O(1)</td><td>복습 한 건당 산술 몇 번</td></tr>
+    <tr><td>0/1 배낭</td><td class="num">O(n × 용량)</td><td class="num">O(n × 용량)</td><td>60 × 365 = 21,900칸 (상한)</td></tr>
+    <tr><td>RRF</td><td class="num">O(목록 길이 합)</td><td class="num">O(후보 수)</td><td>후보 10개 × 2목록</td></tr>
+    <tr><td>자카드 가중</td><td class="num">O(또래 × 기술)</td><td class="num">O(기술 수)</td><td>또래 수십 명 × 기술 10여 개</td></tr>
+    <tr><td>EWMA + z</td><td class="num">O(달 수)</td><td class="num">O(1)</td><td>4달</td></tr>
+    <tr><td>FULLTEXT</td><td>역색인 조회</td><td>인덱스 저장</td><td>DB가 처리 — <code>EXPLAIN</code>으로 확인</td></tr>
+  </table></div>
+  <p>가장 비싼 것이 배낭인데, 상한을 둬서 최악에도 2만여 칸입니다. 화면 한 번에 한 번만 돕니다.</p>
+</section>
+
+<!-- ============ 공부 순서 ============ -->
+<section class="alg" id="study">
+  <h2>공부 순서 추천</h2>
+  <p>처음 보는 사람이라면 이 순서가 읽기 쉽습니다.</p>
+  <ol>
+    <li><a href="#a2"><strong>2번 SM-2</strong></a> — 식 하나, 상태 세 개. 알고리즘이 코드가 되는 가장 작은 예시.</li>
+    <li><a href="#a5"><strong>5번 자카드</strong></a> — 집합 연산 두 개. "왜 합집합으로 나누나"가 핵심.</li>
+    <li><a href="#a6"><strong>6번 EWMA + z-score</strong></a> — 점화식 두 줄. "왜 이번 값을 기준선에서 빼나"가 핵심.</li>
+    <li><a href="#a1"><strong>1번 위상 정렬</strong></a> — 그래프 입문. 진입차수만 이해하면 끝.</li>
+    <li><a href="#a3"><strong>3번 배낭</strong></a> — DP 입문. 위의 표를 손으로 한 번 채워 보는 것이 가장 빠릅니다.</li>
+    <li><a href="#a7"><strong>7번 안정성 패턴</strong></a> — 알고리즘보다 상태 기계. 실무에서 가장 자주 씁니다.</li>
+    <li><a href="#a4"><strong>4번 RRF</strong></a> — "척도가 다른 점수를 어떻게 합치나"라는 실전 문제.</li>
+    <li><a href="#a8"><strong>8번 FULLTEXT</strong></a> — DB가 해 주는 일이라 원리(역색인·토크나이저)만 알면 됩니다.</li>
+  </ol>
+  <div class="ok">
+    <b>가장 빠른 공부법</b>
+    <p>각 절의 "직접 확인하기" 테스트를 돌리고 <strong>값을 바꿔 깨뜨려 보세요.</strong> 예를 들어
+    <code>SpikeDetector.MIN_Z</code>를 1.0으로 낮추면 어떤 테스트가 깨지는지 보면, 그 임계값이 무엇을
+    막고 있었는지 알 수 있습니다.</p>
+  </div>
+
+  <h3>참고 문헌</h3>
+  <ul>
+    <li>Kahn, A. B. (1962). <em>Topological sorting of large networks</em>. CACM 5(11).</li>
+    <li>SuperMemo SM-2 — <a href="https://super-memory.com/english/ol/sm2.htm">super-memory.com</a></li>
+    <li>Cormen 외, <em>Introduction to Algorithms</em> — 0/1 배낭(DP), DFS</li>
+    <li>Cormack, Clarke, Büttcher (2009). <em>Reciprocal Rank Fusion outperforms Condorcet and
+      individual Rank Learning Methods</em>. SIGIR.</li>
+    <li>Nygard, M. <em>Release It!</em> — 서킷 브레이커 패턴</li>
+    <li>MySQL 매뉴얼 — <a href="https://dev.mysql.com/doc/refman/en/fulltext-search-ngram.html">ngram Full-Text Parser</a></li>
+  </ul>
+</section>
+
+</main>
+</div>
+
+<script>
+// 코드 블록 복사
+document.querySelectorAll('.copy').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    var pre = btn.parentElement.querySelector('pre');
+    if (!pre) { return; }
+    var done = function () { btn.textContent = '복사됨'; setTimeout(function () { btn.textContent = '복사'; }, 1400); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(pre.textContent).then(done, function () { btn.textContent = '실패'; });
+    } else {
+      // 클립보드 API가 막힌 환경(file:// 등) — 선택 상태로 만들어 사용자가 직접 복사하게 한다
+      var range = document.createRange();
+      range.selectNodeContents(pre);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      btn.textContent = '선택됨';
+      setTimeout(function () { btn.textContent = '복사'; }, 1600);
+    }
+  });
+});
+
+// 현재 보고 있는 절을 사이드바에 표시
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('#side a[href^="#"]'));
+  var byId = {};
+  links.forEach(function (a) { byId[a.getAttribute('href').slice(1)] = a; });
+  var targets = Object.keys(byId).map(function (id) { return document.getElementById(id); }).filter(Boolean);
+  if (!('IntersectionObserver' in window) || targets.length === 0) { return; }
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      var a = byId[e.target.id];
+      if (!a) { return; }
+      if (e.isIntersecting) {
+        links.forEach(function (l) { l.classList.remove('on'); });
+        a.classList.add('on');
+      }
+    });
+  }, { rootMargin: '-15% 0px -70% 0px' });
+  targets.forEach(function (t) { io.observe(t); });
+})();
+
+// 0/1 배낭 표를 직접 채워 보는 데모 (3절)
+(function () {
+  var items = [
+    { name: '6일 100점', w: 6, v: 100 },
+    { name: '4일 60점', w: 4, v: 60 },
+    { name: '3일 55점', w: 3, v: 55 }
+  ];
+  var capInput = document.getElementById('kcap');
+  var runBtn = document.getElementById('krun');
+  var tableBox = document.getElementById('ktable');
+  var out = document.getElementById('kout');
+  if (!capInput || !runBtn || !tableBox || !out) { return; }
+
+  function render() {
+    var cap = Math.max(1, Math.min(12, parseInt(capInput.value, 10) || 1));
+    capInput.value = cap;
+    var n = items.length;
+    var best = [];
+    for (var i = 0; i <= n; i++) {
+      best.push(new Array(cap + 1).fill(0));
+    }
+    for (var i2 = 1; i2 <= n; i2++) {
+      for (var d = 0; d <= cap; d++) {
+        var without = best[i2 - 1][d];
+        best[i2][d] = d < items[i2 - 1].w
+          ? without
+          : Math.max(without, best[i2 - 1][d - items[i2 - 1].w] + items[i2 - 1].v);
+      }
+    }
+    // 되살리기
+    var picked = [];
+    var rem = cap;
+    for (var i3 = n; i3 > 0; i3--) {
+      if (best[i3][rem] !== best[i3 - 1][rem]) {
+        picked.unshift(items[i3 - 1]);
+        rem -= items[i3 - 1].w;
+      }
+    }
+    var pickedSet = {};
+    picked.forEach(function (p) { pickedSet[p.name] = true; });
+
+    // 표 그리기
+    var html = '<table><tr><th class="rowh">i \\ d</th>';
+    for (var d2 = 0; d2 <= cap; d2++) { html += '<th>' + d2 + '</th>'; }
+    html += '</tr>';
+    for (var r = 0; r <= n; r++) {
+      var label = r === 0 ? '없음' : items[r - 1].name;
+      html += '<tr><th class="rowh">' + label + '</th>';
+      for (var c = 0; c <= cap; c++) {
+        var on = (r === n && c === cap) ? ' class="on"' : '';
+        html += '<td' + on + '>' + best[r][c] + '</td>';
+      }
+      html += '</tr>';
+    }
+    html += '</table>';
+    tableBox.innerHTML = html;
+
+    var usedDays = picked.reduce(function (s, p) { return s + p.w; }, 0);
+    var greedy = greedyScore(cap);
+    out.innerHTML = '용량 ' + cap + '일 → DP 최적 <b>' + best[n][cap] + '점</b>'
+      + ' (고른 것: ' + (picked.length ? picked.map(function (p) { return p.name; }).join(' + ') : '없음')
+      + ', ' + usedDays + '일 사용)'
+      + '<br><span style="color:var(--ink-3);font-size:12.5px">밀도 그리디로 담으면 '
+      + greedy + '점'
+      + (greedy < best[n][cap] ? ' — DP가 ' + (best[n][cap] - greedy) + '점 더 찾습니다' : ' (이 용량에서는 같습니다)')
+      + '</span>';
+  }
+
+  // 밀도(가치/무게) 높은 것부터 담는 그리디 — DP와 비교해 보여 주려고 같이 계산한다
+  function greedyScore(cap) {
+    var sorted = items.slice().sort(function (a, b) { return (b.v / b.w) - (a.v / a.w); });
+    var left = cap;
+    var score = 0;
+    sorted.forEach(function (it) {
+      if (it.w <= left) { score += it.v; left -= it.w; }
+    });
+    return score;
+  }
+
+  runBtn.addEventListener('click', render);
+  capInput.addEventListener('change', render);
+  render();
+})();
+</script>
+</body>
+</html>

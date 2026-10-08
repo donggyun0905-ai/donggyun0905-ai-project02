@@ -189,4 +189,8 @@ mvnw.cmd clean package -DskipTests   # Windows
 - [`docs/dev-environment-setup.html`](docs/dev-environment-setup.html) — IDE별(IntelliJ·VS Code) 실행 환경 설정 가이드, 자주 나는 문제 해결
 - [`docs/requirements.md`](docs/requirements.md) — 요구사항 명세서 (FR/NFR 번호의 출처)
 - [`docs/db-design.md`](docs/db-design.md) — 테이블 정의, ERD, 복합 UNIQUE 목록, 설계 판단 근거
+- [`docs/algorithms.md`](docs/algorithms.md) · [`docs/algorithms.html`](docs/algorithms.html) —
+  프로젝트에 쓴 알고리즘 8종(위상 정렬·SM-2·0/1 배낭·RRF·자카드·EWMA·서킷 브레이커·FULLTEXT).
+  "왜 썼는지 · 어떻게 동작하는지 · 더 단순한 방법으로는 왜 안 되는지" 순서로 정리했다.
+  HTML 쪽에는 배낭 표를 용량을 바꿔 직접 채워 보는 데모가 있다
 - [`claude.md`](claude.md) — 프로젝트 팀 규칙 (환경, 명명 규칙, 코드/보안 규칙)

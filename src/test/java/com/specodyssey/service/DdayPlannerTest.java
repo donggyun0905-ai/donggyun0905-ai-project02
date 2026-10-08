@@ -32,13 +32,44 @@ class DdayPlannerTest {
 
     @Test
     void 남은_기간에_점수_합이_가장_큰_조합을_고른다() {
-        // 그리디(점수/일수 높은 것부터)는 6일 100점을 담고 1일을 버려 100점에서 멈춘다.
-        // DP는 4일+3일을 담아 115점을 찾는다 — 이 차이가 DP를 쓰는 이유다.
+        // 7일이면 4일+3일로 용량을 꽉 채우는 쪽이 최적이다(115 > 100).
         Plan plan = DdayPlanner.plan(List.of(item(6, 100), item(4, 60), item(3, 55)), 7);
 
         assertEquals(115, plan.totalPoints(), "실제로 고른 것: " + labels(plan));
         assertEquals(7, plan.usedDays());
         assertEquals(2, plan.picked().size());
+    }
+
+    // DP를 쓰는 이유 — 밀도(점수/일수) 높은 것부터 담는 그리디는 "밀도 1등을 담고 남은 칸에 아무것도
+    // 안 들어가는" 경우에 무너진다. 아래가 그 경우다: 밀도는 3일 55점이 1등(18.3)이지만 그걸 담으면
+    // 남은 3일에 넣을 것이 없어 55점에서 끝난다. DP는 6일 100점 하나를 골라 100점을 찾는다.
+    // (7일에서는 밀도 그리디도 115점을 내므로 그 용량은 반례가 아니다 — 2026-10-08에 문서를 고쳤다.)
+    @Test
+    void 밀도가_높은_것부터_담는_그리디보다_나은_답을_찾는다() {
+        List<Candidate> candidates = List.of(item(6, 100), item(4, 60), item(3, 55));
+
+        Plan plan = DdayPlanner.plan(candidates, 6);
+
+        assertEquals(100, plan.totalPoints(), "그리디는 55점에서 멈춘다. 실제로 고른 것: " + labels(plan));
+        assertEquals(1, plan.picked().size());
+        assertTrue(plan.totalPoints() > greedyByDensity(candidates, 6),
+                "그리디 " + greedyByDensity(candidates, 6) + "점 vs DP " + plan.totalPoints() + "점");
+    }
+
+    /** 비교용 — 밀도 높은 것부터 담는 그리디. 이 테스트 안에서만 쓴다. */
+    private static int greedyByDensity(List<Candidate> candidates, int capacity) {
+        List<Candidate> sorted = new ArrayList<>(candidates);
+        sorted.sort((a, b) -> Double.compare((double) b.points() / b.effortDays(),
+                (double) a.points() / a.effortDays()));
+        int left = capacity;
+        int score = 0;
+        for (Candidate c : sorted) {
+            if (c.effortDays() <= left) {
+                score += c.points();
+                left -= c.effortDays();
+            }
+        }
+        return score;
     }
 
     @Test
