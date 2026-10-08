@@ -193,4 +193,6 @@ mvnw.cmd clean package -DskipTests   # Windows
   프로젝트에 쓴 알고리즘 8종(위상 정렬·SM-2·0/1 배낭·RRF·자카드·EWMA·서킷 브레이커·FULLTEXT).
   "왜 썼는지 · 어떻게 동작하는지 · 더 단순한 방법으로는 왜 안 되는지" 순서로 정리했다.
   HTML 쪽에는 배낭 표를 용량을 바꿔 직접 채워 보는 데모가 있다
+- [`docs/team-todo.md`](docs/team-todo.md) — **넘기기 전에 사람이 해야 하는 일.**
+  `/api/companion/` 공개 경로 2차 리뷰, `header.jsp` 담당 공유, 로컬 DB에 `sql/34`~`38` 적용
 - [`claude.md`](claude.md) — 프로젝트 팀 규칙 (환경, 명명 규칙, 코드/보안 규칙)
