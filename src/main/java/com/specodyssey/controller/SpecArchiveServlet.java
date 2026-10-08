@@ -34,7 +34,11 @@ public class SpecArchiveServlet extends HttpServlet {
         int page = parsePage(req.getParameter("page"));
 
         try {
-            req.setAttribute("listPage", bookmarks ? archiveService.listBookmarks(userId, page) : archiveService.list(sort, page));
+            String keyword = req.getParameter("q");
+            req.setAttribute("listPage", bookmarks
+                    ? archiveService.listBookmarks(userId, page)
+                    : archiveService.search(keyword, sort, page));
+            req.setAttribute("keyword", keyword == null ? "" : keyword.trim());
             req.setAttribute("canWrite", archiveService.canWrite(userId));
             req.setAttribute("writerTitles", String.join("·", archiveService.writerTierTitles()));
         } catch (SQLException e) {

@@ -874,6 +874,9 @@ CREATE TABLE TECH_ARTICLE (
     KEY idx_tech_article_skill_status (skill_id, status, published_at),
     KEY idx_tech_article_status_published (status, published_at),
     KEY idx_tech_article_source_status_published (source_type, status, published_at),
+    -- 스펙 아카이브 검색(37번). ngram 파서 — 기본 파서는 공백으로 단어를 잘라 한국어 부분 일치가 안 된다.
+    -- ngram_token_size가 2라 한 글자 검색은 안 걸리고, 그때는 코드가 LIKE로 떨어진다(TechArticleDao.search).
+    FULLTEXT KEY ft_tech_article_text (title, content) WITH PARSER ngram,
     CONSTRAINT fk_tech_article_user
         FOREIGN KEY (user_id) REFERENCES USERS (id)
         ON DELETE RESTRICT ON UPDATE CASCADE,

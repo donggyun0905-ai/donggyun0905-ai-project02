@@ -61,6 +61,11 @@ public class TechArticleDao {
             "LEFT JOIN LEVEL_TIER t ON t.is_deleted = FALSE AND COALESCE(s.total_score, 0) >= t.min_score " +
             "AND (t.max_score IS NULL OR COALESCE(s.total_score, 0) <= t.max_score) ";
 
+    /** 검색 결과를 관련도 순으로 줄 세우려면 점수를 SELECT에도 넣어야 한다 */
+    private static final String SELECT_WITH_AUTHOR_RELEVANCE =
+            SELECT_WITH_AUTHOR.replace("SELECT " + A_COLUMNS,
+                    "SELECT " + A_COLUMNS + ", MATCH(a.title, a.content) AGAINST(? IN BOOLEAN MODE) AS relevance");
+
     private static final String ARCHIVE_VISIBLE =
             "a.source_type = '" + SOURCE_ARCHIVE_TIP + "' AND a.status = '" + STATUS_PUBLISHED + "' AND a.is_deleted = FALSE ";
 
@@ -103,6 +108,106 @@ public class TechArticleDao {
             pstmt.setInt(2, offset);
             return mapRows(pstmt);
         }
+    }
+
+    // ---------------------------------------------------------------- 검색 (2026-10-08)
+
+    /**
+     * ngram_token_size. 이보다 짧은 검색어는 FULLTEXT 인덱스에 토큰이 없어 한 건도 안 걸린다 —
+     * 그때만 LIKE로 떨어진다. 공유 DB 확인값(2026-10-08) = 2.
+     */
+    static final int NGRAM_TOKEN_SIZE = 2;
+
+    /**
+     * 스펙 아카이브 글 검색. 제목·본문을 FULLTEXT(ngram)로 찾고 관련도 순으로 돌려준다.
+     *
+     * 왜 LIKE가 아닌가: LIKE '%키워드%'는 앞에 와일드카드가 있어 인덱스를 전혀 타지 못하고, 본문이
+     * TEXT라 글이 쌓일수록 전수 조회가 된다. ngram 파서를 쓰면 한국어 부분 일치도 인덱스로 찾는다.
+     *
+     * 한 글자 검색만 LIKE로 떨어진다 — ngram 토큰이 2글자라 인덱스에 한 글자 토큰이 없다.
+     * 그 경우도 "못 찾습니다"로 끝내지 않으려고 폴백을 둔다(검색은 되는데 한 글자만 안 되면 더 이상하다).
+     */
+    public List<TechArticleDto> searchArchive(String keyword, Sort sort, int offset, int limit) throws SQLException {
+        String query = toBooleanQuery(keyword);
+        if (query == null) {
+            return searchArchiveWithLike(keyword, sort, offset, limit);
+        }
+        // 관련도 순이 기본이지만, 사용자가 정렬을 고르면 그쪽을 먼저 본다
+        String order = sort == null ? "relevance DESC, a.id DESC" : sort.orderBy + ", relevance DESC";
+        String sql = SELECT_WITH_AUTHOR_RELEVANCE
+                + "WHERE " + ARCHIVE_VISIBLE + "AND MATCH(a.title, a.content) AGAINST(? IN BOOLEAN MODE) "
+                + "ORDER BY " + order + " LIMIT ? OFFSET ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, query);
+            pstmt.setString(2, query);
+            pstmt.setInt(3, limit);
+            pstmt.setInt(4, offset);
+            return mapRows(pstmt);
+        }
+    }
+
+    public int countSearchArchive(String keyword) throws SQLException {
+        String query = toBooleanQuery(keyword);
+        String sql = query == null
+                ? "SELECT COUNT(*) FROM TECH_ARTICLE a WHERE " + ARCHIVE_VISIBLE
+                        + "AND (a.title LIKE ? OR a.content LIKE ?)"
+                : "SELECT COUNT(*) FROM TECH_ARTICLE a WHERE " + ARCHIVE_VISIBLE
+                        + "AND MATCH(a.title, a.content) AGAINST(? IN BOOLEAN MODE)";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            if (query == null) {
+                String like = "%" + keyword.trim() + "%";
+                pstmt.setString(1, like);
+                pstmt.setString(2, like);
+            } else {
+                pstmt.setString(1, query);
+            }
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        }
+    }
+
+    /** 한 글자 검색 전용 폴백 — 인덱스를 못 타지만 "한 글자는 검색이 안 된다"보다는 낫다 */
+    private List<TechArticleDto> searchArchiveWithLike(String keyword, Sort sort, int offset, int limit)
+            throws SQLException {
+        String order = sort == null ? "a.id DESC" : sort.orderBy;
+        String sql = SELECT_WITH_AUTHOR + "WHERE " + ARCHIVE_VISIBLE
+                + "AND (a.title LIKE ? OR a.content LIKE ?) ORDER BY " + order + " LIMIT ? OFFSET ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            String like = "%" + keyword.trim() + "%";
+            pstmt.setString(1, like);
+            pstmt.setString(2, like);
+            pstmt.setInt(3, limit);
+            pstmt.setInt(4, offset);
+            return mapRows(pstmt);
+        }
+    }
+
+    /**
+     * 사용자 입력을 BOOLEAN MODE 검색식으로 바꾼다. 모든 낱말이 들어 있어야 하도록 각 낱말에 +를 붙이고
+     * 따옴표로 감싼다 — ngram에서 따옴표는 그 글자 순서를 그대로 찾으라는 뜻이다.
+     *
+     * 입력에 든 연산자(+ - * ~ &lt; &gt; ( ) " @)는 전부 지운다. 안 지우면 사용자가 "C++"를 검색할 때
+     * +가 연산자로 해석돼 엉뚱한 결과가 나오거나 구문 오류가 난다.
+     *
+     * @return 검색식. 쓸 수 있는 낱말이 없거나(연산자만 입력) 전부 한 글자면 null — 호출부가 LIKE로 떨어진다
+     */
+    static String toBooleanQuery(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return null;
+        }
+        StringBuilder query = new StringBuilder();
+        for (String word : keyword.trim().split("\\s+")) {
+            String cleaned = word.replaceAll("[+\\-*~<>()\"@]", "").trim();
+            if (cleaned.length() < NGRAM_TOKEN_SIZE) {
+                continue; // 한 글자는 ngram 인덱스에 토큰이 없다
+            }
+            query.append("+\"").append(cleaned).append("\" ");
+        }
+        return query.isEmpty() ? null : query.toString().trim();
     }
 
     public int countArchive() throws SQLException {

@@ -31,11 +31,27 @@
     </nav>
     <c:if test="${view == 'all'}">
         <nav class="sa-sort" aria-label="정렬">
-            <a href="${ctx}/spec-archive" class="${sort == 'latest' ? 'active' : ''}">최신순</a>
-            <a href="${ctx}/spec-archive?sort=popular" class="${sort == 'popular' ? 'active' : ''}">하트순</a>
+            <a href="${ctx}/spec-archive${empty keyword ? '' : '?q='.concat(keyword)}" class="${sort == 'latest' ? 'active' : ''}">최신순</a>
+            <a href="${ctx}/spec-archive?sort=popular${empty keyword ? '' : '&q='.concat(keyword)}" class="${sort == 'popular' ? 'active' : ''}">하트순</a>
         </nav>
+        <%-- 제목·본문 검색 (FULLTEXT ngram, 2026-10-08). GET이라 결과 주소를 공유·새로고침할 수 있다 --%>
+        <form method="get" action="${ctx}/spec-archive" class="row" style="gap:6px; margin-top:8px;">
+            <c:if test="${sort == 'popular'}"><input type="hidden" name="sort" value="popular"></c:if>
+            <input type="search" name="q" value="<c:out value='${keyword}' />" placeholder="제목·본문 검색" style="flex:1;">
+            <button type="submit" class="secondary">검색</button>
+            <c:if test="${not empty keyword}">
+                <a class="btn secondary" href="${ctx}/spec-archive">전체 보기</a>
+            </c:if>
+        </form>
     </c:if>
 </div>
+
+<c:if test="${not empty keyword}">
+    <p class="muted" style="margin:10px 0 0;">
+        "<c:out value="${keyword}" />" 검색 결과 <strong>${listPage.total}</strong>건
+        <c:if test="${listPage.total == 0}"> — 다른 낱말로 찾아보세요. 두 글자 이상이면 글 중간에 있는 말도 찾습니다.</c:if>
+    </p>
+</c:if>
 
 <c:choose>
     <c:when test="${empty listPage.posts}">
@@ -68,7 +84,7 @@
         </div>
 
         <c:if test="${listPage.totalPages > 1}">
-            <c:set var="base" value="${ctx}/spec-archive?${view == 'bookmarks' ? 'view=bookmarks&' : (sort == 'popular' ? 'sort=popular&' : '')}" />
+            <c:set var="base" value="${ctx}/spec-archive?${view == 'bookmarks' ? 'view=bookmarks&' : (sort == 'popular' ? 'sort=popular&' : '')}${empty keyword ? '' : 'q='.concat(keyword).concat('&')}" />
             <div class="sa-pager">
                 <c:if test="${listPage.hasPrev}"><a class="btn secondary" href="${base}page=${listPage.page - 1}">이전</a></c:if>
                 <span class="muted">${listPage.page} / ${listPage.totalPages}</span>

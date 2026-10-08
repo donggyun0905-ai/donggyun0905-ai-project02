@@ -133,6 +133,21 @@ public class SpecArchiveService {
         return new ListPage(withPreview(articleDao.findArchivePage(sort, (p - 1) * PAGE_SIZE, PAGE_SIZE)), p, totalPages, total);
     }
 
+    /**
+     * 키워드 검색 (2026-10-08) — 제목·본문을 FULLTEXT(ngram)로 찾는다.
+     * 검색어가 비면 평소 목록과 같다 — 빈 검색을 "결과 없음"으로 보여 주면 글이 사라진 것처럼 보인다.
+     */
+    public ListPage search(String keyword, TechArticleDao.Sort sort, int page) throws SQLException {
+        if (keyword == null || keyword.isBlank()) {
+            return list(sort, page);
+        }
+        int total = articleDao.countSearchArchive(keyword);
+        int totalPages = Math.max(1, (total + PAGE_SIZE - 1) / PAGE_SIZE);
+        int p = Math.min(Math.max(1, page), totalPages);
+        return new ListPage(withPreview(articleDao.searchArchive(keyword, sort, (p - 1) * PAGE_SIZE, PAGE_SIZE)),
+                p, totalPages, total);
+    }
+
     public ListPage listBookmarks(Long userId, int page) throws SQLException {
         int total = articleDao.countBookmarkedArchive(userId);
         int totalPages = Math.max(1, (total + PAGE_SIZE - 1) / PAGE_SIZE);
