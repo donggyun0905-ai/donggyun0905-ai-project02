@@ -37,6 +37,9 @@ final class ScoringRules {
     static final String STREAK_BONUS_DAY7 = "STREAK_BONUS_DAY7";
     static final String STREAK_BONUS_DAY30 = "STREAK_BONUS_DAY30";
     static final String DAILY_POINTS_PREFIX = "DAILY_POINTS_"; // 1..5 = 등급 순서별 문제 풀이 점수
+    // D-day 계획(0/1 배낭)의 "무게" — 단계 하나를 끝내는 데 걸리는 평균 일수. 추정이라 관리자가 조정할 수 있게
+    // 규칙으로 뒀다(2026-10-08). SKILL은 티어별로, 나머지는 단계 종류별로 본다.
+    static final String EFFORT_DAYS_PREFIX = "EFFORT_DAYS_";
 
     private static final long CACHE_MILLIS = 60_000L;
 
@@ -75,7 +78,17 @@ final class ScoringRules {
             Map.entry(STREAK_BONUS_PER_DAY, 2),
             Map.entry(STREAK_BONUS_MAX, 20),
             Map.entry(STREAK_BONUS_DAY7, 30),
-            Map.entry(STREAK_BONUS_DAY30, 100));
+            Map.entry(STREAK_BONUS_DAY30, 100),
+            // 소요 일수 추정 — 입문은 공부 노트 하나, 핵심은 프로젝트에 적용, 심화는 업그레이드, 전문가는 글쓰기.
+            // 자격증은 접수·시험 일정이 끼어 가장 길다. 복습은 이미 익힌 것을 다시 정리하는 것이라 짧다.
+            Map.entry("EFFORT_DAYS_SKILL_ENTRY", 3),
+            Map.entry("EFFORT_DAYS_SKILL_CORE", 7),
+            Map.entry("EFFORT_DAYS_SKILL_ADVANCED", 5),
+            Map.entry("EFFORT_DAYS_SKILL_EXPERT", 4),
+            Map.entry("EFFORT_DAYS_CERT", 21),
+            Map.entry("EFFORT_DAYS_PROJECT", 10),
+            Map.entry("EFFORT_DAYS_REVIEW", 1),
+            Map.entry("EFFORT_DAYS_DEFAULT", 3));
 
     private static final ScoringRuleDao DAO = new ScoringRuleDao();
 

@@ -3,6 +3,7 @@ package com.specodyssey.controller;
 import com.specodyssey.util.Pager;
 import com.specodyssey.dto.DdayItemDto;
 import com.specodyssey.dto.UserDto;
+import com.specodyssey.service.DdayPlanService;
 import com.specodyssey.service.DdayService;
 
 import jakarta.servlet.ServletException;
@@ -27,6 +28,7 @@ public class DdayServlet extends HttpServlet {
     private static final int PAGE_SIZE = 10;
 
     private final DdayService ddayService = new DdayService();
+    private final DdayPlanService ddayPlanService = new DdayPlanService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -83,8 +85,15 @@ public class DdayServlet extends HttpServlet {
         Pager<DdayItemDto> pager = Pager.of(items, Pager.parsePage(req.getParameter("page")), PAGE_SIZE);
         req.setAttribute("items", pager.getItems());
         req.setAttribute("pager", pager);
-        req.setAttribute("urgentItem", ddayService.findMostUrgent(items));
+        DdayItemDto urgent = ddayService.findMostUrgent(items);
+        req.setAttribute("urgentItem", urgent);
         req.setAttribute("today", today);
+        // 가장 급한 일정까지 남은 기간에 무엇부터 하면 점수가 가장 많이 오르는지 (0/1 배낭, 2026-10-08).
+        // 계획이 필요한 건 "아직 남은" 일정뿐이다 — 지난 일정에는 계획을 세우지 않는다.
+        if (urgent != null && urgent.getDaysLeft() > 0) {
+            req.setAttribute("ddayPlan", ddayPlanService.plan(userId, (int) urgent.getDaysLeft()));
+            req.setAttribute("planTarget", urgent);
+        }
         req.getRequestDispatcher("/WEB-INF/views/dday.jsp").forward(req, resp);
     }
 

@@ -350,6 +350,7 @@
       "RoadmapServlet.java"
     ],
     "services": [
+      "DdayPlanner.java",
       "RoadmapCompletionService.java",
       "RoadmapProgressCalculator.java",
       "RoadmapService.java"
@@ -360,6 +361,7 @@
     ],
     "views": [],
     "tests": [
+      "DdayPlannerTest.java",
       "RoadmapDaoTest.java",
       "RoadmapProgressCalculatorTest.java",
       "RoadmapServiceTest.java",
@@ -867,6 +869,8 @@
       "DdayServlet.java"
     ],
     "services": [
+      "DdayPlanService.java",
+      "DdayPlanner.java",
       "DdayService.java"
     ],
     "daos": [
@@ -877,6 +881,8 @@
     "tests": [
       "CertScheduleDaoTest.java",
       "DdayAlertDaoTest.java",
+      "DdayPlanServiceTest.java",
+      "DdayPlannerTest.java",
       "DdayServiceTest.java"
     ]
   },
@@ -890,6 +896,8 @@
       "DdayServlet.java"
     ],
     "services": [
+      "DdayPlanService.java",
+      "DdayPlanner.java",
       "DdayService.java"
     ],
     "daos": [
@@ -900,6 +908,8 @@
     ],
     "tests": [
       "DdayAlertDaoTest.java",
+      "DdayPlanServiceTest.java",
+      "DdayPlannerTest.java",
       "DdayServiceTest.java"
     ]
   },

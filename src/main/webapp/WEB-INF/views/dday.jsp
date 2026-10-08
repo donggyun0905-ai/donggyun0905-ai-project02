@@ -17,6 +17,35 @@
             </div>
         </c:if>
 
+        <%-- D-day까지 무엇부터 할지 — 남은 일수를 용량, 단계 소요 일수를 무게, 점수를 가치로 본 0/1 배낭 (2026-10-08) --%>
+        <c:if test="${not empty ddayPlan and not empty ddayPlan.picked}">
+            <div class="card" style="border-left:4px solid var(--teal);">
+                <div class="spread">
+                    <h2 style="margin:0;">이 기간에 뭐부터 할까</h2>
+                    <span class="muted" style="font-size:0.84rem;"><c:out value="${planTarget.title}" />까지 ${ddayPlan.availableDays}일</span>
+                </div>
+                <p class="muted" style="margin:6px 0 0; font-size:0.86rem;">
+                    남은 ${ddayPlan.availableDays}일 안에 끝낼 수 있는 조합 중 점수가 가장 많이 오르는 것을 골랐습니다 —
+                    <strong>${ddayPlan.picked.size()}개 · ${ddayPlan.usedDays}일 · +${ddayPlan.totalPoints}점</strong><c:if test="${ddayPlan.leftoverDays > 0}">
+                    (${ddayPlan.leftoverDays}일 여유)</c:if>
+                </p>
+                <table style="margin-top:10px; width:100%;">
+                    <tr><th style="text-align:left;">할 일</th><th style="width:90px;">예상 기간</th><th style="width:70px;">점수</th></tr>
+                    <c:forEach var="pick" items="${ddayPlan.picked}">
+                        <tr>
+                            <td><c:out value="${pick.label}" /></td>
+                            <td class="muted">${pick.effortDays}일</td>
+                            <td><strong>+${pick.points}</strong></td>
+                        </tr>
+                    </c:forEach>
+                </table>
+                <p class="muted" style="margin:10px 0 0; font-size:0.8rem;">
+                    예상 기간은 단계 종류별 평균치입니다. 잠겨 있는(앞 티어를 끝내야 열리는) 단계는 넣지 않았습니다.
+                    <a href="${pageContext.request.contextPath}/roadmap">로드맵에서 보기</a>
+                </p>
+            </div>
+        </c:if>
+
         <div class="card">
             <h2>일정 직접 추가</h2>
             <c:if test="${not empty errorMessage}">
