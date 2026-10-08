@@ -816,7 +816,7 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 
 #### COMPANION_DEVICE (데스크톱 캐릭터 연결) — 신설
 
-관련 요구사항: 없음(추가 기능) · `sql/32_schema_companion_device.sql` · 계획 `docs/desktop-companion-plan.md`
+관련 요구사항: 없음(추가 기능) · `sql/33_schema_companion_device.sql` · 계획 `docs/desktop-companion-plan.md`
 
 바탕화면 캐릭터(exe)와 웹 계정의 연결. 웹 "캐릭터 켜기" → 일회용 코드(1분) → exe가 캐릭터 전용 토큰으로 교환. 한 행 = 한 PC.
 

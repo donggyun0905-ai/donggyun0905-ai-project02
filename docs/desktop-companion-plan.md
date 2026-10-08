@@ -160,6 +160,6 @@ powershell -ExecutionPolicy Bypass -File desktop-companion\build-companion.ps1
 - 코드 서명을 안 해서 처음 실행 때 윈도우 "알 수 없는 게시자" 경고가 뜰 수 있다 → "추가 정보 → 실행".
 
 **코드 위치**: 웹 `controller/CompanionServlet`(프로필 버튼·연결 목록) · `controller/CompanionApiServlet`(exe용 API) ·
-`service/companion/*` · `profile/_companion.jspf` · `js/companion.js` · `sql/32_schema_companion_device.sql` /
+`service/companion/*` · `profile/_companion.jspf` · `js/companion.js` · `sql/33_schema_companion_device.sql` /
 exe `desktop-companion/src/main/java/com/specodyssey/companion/*` (규칙 `BubbleRules`, 화면 `CharacterWindow`·`BubbleWindow`,
 설치·등록 `WindowsSetup`, 업데이트 `Updater`).

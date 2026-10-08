@@ -1,5 +1,7 @@
 -- 데스크톱 캐릭터(가이드) 연결 — COMPANION_DEVICE
--- 대상: 31번까지 실행한 DB. 한 번만 실행한다. (03_schema_extended.sql에도 반영되어 있어 새 DB에서는 필요 없다)
+-- 대상: 32번까지 실행한 DB. 한 번만 실행한다. (03_schema_extended.sql에도 반영되어 있어 새 DB에서는 필요 없다)
+--       (donghyeon 브랜치에서는 32번이었다 — 같은 날 seongwon의 32번(서류 DB 저장)이 먼저 main에 들어가
+--        33번으로 옮겼다. 내용은 그대로다.)
 -- 기준 문서: docs/desktop-companion-plan.md 3·6절
 --
 -- 웹에서 "캐릭터 켜기" → 일회용 코드(1분)를 만들어 specodyssey:// 주소로 exe에 넘기고,
