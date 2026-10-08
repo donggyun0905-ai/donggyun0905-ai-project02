@@ -258,6 +258,11 @@ public class CompanionMessageService {
         };
     }
 
+    /** 지금 등급 — 캐릭터 그림(tier1~5)과 같은 기준. "오셍이들" 화면이 내 캐릭터를 표시할 때 쓴다 */
+    public Tier currentTier(Long userId) throws SQLException {
+        return tier(userId);
+    }
+
     private Tier tier(Long userId) throws SQLException {
         UserScoreSummaryDto summary = scoreService.getSummary(userId);
         int score = summary == null || summary.getTotalScore() == null ? 0 : summary.getTotalScore();

@@ -11,6 +11,8 @@ public class CompanionDeviceDto {
     private LocalDateTime connectedAt;
     private LocalDateTime lastUsedAt;
     private LocalDateTime revokedAt;
+    private LocalDateTime signedOutAt; // 웹 로그아웃으로 쉬는 중 (sql/39)
+    private String tokenHash;          // 브라우저 연결 쿠키 서명용 — 화면·응답으로 내보내지 않는다
 
     public Long getId() {
         return id;
@@ -58,5 +60,25 @@ public class CompanionDeviceDto {
 
     public void setRevokedAt(LocalDateTime revokedAt) {
         this.revokedAt = revokedAt;
+    }
+
+    public LocalDateTime getSignedOutAt() {
+        return signedOutAt;
+    }
+
+    public void setSignedOutAt(LocalDateTime signedOutAt) {
+        this.signedOutAt = signedOutAt;
+    }
+
+    public boolean isSignedOut() {
+        return signedOutAt != null;
+    }
+
+    public String getTokenHash() {
+        return tokenHash;
+    }
+
+    public void setTokenHash(String tokenHash) {
+        this.tokenHash = tokenHash;
     }
 }

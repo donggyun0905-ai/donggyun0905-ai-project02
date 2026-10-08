@@ -1132,6 +1132,7 @@ CREATE TABLE COMPANION_DEVICE (
     connected_at       DATETIME      NULL,
     last_used_at       DATETIME      NULL,
     revoked_at         DATETIME      NULL,     -- 연결 해제 시각
+    signed_out_at      DATETIME      NULL,     -- 웹 로그아웃으로 쉬는 중 — 다시 로그인하면 NULL (sql/39)
     created_at         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     is_deleted         BOOLEAN       NOT NULL DEFAULT FALSE,

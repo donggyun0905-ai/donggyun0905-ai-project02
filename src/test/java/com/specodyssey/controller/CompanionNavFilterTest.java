@@ -22,7 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 메뉴의 데스크톱 캐릭터 항목이 어떤 모습으로 나올지 (2026-10-08).
+ * 메뉴 "오셍이들"(데스크톱 캐릭터) 항목에 NEW 꼬리표가 붙는지 (2026-10-08).
+ * 항목 자체는 늘 보이고(companion-nav.jspf), 아직 캐릭터를 연결하지 않은 사람에게만 눈에 띄게 한다.
  * 설치 파일이 있는지는 1분 캐시라서, DB에 올리는 대신 캐시를 직접 채워 상황을 만든다 —
  * 공유 DB에 올라간 버전이 있든 없든 결과가 같아야 하므로.
  */
@@ -45,24 +46,15 @@ class CompanionNavFilterTest {
     }
 
     @Test
-    @DisplayName("설치 파일을 받아간 적이 없으면 [캐릭터 내려받기]")
-    void 받아간_적이_없으면_내려받기() throws Exception {
+    @DisplayName("아직 연결한 PC가 없으면 NEW")
+    void 연결한_PC가_없으면_NEW() throws Exception {
         FakeWeb.Request req = loggedInRequest(newUser());
         filterWithRelease(true).doFilter(req.http(), FakeWeb.response().http(), new FakeWeb.Chain().chain());
-        assertEquals("download", req.attributes.get("companionNavState"));
+        assertEquals("new", req.attributes.get("companionNavState"));
     }
 
     @Test
-    @DisplayName("받아갔으면 [캐릭터 켜기]로 바뀐다 — 프로필 버튼과 같은 일을 한다")
-    void 받아갔으면_켜기로_바뀐다() throws Exception {
-        FakeWeb.Request req = loggedInRequest(newUser());
-        req.session.attributes.put(CompanionServlet.DOWNLOADED_ATTR, Boolean.TRUE);
-        filterWithRelease(true).doFilter(req.http(), FakeWeb.response().http(), new FakeWeb.Chain().chain());
-        assertEquals("launch", req.attributes.get("companionNavState"));
-    }
-
-    @Test
-    @DisplayName("연결된 PC가 있으면 항목을 아예 숨긴다 — 설치·연결까지 끝났으니 할 일이 없다")
+    @DisplayName("연결된 PC가 있으면 NEW를 뗀다 — 설치·연결까지 끝났다")
     void 연결된_PC가_있으면_숨긴다() throws Exception {
         UserDto user = newUser();
         String code = authService.issueCode(user.getId());
@@ -75,7 +67,7 @@ class CompanionNavFilterTest {
     }
 
     @Test
-    @DisplayName("올라간 설치 파일이 없으면 숨긴다 — 눌러도 받을 게 없다")
+    @DisplayName("올라간 설치 파일이 없으면 NEW를 달지 않는다 — 받을 게 없다")
     void 설치_파일이_없으면_숨긴다() throws Exception {
         FakeWeb.Request req = loggedInRequest(newUser());
         filterWithRelease(false).doFilter(req.http(), FakeWeb.response().http(), new FakeWeb.Chain().chain());
@@ -83,7 +75,7 @@ class CompanionNavFilterTest {
     }
 
     @Test
-    @DisplayName("면접관 계정에는 안 보인다 — 캐릭터는 구직자용이다")
+    @DisplayName("면접관 계정은 건드리지 않는다 — 캐릭터는 구직자용이다")
     void 면접관에게는_안_보인다() throws Exception {
         UserDto user = newUser();
         user.setUserType(RoleFilter.INTERVIEWER);

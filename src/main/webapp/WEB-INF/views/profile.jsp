@@ -39,7 +39,12 @@
 
 <%@ include file="/WEB-INF/views/profile/_ai-usage.jspf" %>
 
-<%@ include file="/WEB-INF/views/profile/_companion.jspf" %>
+<%-- 예전 캐릭터(0.1.0)의 "사이트 열기·연결하기"는 /profile#companion을 연다. 그 칸은 오셍이들(/bot)로 옮겼다 (2026-10-08) --%>
+<script>
+    if (location.hash === '#companion') {
+        location.replace('${pageContext.request.contextPath}/bot');
+    }
+</script>
 
 <c:set var="passwordAction" value="/profile/password" />
 <%@ include file="/WEB-INF/views/common/password-change.jspf" %>

@@ -28,9 +28,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * 웹 쪽 데스크톱 캐릭터 연결 — 내 프로필 "데스크톱 캐릭터" 칸(profile/_companion.jspf, js/companion.js)이 부른다.
+ * 웹 쪽 데스크톱 캐릭터 연결 — "오셍이들" 화면(/bot, bot.jsp, js/companion.js)이 부른다.
  *   POST /companion/connect  일회용 코드를 만들어 캐릭터를 켜는 specodyssey:// 주소를 돌려준다
- *   GET  /companion/devices  연결된 PC 목록
+ *   GET  /companion/devices  연결된 PC 목록 (이 브라우저의 PC는 thisPc). 방금 연결이 끝났으면 이 브라우저에
+ *                            "이 PC의 캐릭터" 쿠키를 남긴다 — 이후 이 브라우저에서 로그인·로그아웃하면
+ *                            캐릭터가 따라간다 (CompanionLinkFilter)
  *   POST /companion/revoke   id → 그 PC 연결 해제
  *   GET  /companion/download 최신 설치 파일(Setup.exe) 내려받기 — 관리자가 올린 것을 DB에서 이어 보낸다
  * 로그인 세션이 필요하고(SessionFilter), POST는 CSRF 헤더를 확인한다(SecurityHeadersFilter). 항상 세션의 본인 것만.
@@ -47,6 +49,16 @@ public class CompanionServlet extends HttpServlet {
      * (js/companion-nav.js).
      */
     static final String DOWNLOADED_ATTR = "companionDownloaded";
+
+    /** 이 브라우저와 PC 캐릭터를 잇는 쿠키 — 값은 CompanionAuthService.browserLink (서명된 행 id) */
+    static final String LINK_COOKIE = "so_companion_pc";
+    /** 이 세션이 "캐릭터 연결"로 만든 행 id와 시각 — 캐릭터가 코드를 교환하면 그 행에 대한 쿠키를 남긴다 */
+    static final String PENDING_ATTR = "companionPendingDevice";
+    static final String PENDING_AT_ATTR = "companionPendingAt";
+    private static final String APPLIED_ATTR = "companionLinkApplied";
+    /** 연결을 기다리는 시간 — 처음 설치하면 캐릭터가 뜨기까지 오래 걸릴 수 있어 넉넉히 */
+    private static final long PENDING_MS = 10 * 60_000L;
+    private static final int LINK_COOKIE_DAYS = 365;
 
     private static final Logger LOG = Logger.getLogger(CompanionServlet.class.getName());
     private static final Gson GSON = new Gson();
@@ -68,6 +80,8 @@ public class CompanionServlet extends HttpServlet {
             return;
         }
         try {
+            String link = applyPendingLink(req, resp, authService);
+            CompanionDeviceDto thisPc = authService.deviceForBrowserLink(link != null ? link : linkCookie(req));
             List<Map<String, Object>> list = new ArrayList<>();
             LocalDateTime now = LocalDateTime.now(ZONE);
             for (CompanionDeviceDto d : authService.connectedDevices(userId)) {
@@ -75,6 +89,7 @@ public class CompanionServlet extends HttpServlet {
                 item.put("id", d.getId());
                 item.put("name", d.getDeviceName() == null ? "이름 없는 PC" : d.getDeviceName());
                 item.put("lastUsed", ago(d.getLastUsedAt(), now));
+                item.put("thisPc", thisPc != null && thisPc.getId().equals(d.getId()));
                 list.add(item);
             }
             writeJson(resp, HttpServletResponse.SC_OK, Map.of("devices", list));
@@ -90,7 +105,13 @@ public class CompanionServlet extends HttpServlet {
         String action = req.getPathInfo();
         try {
             if ("/connect".equals(action)) {
-                String code = authService.issueCode(userId);
+                CompanionAuthService.Issued issued = authService.issue(userId);
+                String code = issued.code();
+                HttpSession session = req.getSession(false);
+                if (session != null) {
+                    session.setAttribute(PENDING_ATTR, issued.deviceId());
+                    session.setAttribute(PENDING_AT_ATTR, System.currentTimeMillis());
+                }
                 String launchUrl = "specodyssey://connect?code=" + code
                         + "&server=" + URLEncoder.encode(CompanionApiServlet.baseUrl(req), StandardCharsets.UTF_8);
                 CompanionReleaseDto latest = releaseService.latest();
@@ -136,6 +157,63 @@ public class CompanionServlet extends HttpServlet {
                 resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "잠시 후 다시 시도해 주세요.");
             }
         }
+    }
+
+    /**
+     * 이 세션이 "캐릭터 연결"을 눌렀고 캐릭터가 그 코드로 연결을 마쳤으면 "이 PC의 캐릭터" 쿠키를 남긴다.
+     * 연결 목록(/companion/devices)과 다음 화면 이동(CompanionNavFilter) 때 부른다. 기다리는 게 없으면 DB를 보지 않는다.
+     * @return 방금 남긴 쿠키 값 (안 남겼으면 null)
+     */
+    static String applyPendingLink(HttpServletRequest req, HttpServletResponse resp, CompanionAuthService authService)
+            throws SQLException {
+        // 같은 요청에서 앞서(필터에서) 이미 남겼으면 그 값 — 요청의 쿠키는 아직 예전 값이라 여기서 알려 줘야 한다
+        if (req.getAttribute(APPLIED_ATTR) instanceof String applied) {
+            return applied;
+        }
+        HttpSession session = req.getSession(false);
+        Object pending = session == null ? null : session.getAttribute(PENDING_ATTR);
+        if (!(pending instanceof Long deviceId)) {
+            return null;
+        }
+        Object at = session.getAttribute(PENDING_AT_ATTR);
+        if (!(at instanceof Long started) || System.currentTimeMillis() - started > PENDING_MS) {
+            clearPending(session); // 코드가 만료돼 더 기다려도 연결되지 않는다
+            return null;
+        }
+        String link = authService.browserLink(deviceId);
+        if (link == null) {
+            return null; // 캐릭터가 아직 코드를 안 바꿨다 — 다음에 다시 본다
+        }
+        clearPending(session);
+        req.setAttribute(APPLIED_ATTR, link);
+        if (!resp.isCommitted()) {
+            jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie(LINK_COOKIE, link);
+            cookie.setHttpOnly(true);
+            cookie.setSecure(req.isSecure());
+            cookie.setPath(req.getContextPath().isEmpty() ? "/" : req.getContextPath());
+            cookie.setMaxAge(LINK_COOKIE_DAYS * 24 * 60 * 60);
+            cookie.setAttribute("SameSite", "Lax");
+            resp.addCookie(cookie);
+        }
+        return link;
+    }
+
+    static String linkCookie(HttpServletRequest req) {
+        jakarta.servlet.http.Cookie[] cookies = req.getCookies();
+        if (cookies == null) {
+            return null;
+        }
+        for (jakarta.servlet.http.Cookie c : cookies) {
+            if (LINK_COOKIE.equals(c.getName())) {
+                return c.getValue();
+            }
+        }
+        return null;
+    }
+
+    private static void clearPending(HttpSession session) {
+        session.removeAttribute(PENDING_ATTR);
+        session.removeAttribute(PENDING_AT_ATTR);
     }
 
     static String ago(LocalDateTime at, LocalDateTime now) {

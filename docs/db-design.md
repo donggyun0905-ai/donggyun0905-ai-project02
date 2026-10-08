@@ -816,9 +816,9 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 
 #### COMPANION_DEVICE (데스크톱 캐릭터 연결) — 신설
 
-관련 요구사항: 없음(추가 기능) · `sql/33_schema_companion_device.sql` · 계획 `docs/desktop-companion-plan.md`
+관련 요구사항: 없음(추가 기능) · `sql/33_schema_companion_device.sql`, `sql/39_alter_companion_device_signed_out.sql` · 계획 `docs/desktop-companion-plan.md`
 
-바탕화면 캐릭터(exe)와 웹 계정의 연결. 웹 "캐릭터 켜기" → 일회용 코드(1분) → exe가 캐릭터 전용 토큰으로 교환. 한 행 = 한 PC.
+바탕화면 캐릭터(exe)와 웹 계정의 연결. "오셍이들"(`/bot`) 화면의 "캐릭터 연결" → 일회용 코드(1분) → exe가 캐릭터 전용 토큰으로 교환. 한 행 = 한 PC.
 
 | 컬럼 | 타입 | 키 | 설명 |
 | --- | --- | --- | --- |
@@ -830,12 +830,17 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 | `token_hash` | CHAR(64) | UNIQUE | 캐릭터 전용 토큰 SHA-256 — 연결 전 NULL |
 | `connected_at` · `last_used_at` | DATETIME |  | 연결 시각 · 마지막 요청 시각 |
 | `revoked_at` | DATETIME |  | 연결 해제 시각 — 있으면 토큰으로 요청할 수 없다 |
+| `signed_out_at` | DATETIME |  | 그 PC 브라우저에서 로그아웃해 쉬는 중 — 다시 로그인하면 NULL (2026-10-08) |
 
 설계 판단:
 
 - 웹 세션(쿠키)을 exe에 넘기지 않는다 — 주소에 남으면 계정 전체가 노출되고, 세션이 끝나면 캐릭터도 끊긴다.
 - 코드·토큰 원문은 저장하지 않는다(해시만). 코드 교환은 UPDATE 한 문장이라 같은 코드로 두 번 연결되지 않는다.
 - `/api/companion/*`은 SessionFilter 공개 경로 — 세션 대신 이 토큰으로 사용자를 확인한다.
+- 한 PC = 한 연결 (2026-10-08): exe가 다시 연결할 때 예전 토큰을 같이 보내면 그 행의 `revoked_at`을 채운다.
+- 계정 따라가기 (2026-10-08): 연결한 브라우저에 쿠키(`so_companion_pc` = 행 id + 토큰 해시로 만든 HMAC)를 남긴다.
+  그 브라우저에서 다른 계정으로 로그인하면 같은 행의 `user_id`를 바꾸고(토큰은 그대로), 로그아웃하면 `signed_out_at`을 채운다
+  (`CompanionLinkFilter`). `revoked_at`(직접 해제)과 달리 다시 로그인하면 되살아난다.
 
 #### COMPANION_RELEASE · COMPANION_RELEASE_CHUNK (데스크톱 캐릭터 설치 파일) — 신설
 

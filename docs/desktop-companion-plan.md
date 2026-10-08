@@ -20,7 +20,7 @@
 ## 2. 전체 구조
 
 ```
-[웹 사이트]  "캐릭터 켜기" 버튼 ──→ specodyssey://connect?code=…&server=…
+[웹 사이트]  "캐릭터 연결" 버튼 ──→ specodyssey://connect?code=…&server=…
                                           │ (윈도우가 exe 실행)
 [캐릭터 exe] ── code → 토큰 교환 ──→ [서블릿 /api/companion/*] ──→ 기존 서비스 ──→ DB
      │  1분마다: 할 일 목록 · 트렌드 · 연습장
@@ -31,11 +31,12 @@
 
 ## 3. 연결(로그인) 흐름
 
-1. 로그인한 사이트에서 **캐릭터 켜기** → 서버가 이 사용자의 **일회용 코드(1분)** 를 만든다.
+1. 로그인한 사이트의 **오셍이들**(`/bot`)에서 **캐릭터 연결** → 서버가 이 사용자의 **일회용 코드(1분)** 를 만든다.
 2. 브라우저가 `specodyssey://connect?code=…&server=…`를 연다 → exe가 켜진다. (처음 한 번 "앱 열기" 확인, "항상 허용" 가능)
 3. exe가 `server`로 코드를 보내 **캐릭터 전용 토큰**으로 바꾼다. 코드는 즉시 폐기.
 4. exe는 토큰을 `%APPDATA%\SpecOdyssey\`에 저장 → 다음부터는 자동 연결.
-5. 사이트 **내 프로필 > 연결된 캐릭터**에서 언제든 연결 해제(토큰 폐기).
+5. 사이트 **오셍이들 > 연결된 PC**에서 언제든 연결 해제(토큰 폐기). 같은 PC에서 다시 연결하면 예전 연결은 자동으로 끊긴다.
+6. 연결한 브라우저에서 다른 계정으로 로그인하면 캐릭터가 그 계정으로 옮겨 가고, 로그아웃하면 쉰다 — 다시 연결할 필요 없음 (2026-10-08).
 
 - 웹 로그인 세션(쿠키)은 넘기지 않는다 — 주소에 남으면 계정이 통째로 노출되고, 세션 만료 시 끊기므로.
 - 토큰은 `SecureRandom`, DB에는 **해시만** 저장. 토큰으로는 그 사용자의 안내·트렌드·연습장만 읽고 쓸 수 있다.
@@ -91,7 +92,7 @@
 | `GET /api/companion/trends` | 트렌드 기술 목록 |
 | `GET` · `PUT /api/companion/note` | 연습장 불러오기·저장 (마지막 수정 시각 포함) |
 | `POST /api/companion/disconnect` | 토큰 폐기 (exe의 연결 해제) |
-| 프로필 화면 | 연결된 캐릭터 목록 + 연결 해제 버튼 |
+| 오셍이들 화면 (`/bot`) | 캐릭터 소개 · 내려받기 · 캐릭터 연결 · 연결된 PC 목록 + 연결 해제 (2026-10-08, 예전 프로필 칸·메뉴 [캐릭터 켜기]를 옮김) |
 
 - `/api/companion/*`은 세션 대신 토큰으로 확인하므로 `SessionFilter` 공개 경로에 추가해야 한다 → CLAUDE.md 규칙상 **리뷰어 2명**.
 - 문장 만들기는 새 `CompanionMessageService` 한 곳에 모은다 (기존 서비스 호출만, SQL은 DAO에).
@@ -148,10 +149,10 @@ powershell -ExecutionPolicy Bypass -File desktop-companion\build-companion.ps1
   `MsiInstallerStrings_en.wxl`(설치 화면 문구를 한국어로 덮어씀).
 
 **이용자 입장**
-1. 사이트 내 프로필 → **캐릭터 켜기** → (설치 안 됐으면) **내려받기** → `SpecOdysseyCompanion-Setup.exe` 실행.
+1. 사이트 **오셍이들** → **캐릭터 연결** → (설치 안 됐으면) **내려받기** → `SpecOdysseyCompanion-Setup.exe` 실행.
 2. 내 계정에만 설치된다(관리자 권한 불필요): `%LOCALAPPDATA%\SpecOdysseyCompanion`, 시작 메뉴 "Spec Odyssey", `specodyssey://` 등록,
    윈도우 시작 시 자동 실행(설정에서 끌 수 있음). 설치가 끝나면 캐릭터가 바로 켜진다.
-3. 다시 **캐릭터 켜기** → 내 계정과 연결. 연결 정보는 `%APPDATA%\SpecOdyssey\companion.json` (업데이트·재부팅해도 유지).
+3. 다시 **캐릭터 연결** → 내 계정과 연결. 연결 정보는 `%APPDATA%\SpecOdyssey\companion.json` (업데이트·재부팅해도 유지).
 4. 지우기: 윈도우 설정 → 앱 → "SpecOdysseyCompanion" 제거. (자동 실행 항목은 캐릭터 설정에서 먼저 끄면 깔끔하다)
 
 **새 버전 내기**
@@ -167,7 +168,7 @@ powershell -ExecutionPolicy Bypass -File desktop-companion\build-companion.ps1
 **설정 창 (캐릭터 우클릭 → 설정)**: 다시 말하는 간격(기본 30분) · 하루 요약 시각(9시) · 저녁 경고 시각(20시) ·
 트렌드 순환 켜기/간격(10분)/보여 주는 시간(8초) · 크기 · 자동 실행.
 
-**코드 위치**: 웹 `controller/CompanionServlet`(프로필 버튼·내려받기) · `controller/CompanionApiServlet`(exe용 API) ·
-`controller/AdminCompanionServlet`(새 버전 올리기) · `service/companion/*` · `profile/_companion.jspf` · `js/companion.js` ·
+**코드 위치**: 웹 `controller/BotServlet`(오셍이들 화면) · `controller/CompanionServlet`(연결 버튼·내려받기) · `controller/CompanionLinkFilter`(로그인 따라가기) · `controller/CompanionApiServlet`(exe용 API) ·
+`controller/AdminCompanionServlet`(새 버전 올리기) · `service/companion/*` · `bot.jsp` · `js/companion.js` ·
 `sql/33_schema_companion_device.sql`·`sql/38_schema_companion_release.sql` / exe `desktop-companion/src/main/java/com/specodyssey/companion/*` (규칙 `BubbleRules`, 화면 `CharacterWindow`·
 `BubbleWindow`, 설정 `SettingsWindow`, 연습장 `NoteWindow`, 설치·등록·자동 실행 `WindowsSetup`, 업데이트 `Updater`).
