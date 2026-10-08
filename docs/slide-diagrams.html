@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>스펙 오디세이 — 구조 도해</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sea:#0E1A24; --sea-2:#13232F; --sea-3:#1A2E3C;
+  --paper:#FBFAF7; --paper-2:#C8D4DC; --mute:#8FA6B4; --dim:#5A6472;
+  --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.20);
+  --gold:#F2C879; --ok:#52B788; --warn:#E0A458; --bad:#E06C6C;
+  --c-web:#2B6CB0; --c-filter:#C2571A; --c-ctrl:#2E7D6B;
+  --c-svc:#7A5CB8; --c-dao:#B5841B; --c-db:#5A8F7B; --c-ext:#B03A48;
+  --sans:'IBM Plex Sans KR',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--sea);color:var(--paper);font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;overflow:hidden}
+
+#bar{position:fixed;top:0;left:0;right:0;height:52px;z-index:30;display:flex;align-items:center;
+  gap:8px;padding:0 18px;background:rgba(14,26,36,.96);border-bottom:1px solid var(--line);backdrop-filter:blur(8px)}
+#bar h1{margin:0 14px 0 0;font-size:15px;font-weight:600;letter-spacing:-.01em;white-space:nowrap}
+.tab{background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--mute);
+  font-family:var(--sans);font-size:12.5px;padding:6px 14px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.tab:hover{background:rgba(255,255,255,.12);color:var(--paper-2)}
+.tab[aria-selected="true"]{background:var(--gold);border-color:transparent;color:#1A1200;font-weight:600}
+#hint{margin-left:auto;font-size:11.5px;color:var(--dim);white-space:nowrap}
+
+main{position:fixed;inset:52px 0 0 0;overflow:auto;padding:26px 24px 40px}
+.view{display:none;max-width:1320px;margin:0 auto}
+.view.on{display:block}
+.vhead{margin-bottom:22px}
+.vhead .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--gold);margin:0 0 5px}
+.vhead h2{margin:0 0 7px;font-size:23px;font-weight:600;letter-spacing:-.02em}
+.vhead p{margin:0;font-size:13.5px;line-height:1.72;color:var(--paper-2);max-width:82ch}
+
+/* ---------- 공통 블록 ---------- */
+.row{display:flex;align-items:stretch;gap:10px;flex-wrap:wrap}
+.node{background:var(--sea-2);border:1.5px solid var(--line-2);border-radius:10px;padding:13px 15px;
+  display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+.node .nt{font-size:14px;font-weight:600;letter-spacing:-.01em;display:flex;align-items:baseline;gap:7px}
+.node .nt em{font-family:var(--mono);font-style:normal;font-size:10.5px;color:var(--mute);font-weight:400}
+.node .nd{font-size:11.5px;line-height:1.6;color:var(--mute)}
+.node.accent{border-color:var(--c);background:linear-gradient(180deg,color-mix(in srgb,var(--c) 18%,transparent),transparent)}
+.node.accent .nt{color:var(--paper)}
+.arrowdown,.arrowright{display:flex;align-items:center;justify-content:center;color:var(--dim);
+  font-size:17px;line-height:1;flex:none}
+.arrowdown{height:22px}
+.arrowright{width:22px}
+
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:2px}
+.chip{font-family:var(--mono);font-size:10.5px;padding:2px 7px;border-radius:3px;
+  background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--paper-2);white-space:nowrap}
+.chip.c{border-color:var(--c);color:var(--c)}
+
+.rulebox{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:18px}
+.rule{border:1.5px solid var(--gold);border-radius:10px;padding:13px 16px;background:rgba(242,200,121,.08)}
+.rule b{display:block;font-size:13.5px;margin-bottom:4px;color:var(--gold)}
+.rule span{font-size:12px;line-height:1.68;color:var(--paper-2)}
+
+.lane{display:grid;grid-template-columns:132px minmax(0,1fr);gap:0 14px;align-items:stretch;
+  border-top:1px solid var(--line);padding:14px 0}
+.lane:last-of-type{border-bottom:1px solid var(--line)}
+.lane .lab{display:flex;flex-direction:column;gap:3px;justify-content:center}
+.lane .lab b{font-size:13px;font-weight:600;color:var(--c)}
+.lane .lab span{font-size:10.5px;font-family:var(--mono);color:var(--dim)}
+
+.note{margin-top:18px;border-left:3px solid var(--gold);background:rgba(255,255,255,.04);
+  border-radius:0 8px 8px 0;padding:12px 15px;font-size:12.5px;line-height:1.74;color:var(--paper-2)}
+.note b{color:var(--paper)}
+code{font-family:var(--mono);font-size:.88em;background:rgba(0,0,0,.32);padding:1px 5px;border-radius:3px}
+
+/* ---------- 데이터 흐름 ---------- */
+.flow{display:flex;gap:0;align-items:stretch;overflow-x:auto;padding-bottom:6px}
+.tbl{flex:1;min-width:214px;background:var(--sea-2);border:1.5px solid var(--c);border-radius:11px;
+  padding:0;overflow:hidden;display:flex;flex-direction:column}
+.tbl header{background:color-mix(in srgb,var(--c) 26%,transparent);padding:10px 13px;
+  border-bottom:1px solid var(--line)}
+.tbl header b{display:block;font-family:var(--mono);font-size:12.5px;font-weight:600;letter-spacing:.01em}
+.tbl header span{font-size:11px;color:var(--paper-2)}
+.tbl ul{margin:0;padding:9px 13px 11px;list-style:none;display:flex;flex-direction:column;gap:5px}
+.tbl li{font-family:var(--mono);font-size:10.8px;color:var(--paper-2);display:flex;gap:6px;line-height:1.5}
+.tbl li i{font-style:normal;color:var(--dim);font-size:9.5px;border:1px solid var(--line);
+  border-radius:3px;padding:0 4px;flex:none;align-self:flex-start;margin-top:1px}
+.tbl li i.k{color:var(--gold);border-color:rgba(242,200,121,.5)}
+.flowarrow{flex:none;width:34px;display:flex;align-items:center;justify-content:center;
+  color:var(--dim);font-size:19px}
+
+/* ---------- AI 대시보드 ---------- */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;
+  background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:20px}
+.tile{background:var(--sea-2);padding:13px 15px;display:flex;flex-direction:column;gap:2px}
+.tile b{font-family:var(--mono);font-size:21px;font-weight:500;color:var(--gold);
+  font-variant-numeric:tabular-nums;line-height:1.2}
+.tile span{font-size:11px;color:var(--mute);line-height:1.5}
+.fallback{display:grid;grid-template-columns:minmax(150px,.8fr) 26px minmax(0,1.4fr);gap:8px 0;align-items:center;
+  margin-top:8px}
+.fallback .src{background:rgba(176,58,72,.14);border:1px solid rgba(176,58,72,.55);border-radius:8px;
+  padding:9px 12px;font-size:12.5px;font-weight:500}
+.fallback .to{background:rgba(82,183,136,.12);border:1px solid rgba(82,183,136,.5);border-radius:8px;
+  padding:9px 12px;font-size:12px;line-height:1.6;color:var(--paper-2)}
+.fallback .ar{text-align:center;color:var(--dim);font-size:16px}
+
+@media (max-width:860px){
+  #bar{flex-wrap:wrap;height:auto;padding:8px 14px}
+  #bar h1{width:100%;margin:0 0 6px}
+  #hint{display:none}
+  main{inset:94px 0 0 0;padding:18px 14px 32px}
+  .lane{grid-template-columns:1fr;gap:8px}
+  .fallback{grid-template-columns:1fr;gap:4px 0}
+  .fallback .ar{text-align:left;padding-left:4px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="bar">
+  <h1>구조 도해</h1>
+  <button class="tab" type="button" data-v="arch" aria-selected="true">03 · 시스템 아키텍쳐</button>
+  <button class="tab" type="button" data-v="data" aria-selected="false">04 · 데이터 모델</button>
+  <button class="tab" type="button" data-v="ai" aria-selected="false">05 · AI 아키텍처</button>
+  <span id="hint">주소 끝에 #arch · #data · #ai 를 붙이면 그 장이 바로 열립니다</span>
+</div>
+
+<main>
+
+<!-- ======================= 03 ARCHITECTURE ======================= -->
+<section class="view on" id="v-arch">
+  <div class="vhead">
+    <p class="eyebrow">03 · Architecture</p>
+    <h2>요청 하나가 지나가는 길</h2>
+    <p>프레임워크 없이 JSP/Servlet으로 만들었습니다. 프레임워크가 강제해 주는 계층 분리를 저희가 규칙으로 정하고, 그 규칙을 테스트가 막게 했습니다.</p>
+  </div>
+
+  <div class="row">
+    <div class="node accent" style="--c:var(--c-web)">
+      <div class="nt">브라우저 <em>JSP · JSTL 3.0</em></div>
+      <div class="nd">화면은 출력만 한다. 스크립틀릿을 쓰지 않는다.</div>
+      <div class="chips"><span class="chip">JSP 48</span><span class="chip">조각 26</span></div>
+    </div>
+    <div class="arrowright">→</div>
+    <div class="node accent" style="--c:var(--c-filter);flex:1.5">
+      <div class="nt">필터 체인 <em>jakarta.servlet.Filter</em></div>
+      <div class="nd">로그인·권한·보안을 서블릿보다 앞에서 끝낸다. 새 화면을 만들어도 여기를 통과한다.</div>
+      <div class="chips">
+        <span class="chip c">인코딩</span><span class="chip c">세션</span><span class="chip c">역할(지원자·면접관·관리자)</span>
+        <span class="chip c">CSRF · 보안 헤더</span><span class="chip c">온보딩</span><span class="chip c">사이드 위젯</span><span class="chip c">캐릭터 메뉴</span>
+      </div>
+    </div>
+    <div class="arrowright">→</div>
+    <div class="node accent" style="--c:var(--c-ctrl)">
+      <div class="nt">서블릿 <em>controller</em></div>
+      <div class="nd">요청을 받고 응답만 한다. 비즈니스 로직을 두지 않는다.</div>
+      <div class="chips"><span class="chip">70개</span></div>
+    </div>
+  </div>
+
+  <div class="arrowdown">↓</div>
+
+  <div class="row">
+    <div class="node accent" style="--c:var(--c-svc)">
+      <div class="nt">서비스 <em>service</em></div>
+      <div class="nd">판단과 계산. 여러 테이블을 함께 바꾸면 <code>TransactionUtil</code>로 묶는다.</div>
+      <div class="chips"><span class="chip">107개</span><span class="chip c">알고리즘 8종</span></div>
+    </div>
+    <div class="arrowright">→</div>
+    <div class="node accent" style="--c:var(--c-dao)">
+      <div class="nt">DAO <em>dao</em></div>
+      <div class="nd">SQL이 있는 유일한 곳. <code>PreparedStatement</code>만 쓴다.</div>
+      <div class="chips"><span class="chip">60개</span><span class="chip">DTO 59</span></div>
+    </div>
+    <div class="arrowright">→</div>
+    <div class="node accent" style="--c:var(--c-db)">
+      <div class="nt">MySQL 8 <em>utf8mb4</em></div>
+      <div class="nd">커넥션은 풀에서 빌린다. 물리 삭제 없이 <code>is_deleted</code>로만 지운다.</div>
+      <div class="chips"><span class="chip">테이블 58</span><span class="chip">HikariCP</span></div>
+    </div>
+  </div>
+
+  <div class="arrowdown">↓</div>
+
+  <div class="row">
+    <div class="node accent" style="--c:var(--c-ext);flex:1.6">
+      <div class="nt">외부 연동 <em>전부 타임아웃 명시 · 서킷 브레이커</em></div>
+      <div class="nd">끊겨도 화면은 멈추지 않는다. 캐시된 직전 결과나 안내 문구로 대체된다.</div>
+      <div class="chips">
+        <span class="chip c">Groq LLM</span><span class="chip c">워크넷(Work24) 공고</span>
+        <span class="chip c">로컬 임베딩 모델</span><span class="chip c">Judge0 채점</span>
+      </div>
+    </div>
+    <div class="node accent" style="--c:var(--c-svc);flex:1.4">
+      <div class="nt">백그라운드 <em>@WebListener</em></div>
+      <div class="nd">요청과 무관하게 주기적으로 도는 것들. 서버가 떠 있는 동안만 산다.</div>
+      <div class="chips">
+        <span class="chip c">점수 스냅샷</span><span class="chip c">알림</span><span class="chip c">트렌드 수집</span>
+        <span class="chip c">워크넷 수집</span><span class="chip c">탈퇴 유예 정리</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="rulebox">
+    <div class="rule"><b>SQL은 DAO에만</b><span>서블릿과 JSP에 SQL이 들어가면 어디서 무엇을 읽는지 추적할 수 없다. 화면이 늘어날수록 같은 질의가 조금씩 다른 모습으로 복제된다.</span></div>
+    <div class="rule"><b>JSP는 출력만</b><span>스크립틀릿으로 계산하면 그 코드는 테스트할 수 없고 컴파일 오류도 화면을 열기 전까지 안 보인다. JSTL과 EL로 찍기만 한다.</span></div>
+    <div class="rule"><b>그리고 규칙을 테스트가 막는다</b><span>모든 JSP를 빌드 때 미리 컴파일하고(Jasper 11 고정), CSRF 토큰 누락·이스케이프 누락·로그인 없이 열리는 경로 변경을 전수 검사한다. 어기면 빌드가 깨진다.</span></div>
+  </div>
+
+  <div class="note">
+    <b>Tomcat 10부터 <code>javax.*</code>가 <code>jakarta.*</code>로 바뀌었습니다.</b>
+    인터넷 예제 대부분이 구버전 기준이라 그대로 쓰면 동작하지 않습니다 — JSTL taglib URI까지 바뀝니다.
+    팀 규칙 문서에 이것부터 못 박고 시작했습니다. 그래도 환경이 섞여서(10.1 넷 · 11 하나)
+    한 사람 화면에서만 죽는 버그가 났고, 그래서 JSP 선컴파일 검사를 11 기준으로 고정했습니다.
+  </div>
+</section>
+
+<!-- ======================= 04 DATA MODEL ======================= -->
+<section class="view" id="v-data">
+  <div class="vhead">
+    <p class="eyebrow">04 · Data Model</p>
+    <h2>여정이 흐르는 5개 테이블</h2>
+    <p>테이블 58개를 다 보여주는 대신, 앞 장에서 본 화면이 DB에서 어떻게 이어지는지를 한 줄로 꿰었습니다. 전체 ERD는 따로 띄웁니다.</p>
+  </div>
+
+  <div class="flow">
+    <div class="tbl" style="--c:var(--c-ctrl)">
+      <header><b>USERS</b><span>회원 · 프로필</span></header>
+      <ul>
+        <li><i class="k">PK</i>id</li>
+        <li><i>FK</i>desired_job_id</li>
+        <li><i></i>major · grade</li>
+        <li><i></i>profile_updated_at</li>
+      </ul>
+    </div>
+    <div class="flowarrow">→</div>
+    <div class="tbl" style="--c:var(--c-ext)">
+      <header><b>GAP_ANALYSIS</b><span>격차 분석 — 부족한 것</span></header>
+      <ul>
+        <li><i class="k">PK</i>id</li>
+        <li><i>FK</i>user_id · job_id</li>
+        <li><i></i>fit_score</li>
+        <li><i></i>analyzed_at</li>
+      </ul>
+    </div>
+    <div class="flowarrow">→</div>
+    <div class="tbl" style="--c:var(--c-svc)">
+      <header><b>ROADMAP</b><span>여정 — 순서가 있는 길</span></header>
+      <ul>
+        <li><i class="k">PK</i>id</li>
+        <li><i class="k">UK</i>gap_analysis_id</li>
+        <li><i></i>version</li>
+        <li><i></i>is_primary</li>
+      </ul>
+    </div>
+    <div class="flowarrow">→</div>
+    <div class="tbl" style="--c:var(--c-dao)">
+      <header><b>ROADMAP_STEP</b><span>단계 — 지금 할 하나</span></header>
+      <ul>
+        <li><i class="k">PK</i>id</li>
+        <li><i>FK</i>roadmap_id · related_skill_id</li>
+        <li><i></i>tier · step_order</li>
+        <li><i></i>review_status · review_note</li>
+        <li><i></i>is_completed · completed_at</li>
+      </ul>
+    </div>
+    <div class="flowarrow">→</div>
+    <div class="tbl" style="--c:var(--c-db)">
+      <header><b>USER_PROJECTS</b><span>증빙 — 해냈다는 근거</span></header>
+      <ul>
+        <li><i class="k">PK</i>id</li>
+        <li><i>FK</i>upgraded_from_project_id</li>
+        <li><i></i>repo_url · deploy_url</li>
+        <li><i></i>retrospective</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="rulebox">
+    <div class="rule"><b>모든 테이블에 공통 컬럼 셋</b><span><code>created_at · updated_at · is_deleted</code>. 물리 삭제는 하지 않고 조회할 때 항상 <code>is_deleted = FALSE</code>를 건다. 모든 FK에 인덱스를 건다.</span></div>
+    <div class="rule"><b>한 분석에 로드맵 하나 — DB가 보장</b><span><code>ROADMAP.gap_analysis_id</code>를 UNIQUE로 뒀다. 실제로 이 제약이 동시 요청 중복 생성을 잡아냈다 — 분석 저장과 로드맵 생성 사이에 LLM 호출이 몇 초 끼어서 생긴 경합이었다.</span></div>
+    <div class="rule"><b>복합 UNIQUE를 빼먹으면 조용히 쌓인다</b><span><code>JOB_SKILL_TREND(job_id, skill_id, period_ym)</code>가 없으면 주간 재수집마다 같은 행이 계속 늘어난다. 오류가 나지 않아서 한참 뒤에 발견된다.</span></div>
+  </div>
+
+  <div class="note">
+    <b>전체 58개는 따로 띄웁니다.</b> <code>docs/spec-odyssey-erd.html</code>에서 확대·이동하고,
+    상단 범례로 묶음(회원·프로필 / 직무·격차 / 로드맵 / 미션·지표 / 면접관 / 부가·시스템 / 게시판)을
+    켜고 끄면서 한 덩어리씩 보여주세요. 테이블을 누르면 컬럼과 설계 근거가 옆에 열립니다.
+  </div>
+</section>
+
+<!-- ======================= 05 AI ARCHITECTURE ======================= -->
+<section class="view" id="v-ai">
+  <div class="vhead">
+    <p class="eyebrow">05 · AI Architecture</p>
+    <h2>무엇을 AI에 맡기고 무엇을 맡기지 않았나</h2>
+    <p>“AI를 썼다”가 아니라 <b>경계를 어디에 그었는지</b>가 핵심입니다. 역할을 셋으로 나누고, 각자 틀렸을 때의 대가를 기준으로 배치했습니다.</p>
+  </div>
+
+  <div class="tiles">
+    <div class="tile"><b>3</b><span>역할 분리 — 규칙 · LLM · 임베딩</span></div>
+    <div class="tile"><b>768</b><span>임베딩 차원 (ko-sroberta-multitask)</span></div>
+    <div class="tile"><b>~440MB</b><span>모델 — 한 번만 로딩해 공유</span></div>
+    <div class="tile"><b>8</b><span>직접 구현 알고리즘</span></div>
+    <div class="tile"><b>0</b><span>점수 계산에 쓰인 LLM</span></div>
+  </div>
+
+  <div class="lane" style="--c:var(--c-dao)">
+    <div class="lab"><b>규칙 기반 SQL</b><span>DETERMINISTIC</span></div>
+    <div>
+      <div class="row" style="gap:8px">
+        <div class="node" style="flex:1"><div class="nt">격차 계산</div><div class="nd">요구 기술 − 보유 기술</div></div>
+        <div class="node" style="flex:1"><div class="nt">점수 · 적합도</div><div class="nd">직무 사다리 총점 기준으로 정규화</div></div>
+        <div class="node" style="flex:1"><div class="nt">우선순위</div><div class="nd">중요도 × 공고 빈도</div></div>
+        <div class="node" style="flex:1"><div class="nt">티어 배치</div><div class="nd">선수관계 위상 정렬</div></div>
+      </div>
+      <p style="margin:8px 0 0;font-size:12px;color:var(--mute);line-height:1.7">
+        <b style="color:var(--paper-2)">같은 입력에 같은 결과가 나와야 하는 것.</b>
+        점수를 LLM이 매기면 같은 사람이 두 번 분석할 때 값이 달라진다. 설명할 수 없는 점수는 쓰지 않기로 했다.
+      </p>
+    </div>
+  </div>
+
+  <div class="lane" style="--c:var(--c-ext)">
+    <div class="lab"><b>LLM</b><span>GROQ · gpt-oss-120b</span></div>
+    <div>
+      <div class="row" style="gap:8px">
+        <div class="node" style="flex:1"><div class="nt">추천 이유 문장</div><div class="nd">“왜 지금 이걸”</div></div>
+        <div class="node" style="flex:1"><div class="nt">프로젝트 아이디어</div><div class="nd">단계별 제안</div></div>
+        <div class="node" style="flex:1"><div class="nt">직무 요약</div><div class="nd">하는 일 · 전망</div></div>
+        <div class="node" style="flex:1"><div class="nt">이력서 · 자소서 첨삭</div><div class="nd">문장 다듬기</div></div>
+      </div>
+      <p style="margin:8px 0 0;font-size:12px;color:var(--mute);line-height:1.7">
+        <b style="color:var(--paper-2)">틀려도 치명적이지 않은 것.</b>
+        JSON으로 받아 파싱 실패를 예외 처리하고, 재시도는 429·5xx만 한다 — 400·401은 재시도해도 같은 답이 온다.
+        호출 앞에 토큰 버킷과 서킷 브레이커가 있다.
+      </p>
+    </div>
+  </div>
+
+  <div class="lane" style="--c:var(--c-svc)">
+    <div class="lab"><b>로컬 임베딩</b><span>DJL + ONNX RUNTIME</span></div>
+    <div>
+      <div class="row" style="gap:8px">
+        <div class="node" style="flex:1"><div class="nt">기술명 ↔ 표준 기술</div><div class="nd">“스프링부트 / Spring Boot / 스프링 부트”를 하나로</div></div>
+        <div class="node" style="flex:1"><div class="nt">전공 ↔ 직무 계열</div><div class="nd">코사인 유사도</div></div>
+        <div class="node" style="flex:1"><div class="nt">RRF 하이브리드</div><div class="nd">글자 순위 + 의미 순위를 합침</div></div>
+      </div>
+      <p style="margin:8px 0 0;font-size:12px;color:var(--mute);line-height:1.7">
+        <b style="color:var(--paper-2)">입력마다 외부를 부를 수 없는 것.</b>
+        임베딩 API를 쓰면 기술명을 칠 때마다 호출이 생겨 비용과 지연이 쌓이고, 외부가 끊기면 가입 직후 프로필 입력부터 막힌다.
+        그래서 서버 프로세스 안에서 직접 돌린다. <code>SKILL.embedding_model</code>로 어느 방식의 벡터인지 구분해 둬서 나중에 API로 갈아탈 수 있다.
+      </p>
+    </div>
+  </div>
+
+  <h3 style="margin:24px 0 2px;font-size:15px;font-weight:600">끊겼을 때 — 화면은 멈추지 않는다</h3>
+  <div class="fallback">
+    <div class="src">LLM 실패</div><div class="ar">→</div>
+    <div class="to">캐시된 직전 결과 → 없으면 고정 안내 문구 + “AI 추천을 받지 못했습니다” 배너 + 다시 시도 버튼</div>
+    <div class="src">워크넷 공고 API 실패</div><div class="ar">→</div>
+    <div class="to"><code>EXTERNAL_API_CACHE</code>의 마지막 성공분을 쓴다</div>
+    <div class="src">임베딩 모델 로딩 실패</div><div class="ar">→</div>
+    <div class="to">전공 반영 없이 추천을 계속한다. 로딩 실패가 <code>Exception</code>이 아니라 <code>LinkageError</code>로 오는 경우가 있어 그것까지 잡는다</div>
+    <div class="src">외부가 계속 실패</div><div class="ar">→</div>
+    <div class="to">서킷 브레이커가 회로를 열어 호출 자체를 멈춘다 (3실패 / 10분). 죽은 서버를 두드리면 사용자만 매번 타임아웃을 기다린다</div>
+    <div class="src">호출이 한꺼번에 몰림</div><div class="ar">→</div>
+    <div class="to">토큰 버킷이 속도를 제한한다. 어차피 429를 받을 호출은 보내지 않는다</div>
+  </div>
+
+  <div class="note">
+    <b>안전장치도 과하면 장애가 됩니다.</b> 토큰 버킷을 처음에 너무 좁게 잡았더니
+    70일치를 연속으로 도는 시뮬레이션이 중간에 끊겼습니다. 테스트가 단독 실행에서는 통과하고
+    전체 실행에서만 깨져서 찾아냈고, 폭을 넓히고 짧은 대기를 더했습니다.
+  </div>
+</section>
+
+</main>
+
+<script>
+'use strict';
+/* 탭 = 슬라이드 한 장. PPT에는 #arch · #data · #ai 주소를 각각 임베딩한다. */
+const tabs=[...document.querySelectorAll('.tab')];
+function show(v,push){
+  if(!document.getElementById('v-'+v)) v='arch';
+  document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+v));
+  tabs.forEach(t=>t.setAttribute('aria-selected',String(t.dataset.v===v)));
+  document.querySelector('main').scrollTop=0;
+  if(push && location.hash!=='#'+v) history.replaceState(null,'','#'+v);
+}
+tabs.forEach(t=>t.onclick=()=>show(t.dataset.v,true));
+window.addEventListener('hashchange',()=>show(location.hash.slice(1),false));
+show(location.hash.slice(1)||'arch',false);
+/* 좌우 방향키로도 넘긴다 — 발표 중 리모컨이 방향키를 보낸다 */
+document.addEventListener('keydown',e=>{
+  if(e.key!=='ArrowRight'&&e.key!=='ArrowLeft') return;
+  const i=tabs.findIndex(t=>t.getAttribute('aria-selected')==='true');
+  const n=(i+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;
+  show(tabs[n].dataset.v,true);
+});
+</script>
+</body>
+</html>
