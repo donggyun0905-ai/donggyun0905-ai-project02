@@ -71,10 +71,33 @@ public final class WindowsSetup {
         String appData = System.getenv("APPDATA");
         if (appData != null) {
             Path lnk = Path.of(appData, "Microsoft", "Windows", "Start Menu", "Programs", SHORTCUT_NAME);
+            // 설치 프로그램(Setup.exe)으로 설치했으면 시작 메뉴 "Spec Odyssey" 바로가기가 이미 있다 — 그때는 우리 것을 만들지 않는다
+            Path fromInstaller = Path.of(appData, "Microsoft", "Windows", "Start Menu", "Programs", "Spec Odyssey",
+                    AppPaths.APP_NAME + ".lnk");
+            ps.append("if (Test-Path ").append(psQuote(fromInstaller.toString())).append(") {");
+            ps.append("Remove-Item ").append(psQuote(lnk.toString())).append(" -ErrorAction SilentlyContinue");
+            ps.append("} else {");
             ps.append("$s=(New-Object -ComObject WScript.Shell).CreateShortcut(").append(psQuote(lnk.toString())).append(");");
             ps.append("$s.TargetPath=").append(e).append(";$s.Save();");
+            ps.append("}");
         }
         runPowerShell(ps.toString());
+    }
+
+    /** 윈도우 시작할 때 자동 실행 — 현재 사용자 Run 키에 넣거나 뺀다 (관리자 권한 불필요). IDE 실행이면 아무것도 안 한다 */
+    public static void setAutoStart(boolean on) {
+        Path exe = AppPaths.runningExe();
+        if (exe == null) {
+            return;
+        }
+        String key = "'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run'";
+        String name = psQuote(AppPaths.APP_NAME);
+        if (on) {
+            runPowerShell("Set-ItemProperty -Path " + key + " -Name " + name
+                    + " -Value ('\"' + " + psQuote(exe.toString()) + " + '\" --autostart')");
+        } else {
+            runPowerShell("Remove-ItemProperty -Path " + key + " -Name " + name + " -ErrorAction SilentlyContinue");
+        }
     }
 
     static String psQuote(String s) {

@@ -29,17 +29,23 @@ public class GroqLlmClient implements LlmClient {
     private static final int DEFAULT_MAX_COMPLETION_TOKENS = 2000;
 
     private static final String SYSTEM_PROMPT = "반드시 JSON 객체 하나만 출력한다. 설명 문장이나 코드 블록 없이 JSON만 쓴다.";
+    /** 토큰을 이만큼까지 기다린다. 화면 요청이 체감할 만큼 길면 안 되고, 배치가 중단되지 않을 만큼은 돼야 한다 */
+    private static final long RATE_LIMIT_WAIT_MILLIS = 2_000L;
 
     private final String endpoint;
     private final String apiKey;
     private final String model;
     private final Duration timeout;
     /**
-     * 분당 호출 한도 — Groq 무료 한도가 분당 요청 수로 걸린다. 넉넉히 30으로 두고 한꺼번에 10개까지
-     * 몰아 쓸 수 있게 한다(화면 하나가 추천 이유를 여러 개 만들 때 쓴다). 운영에서는 JVM 전체에서
-     * 하나를 공유한다 — 한도는 API 키 단위라 클라이언트를 몇 개 만들든 합쳐서 세야 한다.
+     * 호출 속도 고르기 — <b>Groq의 실제 한도를 흉내 내는 것이 아니라 폭주를 막는 장치</b>다.
+     * 진짜 429는 재시도 정책(LlmRetryPolicy)이 이미 다룬다. 여기서 하는 일은 "한꺼번에 수십 개가
+     * 나가 상대를 때리는 것"을 막는 것뿐이므로 넉넉히 잡는다 — 좁게 잡으면 우리 스스로 없던 실패를 만든다.
+     *
+     * 처음에 10개·분당 30으로 뒀다가 되돌렸다(2026-10-08): 시뮬레이션은 70일치를 연달아 돌려 LLM을
+     * 수십 번 부르는데, 좁은 버킷이 그걸 막아 하루가 중단됐다(SimulationServiceTest가 잡았다).
+     * 운영에서는 JVM 전체에서 하나를 공유한다 — 한도는 API 키 단위다.
      */
-    private static final TokenBucket SHARED_RATE_LIMIT = new TokenBucket(10, 30);
+    private static final TokenBucket SHARED_RATE_LIMIT = new TokenBucket(30, 120);
     /**
      * 연속 5번 실패하면 1분 끊는다. 한도 초과·키 만료·장애가 모두 여기로 들어온다 —
      * 매 요청이 같은 실패를 반복하며 타임아웃만큼 기다리는 것을 막는다.
@@ -138,11 +144,12 @@ public class GroqLlmClient implements LlmClient {
                 Map.of("role", "user", "content", prompt)));
         Map<String, String> headers = Map.of("Authorization", "Bearer " + apiKey);
 
-        // 보내기 전에 막는다 (2026-10-08) — 한도를 넘거나 상대가 죽어 있으면 어차피 거절될 호출이다.
-        // 429를 받고 20·40·60초 기다리는 것보다, 바로 실패로 돌려 호출부가 캐시·안내 문구로 넘어가는 게 낫다(FR-111).
-        if (!rateLimit.tryAcquire()) {
-            throw new ExternalApiException("LLM 분당 호출 한도에 걸렸습니다 ("
-                    + rateLimit.millisUntilNext() / 1000 + "초 뒤 다시 가능)", null, 429);
+        // 보내기 전에 고른다 (2026-10-08). 토큰이 없으면 잠깐(최대 RATE_LIMIT_WAIT_MILLIS) 기다린다 —
+        // 우리 버킷은 자체 폭주 방지 장치이므로 토큰은 "곧 반드시" 생긴다. 바로 실패로 돌리면
+        // 상대는 멀쩡한데 우리가 없던 실패를 만드는 셈이고, 배치(시뮬레이션·트렌드 수집)가 중단된다.
+        if (!acquireWithShortWait()) {
+            throw new ExternalApiException("LLM 호출이 너무 몰려 잠시 뒤에 다시 시도해야 합니다 ("
+                    + rateLimit.millisUntilNext() + "ms 뒤 가능)", null, 429);
         }
         if (!breaker.allowRequest()) {
             throw new ExternalApiException("LLM 호출이 연속 실패해 잠시 끊었습니다 ("
@@ -168,6 +175,24 @@ public class GroqLlmClient implements LlmClient {
                 sleep(retryPolicy.backoffMillis(attempt), e);
             }
         }
+    }
+
+    /** 토큰이 없으면 짧게 기다렸다 한 번 더 본다. 그래도 없으면 false — 호출부가 429로 알린다. */
+    private boolean acquireWithShortWait() {
+        if (rateLimit.tryAcquire()) {
+            return true;
+        }
+        long wait = Math.min(RATE_LIMIT_WAIT_MILLIS, rateLimit.millisUntilNext());
+        if (wait <= 0) {
+            return rateLimit.tryAcquire();
+        }
+        try {
+            Thread.sleep(wait);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt(); // 끼어든 신호를 삼키지 않는다
+            return false;
+        }
+        return rateLimit.tryAcquire();
     }
 
     // LLM 출력은 신뢰하지 않는다 — 형식이 틀리면 전부 FORMAT_ERROR로 모은다 (NFR-6)

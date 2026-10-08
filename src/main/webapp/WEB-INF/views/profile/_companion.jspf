@@ -7,7 +7,7 @@
     <button type="button" class="btn" id="companionLaunch">캐릭터 켜기</button>
     <div class="companion-ask" id="companionAsk" hidden>
         <p><strong>캐릭터 프로그램이 아직 설치되지 않은 것 같아요.</strong> 내려받을까요?</p>
-        <p class="muted">내려받은 압축 파일을 풀고 <code>SpecOdysseyCompanion.exe</code>를 한 번 실행한 뒤, 다시 "캐릭터 켜기"를 눌러 주세요.</p>
+        <p class="muted" id="companionAskHint">내려받은 <code>SpecOdysseyCompanion-Setup.exe</code>를 실행하면 설치가 끝나고 캐릭터가 켜져요. 그다음 "캐릭터 켜기"를 한 번 더 누르면 연결돼요.</p>
         <div class="row" style="gap:8px;">
             <a class="btn" id="companionDownload" href="#" rel="noopener">내려받기</a>
             <button type="button" class="btn secondary" id="companionRetry">이미 설치했어요</button>

@@ -33,6 +33,14 @@ public class Settings {
     public long quietUntil;
     public int lastTier;
     public String skippedVersion;
+    // 설정 창에서 바꾸는 것들 (docs/desktop-companion-plan.md 4절 기본값)
+    public Boolean autoStart = Boolean.TRUE;      // 윈도우 시작할 때 자동 실행
+    public Boolean trendEnabled = Boolean.TRUE;   // 한가할 때 트렌드 기술 돌려 보여 주기
+    public int trendIntervalMinutes = 10;
+    public int trendSeconds = 8;
+    public int summaryHour = 9;                   // 하루 요약 시각
+    public int eveningHour = 20;                  // 연속 기록 경고 시각
+    public String lastSummaryDate;
     public Set<String> spokenKeys = new HashSet<>();
     public List<HistoryItem> history = new ArrayList<>();
 
@@ -89,6 +97,24 @@ public class Settings {
         }
         if (intervalMinutes <= 0) {
             intervalMinutes = 30;
+        }
+        if (autoStart == null) {
+            autoStart = Boolean.TRUE;
+        }
+        if (trendEnabled == null) {
+            trendEnabled = Boolean.TRUE;
+        }
+        if (trendIntervalMinutes <= 0) {
+            trendIntervalMinutes = 10;
+        }
+        if (trendSeconds <= 0) {
+            trendSeconds = 8;
+        }
+        if (summaryHour < 0 || summaryHour > 23) {
+            summaryHour = 9;
+        }
+        if (eveningHour < 0 || eveningHour > 23) {
+            eveningHour = 20;
         }
     }
 

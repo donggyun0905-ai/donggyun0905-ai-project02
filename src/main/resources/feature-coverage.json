@@ -1030,6 +1030,7 @@
       "ShareViewServlet.java"
     ],
     "services": [
+      "GrowthChart.java",
       "InterviewerService.java",
       "ShareViewService.java",
       "SpecScoreService.java"
@@ -1041,6 +1042,7 @@
       "interviewer-view.jsp"
     ],
     "tests": [
+      "GrowthChartTest.java",
       "InterviewerServiceTest.java",
       "ShareViewServiceTest.java",
       "SpecScoreHistoryDaoTest.java",

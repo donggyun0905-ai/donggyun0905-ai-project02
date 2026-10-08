@@ -2,7 +2,10 @@ package com.specodyssey.controller;
 
 import com.google.gson.Gson;
 import com.specodyssey.dto.CompanionDeviceDto;
+import com.specodyssey.dto.CompanionReleaseDto;
+import com.specodyssey.service.NoteService;
 import com.specodyssey.service.NotificationService;
+import com.specodyssey.service.companion.CompanionReleaseService;
 import com.specodyssey.service.companion.CompanionAuthService;
 import com.specodyssey.service.companion.CompanionMessageService;
 import jakarta.servlet.annotation.WebServlet;
@@ -25,6 +28,9 @@ import java.util.logging.Logger;
  *   POST /api/companion/messages    지금 말할 것들 + 등급 (캐릭터 그림)
  *   POST /api/companion/read        id → 사이트 알림 읽음 처리 (웹 헤더의 안 읽은 개수도 같이 준다)
  *   POST /api/companion/disconnect  이 토큰 연결 해제
+ *   POST /api/companion/latest      최신 설치 파일 버전·바뀐 점·SHA-256 (캐릭터 업데이트 확인)
+ *   POST /api/companion/download    최신 설치 파일 내려받기 (DB에 나눠 둔 것을 이어서 보낸다)
+ *   POST /api/companion/note        연습장 내용·버전 / note-save  text, version, force → 저장 (웹과 동시에 고쳤으면 409)
  * SessionFilter 공개 경로(/api/companion/)이고, 쿠키를 쓰지 않아 CSRF 대상이 아니다. 토큰으로는 그 사용자의
  * 안내 문장 조회·알림 읽음·연결 해제만 할 수 있다. 모두 POST — GET은 SecurityHeadersFilter가 세션을 만들어서
  * 1분마다 부르면 세션이 쌓이기 때문이다.
@@ -38,6 +44,8 @@ public class CompanionApiServlet extends HttpServlet {
     private final CompanionAuthService authService = new CompanionAuthService();
     private final CompanionMessageService messageService = new CompanionMessageService();
     private final NotificationService notificationService = new NotificationService();
+    private final CompanionReleaseService releaseService = new CompanionReleaseService();
+    private final NoteService noteService = new NoteService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
@@ -66,7 +74,52 @@ public class CompanionApiServlet extends HttpServlet {
             }
             Long userId = device.getUserId();
             switch (action) {
-                case "/messages" -> writeJson(resp, HttpServletResponse.SC_OK, snapshotBody(req, messageService.load(userId)));
+                case "/messages" -> writeJson(resp, HttpServletResponse.SC_OK,
+                        snapshotBody(req, messageService.load(userId, parseHour(req.getParameter("eveningHour")))));
+                case "/latest" -> {
+                    CompanionReleaseDto r = releaseService.latest();
+                    Map<String, Object> body = new LinkedHashMap<>();
+                    if (r != null) {
+                        body.put("version", r.getVersion());
+                        body.put("notes", r.getNotes());
+                        body.put("sha256", r.getSha256());
+                        body.put("size", r.getFileSize());
+                    }
+                    writeJson(resp, HttpServletResponse.SC_OK, body);
+                }
+                case "/download" -> {
+                    CompanionReleaseDto r = releaseService.latest();
+                    if (r == null) {
+                        writeJson(resp, HttpServletResponse.SC_NOT_FOUND, Map.of("message", "아직 올라간 설치 파일이 없어요."));
+                        return;
+                    }
+                    resp.setContentType("application/octet-stream");
+                    resp.setContentLengthLong(r.getFileSize());
+                    resp.setHeader("Content-Disposition", "attachment; filename=\"" + r.getFileName() + "\"");
+                    releaseService.writeTo(r, resp.getOutputStream());
+                }
+                case "/note" -> {
+                    NoteService.Note note = noteService.loadWithVersion(userId);
+                    writeJson(resp, HttpServletResponse.SC_OK, Map.of("text", note.text(), "version", note.version()));
+                }
+                case "/note-save" -> {
+                    NoteService.Note current = noteService.loadWithVersion(userId);
+                    String base = req.getParameter("version");
+                    if (!"true".equals(req.getParameter("force")) && base != null && !base.equals(current.version())) {
+                        writeJson(resp, HttpServletResponse.SC_CONFLICT,
+                                Map.of("message", "웹에서 바뀐 내용이 있어요.", "text", current.text(), "version", current.version()));
+                        return;
+                    }
+                    try {
+                        noteService.save(userId, req.getParameter("text"));
+                    } catch (java.io.IOException e) {
+                        throw new SQLException("연습장을 저장하지 못했어요", e);
+                    } catch (IllegalArgumentException e) {
+                        writeJson(resp, HttpServletResponse.SC_BAD_REQUEST, Map.of("message", e.getMessage()));
+                        return;
+                    }
+                    writeJson(resp, HttpServletResponse.SC_OK, Map.of("version", noteService.loadWithVersion(userId).version()));
+                }
                 case "/read" -> {
                     Long id = parseId(req.getParameter("id"));
                     if (id != null) {
@@ -105,6 +158,8 @@ public class CompanionApiServlet extends HttpServlet {
         body.put("tier", s.tier());
         body.put("messages", messages);
         body.put("siteUrl", base + "/dashboard");
+        body.put("summary", s.summary());
+        body.put("trends", s.trends());
         return body;
     }
 
@@ -122,6 +177,14 @@ public class CompanionApiServlet extends HttpServlet {
             return null;
         }
         return header.substring("Bearer ".length()).trim();
+    }
+
+    private static int parseHour(String raw) {
+        try {
+            return raw == null ? CompanionMessageService.EVENING_HOUR_DEFAULT : Integer.parseInt(raw);
+        } catch (NumberFormatException e) {
+            return CompanionMessageService.EVENING_HOUR_DEFAULT;
+        }
     }
 
     private static Long parseId(String raw) {

@@ -1197,5 +1197,40 @@ CREATE TABLE SKILL_REVIEW_SCHEDULE (
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_skill_review_schedule_skill
         FOREIGN KEY (skill_id) REFERENCES SKILL (id)
+-- ---------------------------------------------------------------------------
+-- COMPANION_RELEASE · COMPANION_RELEASE_CHUNK (데스크톱 캐릭터 설치 파일) — 신설, sql/38_schema_companion_release.sql
+-- Setup.exe를 8MB씩 나눠 DB에 둔다 (누구 서버에서든 같은 파일). 최근 2개 버전만 내용을 남긴다.
+-- ---------------------------------------------------------------------------
+CREATE TABLE COMPANION_RELEASE (
+    id          BIGINT        NOT NULL AUTO_INCREMENT,
+    version     VARCHAR(20)   NOT NULL,           -- 예: 0.2.0
+    notes       VARCHAR(500)  NULL,               -- 바뀐 점 (캐릭터 업데이트 말풍선에 나온다)
+    file_name   VARCHAR(100)  NOT NULL,
+    file_size   BIGINT        NOT NULL,
+    sha256      CHAR(64)      NOT NULL,           -- 캐릭터가 내려받은 파일을 이 값으로 검사한다
+    uploaded_by BIGINT        NULL,               -- 올린 관리자
+    created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted  BOOLEAN       NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_companion_release_version (version),
+    KEY idx_companion_release_uploaded_by (uploaded_by),
+    CONSTRAINT fk_companion_release_uploaded_by
+        FOREIGN KEY (uploaded_by) REFERENCES USERS (id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE COMPANION_RELEASE_CHUNK (
+    id          BIGINT        NOT NULL AUTO_INCREMENT,
+    release_id  BIGINT        NOT NULL,
+    seq         INT           NOT NULL,           -- 0부터 순서대로 이어 붙인다
+    data        MEDIUMBLOB    NULL,               -- 최대 8MB. 오래된 버전은 NULL로 비운다
+    created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted  BOOLEAN       NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_companion_release_chunk_seq (release_id, seq),
+    CONSTRAINT fk_companion_release_chunk_release
+        FOREIGN KEY (release_id) REFERENCES COMPANION_RELEASE (id)
         ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

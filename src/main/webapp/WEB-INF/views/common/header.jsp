@@ -95,6 +95,10 @@
         <a href="${ctx}/job-discovery" class="${path == '/job-discovery' ? 'active' : ''}"><span class="ic ic-search" aria-hidden="true"></span> 직무 찾기</a>
 
         <div class="nav-group-title">성장 도구</div>
+        <%-- 데스크톱 캐릭터 설치 파일 — 이 계정에 연결된 PC가 있으면(설치된 것으로 보고) 숨긴다 (CompanionNavFilter) --%>
+        <c:if test="${showCompanionDownload}">
+        <a href="${ctx}/companion/download"><span class="ic ic-download" aria-hidden="true"></span> 캐릭터 내려받기</a>
+        </c:if>
         <a href="${ctx}/insights" class="${path == '/insights' ? 'active' : ''}"><span class="ic ic-bar-chart" aria-hidden="true"></span> 데이터 인사이트</a>
         <a href="${ctx}/dday" class="${path == '/dday' ? 'active' : ''}"><span class="ic ic-calendar" aria-hidden="true"></span> D-day 알림<c:if test="${not empty navDdayText}"> <span class="nav-badge">${navDdayText}</span></c:if></a>
         <a href="${ctx}/documents" class="${path == '/documents' ? 'active' : ''}"><span class="ic ic-folder" aria-hidden="true"></span> 서류 보관함</a>

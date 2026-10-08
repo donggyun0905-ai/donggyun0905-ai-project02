@@ -1,7 +1,5 @@
 package com.specodyssey.companion;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -9,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** 버전 비교 · specodyssey:// 읽기 · 업데이트 릴리스 고르기 */
+/** 버전 비교 · specodyssey:// 읽기 · 업데이트 판단 */
 class SmallPartsTest {
 
     @Test
@@ -39,24 +37,10 @@ class SmallPartsTest {
     }
 
     @Test
-    void 업데이트는_캐릭터_릴리스_중_더_새것만() {
-        String json = """
-                [
-                  {"tag_name":"v9.9.9","draft":false,"prerelease":false,"assets":[]},
-                  {"tag_name":"companion-v0.3.0","draft":false,"prerelease":true,"assets":[
-                    {"name":"SpecOdysseyCompanion.zip","browser_download_url":"https://x/z3"},
-                    {"name":"SpecOdysseyCompanion.zip.sha256","browser_download_url":"https://x/s3"}]},
-                  {"tag_name":"companion-v0.2.0","draft":false,"prerelease":false,"body":"- 연습장 연동\\n- 기타","assets":[
-                    {"name":"SpecOdysseyCompanion.zip","browser_download_url":"https://x/z2"},
-                    {"name":"SpecOdysseyCompanion.zip.sha256","browser_download_url":"https://x/s2"}]},
-                  {"tag_name":"companion-v0.1.5","draft":false,"prerelease":false,"assets":[
-                    {"name":"SpecOdysseyCompanion.zip","browser_download_url":"https://x/z15"}]}
-                ]""";
-        JsonArray releases = new Gson().fromJson(json, JsonArray.class);
-        Updater.Release r = Updater.pickNewer(releases, "0.1.0");
-        assertEquals("0.2.0", r.version(), "미리보기·확인값 없는 릴리스·다른 태그는 건너뛴다");
-        assertEquals("https://x/z2", r.zipUrl());
-        assertEquals("연습장 연동", r.notes());
-        assertNull(Updater.pickNewer(releases, "0.2.0"), "같은 버전이면 업데이트 없음");
+    void 업데이트는_더_새_버전일_때만() {
+        assertTrue(Updater.isNewer("0.2.0", "0.1.0"));
+        assertFalse(Updater.isNewer("0.1.0", "0.1.0"));
+        assertFalse(Updater.isNewer(null, "0.1.0"), "올라간 파일이 없으면 업데이트 없음");
+        assertEquals("연습장 연동", Updater.firstLine("- 연습장 연동\n- 기타"));
     }
 }

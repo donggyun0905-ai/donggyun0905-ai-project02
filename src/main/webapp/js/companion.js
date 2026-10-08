@@ -39,7 +39,15 @@
                 status.textContent = (res.data && res.data.message) || '잠시 후 다시 눌러 주세요.';
                 return;
             }
-            download.href = res.data.downloadUrl;
+            if (res.data.downloadUrl) {
+                download.href = res.data.downloadUrl;
+                download.textContent = '내려받기' + (res.data.version ? ' (' + res.data.version + ' · ' + res.data.sizeText + ')' : '');
+                download.removeAttribute('aria-disabled');
+            } else {
+                download.removeAttribute('href');
+                download.setAttribute('aria-disabled', 'true');
+                download.textContent = '설치 파일 준비 중';
+            }
             var left = false;
             function onLeave() { left = true; }
             window.addEventListener('blur', onLeave, { once: true });
@@ -108,7 +116,9 @@
         launch();
     });
     download.addEventListener('click', function () {
-        status.textContent = '내려받은 압축을 풀고 SpecOdysseyCompanion.exe를 실행한 뒤 "캐릭터 켜기"를 다시 눌러 주세요.';
+        status.textContent = download.hasAttribute('href')
+            ? '내려받은 설치 파일을 실행해 주세요. 설치가 끝나면 "캐릭터 켜기"를 다시 누르면 연결돼요.'
+            : '아직 올라간 설치 파일이 없어요. 관리자에게 알려 주세요.';
     });
     loadDevices();
 })();

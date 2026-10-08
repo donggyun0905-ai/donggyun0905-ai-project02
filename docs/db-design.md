@@ -837,6 +837,26 @@ IT 자격증 사전. 로드맵의 자격증 단계와 D-day 알림을 이어주�
 - 코드·토큰 원문은 저장하지 않는다(해시만). 코드 교환은 UPDATE 한 문장이라 같은 코드로 두 번 연결되지 않는다.
 - `/api/companion/*`은 SessionFilter 공개 경로 — 세션 대신 이 토큰으로 사용자를 확인한다.
 
+#### COMPANION_RELEASE · COMPANION_RELEASE_CHUNK (데스크톱 캐릭터 설치 파일) — 신설
+
+관련 요구사항: 없음(추가 기능) · `sql/38_schema_companion_release.sql`
+
+관리자 화면(/admin/companion)에서 올린 Setup.exe를 DB에 둔다 — 사이트 [내려받기]와 캐릭터 [업데이트]가 내려받는다.
+설치 파일이 약 47MB라 DB 한 번에 받는 상한(max_allowed_packet 31MB)을 넘어서 8MB씩 COMPANION_RELEASE_CHUNK에 나눈다.
+
+| 컬럼 (COMPANION_RELEASE) | 타입 | 키 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK | 식별자 |
+| `version` | VARCHAR(20) | UNIQUE | 0.2.0 형식 — 최신보다 높아야 올라간다 |
+| `notes` | VARCHAR(500) |  | 바뀐 점 (캐릭터 업데이트 말풍선) |
+| `file_name` · `file_size` · `sha256` | | | 내려받은 파일을 캐릭터가 SHA-256으로 검사 |
+| `uploaded_by` | BIGINT | FK | → USERS (올린 관리자) |
+
+COMPANION_RELEASE_CHUNK: `release_id`(FK) · `seq` · `data` MEDIUMBLOB — 복합 UNIQUE (release_id, seq).
+
+설계 판단: 팀원마다 자기 PC에서 서버를 켜고 같은 DB를 쓰므로 파일을 서버 폴더가 아니라 DB에 둔다(스펙 아카이브 사진과 같은 이유).
+최근 2개 버전만 남기고 그 전 버전은 논리 삭제하면서 data를 NULL로 비워 DB가 버전마다 커지지 않게 한다.
+
 #### SIMULATION_STATE (테스트 계정 시뮬레이션 진행 상태) — 신설
 
 관련 요구사항: 없음(개발·시연 도구) · `sql/26_alter_users_is_test_simulation.sql`, `sql/27_alter_simulation_target_score.sql`

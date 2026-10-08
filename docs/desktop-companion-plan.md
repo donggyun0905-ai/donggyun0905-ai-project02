@@ -3,8 +3,8 @@
 바탕화면 어디서든 떠 있는 캐릭터가 **앞으로 할 일을 말풍선으로 알려 주는** 윈도우 프로그램.
 봉고캣처럼 창 테두리·버튼 없이 캐릭터만 보이고, 내용은 전부 웹 서버에서 받아 온다.
 
-> 상태 (2026-10-07): **1~3단계 구현** — 바탕화면 캐릭터 · 웹 버튼 연결 · 할 일/사이트 알림 말풍선 · 설치 폴더 자동 설치 · 업데이트 버튼.
-> 남은 것: 트렌드 순환 · 하루 요약 · 설정 창 · 연습장 연동 (4~5단계). 빌드·배포는 11절.
+> 상태 (2026-10-08): **구현 완료** — 바탕화면 캐릭터 · 웹 버튼 연결 · 할 일/알림/칭찬 말풍선 · 하루 요약 · 트렌드 순환 · 설정 창 · 연습장 연동 · 자동 실행 · 설치 파일(Setup.exe, 한국어) · 사이트에서 내려받기·업데이트 (파일은 DB 보관).
+> 빌드·배포는 11절.
 
 ## 1. 정해진 것
 
@@ -135,31 +135,39 @@
 ## 11. 빌드 · 배포 · 업데이트 (구현됨)
 
 **바로 써 보기 (개발 중)**: IntelliJ에서 `desktop-companion/pom.xml`을 Maven 프로젝트로 추가하고 `CompanionApp`을 실행.
-IDE 실행은 설치·`specodyssey://` 등록·업데이트를 하지 않는다 (exe로 실행했을 때만).
+IDE 실행은 설치·`specodyssey://` 등록·자동 실행·업데이트를 하지 않는다 (exe로 실행했을 때만).
 
-**exe 만들기**
+**설치 파일 만들기**
 ```
 powershell -ExecutionPolicy Bypass -File desktop-companion\build-companion.ps1
 ```
-→ `desktop-companion\dist\` 에 `SpecOdysseyCompanion\SpecOdysseyCompanion.exe`(바로 실행 가능), `SpecOdysseyCompanion.zip`(약 45MB, Java 포함),
-`SpecOdysseyCompanion.zip.sha256`. dist는 커밋하지 않는다(.gitignore).
+→ `desktop-companion\dist\SpecOdysseyCompanion-Setup.exe` (약 47MB, Java 포함 — 이용자 PC에 Java 불필요). dist는 커밋하지 않는다.
+- Setup.exe를 만들려면 빌드하는 PC에만 **WiX 3.14**가 필요하다: [wix314-binaries.zip](https://github.com/wixtoolset/wix3/releases)을
+  `%LOCALAPPDATA%\wix314`에 압축만 풀면 된다 (설치·관리자 권한 불필요). 없으면 zip만 만든다.
+- 설치 틀: `desktop-companion/installer/main.wxs`(jpackage 기본 틀 + `specodyssey://` 등록 + 설치 뒤 바로 실행),
+  `MsiInstallerStrings_en.wxl`(설치 화면 문구를 한국어로 덮어씀).
 
-**사용자 PC에서 일어나는 일**
-1. 압축을 풀고 exe 실행 → `%LOCALAPPDATA%\SpecOdysseyCompanion`으로 스스로 복사해 거기서 다시 켜진다.
-2. `specodyssey://` 주소(현재 사용자 레지스트리)와 시작 메뉴 "스펙 오디세이 캐릭터" 바로가기를 만든다 — 관리자 권한 불필요.
-3. 사이트 내 프로필 → **캐릭터 켜기** → 연결. 설정·토큰·말풍선 기록은 `%APPDATA%\SpecOdyssey\companion.json` (업데이트해도 유지).
-4. 지우기: 캐릭터 우클릭 → 연결 해제 → 종료 후 두 폴더와 `HKCU\Software\Classes\specodyssey`, 시작 메뉴 바로가기를 지운다.
+**이용자 입장**
+1. 사이트 내 프로필 → **캐릭터 켜기** → (설치 안 됐으면) **내려받기** → `SpecOdysseyCompanion-Setup.exe` 실행.
+2. 내 계정에만 설치된다(관리자 권한 불필요): `%LOCALAPPDATA%\SpecOdysseyCompanion`, 시작 메뉴 "Spec Odyssey", `specodyssey://` 등록,
+   윈도우 시작 시 자동 실행(설정에서 끌 수 있음). 설치가 끝나면 캐릭터가 바로 켜진다.
+3. 다시 **캐릭터 켜기** → 내 계정과 연결. 연결 정보는 `%APPDATA%\SpecOdyssey\companion.json` (업데이트·재부팅해도 유지).
+4. 지우기: 윈도우 설정 → 앱 → "SpecOdysseyCompanion" 제거. (자동 실행 항목은 캐릭터 설정에서 먼저 끄면 깔끔하다)
 
 **새 버전 내기**
 1. `desktop-companion/pom.xml`의 `<version>`을 올린다 (예: 0.2.0).
-2. 빌드 스크립트 실행.
-3. GitHub Releases에 태그 **`companion-v0.2.0`** 으로 `SpecOdysseyCompanion.zip`과 `.sha256` 두 파일을 올린다. 첫 줄에 바뀐 점을 적으면 캐릭터 말풍선에 나온다.
-4. 설치된 캐릭터는 켤 때·하루 한 번 확인해 "새 버전이 나왔어요 [업데이트]"를 띄운다. 누르면 내려받기 → 확인값 대조 → 교체 → 다시 켜짐 (실패하면 이전 버전으로 되돌림).
+2. 빌드 스크립트 실행 → Setup.exe.
+3. 사이트 **관리자 → 데스크톱 캐릭터**에서 같은 버전 번호와 바뀐 점을 적고 Setup.exe를 올린다.
+   DB(`COMPANION_RELEASE`/`_CHUNK`)에 8MB씩 나눠 저장되고, 최근 2개 버전만 남는다.
+4. 사이트 [내려받기]가 바로 새 파일이 되고, 설치된 캐릭터는 켤 때·하루 한 번 확인해 "새 버전이 나왔어요 [업데이트]"를 띄운다.
+   누르면 내려받기 → SHA-256 대조 → 설치 프로그램 실행(캐릭터는 꺼짐) → 새 버전으로 덮어쓰고 다시 켜짐.
 
-- 웹의 [내려받기]는 `releases/latest/download/SpecOdysseyCompanion.zip`이라, 저장소의 **최신 릴리스가 캐릭터 릴리스**여야 한다.
 - 코드 서명을 안 해서 처음 실행 때 윈도우 "알 수 없는 게시자" 경고가 뜰 수 있다 → "추가 정보 → 실행".
 
-**코드 위치**: 웹 `controller/CompanionServlet`(프로필 버튼·연결 목록) · `controller/CompanionApiServlet`(exe용 API) ·
-`service/companion/*` · `profile/_companion.jspf` · `js/companion.js` · `sql/33_schema_companion_device.sql` /
-exe `desktop-companion/src/main/java/com/specodyssey/companion/*` (규칙 `BubbleRules`, 화면 `CharacterWindow`·`BubbleWindow`,
-설치·등록 `WindowsSetup`, 업데이트 `Updater`).
+**설정 창 (캐릭터 우클릭 → 설정)**: 다시 말하는 간격(기본 30분) · 하루 요약 시각(9시) · 저녁 경고 시각(20시) ·
+트렌드 순환 켜기/간격(10분)/보여 주는 시간(8초) · 크기 · 자동 실행.
+
+**코드 위치**: 웹 `controller/CompanionServlet`(프로필 버튼·내려받기) · `controller/CompanionApiServlet`(exe용 API) ·
+`controller/AdminCompanionServlet`(새 버전 올리기) · `service/companion/*` · `profile/_companion.jspf` · `js/companion.js` ·
+`sql/33_schema_companion_device.sql`·`sql/38_schema_companion_release.sql` / exe `desktop-companion/src/main/java/com/specodyssey/companion/*` (규칙 `BubbleRules`, 화면 `CharacterWindow`·
+`BubbleWindow`, 설정 `SettingsWindow`, 연습장 `NoteWindow`, 설치·등록·자동 실행 `WindowsSetup`, 업데이트 `Updater`).

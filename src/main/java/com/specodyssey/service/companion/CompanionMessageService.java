@@ -13,6 +13,8 @@ import com.specodyssey.service.MissionStreakService;
 import com.specodyssey.service.NotificationService;
 import com.specodyssey.service.RoadmapService;
 import com.specodyssey.service.ScoreService;
+import com.specodyssey.service.TrendWidgetService;
+import com.specodyssey.dto.TrendTechDto;
 import com.specodyssey.util.AppClock;
 import com.specodyssey.util.DBUtil;
 
@@ -38,12 +40,17 @@ public class CompanionMessageService {
     public static final String WARN = "WARN";
     public static final String NOTICE = "NOTICE";
     public static final String TODO = "TODO";
+    public static final String PRAISE = "PRAISE";
 
     /** 이 시각부터 오늘 미션을 안 했으면 연속 기록 경고 */
     static final int EVENING_HOUR = 20;
+    public static final int EVENING_HOUR_DEFAULT = EVENING_HOUR;
     /** D-day 경고를 띄우기 시작하는 남은 날 */
     static final int DDAY_WARN_DAYS = 3;
     private static final int NOTICE_LIMIT = 5;
+    private static final int TREND_COUNT = 5;
+    /** 로드맵 티어를 끝낸 뒤 이 날 수 안에만 칭찬한다 (처음 연결했을 때 옛날 일을 칭찬하지 않게) */
+    static final int TIER_PRAISE_DAYS = 3;
 
     private final NotificationService notificationService = new NotificationService();
     private final MissionStreakService streakService = new MissionStreakService();
@@ -52,6 +59,7 @@ public class CompanionMessageService {
     private final GlanceService glanceService = new GlanceService();
     private final ScoreService scoreService = new ScoreService();
     private final UserDao userDao = new UserDao();
+    private final TrendWidgetService trendService = new TrendWidgetService();
 
     /** 말 하나. path는 앱 안 경로('/'로 시작) — 서블릿이 서버 주소를 붙여 준다 */
     public record Message(String key, String kind, String label, String text, String linkText, String path,
@@ -62,10 +70,19 @@ public class CompanionMessageService {
     public record Tier(int index, String name, String title, int score, String nextName, int pointsToNext) {
     }
 
-    public record Snapshot(String userName, Tier tier, List<Message> messages) {
+    /** 트렌드 기술 하나 — 캐릭터가 한가할 때 작은 말풍선으로 돌려 보여 준다 */
+    public record Trend(String name, String summary, String url) {
+    }
+
+    public record Snapshot(String userName, Tier tier, List<Message> messages, List<Trend> trends, String summary) {
     }
 
     public Snapshot load(Long userId) throws SQLException {
+        return load(userId, EVENING_HOUR);
+    }
+
+    /** @param eveningHour 이 시각부터 연속 기록 경고 (캐릭터 설정에서 바꾼다, 기본 20시) */
+    public Snapshot load(Long userId, int eveningHour) throws SQLException {
         UserDto user = userDao.findById(userId);
         String name = user == null ? null : (user.getName() != null ? user.getName() : user.getLoginId());
         LocalDateTime now = AppClock.now();
@@ -86,7 +103,12 @@ public class CompanionMessageService {
             Map<LocalDate, int[]> byDate = missionDao.countMissionsByDate(conn, userId, today, today);
             counts = byDate.get(today);
         }
-        messages.addAll(missionMessages(today, now.getHour(), streak.streak(), streak.todayDone(), counts));
+        int evening = eveningHour < 0 || eveningHour > 23 ? EVENING_HOUR : eveningHour;
+        messages.addAll(missionMessages(today, now.getHour(), evening, streak.streak(), streak.todayDone(), counts));
+        Message streakPraise = streakPraise(today, streak.streak(), streak.todayDone());
+        if (streakPraise != null) {
+            messages.add(streakPraise);
+        }
 
         // ---- 로드맵 다음 단계 · 가까운 D-day (대시보드 "한눈에 보기"와 같은 기준)
         RoadmapDto roadmap = roadmapService.getPrimaryRoadmap(userId);
@@ -108,21 +130,89 @@ public class CompanionMessageService {
             }
         }
 
-        return new Snapshot(name, tier(userId), ordered(messages));
+        if (roadmap != null) {
+            messages.addAll(tierPraises(roadmap.getId(), steps, now));
+        }
+
+        List<Trend> trends = new ArrayList<>();
+        Long jobId = user == null ? null : user.getDesiredJobId();
+        try {
+            for (TrendTechDto t : trendService.forJob(jobId, TREND_COUNT).items()) {
+                trends.add(new Trend(t.getTechName(), t.getSummary(), t.getSourceUrl()));
+            }
+        } catch (SQLException | RuntimeException e) {
+            // 트렌드는 없어도 그만 — 나머지 말은 그대로 준다
+        }
+        return new Snapshot(name, tier(userId), ordered(messages), trends, summary(counts, glance));
+    }
+
+    /** 하루 요약 한 줄 — 캐릭터가 정한 시각(기본 9시)에 한 번 말한다 */
+    static String summary(int[] counts, GlanceService.Glance glance) {
+        List<String> parts = new ArrayList<>();
+        int assigned = counts == null ? 0 : counts[0];
+        int done = counts == null ? 0 : counts[1];
+        parts.add(assigned == 0 ? "오늘의 미션 3문제" : done >= assigned ? "미션 완료 👍" : "미션 " + (assigned - done) + "개 남음");
+        if (glance != null && glance.getNextStepText() != null) {
+            parts.add("로드맵: " + glance.getNextStepText());
+        }
+        if (glance != null && !glance.getDdays().isEmpty()) {
+            GlanceService.UpcomingDday d = glance.getDdays().get(0);
+            parts.add((d.daysLeft() == 0 ? "D-day " : "D-" + d.daysLeft() + " ") + d.title());
+        }
+        return "오늘 할 일 — " + String.join(" · ", parts);
+    }
+
+    /** 연속 7일·30일을 채운 날 칭찬 */
+    static Message streakPraise(LocalDate today, int streak, boolean todayDone) {
+        if (!todayDone || (streak != 7 && streak != 30)) {
+            return null;
+        }
+        return new Message("streak-praise:" + today + ":" + streak, PRAISE, "연속 기록",
+                "연속 " + streak + "일 달성! " + (streak == 7 ? "일주일 동안 매일 했어요." : "한 달 내내 해냈어요!"),
+                "대시보드", "/dashboard", null);
+    }
+
+    /** 로드맵 티어(입문·핵심·심화·전문가)를 다 끝낸 지 TIER_PRAISE_DAYS일 안이면 칭찬 */
+    static List<Message> tierPraises(Long roadmapId, List<RoadmapStepDto> steps, LocalDateTime now) {
+        List<Message> out = new ArrayList<>();
+        for (String tier : List.of("ENTRY", "CORE", "ADVANCED", "EXPERT")) {
+            List<RoadmapStepDto> inTier = steps.stream()
+                    .filter(s -> tier.equals(s.getTier()) && !s.isUpkeep())
+                    .toList();
+            if (inTier.isEmpty() || inTier.stream().anyMatch(s -> !s.isCompleted())) {
+                continue;
+            }
+            LocalDateTime last = inTier.stream().map(RoadmapStepDto::getCompletedAt)
+                    .filter(java.util.Objects::nonNull).max(Comparator.naturalOrder()).orElse(null);
+            if (last != null && !last.isBefore(now.minusDays(TIER_PRAISE_DAYS))) {
+                out.add(new Message("tier-done:" + roadmapId + ":" + tier, PRAISE, "로드맵",
+                        tierLabel(tier) + " 단계를 모두 끝냈어요! 다음 단계로 가 볼까요?", "로드맵 보기", "/roadmap", null));
+            }
+        }
+        return out;
+    }
+
+    static String tierLabel(String tier) {
+        return switch (tier) {
+            case "ENTRY" -> "입문";
+            case "CORE" -> "핵심";
+            case "ADVANCED" -> "심화";
+            default -> "전문가";
+        };
     }
 
     /**
      * 오늘 미션 관련 말. counts = [배정 수, 끝낸 수] (배정 전이면 null).
      * 저녁에 연속 기록이 걸려 있으면 경고 하나로, 아니면 남은 개수를 할 일로.
      */
-    static List<Message> missionMessages(LocalDate today, int hour, int streak, boolean todayDone, int[] counts) {
+    static List<Message> missionMessages(LocalDate today, int hour, int eveningHour, int streak, boolean todayDone, int[] counts) {
         List<Message> list = new ArrayList<>();
         if (todayDone) {
             return list;
         }
         int assigned = counts == null ? 0 : counts[0];
         int done = counts == null ? 0 : counts[1];
-        if (hour >= EVENING_HOUR && streak > 0) {
+        if (hour >= eveningHour && streak > 0) {
             list.add(new Message("streak:" + today, WARN, "연속 기록",
                     "연속 " + streak + "일째! 오늘 미션을 끝내면 기록이 이어져요", "미션 하러 가기", "/mission", null));
             return list;
@@ -138,7 +228,7 @@ public class CompanionMessageService {
         return list;
     }
 
-    /** 경고 > 알림 > 할 일, 같은 종류는 들어온 순서 그대로 */
+    /** 경고 > 알림 > 칭찬 > 할 일, 같은 종류는 들어온 순서 그대로 */
     static List<Message> ordered(List<Message> messages) {
         List<Message> copy = new ArrayList<>(messages);
         copy.sort(Comparator.comparingInt(m -> rank(m.kind())));
@@ -149,7 +239,8 @@ public class CompanionMessageService {
         return switch (kind) {
             case WARN -> 0;
             case NOTICE -> 1;
-            default -> 2;
+            case PRAISE -> 2;
+            default -> 3;
         };
     }
 
