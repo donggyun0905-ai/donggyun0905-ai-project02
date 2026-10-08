@@ -62,7 +62,6 @@ public class ShareViewService {
 
     private static final Logger LOG = Logger.getLogger(ShareViewService.class.getName());
 
-    private static final int GROWTH_POINTS = 6; // 성장 그래프에 보여줄 최근 기록 수
 
     // 화면에 보여 줄 종류 순서까지 담는다 — Map.of는 순서를 보장하지 않아 "보유 스펙" 묶음이 매번 뒤바뀌었다
     private static final Map<String, String> SPEC_TYPE_LABELS = new LinkedHashMap<>();
@@ -291,7 +290,9 @@ public class ShareViewService {
         }
         if (link.isScopeGrowth()) {
             List<SpecScoreHistoryDto> history = specScoreHistoryDao.findByUserId(user.getId());
-            view.setGrowth(history.subList(Math.max(0, history.size() - GROWTH_POINTS), history.size()));
+            // 최근 몇 개만 자르면 변화가 안 보여 전체 기록을 주·월·년으로 묶는다 (2026-10-08)
+            view.setGrowth(history);
+            view.setGrowthChart(GrowthChart.build(history));
         }
         return view;
     }
