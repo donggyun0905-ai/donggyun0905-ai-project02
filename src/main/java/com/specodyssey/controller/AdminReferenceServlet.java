@@ -2,6 +2,7 @@ package com.specodyssey.controller;
 
 import com.specodyssey.dao.JobDao;
 import com.specodyssey.dao.SkillDao;
+import com.specodyssey.service.SkillPrerequisiteService;
 import com.specodyssey.service.AdminAuditService;
 import com.specodyssey.service.AdminReferenceService;
 
@@ -29,6 +30,7 @@ public class AdminReferenceServlet extends HttpServlet {
     private final AdminReferenceService referenceService = new AdminReferenceService();
     private final AdminAuditService auditService = new AdminAuditService();
     private final SkillDao skillDao = new SkillDao();
+    private final SkillPrerequisiteService prerequisiteService = new SkillPrerequisiteService();
     private final JobDao jobDao = new JobDao();
 
     @Override
@@ -56,6 +58,10 @@ public class AdminReferenceServlet extends HttpServlet {
                 case "certifications" -> req.setAttribute("certifications", referenceService.listCertifications());
                 case "aliases" -> {
                     req.setAttribute("aliases", referenceService.listSkillAliases());
+                    req.setAttribute("allSkills", skillDao.findAll());
+                }
+                case "prerequisites" -> {
+                    req.setAttribute("prerequisites", prerequisiteService.list());
                     req.setAttribute("allSkills", skillDao.findAll());
                 }
                 case "requirements" -> {
@@ -118,6 +124,10 @@ public class AdminReferenceServlet extends HttpServlet {
             case "addAlias" -> referenceService.addSkillAlias(parseLong(req.getParameter("skillId")),
                     req.getParameter("aliasName"));
             case "deleteAlias" -> referenceService.deleteSkillAlias(parseLong(req.getParameter("id")));
+            // 선수관계 추가는 순환(A 전에 B, B 전에 A)을 DFS로 막는다 — 막히면 IllegalArgumentException
+            case "addPrerequisite" -> prerequisiteService.add(parseLong(req.getParameter("skillId")),
+                    parseLong(req.getParameter("prereqSkillId")));
+            case "deletePrerequisite" -> prerequisiteService.delete(parseLong(req.getParameter("id")));
             case "addRequirement" -> referenceService.addRequiredSkill(parseLong(req.getParameter("jobId")),
                     parseLong(req.getParameter("skillId")), req.getParameter("importance"),
                     blankToNull(req.getParameter("requiredLevel")));

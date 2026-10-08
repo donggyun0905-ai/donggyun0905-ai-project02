@@ -99,7 +99,8 @@ done
 `30_alter_share_link_scope_activity`(공유 링크 활동 내역 공개 — 03에도 반영돼 새 DB에서는 불필요. **없으면 공유 링크·면접관 화면이 `Unknown column 'scope_activity'` 오류**) ·
 `31_alter_interviewer_view_upgrade`(면접관 뷰 보강 — 경험 기간·팀 규모/역할·학력 테이블·공유 범위 2종·면접관 검토 상태/평점/메모. 01·03에도 반영돼 새 DB에서는 불필요. **없으면 프로필·공유 링크·면접관 화면이 `Unknown column` 오류**) ·
 `32_alter_documents_file_data`(서류 파일 내용을 DB에 저장 — 03에도 반영돼 새 DB에서는 불필요. **없으면 서류 업로드·내려받기가 `Unknown column 'file_data'` 오류**. 예전에 디스크에 올린 서류는 서버를 켤 때 자동으로 DB로 옮겨진다) ·
-`33_schema_companion_device`(데스크톱 캐릭터 연결 — 03에도 반영돼 새 DB에서는 불필요. **없으면 프로필의 캐릭터 켜기가 오류**).
+`33_schema_companion_device`(데스크톱 캐릭터 연결 — 03에도 반영돼 새 DB에서는 불필요. **없으면 프로필의 캐릭터 켜기가 오류**) ·
+`34_schema_skill_prerequisite`+`35_seed_skill_prerequisite`(기술 선수관계 — 로드맵 순서를 위상 정렬로 정한다. 34는 03에도 반영돼 새 DB에서는 불필요, 35는 새 DB도 실행. 없으면 로드맵이 예전처럼 중요도 순서만 쓴다).
 > 25번은 없습니다 — 알림(seongwon)과 시뮬레이션(donghyeon)의 번호가 24로 겹쳐 시뮬레이션 쪽을 26·27로 옮겼습니다.
 > 나이 공개(seongwon)도 원래 22번이었는데 로드맵 이모지 정리와 겹쳐 28번으로 옮겼습니다.
 `05_seed_survey`도 다시 실행하면 새 문항(18문항 중 없는 것)만 추가됩니다(같은 문구는 건너뜀).

@@ -43,8 +43,19 @@ public final class TestFixtures {
         }
     }
 
-    /** FK가 걸린 자식 행부터 지워야 하므로 호출 순서(자식→부모)는 호출부 책임. */
+    /**
+     * FK가 걸린 자식 행부터 지워야 하므로 호출 순서(자식→부모)는 호출부 책임.
+     *
+     * USERS만 예외로 하나를 더 치운다 — 백그라운드 스케줄러가 만든 행이다. 같은 공유 DB에 누군가
+     * 서버를 띄워 두면 SpecScoreScheduler가 웹앱이 뜨는 순간 전체 사용자에게 스냅샷을 남기는데,
+     * 테스트가 방금 만든 사용자 몫까지 생겨 USERS 하드 삭제가 FK(RESTRICT)로 막혔다.
+     * 테스트마다 손으로 넣다 보니 새 테스트가 계속 빠져 세 번 같은 실패를 봤다(10/06·10/07·10/08).
+     * 테스트가 만들지 않은 행을 치우는 것이라 여기 한 곳에 두는 쪽이 맞다.
+     */
     public static void hardDelete(Connection conn, String table, long id) throws SQLException {
+        if ("USERS".equalsIgnoreCase(table)) {
+            hardDeleteByColumn(conn, "SPEC_SCORE_HISTORY", "user_id", id);
+        }
         try (PreparedStatement p = conn.prepareStatement("DELETE FROM " + table + " WHERE id = ?")) {
             p.setLong(1, id);
             p.executeUpdate();

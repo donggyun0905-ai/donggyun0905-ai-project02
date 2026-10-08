@@ -14,6 +14,7 @@
     <a href="${pageContext.request.contextPath}/admin/reference?tab=certifications" class="${tab == 'certifications' ? 'active' : ''}">자격증</a>
     <a href="${pageContext.request.contextPath}/admin/reference?tab=aliases" class="${tab == 'aliases' ? 'active' : ''}">기술 별칭</a>
     <a href="${pageContext.request.contextPath}/admin/reference?tab=requirements" class="${tab == 'requirements' ? 'active' : ''}">직무별 요구 기술</a>
+    <a href="${pageContext.request.contextPath}/admin/reference?tab=prerequisites" class="${tab == 'prerequisites' ? 'active' : ''}">기술 선수관계</a>
 </nav>
 
 <c:if test="${not empty adminMessage}">
@@ -175,6 +176,63 @@
                 </tr>
             </c:forEach>
         </table>
+    </div>
+</c:if>
+
+<c:if test="${tab == 'prerequisites'}">
+    <div class="card">
+        <h2>선수관계 추가</h2>
+        <p class="muted" style="margin:6px 0 0; font-size:0.86rem;">
+            "A를 하기 전에 B"를 등록하면 로드맵이 그 순서를 지킵니다(위상 정렬). 예) Spring 전에 Java, Docker 전에 Linux.<br>
+            순환이 되는 관계(A 전에 B인데 B 전에 A)는 저장되지 않습니다 — 로드맵 순서를 정할 수 없게 되기 때문입니다.
+        </p>
+        <form method="post" action="${pageContext.request.contextPath}/admin/reference" class="row" style="margin-top:10px;">
+            <input type="hidden" name="_csrf" value="${csrfToken}">
+            <input type="hidden" name="tab" value="prerequisites">
+            <input type="hidden" name="action" value="addPrerequisite">
+            <select name="skillId" required style="flex:1;">
+                <option value="">이 기술을 하기 전에</option>
+                <c:forEach var="skill" items="${allSkills}">
+                    <option value="${skill.id}"><c:out value="${skill.skillName}" /></option>
+                </c:forEach>
+            </select>
+            <select name="prereqSkillId" required style="flex:1;">
+                <option value="">먼저 할 기술</option>
+                <c:forEach var="skill" items="${allSkills}">
+                    <option value="${skill.id}"><c:out value="${skill.skillName}" /></option>
+                </c:forEach>
+            </select>
+            <button type="submit">추가</button>
+        </form>
+    </div>
+    <div class="card">
+        <h2>선수관계 목록 (${prerequisites.size()}개)</h2>
+        <c:choose>
+            <c:when test="${empty prerequisites}">
+                <p class="muted" style="margin-top:10px;">아직 등록된 선수관계가 없습니다. 없으면 로드맵은 격차 분석이 매긴 중요도 순서를 그대로 씁니다.</p>
+            </c:when>
+            <c:otherwise>
+                <table style="margin-top:10px; width:100%;">
+                    <tr><th style="text-align:left;">먼저 할 기술</th><th style="text-align:left;">그다음 기술</th><th></th></tr>
+                    <c:forEach var="pre" items="${prerequisites}">
+                        <tr>
+                            <td><c:out value="${pre.prereqSkillName}" /></td>
+                            <td><c:out value="${pre.skillName}" /></td>
+                            <td>
+                                <form method="post" action="${pageContext.request.contextPath}/admin/reference" class="inline-form"
+                                      onsubmit="return confirm('이 선수관계를 지울까요?');">
+                                    <input type="hidden" name="_csrf" value="${csrfToken}">
+                                    <input type="hidden" name="tab" value="prerequisites">
+                                    <input type="hidden" name="action" value="deletePrerequisite">
+                                    <input type="hidden" name="id" value="${pre.id}">
+                                    <button type="submit" class="link-button" style="color:var(--danger);">삭제</button>
+                                </form>
+                            </td>
+                        </tr>
+                    </c:forEach>
+                </table>
+            </c:otherwise>
+        </c:choose>
     </div>
 </c:if>
 

@@ -71,6 +71,8 @@ public class RoadmapGenerator {
     private static final String GAP_ANALYSIS_UNIQUE_KEY = "uk_roadmap_gap_analysis_id";
     private static final Logger LOG = Logger.getLogger(RoadmapGenerator.class.getName());
 
+    private final SkillPrerequisiteService prerequisiteService = new SkillPrerequisiteService();
+
     // 가장 최근 격차 분석을 기준으로 새 로드맵을 생성한다. 기존 대표 로드맵이 있으면 비활성화한다 (FR-37).
     public Long generate(Long userId) throws SQLException, NoGapAnalysisException {
         List<GapAnalysisDto> analyses = gapAnalysisDao.findByUserId(userId);
@@ -93,6 +95,9 @@ public class RoadmapGenerator {
         // 이번 라운드에 담을 기술 — 부족 기술 상위 N개, 모자라면 이미 갖춘 직무 요구 기술로 보충한다.
         // LLM 호출이 들어갈 수 있어서 DB 트랜잭션을 열기 전에 끝낸다.
         List<Long> roundSkillIds = selectRoundSkills(job, rankedMissing, importanceBySkillId);
+        // 선수관계가 있으면 그에 맞게 다시 줄 세운다 (2026-10-08) — "Spring 전에 Java"가 지켜져야 한다.
+        // 관계가 없으면 격차 분석이 매긴 순위 그대로다.
+        roundSkillIds = prerequisiteService.order(roundSkillIds);
         CertificationDto suggestedCert = findSuggestedCertification(userId, job);
         // 직무와 상관없이 많은 기업이 보는 공통 자격증(어학·컴활)도 하나 함께 제안한다(2026-10-03 사용자 요청 —
         // 직무 자격증이 다 떨어져야만 공통 자격증이 나오던 탓에 사실상 보이지 않았다).

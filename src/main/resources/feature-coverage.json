@@ -276,16 +276,19 @@
     ],
     "services": [
       "RoadmapGenerator.java",
-      "RoadmapService.java"
+      "RoadmapService.java",
+      "SkillPrerequisiteService.java"
     ],
     "daos": [
-      "RoadmapStepDao.java"
+      "RoadmapStepDao.java",
+      "SkillPrerequisiteDao.java"
     ],
     "views": [],
     "tests": [
       "RoadmapServiceTest.java",
       "RoadmapServletTest.java",
-      "RoadmapStepDaoTest.java"
+      "RoadmapStepDaoTest.java",
+      "SkillPrerequisiteServiceTest.java"
     ]
   },
   {
@@ -437,7 +440,8 @@
       "JobDiscoveryServlet.java"
     ],
     "services": [
-      "JobDiscoveryService.java"
+      "JobDiscoveryService.java",
+      "SkillPrerequisiteService.java"
     ],
     "daos": [
       "JobRecommendationDao.java",
@@ -447,6 +451,7 @@
     "tests": [
       "JobDiscoveryServiceTest.java",
       "JobRecommendationDaoTest.java",
+      "SkillPrerequisiteServiceTest.java",
       "UserDaoTest.java"
     ]
   },
@@ -1174,6 +1179,7 @@
       "RoadmapRefresher.java",
       "RoadmapService.java",
       "SkillDeepenService.java",
+      "SkillPrerequisiteService.java",
       "Work24Cache.java",
       "Work24CollectService.java"
     ],
@@ -1204,6 +1210,7 @@
       "RecommendationDescriberTest.java",
       "RoadmapServiceTest.java",
       "RoadmapStepDaoTest.java",
+      "SkillPrerequisiteServiceTest.java",
       "StubLlmClientTest.java"
     ]
   },

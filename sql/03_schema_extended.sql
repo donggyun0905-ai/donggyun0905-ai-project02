@@ -1140,3 +1140,28 @@ CREATE TABLE COMPANION_DEVICE (
         FOREIGN KEY (user_id) REFERENCES USERS (id)
         ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
+-- SKILL_PREREQUISITE (기술 선수관계) — 신설 (34번)
+-- 관련 요구사항: FR-33 로드맵 단계 이유 · FR-39 로드맵 생성
+-- UNIQUE: (skill_id, prereq_skill_id) — 같은 관계가 두 번 들어가면 위상 정렬의 진입차수가 어긋난다
+-- "A를 하기 전에 B". 로드맵은 이 그래프를 위상 정렬(Kahn)해 순서를 정하고,
+-- 관리자 화면은 추가할 때 DFS로 순환(A→B→A)을 막는다. 초기 데이터는 sql/35.
+-- =========================================================
+CREATE TABLE SKILL_PREREQUISITE (
+    id              BIGINT   NOT NULL AUTO_INCREMENT,
+    skill_id        BIGINT   NOT NULL, -- 뒤에 와야 하는 기술
+    prereq_skill_id BIGINT   NOT NULL, -- 먼저 와야 하는 기술
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted      BOOLEAN  NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_skill_prerequisite (skill_id, prereq_skill_id),
+    KEY idx_skill_prerequisite_prereq (prereq_skill_id),
+    CONSTRAINT fk_skill_prerequisite_skill
+        FOREIGN KEY (skill_id) REFERENCES SKILL (id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_skill_prerequisite_prereq
+        FOREIGN KEY (prereq_skill_id) REFERENCES SKILL (id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
