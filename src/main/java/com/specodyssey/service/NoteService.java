@@ -48,7 +48,9 @@ public class NoteService {
         }
         String version = note.getCreatedAt() == null ? String.valueOf(note.getId()) : note.getCreatedAt() + "#" + note.getId();
         try {
-            return new Note(FileStorageUtil.readText(note.getFilePath()), version);
+            // 웹 연습장(load)과 같은 길로 읽는다 — 2026-10-07부터 노트 내용은 DB(file_data)에 있고 file_path는 비어 있어,
+            // 디스크 경로로 읽으면 NullPointerException으로 캐릭터 연습장이 열리지 않았다 (2026-10-08 수정)
+            return new Note(documentContentService.readText(note), version);
         } catch (IOException e) {
             return new Note("", version);
         }
