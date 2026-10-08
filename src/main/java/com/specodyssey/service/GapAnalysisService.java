@@ -47,7 +47,8 @@ public class GapAnalysisService {
     private final SkillMatcher skillMatcher;
 
     public GapAnalysisService() {
-        this(new EmbeddingMatcher());
+        // 2026-10-08: 하이브리드 매칭 — 종속이 찾으면 그대로 쓰고, 못 찾은 입력만 RRF로 한 번 더 본다
+        this(new HybridSkillMatcher());
     }
 
     public GapAnalysisService(SkillMatcher skillMatcher) {

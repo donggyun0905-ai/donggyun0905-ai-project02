@@ -90,7 +90,8 @@ public class ProfileInputChecker {
     private final CertificationDao certificationDao;
 
     public ProfileInputChecker() {
-        this(new EmbeddingMatcher(), new CertificationDao());
+        // 2026-10-08: 하이브리드 매칭 — 오타·표기 차이로 못 찾던 입력에 정식 이름을 더 잘 제안한다
+        this(new HybridSkillMatcher(), new CertificationDao());
     }
 
     ProfileInputChecker(SkillMatcher skillMatcher, CertificationDao certificationDao) {

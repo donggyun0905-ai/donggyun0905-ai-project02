@@ -145,8 +145,10 @@
       "ProfileSpecServlet.java"
     ],
     "services": [
+      "HybridSkillMatcher.java",
       "ProfileInputChecker.java",
-      "ProfileService.java"
+      "ProfileService.java",
+      "RankFusion.java"
     ],
     "daos": [
       "UserSpecDao.java"
@@ -155,8 +157,10 @@
       "profile.jsp"
     ],
     "tests": [
+      "HybridSkillMatcherTest.java",
       "ProfileInputCheckerTest.java",
       "ProfileServiceTest.java",
+      "RankFusionTest.java",
       "UserSpecDaoTest.java"
     ]
   },
@@ -196,8 +200,10 @@
       "ProfileSkillServlet.java"
     ],
     "services": [
+      "HybridSkillMatcher.java",
       "ProfileInputChecker.java",
-      "ProfileService.java"
+      "ProfileService.java",
+      "RankFusion.java"
     ],
     "daos": [
       "UserSkillDao.java"
@@ -206,9 +212,11 @@
       "profile.jsp"
     ],
     "tests": [
+      "HybridSkillMatcherTest.java",
       "ProfileInputCheckerTest.java",
       "ProfileServiceTest.java",
       "ProfileSkillServletTest.java",
+      "RankFusionTest.java",
       "UserSkillDaoTest.java"
     ]
   },

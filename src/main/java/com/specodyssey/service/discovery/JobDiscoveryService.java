@@ -20,6 +20,7 @@ import com.specodyssey.dto.UserSurveyAnswerDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.service.EmbeddingMatcher;
 import com.specodyssey.service.SkillCatalog;
+import com.specodyssey.service.HybridSkillMatcher;
 import com.specodyssey.service.SkillMatcher;
 import com.specodyssey.service.discovery.JobDiscoveryScorer.JobCandidate;
 import com.specodyssey.service.discovery.JobDiscoveryScorer.OwnedSkill;
@@ -73,7 +74,9 @@ public class JobDiscoveryService {
     public JobDiscoveryService() {
         // EmbeddingMatcher: TD-1 임베딩까지 붙은 최종 매처(2026-09-30). 정확 일치·SKILL_ALIAS·
         // 편집거리로 못 잡으면 로컬 임베딩 유사도까지 시도한다.
-        this(new EmbeddingMatcher());
+        // 2026-10-08: 하이브리드(글자 순위 + 임베딩 순위를 RRF로 합침). 종속이 찾으면 그대로 쓰므로
+        // 기존 동작은 그대로이고, 둘 다 임계값을 못 넘던 입력만 추가로 잡힌다.
+        this(new HybridSkillMatcher());
     }
 
     public JobDiscoveryService(SkillMatcher skillMatcher) {
