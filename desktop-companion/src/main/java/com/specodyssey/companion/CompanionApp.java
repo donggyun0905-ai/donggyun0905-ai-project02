@@ -35,7 +35,7 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
 
     private final Settings settings = Settings.load();
     private final ApiClient api = new ApiClient();
-    private final Updater updater = new Updater();
+    private final Updater updater = new Updater(api);
     private final ScheduledExecutorService worker = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "companion-worker");
         t.setDaemon(true);
@@ -46,6 +46,8 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
     private CharacterWindow character;
     private BubbleWindow bubble;
     private HistoryWindow history;
+    private SettingsWindow settingsWindow;
+    private NoteWindow noteWindow;
     private BubbleRules rules;
 
     private List<Message> serverMessages = List.of();
@@ -54,6 +56,14 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
     private Updater.Release availableUpdate;
     private boolean greetAfterConnect;
     private boolean dirty;
+    // 하루 요약 · 트렌드 순환 (서버가 /messages에 같이 준다)
+    private String summaryText;
+    private String siteUrl;
+    private List<ApiClient.Trend> trends = List.of();
+    private Message trendShowing;      // 지금 떠 있는 트렌드 말풍선 (잠깐 보였다 사라짐, 30분 규칙과 별개)
+    private long trendHideAt;
+    private long nextTrendAt;
+    private int trendIndex;
 
     public static void main(String[] args) {
         Theme.install();
@@ -91,6 +101,13 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
         character.setVisible(true);
         bubble = new BubbleWindow(this);
         history = new HistoryWindow(this::browse);
+        settingsWindow = new SettingsWindow(settings, this::onSettingsSaved);
+        noteWindow = new NoteWindow(settings, api, worker);
+        nextTrendAt = System.currentTimeMillis() + settings.trendIntervalMinutes * 60_000L;
+        if (AppPaths.isPackaged()) {
+            boolean autoStart = Boolean.TRUE.equals(settings.autoStart);
+            worker.execute(() -> WindowsSetup.setAutoStart(autoStart)); // 기본 켜짐 — 설정 창에서 끌 수 있다
+        }
 
         if (launch.updated()) {
             urgent.add(Message.local("updated:" + Version.current(), Message.PRAISE, "업데이트 완료",
@@ -103,7 +120,7 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
         }
         worker.scheduleWithFixedDelay(this::poll, 0, POLL_SECONDS, TimeUnit.SECONDS);
         worker.scheduleWithFixedDelay(this::checkUpdate, 15, 24 * 60 * 60, TimeUnit.SECONDS);
-        new Timer(3000, e -> tick()).start();
+        new Timer(1000, e -> tick()).start();
         tick();
     }
 
@@ -137,7 +154,7 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
             return;
         }
         try {
-            ApiClient.Snapshot snap = api.messages(settings.server, settings.token);
+            ApiClient.Snapshot snap = api.messages(settings.server, settings.token, settings.eveningHour);
             SwingUtilities.invokeLater(() -> onSnapshot(snap));
         } catch (ApiClient.UnauthorizedException e) {
             SwingUtilities.invokeLater(this::onDisconnected);
@@ -151,6 +168,12 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
     private void onSnapshot(ApiClient.Snapshot snap) {
         character.setOffline(false);
         serverMessages = snap.messages();
+        summaryText = snap.summary();
+        siteUrl = snap.siteUrl();
+        trends = snap.trends() == null ? List.of() : snap.trends();
+        if (availableUpdate == null && settings.isConnected()) {
+            worker.execute(this::checkUpdate); // 연결된 뒤 처음 받은 때 한 번 (그 뒤로는 하루 한 번)
+        }
         settings.userName = snap.userName();
         if (snap.tier() != null) {
             int index = snap.tier().index();
@@ -192,8 +215,11 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
         if (!AppPaths.isPackaged()) {
             return; // IDE에서 실행 중에는 업데이트하지 않는다
         }
+        if (!settings.isConnected()) {
+            return; // 업데이트 확인도 우리 서버에 묻는다 — 연결된 뒤에
+        }
         try {
-            Updater.Release r = updater.findNewer();
+            Updater.Release r = updater.findNewer(settings.server, settings.token);
             if (r != null) {
                 SwingUtilities.invokeLater(() -> {
                     availableUpdate = r;
@@ -234,10 +260,27 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
                 closeBubble(current, false); // 말한 일을 다 했다 → 스스로 끈다
             }
         }
+        // 트렌드 말풍선은 정해진 시간만 보이고 저절로 사라진다
+        if (trendShowing != null && now >= trendHideAt) {
+            endTrend(now);
+        }
+        // 하루 요약 — 정한 시각(기본 9시)이 지났고 오늘 아직 안 했으면 한 번 (그날 처음 켜질 때도)
+        String today = java.time.LocalDate.now(ZONE).toString();
+        if (summaryText != null && settings.isConnected() && !today.equals(settings.lastSummaryDate)
+                && java.time.LocalTime.now(ZONE).getHour() >= settings.summaryHour) {
+            settings.lastSummaryDate = today;
+            urgent.add(Message.local("summary:" + today, Message.TODO, "하루 요약", summaryText, "대시보드", siteUrl));
+            dirty = true;
+        }
         bubble.setWaiting(rules.waitingCount(all));
         Message next = rules.next(all, urgent, now, settings.quietUntil);
         if (next != null) {
+            trendShowing = null; // 중요한 말이 오면 트렌드 말풍선 자리를 넘겨준다
             showMessage(next);
+        } else if (Boolean.TRUE.equals(settings.trendEnabled) && rules.current() == null && trendShowing == null
+                && now >= nextTrendAt && now >= settings.quietUntil && rules.waitingCount(all) == 0 && !trends.isEmpty()
+                && !character.isPeeking()) {
+            showTrend(now); // 한가할 때만
         }
         rules.forgetGone(all, urgent);
         settings.spokenKeys = new java.util.HashSet<>(rules.spokenKeys());
@@ -245,6 +288,35 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
             dirty = false;
             settings.save();
         }
+    }
+
+    private void showTrend(long now) {
+        ApiClient.Trend t = trends.get(trendIndex++ % trends.size());
+        String text = t.summary() == null || t.summary().isBlank() ? t.name() : t.name() + " — " + t.summary();
+        trendShowing = Message.local("trend:" + t.name(), Message.INFO, "오늘의 트렌드", text,
+                t.url() == null ? null : "자세히", t.url());
+        trendHideAt = now + settings.trendSeconds * 1000L;
+        bubble.show(trendShowing, 0, character.characterBounds(), character.screenBounds());
+    }
+
+    private void endTrend(long now) {
+        if (trendShowing != null && bubble.isShowing(trendShowing)) {
+            bubble.close();
+        }
+        trendShowing = null;
+        nextTrendAt = now + settings.trendIntervalMinutes * 60_000L;
+    }
+
+    private void onSettingsSaved() {
+        rules.setIntervalMillis(settings.intervalMinutes * 60_000L);
+        if (settings.characterHeight() != character.characterBounds().height) {
+            resize(settings.size);
+        }
+        nextTrendAt = System.currentTimeMillis() + settings.trendIntervalMinutes * 60_000L;
+        boolean autoStart = Boolean.TRUE.equals(settings.autoStart);
+        worker.execute(() -> WindowsSetup.setAutoStart(autoStart));
+        worker.execute(this::poll); // 저녁 경고 시각이 바뀌었을 수 있다
+        dirty = true;
     }
 
     private void showMessage(Message m) {
@@ -291,6 +363,10 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
 
     @Override
     public void onDismiss(Message m) {
+        if (m.key().startsWith("trend:")) {
+            endTrend(System.currentTimeMillis());
+            return;
+        }
         if (m.key().startsWith("update:") && availableUpdate != null) {
             settings.skippedVersion = availableUpdate.version(); // 이 버전은 다시 조르지 않는다 (메뉴에는 남음)
             extras.removeIf(x -> x.key().equals(m.key()));
@@ -300,6 +376,11 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
 
     @Override
     public void onOpen(Message m) {
+        if (m.key().startsWith("trend:")) {
+            browse(m.url());
+            endTrend(System.currentTimeMillis());
+            return;
+        }
         if (m.key().startsWith("update:")) {
             startUpdate();
             return;
@@ -350,6 +431,7 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
         JPopupMenu menu = new JPopupMenu();
         item(menu, "지금 할 일 말해 줘", this::onCharacterClick);
         item(menu, "말풍선 기록", () -> history.showItems(settings.history));
+        item(menu, "연습장", noteWindow::open);
         menu.addSeparator();
 
         long now = System.currentTimeMillis();
@@ -360,24 +442,6 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
         wake.setEnabled(now < settings.quietUntil);
         menu.add(quiet);
 
-        JMenu interval = new JMenu("다시 말하는 간격");
-        ButtonGroup ig = new ButtonGroup();
-        for (int minutes : new int[]{10, 30, 60}) {
-            radio(interval, ig, minutes + "분", settings.intervalMinutes == minutes, () -> {
-                settings.intervalMinutes = minutes;
-                rules.setIntervalMillis(minutes * 60_000L);
-                dirty = true;
-            });
-        }
-        menu.add(interval);
-
-        JMenu size = new JMenu("크기");
-        ButtonGroup sg = new ButtonGroup();
-        String[][] sizes = {{"S", "작게"}, {"M", "보통"}, {"L", "크게"}};
-        for (String[] s : sizes) {
-            radio(size, sg, s[1], s[0].equals(settings.size), () -> resize(s[0]));
-        }
-        menu.add(size);
         item(menu, character.isPeeking() ? "다시 보이기" : "숨기기", () -> {
             if (character.isPeeking()) {
                 character.unpeek();
@@ -393,6 +457,7 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
             JMenuItem up = item(menu, "업데이트 (" + availableUpdate.version() + ")", this::startUpdate);
             up.setFont(Theme.font(Font.BOLD, 13));
         }
+        item(menu, "설정", settingsWindow::open);
         item(menu, "사이트 열기", () -> browse(settings.siteBase() + "/dashboard"));
         if (settings.isConnected()) {
             item(menu, "연결 해제", this::disconnect);
@@ -447,19 +512,21 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
         if (r == null) {
             return;
         }
-        if (!AppPaths.isRunningFromInstallDir()) {
+        if (!AppPaths.isPackaged() || !settings.isConnected()) {
             forceShow(Message.local("update-fail:" + System.currentTimeMillis(), Message.WARN, "업데이트",
-                    "설치된 캐릭터에서만 업데이트할 수 있어요.", null, null));
+                    "설치된 캐릭터에서, 사이트와 연결된 상태로 업데이트할 수 있어요.", null, null));
             return;
         }
+        String server = settings.server;
+        String token = settings.token;
         forceShow(Message.local("updating", Message.INFO, "업데이트", "새 버전을 내려받는 중이에요… 0%", null, null));
         worker.execute(() -> {
             try {
-                updater.downloadAndLaunchSwap(r, p -> SwingUtilities.invokeLater(() -> bubble.show(
+                updater.downloadAndRunInstaller(server, token, r, p -> SwingUtilities.invokeLater(() -> bubble.show(
                         Message.local("updating", Message.INFO, "업데이트", "새 버전을 내려받는 중이에요… " + Math.round(p * 100) + "%", null, null),
                         0, character.characterBounds(), character.screenBounds())));
                 settings.save();
-                System.exit(0); // 교체 스크립트가 이어받아 새 버전을 켠다
+                System.exit(0); // 설치 프로그램이 새 버전으로 바꾸고 끝나면 캐릭터를 다시 켠다
             } catch (IOException e) {
                 SwingUtilities.invokeLater(() -> forceShow(Message.local("update-fail:" + System.currentTimeMillis(), Message.WARN,
                         "업데이트", "업데이트하지 못했어요. " + e.getMessage(), null, null)));

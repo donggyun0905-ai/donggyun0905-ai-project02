@@ -3,7 +3,9 @@ package com.specodyssey.controller;
 import com.google.gson.Gson;
 import com.specodyssey.dto.CompanionDeviceDto;
 import com.specodyssey.dto.UserDto;
+import com.specodyssey.dto.CompanionReleaseDto;
 import com.specodyssey.service.companion.CompanionAuthService;
+import com.specodyssey.service.companion.CompanionReleaseService;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,14 +32,12 @@ import java.util.logging.Logger;
  *   POST /companion/connect  일회용 코드를 만들어 캐릭터를 켜는 specodyssey:// 주소를 돌려준다
  *   GET  /companion/devices  연결된 PC 목록
  *   POST /companion/revoke   id → 그 PC 연결 해제
+ *   GET  /companion/download 최신 설치 파일(Setup.exe) 내려받기 — 관리자가 올린 것을 DB에서 이어 보낸다
  * 로그인 세션이 필요하고(SessionFilter), POST는 CSRF 헤더를 확인한다(SecurityHeadersFilter). 항상 세션의 본인 것만.
  */
 @WebServlet("/companion/*")
 public class CompanionServlet extends HttpServlet {
 
-    /** 설치 파일 — GitHub Releases의 최신 버전 (업데이트도 같은 곳을 본다) */
-    public static final String DOWNLOAD_URL =
-            "https://github.com/donggyun0905-ai/donggyun0905-ai-project02/releases/latest/download/SpecOdysseyCompanion.zip";
 
     private static final Logger LOG = Logger.getLogger(CompanionServlet.class.getName());
     private static final Gson GSON = new Gson();
@@ -45,10 +45,15 @@ public class CompanionServlet extends HttpServlet {
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("MM.dd HH:mm");
 
     private final CompanionAuthService authService = new CompanionAuthService();
+    private final CompanionReleaseService releaseService = new CompanionReleaseService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         Long userId = currentUserId(req);
+        if ("/download".equals(req.getPathInfo())) {
+            download(resp);
+            return;
+        }
         if (!"/devices".equals(req.getPathInfo())) {
             writeJson(resp, HttpServletResponse.SC_NOT_FOUND, Map.of("message", "없는 요청입니다."));
             return;
@@ -79,7 +84,13 @@ public class CompanionServlet extends HttpServlet {
                 String code = authService.issueCode(userId);
                 String launchUrl = "specodyssey://connect?code=" + code
                         + "&server=" + URLEncoder.encode(CompanionApiServlet.baseUrl(req), StandardCharsets.UTF_8);
-                writeJson(resp, HttpServletResponse.SC_OK, Map.of("launchUrl", launchUrl, "downloadUrl", DOWNLOAD_URL));
+                CompanionReleaseDto latest = releaseService.latest();
+                Map<String, Object> body = new LinkedHashMap<>();
+                body.put("launchUrl", launchUrl);
+                body.put("downloadUrl", latest == null ? null : req.getContextPath() + "/companion/download");
+                body.put("version", latest == null ? null : latest.getVersion());
+                body.put("sizeText", latest == null ? null : latest.getSizeText());
+                writeJson(resp, HttpServletResponse.SC_OK, body);
             } else if ("/revoke".equals(action)) {
                 boolean done = authService.revoke(userId, parseId(req.getParameter("id")));
                 writeJson(resp, done ? HttpServletResponse.SC_OK : HttpServletResponse.SC_NOT_FOUND,
@@ -90,6 +101,25 @@ public class CompanionServlet extends HttpServlet {
         } catch (SQLException e) {
             LOG.log(Level.WARNING, "캐릭터 연결 처리 실패 (" + action + ")", e);
             writeJson(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, Map.of("message", "잠시 후 다시 시도해 주세요."));
+        }
+    }
+
+    private void download(HttpServletResponse resp) throws IOException {
+        try {
+            CompanionReleaseDto r = releaseService.latest();
+            if (r == null) {
+                resp.sendError(HttpServletResponse.SC_NOT_FOUND, "아직 올라간 설치 파일이 없어요.");
+                return;
+            }
+            resp.setContentType("application/octet-stream");
+            resp.setContentLengthLong(r.getFileSize());
+            resp.setHeader("Content-Disposition", "attachment; filename=\"" + r.getFileName() + "\"");
+            releaseService.writeTo(r, resp.getOutputStream());
+        } catch (SQLException e) {
+            LOG.log(Level.WARNING, "캐릭터 설치 파일 내려받기 실패", e);
+            if (!resp.isCommitted()) {
+                resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "잠시 후 다시 시도해 주세요.");
+            }
         }
     }
 

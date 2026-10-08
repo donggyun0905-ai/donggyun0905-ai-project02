@@ -36,6 +36,23 @@ public class NoteService {
         }
     }
 
+    /** 연습장 내용과 버전(마지막 저장 시각) — 데스크톱 캐릭터가 웹과 동시에 고쳤는지 알아보는 데 쓴다 */
+    public record Note(String text, String version) {
+    }
+
+    public Note loadWithVersion(Long userId) throws SQLException {
+        DocumentDto note = findNote(userId);
+        if (note == null) {
+            return new Note("", "");
+        }
+        String version = note.getCreatedAt() == null ? String.valueOf(note.getId()) : note.getCreatedAt() + "#" + note.getId();
+        try {
+            return new Note(FileStorageUtil.readText(note.getFilePath()), version);
+        } catch (IOException e) {
+            return new Note("", version);
+        }
+    }
+
     public void save(Long userId, String text) throws SQLException, IOException {
         String body = text == null ? "" : text;
         if (body.length() > MAX_LENGTH) {

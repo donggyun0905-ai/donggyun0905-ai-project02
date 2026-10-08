@@ -32,11 +32,13 @@ public class AdminAuditService {
     public static final String ROADMAP_STEP_DELETE = "ROADMAP_STEP_DELETE";
     public static final String REFERENCE_SAVE = "REFERENCE_SAVE";
     public static final String REFERENCE_DELETE = "REFERENCE_DELETE";
+    public static final String COMPANION_RELEASE_UPLOAD = "COMPANION_RELEASE_UPLOAD";
 
     /** 화면에 보여 줄 한글 이름. 목록에 없는 행동은 코드 그대로 보여 준다. */
     public static String actionLabel(String action) {
         return switch (action == null ? "" : action) {
             case ARTICLE_HIDE -> "글 내림";
+            case COMPANION_RELEASE_UPLOAD -> "캐릭터 새 버전";
             case ARTICLE_RESTORE -> "글 복구";
             case REPORT_DISMISS -> "신고 반려";
             case USER_PROFILE_UPDATE -> "회원 프로필 수정";
