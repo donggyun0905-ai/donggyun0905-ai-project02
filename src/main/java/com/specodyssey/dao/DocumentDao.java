@@ -214,6 +214,19 @@ public class DocumentDao {
         }
     }
 
+    /** 예전에 빈 내용으로 만든 [TEST] 통과 서류에 안내 문구를 채운다. 채운 행 수를 돌려준다. */
+    public int fillEmptyTestShortcutDocuments() throws SQLException {
+        String sql = "UPDATE DOCUMENTS SET file_data = ?, file_size = ? WHERE checksum = ? AND file_data IS NULL " +
+                "AND (file_path IS NULL OR file_path = '') AND is_deleted = FALSE";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setBytes(1, DocumentDto.TEST_SHORTCUT_CONTENT);
+            pstmt.setLong(2, DocumentDto.TEST_SHORTCUT_CONTENT.length);
+            pstmt.setString(3, DocumentDto.TEST_SHORTCUT_CHECKSUM);
+            return pstmt.executeUpdate();
+        }
+    }
+
     private DocumentDto mapRow(ResultSet rs) throws SQLException {
         DocumentDto document = new DocumentDto();
         document.setId(rs.getLong("id"));

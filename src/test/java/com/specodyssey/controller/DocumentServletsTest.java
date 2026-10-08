@@ -128,6 +128,37 @@ class DocumentServletsTest {
         assertTrue(documentDao.findByUserId(other.getId()).isEmpty());
     }
 
+    @Test
+    void 예전에_빈_내용으로_만든_TEST_통과_서류는_기동_보정_뒤_안내_문구가_내려받힌다() throws Exception {
+        DocumentDto doc = saveDocument(owner, "test-cert-shortcut.txt", "text/plain");
+        FileStorageUtil.deleteQuietly(doc.getFilePath());
+        try (java.sql.Connection conn = com.specodyssey.util.DBUtil.getConnection();
+             java.sql.PreparedStatement p = conn.prepareStatement(
+                     "UPDATE DOCUMENTS SET file_path = '', file_data = NULL, file_size = 0, checksum = ? WHERE id = ?")) {
+            p.setString(1, DocumentDto.TEST_SHORTCUT_CHECKSUM);
+            p.setLong(2, doc.getId());
+            p.executeUpdate();
+        }
+
+        assertTrue(new com.specodyssey.dao.DocumentDao().fillEmptyTestShortcutDocuments() >= 1);
+
+        FakeWeb.Request req = FakeWeb.request().loggedIn(owner);
+        req.servletPath = "/documents";
+        req.pathInfo = "/" + doc.getId();
+        FakeWeb.Response resp = FakeWeb.response();
+        download.doGet(req.http(), resp.http());
+        assertEquals(new String(DocumentDto.TEST_SHORTCUT_CONTENT, StandardCharsets.UTF_8),
+                resp.body.toString(StandardCharsets.UTF_8));
+    }
+
+    private static void clearFileData(Long documentId) throws Exception {
+        try (java.sql.Connection conn = com.specodyssey.util.DBUtil.getConnection();
+             java.sql.PreparedStatement p = conn.prepareStatement("UPDATE DOCUMENTS SET file_data = NULL WHERE id = ?")) {
+            p.setLong(1, documentId);
+            p.executeUpdate();
+        }
+    }
+
     private DocumentDto saveDocument(UserDto user, String name, String storedMime) throws Exception {
         FileStorageUtil.SavedFile saved = FileStorageUtil.save(
                 new ByteArrayInputStream("본문".getBytes(StandardCharsets.UTF_8)), name);
@@ -216,18 +247,25 @@ class DocumentServletsTest {
     }
 
     @Test
-    void 내용을_어디에서도_찾을_수_없는_서류를_받으면_500이_아니라_404다() throws Exception {
-        // 서류 내용은 DB(file_data)에 있다(sql/32). 그래서 "없는 서류"는 file_data가 비고 디스크에도
-        // 없는 경우다 — 예전 디스크 서류 중 백필이 안 된 것, [TEST] 통과 버튼으로 만든 서류 등.
+    void 디스크_파일이_지워져도_DB에_내용이_있으면_내려받힌다() throws Exception {
+        // 2026-10-07부터 내용은 DOCUMENTS.file_data에 있다 — 다른 PC 서버(디스크에 파일 없음)에서도 열려야 한다
+        DocumentDto doc = saveDocument(owner, "디비에있음.txt", "text/plain");
+        FileStorageUtil.deleteQuietly(doc.getFilePath());
+
+        FakeWeb.Request req = FakeWeb.request().loggedIn(owner);
+        req.servletPath = "/documents";
+        req.pathInfo = "/" + doc.getId();
+        FakeWeb.Response resp = FakeWeb.response();
+        download.doGet(req.http(), resp.http());
+        assertEquals("본문", resp.body.toString(StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void 디스크에도_DB에도_내용이_없는_서류를_받으면_500이_아니라_404다() throws Exception {
+        // 디스크 시절 서류인데 그 PC에 파일이 없거나, [TEST] 통과 버튼으로 만든(파일 없는) 서류를 가정한다
         DocumentDto doc = saveDocument(owner, "사라질것.txt", "text/plain");
         FileStorageUtil.deleteQuietly(doc.getFilePath());
-        try (java.sql.Connection conn = com.specodyssey.util.DBUtil.getConnection();
-             java.sql.PreparedStatement p = conn.prepareStatement(
-                     "UPDATE DOCUMENTS SET file_data = NULL, file_path = ? WHERE id = ?")) {
-            p.setString(1, "C:/없는폴더/없는파일.txt");
-            p.setLong(2, doc.getId());
-            p.executeUpdate();
-        }
+        clearFileData(doc.getId());
 
         for (Long id : new Long[] {doc.getId()}) {
             FakeWeb.Request req = FakeWeb.request().loggedIn(owner);
@@ -238,11 +276,10 @@ class DocumentServletsTest {
             assertEquals(404, resp.errorStatus);
             assertEquals(0, resp.body.size());
         }
-        // 내용도 경로도 아예 비어 있는 서류(파일 없이 만든 것)도 마찬가지
+        // 경로가 비어 있는 서류(파일 없이 만든 것)도 마찬가지
         DocumentDto empty = saveDocument(owner, "빈경로.txt", "text/plain");
         try (java.sql.Connection conn = com.specodyssey.util.DBUtil.getConnection();
-             java.sql.PreparedStatement p = conn.prepareStatement(
-                     "UPDATE DOCUMENTS SET file_data = NULL, file_path = '' WHERE id = ?")) {
+             java.sql.PreparedStatement p = conn.prepareStatement("UPDATE DOCUMENTS SET file_path = '', file_data = NULL WHERE id = ?")) {
             p.setLong(1, empty.getId());
             p.executeUpdate();
         }

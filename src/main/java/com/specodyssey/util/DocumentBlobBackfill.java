@@ -29,9 +29,14 @@ public class DocumentBlobBackfill implements ServletContextListener {
     // 실패해도 서버 기동을 막지 않는다 — 옮기지 못한 서류는 지금처럼 디스크에서 읽힌다
     static void runSafely() {
         try {
-            int moved = run(new DocumentDao());
+            DocumentDao documentDao = new DocumentDao();
+            int moved = run(documentDao);
             if (moved > 0) {
                 LOG.info(() -> "디스크에 있던 서류 " + moved + "개를 DB로 옮겼습니다");
+            }
+            int filled = documentDao.fillEmptyTestShortcutDocuments();
+            if (filled > 0) {
+                LOG.info(() -> "내용이 비어 있던 [TEST] 통과 서류 " + filled + "개에 안내 문구를 채웠습니다");
             }
         } catch (Exception e) {
             LOG.log(Level.WARNING, "디스크 서류를 DB로 옮기던 중 실패 — 다음 기동 때 다시 시도", e);

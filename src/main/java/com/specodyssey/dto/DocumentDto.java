@@ -4,6 +4,12 @@ import java.time.LocalDateTime;
 
 public class DocumentDto {
 
+    // 로드맵 [TEST] 파일 없이 통과 버튼이 만드는 서류 — 내용이 비어 있으면 목록·면접관 화면의 링크가 404 오류 화면이 되므로
+    // 안내 문구를 내용으로 넣는다(2026-10-07). 예전에 빈 내용으로 만든 행은 DocumentBlobBackfill이 서버 기동 때 채운다.
+    public static final String TEST_SHORTCUT_CHECKSUM = "test-shortcut";
+    public static final byte[] TEST_SHORTCUT_CONTENT =
+            "[TEST] 파일 없이 통과한 단계입니다. 실제 증빙 파일이 아닙니다.\n".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
     private Long id;
     private Long userId;
     private Long projectId;
