@@ -196,6 +196,8 @@ mvnw.cmd clean package -DskipTests   # Windows
 
 ## 참고 문서
 
+- [`docs/code-atlas/`](https://donggyun0905-ai.github.io/donggyun0905-ai-project02/code-atlas/) — **코드 해설서**. 모든 파일의 역할·근거(머리 주석)·메서드·연결 관계·테스트·요구사항·원본 코드,
+  흐름별 해설 14장, DB 테이블·개발일지 모음. 다시 만들기: `python3 scripts/gen-code-atlas.py` (커밋·푸시 뒤에 돌린다)
 - [`docs/dev-environment-setup.html`](docs/dev-environment-setup.html) — IDE별(IntelliJ·VS Code) 실행 환경 설정 가이드, 자주 나는 문제 해결
 - [`docs/requirements.md`](docs/requirements.md) — 요구사항 명세서 (FR/NFR 번호의 출처)
 - [`docs/db-design.md`](docs/db-design.md) — 테이블 정의, ERD, 복합 UNIQUE 목록, 설계 판단 근거
