@@ -1,0 +1,8 @@
+# GitHub 언어 통계(linguist) 보정 — 2026-10-10
+# 문서·화면 설계 자료의 HTML(약 5MB)이 Java(약 3MB)보다 커서 저장소가 "HTML 프로젝트"로 보였다.
+# 앱 코드가 아닌 자료는 통계에서 뺀다. 파일 내용·줄바꿈에는 영향이 없다 (eol 설정은 일부러 넣지 않음).
+docs/**                 linguist-documentation
+개발자료/**              linguist-documentation
+개발일지/**              linguist-documentation
+2d/**                   linguist-documentation
+src/main/webapp/js/vendor/** linguist-vendored

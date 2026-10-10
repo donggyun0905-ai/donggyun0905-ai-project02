@@ -1198,6 +1198,9 @@ CREATE TABLE SKILL_REVIEW_SCHEDULE (
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_skill_review_schedule_skill
         FOREIGN KEY (skill_id) REFERENCES SKILL (id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ---------------------------------------------------------------------------
 -- COMPANION_RELEASE · COMPANION_RELEASE_CHUNK (데스크톱 캐릭터 설치 파일) — 신설, sql/38_schema_companion_release.sql
 -- Setup.exe를 8MB씩 나눠 DB에 둔다 (누구 서버에서든 같은 파일). 최근 2개 버전만 내용을 남긴다.

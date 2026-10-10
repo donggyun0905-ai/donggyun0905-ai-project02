@@ -1,0 +1,54 @@
+# 기술명 매칭 정답 세트 50개 (2026-10-10) — SkillMatchAccuracyTest가 읽는다.
+# 사용자가 프로필·직무 요구 기술에 실제로 쓸 법한 입력 → 기대하는 SKILL.skill_name. 매칭되면 안 되는 입력은 "-".
+# 측정 결과를 보기 전에 만들어 고정했다 — 결과에 맞춰 고치지 않는다(바꾸면 docs/matching-accuracy.md 수치도 다시 잰다).
+# 분류	입력	정답
+정확	Java	Java
+정확	Python	Python
+정확	React	React
+정확	Spring Boot	Spring Boot
+정확	Docker	Docker
+정확	MySQL	MySQL
+정확	Kubernetes	Kubernetes
+정확	TypeScript	TypeScript
+정확	Git	Git
+정확	Figma	Figma
+표기	spring boot	Spring Boot
+표기	Next JS	Next.js
+표기	nodejs	Node.js
+표기	postgresql	PostgreSQL
+표기	TYPESCRIPT	TypeScript
+표기	Vue	Vue.js
+표기	Tailwind	Tailwind CSS
+표기	Github actions	GitHub Actions
+한글	자바	Java
+한글	파이썬	Python
+한글	리액트	React
+한글	스프링부트	Spring Boot
+한글	도커	Docker
+한글	쿠버네티스	Kubernetes
+한글	자바스크립트	JavaScript
+한글	리눅스	Linux
+한글	장고	Django
+한글	타입스크립트	TypeScript
+오타	Pyhton	Python
+오타	Reakt	React
+오타	Djnago	Django
+오타	Kubernetis	Kubernetes
+오타	Sprnig	Spring
+오타	Javscript	JavaScript
+오타	Dokcer	Docker
+오타	Postgress	PostgreSQL
+버전	Java 17	Java
+버전	React.js	React
+버전	Spring Boot 3	Spring Boot
+버전	Python3	Python
+버전	Vue3	Vue.js
+설명	텐서플로우	TensorFlow
+설명	파이토치	PyTorch
+설명	엘라스틱서치	Elasticsearch
+아님	sdafdsafdsa	-
+아님	엑셀	-
+아님	운전면허	-
+아님	hello	-
+아님	열정	-
+아님	JSP	-

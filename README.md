@@ -1,11 +1,18 @@
 # 스펙 오디세이 (Spec Odyssey)
 
+[![CI](https://github.com/donggyun0905-ai/donggyun0905-ai-project02/actions/workflows/ci.yml/badge.svg)](https://github.com/donggyun0905-ai/donggyun0905-ai-project02/actions/workflows/ci.yml)
+
 취업 준비생의 스펙을 진단하고, 목표 직무까지 가는 순서 있는 로드맵(여정)을 제시하는 웹 서비스입니다.
 단순 진단으로 끝나지 않고 "다음에 뭘 해야 하는지"를 알려주고 매일 걷게 만드는 것이 핵심입니다.
 
 - 범위: IT 계열 직무 한정 (백엔드 / 프론트 / 데이터 / DevOps / 보안 / PM)
 - 기간: 4주 단기 프로젝트 (학습 목적)
 - 핵심 여정 루프: 가입 → 프로필 입력 → 격차 분석 → 로드맵 제시 → 대시보드
+
+**측정한 수치** (2026-10-10)
+- DB 커넥션 풀 적용으로 대시보드 응답 시간 중앙값 6.4초 → 1.1초 (5.8배) — [docs/performance.md](docs/performance.md)
+- 기술명 매칭 정확도: 정확 일치만 40% → 하이브리드(별칭·편집 거리·임베딩) 100%, 엉뚱한 연결 0건 (정답 세트 50개) — [docs/matching-accuracy.md](docs/matching-accuracy.md)
+- 푸시·PR마다 GitHub Actions가 새 MySQL에 스키마를 깔고 전체 테스트를 돌린다 — [.github/workflows/ci.yml](.github/workflows/ci.yml)
 
 ## 기술 스택
 
@@ -78,12 +85,15 @@ CREATE DATABASE spec_odyssey CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 `21`처럼 01~03에 이미 반영된 변경은 새 DB에서는 돌리지 않습니다.)
 
 ```bash
-for f in 01_schema 02_seed 03_schema_extended 04_seed_extended 04_seed_skills \
-         05_seed_survey 09_schema_skill_alias 10_seed_skill_alias 11_seed_skill_alias_english \
-         19_seed_skill_alias_more 23_seed_certification_common; do
-  mysql -u <user> -p --default-character-set=utf8mb4 spec_odyssey < sql/$f.sql
-done
+mysql -u <user> -p -e "CREATE DATABASE spec_odyssey CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+bash scripts/init-db.sh spec_odyssey -u <user> -p
 ```
+
+`scripts/init-db.sh`가 실행하는 순서(CI도 같은 스크립트를 쓴다):
+`01_schema` · `02_seed` · `03_schema_extended` · `04_seed_extended` · `04_seed_skills` · `05_seed_survey` · `09_schema_skill_alias` ·
+`10_seed_skill_alias` · `11_seed_skill_alias_english` · `19_seed_skill_alias_more` · `23_seed_certification_common` ·
+`24_schema_notification` · `29_schema_admin_audit_log` · `35_seed_skill_prerequisite`
+(2026-10-10 이 순서로 만든 DB가 개발 DB와 컬럼 592개·인덱스 168개까지 같은 것을 확인했다.)
 
 **이미 DB가 있다면** 아직 안 돌린 변경만 번호 순서대로 실행합니다(대부분 한 번만 실행해야 하는 `ALTER`라서, 이미 적용했는지 파일 맨 위 설명을 먼저 읽으세요).
 최근 것: `15_schema_project_link`(프로젝트 기타 링크) · `16_alter_users_recovery_code`(**없으면 로그인부터 `Unknown column 'recovery_code_hash'` 오류**) ·

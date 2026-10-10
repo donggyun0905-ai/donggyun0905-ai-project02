@@ -6,6 +6,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
@@ -150,7 +151,22 @@ public final class DBUtil {
         if (shutDown) {
             throw new SQLException("애플리케이션이 내려가는 중이라 DB 연결을 새로 만들 수 없습니다.");
         }
+        if (POOL_DISABLED) {
+            return DriverManager.getConnection(DB_URL, unpooledProperties());
+        }
         return pool().getConnection();
+    }
+
+    // 풀 끄기 — 풀 적용 전/후 응답 시간 측정(docs/performance.md)과 장애 원인 분리용. 운영에서는 켜지 않는다 (2026-10-10)
+    // 환경변수(또는 .env) DB_POOL_DISABLED=true일 때만 요청마다 새 연결을 맺는다(풀 도입 전 방식). 대기 시간 설정은 풀과 같다.
+    private static final boolean POOL_DISABLED =
+            "true".equalsIgnoreCase(firstNonNull(ENV.getProperty("DB_POOL_DISABLED"), System.getenv("DB_POOL_DISABLED")));
+
+    private static Properties unpooledProperties() {
+        Properties props = driverTimeouts(DB_URL);
+        props.setProperty("user", DB_USER);
+        props.setProperty("password", DB_PASSWORD);
+        return props;
     }
 
     /** 애플리케이션이 내려갈 때(재배포 포함) 풀을 닫는다 — 안 닫으면 풀 스레드와 DB 연결이 남는다. */
