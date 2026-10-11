@@ -82,6 +82,8 @@ public class ShareViewServlet extends HttpServlet {
         // 비교 목록에 담기는 면접관 계정만 할 수 있다 — 열람 자체는 로그인 없이도 된다(FR-85)
         req.setAttribute("token", token);
         req.setAttribute("interviewer", loginUser != null && RoleFilter.INTERVIEWER.equals(loginUser.getUserType()));
+        // 돌아가기 링크 — 면접관이 "이력 보기"를 누른 화면. 정해 둔 값만 받는다(그 밖은 공유받은 이력)
+        req.setAttribute("from", "compare".equals(req.getParameter("from")) ? "compare" : "shared");
         req.getRequestDispatcher("/WEB-INF/views/interviewer-view.jsp").forward(req, resp);
     }
 

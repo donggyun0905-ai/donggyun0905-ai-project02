@@ -15,6 +15,13 @@
         </div>
     </c:when>
     <c:otherwise>
+        <%-- 면접관 계정이면 "이력 보기"를 누른 화면으로 돌아가는 링크. 링크만 받아 연 사람(로그인 없음)에게는 돌아갈 곳이 없다 --%>
+        <c:if test="${interviewer}">
+            <c:choose>
+                <c:when test="${from == 'compare'}"><p><a href="${pageContext.request.contextPath}/interviewer/compare">← 지원자 비교</a></p></c:when>
+                <c:otherwise><p><a href="${pageContext.request.contextPath}/interviewer/shared">← 공유받은 이력</a></p></c:otherwise>
+            </c:choose>
+        </c:if>
         <div class="spread" style="margin-bottom:16px;">
             <span class="pill"><span class="ic ic-eye" aria-hidden="true"></span> 읽기 전용 · 지원자가 공유한 이력</span>
             <c:choose>

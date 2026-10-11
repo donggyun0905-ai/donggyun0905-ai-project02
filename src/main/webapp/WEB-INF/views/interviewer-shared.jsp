@@ -65,7 +65,7 @@
                         </p>
                         <div class="row">
                             <c:if test="${applicant.available}">
-                                <a href="${pageContext.request.contextPath}/share/${applicant.token}">이력 보기</a>
+                                <a href="${pageContext.request.contextPath}/share/${applicant.token}?from=shared">이력 보기</a>
                                 <c:if test="${not empty applicant.view.resumeFileName}">
                                     <a href="${pageContext.request.contextPath}/share/${applicant.token}/resume" class="file-link"><span class="ic ic-download" aria-hidden="true"></span> 이력서 내려받기</a>
                                 </c:if>

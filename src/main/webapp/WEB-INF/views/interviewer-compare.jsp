@@ -5,6 +5,8 @@
 <jsp:include page="/WEB-INF/views/common/header.jsp" />
 <link rel="stylesheet" href="${pageContext.request.contextPath}/css/interviewer-compare.css">
 
+<p><a href="${pageContext.request.contextPath}/interviewer/shared">← 공유받은 이력</a></p>
+
 <div class="spread" style="margin-bottom:16px;">
     <h1 style="margin:0;">지원자 비교</h1>
     <c:if test="${not empty company}"><span class="pill"><c:out value="${company}" /></span></c:if>
@@ -103,7 +105,7 @@
                         <th>
                             <span class="compare-name" title="<c:out value='${applicant.label}' />"><c:out value="${applicant.label}" /></span>
                             <c:if test="${applicant.available}">
-                                <a class="compare-link" href="${pageContext.request.contextPath}/share/${applicant.token}">이력 보기</a>
+                                <a class="compare-link" href="${pageContext.request.contextPath}/share/${applicant.token}?from=compare">이력 보기</a>
                             </c:if>
                         </th>
                     </c:forEach>
