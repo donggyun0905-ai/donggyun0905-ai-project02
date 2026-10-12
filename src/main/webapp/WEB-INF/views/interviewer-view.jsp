@@ -2,7 +2,9 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <c:set var="pageTitle" value="지원자 이력 - 스펙 오디세이" scope="request" />
+<c:set var="mainFull" value="true" scope="request" />
 <jsp:include page="/WEB-INF/views/common/header.jsp" />
+<link rel="stylesheet" href="${pageContext.request.contextPath}/css/interviewer.css">
 
 <c:choose>
     <%-- 6-4. 유효하지 않은 공유 링크 --%>
@@ -41,7 +43,9 @@
         <h1>지원자 이력</h1>
         <p class="muted">지원자가 직접 발급한 링크로 열린 페이지입니다. 지원자가 고른 항목만 보이고, 지원자는 언제든 공유를 멈출 수 있습니다.</p>
 
-        <div class="card">
+        <%-- 넓은 화면에서 카드를 두 줄로 나란히 (css/interviewer.css) --%>
+        <div class="iv-grid">
+        <div class="card iv-short">
             <c:if test="${view.scopeBasic}">
                 <h2>기본 정보</h2>
                 <div class="row" style="margin-top:10px;">
@@ -72,7 +76,7 @@
 
         <%-- 학력 — 지원자가 링크에 "학력"을 고른 경우에만 (블라인드 채용 고려) --%>
         <c:if test="${view.scopeEducation}">
-            <div class="card">
+            <div class="card iv-short">
                 <h2>학력</h2>
                 <c:choose>
                     <c:when test="${empty view.education}">
@@ -92,7 +96,7 @@
 
         <%-- 이력서·자소서는 한 카드에 모아서 한눈에 보고 바로 내려받게 한다. PDF면 카드 안에서 원본을 바로 본다 --%>
         <c:if test="${view.scopeResume || view.scopeCoverLetter}">
-            <div class="card">
+            <div class="card iv-span">
                 <h2>이력서 · 자소서</h2>
                 <c:if test="${view.scopeResume}">
                     <c:choose>
@@ -160,7 +164,7 @@
 
         <%-- FR-81 이력 타임라인 --%>
         <c:if test="${view.scopeBasic}">
-            <div class="card">
+            <div class="card iv-span">
                 <h2>이력 타임라인</h2>
                 <c:choose>
                     <c:when test="${empty view.timeline}">
@@ -432,6 +436,7 @@
                 </c:choose>
             </div>
         </c:if>
+        </div>
     </c:otherwise>
 </c:choose>
 

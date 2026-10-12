@@ -9,6 +9,8 @@ import com.specodyssey.dto.JobDto;
 import com.specodyssey.dto.SkillDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.service.GapAnalysisService;
+import com.specodyssey.dto.UserSkillDto;
+import com.specodyssey.service.GapSkillLevelService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -39,6 +41,7 @@ public class GapAnalysisServlet extends HttpServlet {
     private final UserDao userDao = new UserDao();
     private final JobDao jobDao = new JobDao();
     private final SkillDao skillDao = new SkillDao();
+    private final GapSkillLevelService gapSkillLevelService = new GapSkillLevelService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -75,6 +78,8 @@ public class GapAnalysisServlet extends HttpServlet {
             List<GapAnalysisItemDto> items = gapAnalysisService.getItems(analysis.getId());
             // FR-113·TD-2 — 추정치 요구 기술엔 "예시적 추정", 공고가 적은 직무엔 안내 (2026-10-06)
             GapAnalysisService.RequirementSource source = gapAnalysisService.getRequirementSource(targetJobId);
+            // 기술마다 프로필에 적은 숙련도 — 입문·중급·고급 (2026-10-12)
+            List<UserSkillDto> ownedSkills = gapSkillLevelService.ownedSkills(userId);
             List<GapItemView> itemViews = new ArrayList<>();
             int metCount = 0;
             for (GapAnalysisItemDto item : items) {
@@ -83,8 +88,10 @@ public class GapAnalysisServlet extends HttpServlet {
                 if (met) {
                     metCount++;
                 }
-                itemViews.add(new GapItemView(skill == null ? "(알 수 없음)" : skill.getSkillName(), met,
-                        source.isEstimated(item.getSkillId())));
+                String skillName = skill == null ? "(알 수 없음)" : skill.getSkillName();
+                GapItemView view = new GapItemView(skillName, met, source.isEstimated(item.getSkillId()));
+                view.setLevelLabel(GapSkillLevelService.levelLabel(ownedSkills, item.getSkillId(), skillName));
+                itemViews.add(view);
             }
             req.setAttribute("requirementSource", source);
 
@@ -124,6 +131,7 @@ public class GapAnalysisServlet extends HttpServlet {
         private final String skillName;
         private final boolean met;
         private final boolean estimated;
+        private String levelLabel;
 
         public GapItemView(String skillName, boolean met) {
             this(skillName, met, false);
@@ -146,6 +154,15 @@ public class GapAnalysisServlet extends HttpServlet {
 
         public boolean isMet() {
             return met;
+        }
+
+        /** 프로필 숙련도 — 입문·중급·고급, 프로필에 없으면 "—" */
+        public String getLevelLabel() {
+            return levelLabel;
+        }
+
+        public void setLevelLabel(String levelLabel) {
+            this.levelLabel = levelLabel;
         }
     }
 

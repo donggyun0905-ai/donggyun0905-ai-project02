@@ -127,6 +127,37 @@ public class MissionDao {
         }
     }
 
+    // 미션 새로 불러오기(2026-10-12) — findAssignableProblems와 같되, 그날 이미 받았다가 바꾼 문제(논리 삭제된 행)도 뺀다.
+    // (user_id, assigned_date, problem_id) UNIQUE가 삭제된 행에도 걸려 있어 같은 날 같은 문제를 다시 넣을 수 없다.
+    public List<ProblemDto> findRefreshableProblems(Connection conn, Long userId, java.time.LocalDate date,
+                                                    int minLevel, int maxLevel, int limit) throws SQLException {
+        String sql = "SELECT p.id, p.title, p.difficulty_level, p.external_url FROM PROBLEM p " +
+                "WHERE p.source_type = 'EXTERNAL_LINK' AND p.is_deleted = FALSE " +
+                "AND p.difficulty_level BETWEEN ? AND ? " +
+                "AND p.id NOT IN (SELECT m.problem_id FROM USER_DAILY_MISSION m " +
+                "                 WHERE m.user_id = ? AND (m.is_deleted = FALSE OR m.assigned_date = ?)) " +
+                "ORDER BY RAND() LIMIT ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, minLevel);
+            pstmt.setInt(2, maxLevel);
+            pstmt.setLong(3, userId);
+            pstmt.setDate(4, java.sql.Date.valueOf(date));
+            pstmt.setInt(5, limit);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                List<ProblemDto> problems = new ArrayList<>();
+                while (rs.next()) {
+                    ProblemDto problem = new ProblemDto();
+                    problem.setId(rs.getLong("id"));
+                    problem.setTitle(rs.getString("title"));
+                    problem.setDifficultyLevel(rs.getObject("difficulty_level", Integer.class));
+                    problem.setExternalUrl(rs.getString("external_url"));
+                    problems.add(problem);
+                }
+                return problems;
+            }
+        }
+    }
+
     // "정답 입력하기" 화면용 미션 1건 — user_id 조건으로 본인 미션만 찾는다. 없거나 남의 것이면 null.
     public DailyMissionViewDto findMissionById(Connection conn, Long userId, Long missionId) throws SQLException {
         String sql = "SELECT m.id AS mission_id, m.problem_id, m.is_completed, m.is_correct, " +
