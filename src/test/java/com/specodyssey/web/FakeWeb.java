@@ -70,10 +70,6 @@ public final class FakeWeb {
         public String servletPath = "/";
         public String pathInfo;
         public String contextPath = "";
-        /* 리버스 프록시(클라우드플레어 터널) 뒤에서는 RemoteIpValve가 이 셋을 바꿔 준다 */
-        public String scheme = "http";
-        public String serverName = "localhost";
-        public int serverPort = 8080;
         public String remoteAddr = "127.0.0.1";
         public String characterEncoding;
         public String contentType;
@@ -98,14 +94,6 @@ public final class FakeWeb {
                                 return pathInfo;
                             case "getContextPath":
                                 return contextPath;
-                            case "getScheme":
-                                return scheme;
-                            case "getServerName":
-                                return serverName;
-                            case "getServerPort":
-                                return serverPort;
-                            case "isSecure":
-                                return "https".equals(scheme);
                             case "getRemoteAddr":
                                 return remoteAddr;
                             case "getCharacterEncoding":

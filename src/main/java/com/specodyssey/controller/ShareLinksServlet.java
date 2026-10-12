@@ -112,10 +112,8 @@ public class ShareLinksServlet extends HttpServlet {
         return ((UserDto) req.getSession(false).getAttribute("loginUser")).getId();
     }
 
-    // 면접관에게 보낼 주소의 토큰 앞부분 — 지금 접속한 호스트 기준으로 만든다.
-    // 리버스 프록시(클라우드플레어 터널) 뒤에서는 RemoteIpValve가 scheme·port를 바깥 기준으로
-    // 바로잡아 주므로 여기서 프록시 헤더를 따로 읽지 않는다 (META-INF/context.xml).
-    static String shareBaseUrl(HttpServletRequest req) {
+    // 면접관에게 보낼 주소의 토큰 앞부분 — 지금 접속한 호스트 기준으로 만든다
+    private String shareBaseUrl(HttpServletRequest req) {
         StringBuilder url = new StringBuilder(req.getScheme()).append("://").append(req.getServerName());
         boolean defaultPort = ("http".equals(req.getScheme()) && req.getServerPort() == 80)
                 || ("https".equals(req.getScheme()) && req.getServerPort() == 443);
