@@ -84,7 +84,7 @@
 
     <div class="glance-row">
         <div class="glance-label"><span class="ic ic-trending-up" aria-hidden="true"></span> 나의 등급</div>
-        <p class="glance-tier"><strong><c:out value="${glance.tierName}" /></strong> <span class="muted">(<c:out value="${glance.tierTitle}" />) · <c:out value="${glance.totalScore}" />점</span></p>
+        <p class="glance-tier"><strong><c:out value="${glance.tierTitle}" /></strong> <span class="muted"><c:out value="${glance.totalScore}" />점</span></p>
         <div class="progress-track" style="margin:6px 0 4px;"><div class="progress-fill" style="width:${glance.tierPercent}%;"></div></div>
         <p class="muted glance-empty">
             <c:choose>

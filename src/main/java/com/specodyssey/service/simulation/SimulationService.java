@@ -313,7 +313,7 @@ public class SimulationService {
         LevelTierDto tierAfter = scoreService.getTierForScore(scoreAfter);
         boolean tierUp = tierAfter != null && (tierBefore == null || !tierAfter.getId().equals(tierBefore.getId()));
         return report(AppClock.today(), active, solved, failed, scoreAfter - scoreBefore, scoreAfter,
-                tierAfter == null ? null : tierAfter.getTierName(), tierUp, stepId, stepsCompleted);
+                tierAfter == null ? null : tierAfter.getTitleName(), tierUp, stepId, stepsCompleted);
     }
 
     static DayReport report(LocalDate date, boolean active, int solved, int failed, int points, int totalScore,

@@ -59,14 +59,14 @@
                 <div class="row" style="margin-top:10px; gap:14px;">
                     <img src="${pageContext.request.contextPath}${empty tierLogoPath ? '/image/tier-3-practitioner.png' : tierLogoPath}" height="52">
                     <div>
-                        <strong style="font-size:1.1rem;"><c:out value="${empty currentScoreTier.tierName ? '비기너' : currentScoreTier.tierName}" /></strong>
-                        <div class="muted" style="font-size:0.8rem;"><c:out value="${currentScoreTier.titleName}" /> · 누적 <c:out value="${totalScore}" />점</div>
+                        <strong style="font-size:1.1rem;"><c:out value="${empty currentScoreTier.titleName ? '첫걸음' : currentScoreTier.titleName}" /></strong>
+                        <div class="muted" style="font-size:0.8rem;">누적 <c:out value="${totalScore}" />점</div>
                     </div>
                 </div>
                 <div class="progress-track" style="margin-top:10px;"><div class="progress-fill" style="width:${tierProgressPercent}%;"></div></div>
                 <p class="muted" style="font-size:0.8rem; margin:0;">
                     <c:choose>
-                        <c:when test="${not empty nextTierName}">다음 등급 '<c:out value="${nextTierName}" />(<c:out value="${nextTierTitle}" />)'까지 <c:out value="${pointsToNextTier}" />점 · 미션 연속 <c:out value="${streakCount}" />일째</c:when>
+                        <c:when test="${not empty nextTierName}">다음 등급 '<c:out value="${nextTierName}" />'까지 <c:out value="${pointsToNextTier}" />점 · 미션 연속 <c:out value="${streakCount}" />일째</c:when>
                         <c:otherwise>최고 등급입니다 · 미션 연속 <c:out value="${streakCount}" />일째</c:otherwise>
                     </c:choose>
                 </p>

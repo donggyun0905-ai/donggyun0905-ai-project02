@@ -75,10 +75,10 @@
     <div class="bot-tiers">
         <c:forEach var="t" items="${tierCards}">
             <figure class="bot-tier ${t.mine ? 'mine' : ''}">
-                <img src="${ctx}/image/bot/tier${t.index}.png" alt="<c:out value='${t.tierName}' /> 오셍이" loading="lazy" width="240">
+                <img src="${ctx}/image/bot/tier${t.index}.png" alt="<c:out value='${t.titleName}' /> 오셍이" loading="lazy" width="240">
                 <figcaption>
                     <strong><c:out value="${t.titleName}" /></strong>
-                    <span class="muted"><c:out value="${t.tierName}" /> · ${t.minScore}점부터</span>
+                    <span class="muted">${t.minScore}점부터</span>
                     <c:if test="${t.mine}"><span class="bot-mine">지금 나</span></c:if>
                 </figcaption>
             </figure>
