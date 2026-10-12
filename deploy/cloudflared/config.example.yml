@@ -1,0 +1,33 @@
+# 클라우드플레어 터널 설정 예시 — 이 파일을 config.yml 로 복사해서 쓴다.
+#
+#   복사 위치 (윈도우):  %USERPROFILE%\.cloudflared\config.yml
+#   복사 위치 (리눅스):  ~/.cloudflared/config.yml
+#
+# config.yml 과 *.json 자격 증명 파일은 커밋하지 않는다 (.gitignore 에 있다).
+# 터널 ID와 자격 증명 파일 이름은 `cloudflared tunnel create` 가 알려 준다.
+
+tunnel: 바꿔주세요-터널-ID
+credentials-file: C:\Users\바꿔주세요\.cloudflared\바꿔주세요-터널-ID.json
+
+# 원본(톰캣) 쪽 동작
+originRequest:
+  # 톰캣이 느리게 답하는 화면이 있다 (LLM을 기다리는 격차 분석·로드맵 생성).
+  # 기본 30초로는 끊긴다. 클라우드플레어 가장자리(edge)가 100초에서 524를 돌려주므로
+  # 그보다 짧게 잡아, 끊길 때 우리 쪽 오류 화면이 먼저 나오게 한다.
+  connectTimeout: 30s
+  tcpKeepAlive: 30s
+  keepAliveTimeout: 90s
+  noTLSVerify: false
+
+  # !! httpHostHeader 를 설정하지 말 것 !!
+  # 이걸 localhost:8080 같은 값으로 바꾸면 톰캣이 받는 Host 헤더가 바뀐다.
+  # SecurityHeadersFilter 가 Origin 과 Host 를 비교해 CSRF 를 막는데, 둘이 달라지면
+  # 로그인부터 모든 POST 가 403 이 된다. 원래 호스트를 그대로 넘겨야 한다.
+
+ingress:
+  # 1) 실제 서비스 — 톰캣
+  - hostname: 바꿔주세요.example.com
+    service: http://localhost:8080
+
+  # 2) 위에 걸리지 않는 요청은 전부 404 (필수 — 마지막 규칙은 hostname 이 없어야 한다)
+  - service: http_status:404

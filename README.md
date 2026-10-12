@@ -212,6 +212,9 @@ mvnw.cmd clean package -DskipTests   # Windows
   AI 역할 분리(`#ai`) 세 장. 탭과 좌우 방향키로 넘긴다.
 - [`docs/spec-odyssey-erd.html`](docs/spec-odyssey-erd.html) — 전체 ERD 58개. 확대·이동, 테이블 드래그,
   검색, 묶음별 켜고 끄기, 클릭하면 컬럼·설계 근거가 열린다.
+- [`docs/deploy-cloudflare-tunnel.md`](docs/deploy-cloudflare-tunnel.md) — **배포.** 내 PC 톰캣을
+  클라우드플레어 터널로 공개 https 주소에 띄운다. 포트 포워딩·인증서 없이. 미리 알아야 할
+  걸림돌(모든 POST가 403이 되는 설정 한 줄, 100MB 업로드 한도, 100초 타임아웃)까지 적어 뒀다.
 - [`docs/team-todo.md`](docs/team-todo.md) — **넘기기 전에 사람이 해야 하는 일.**
   `/api/companion/` 공개 경로 2차 리뷰, `header.jsp` 담당 공유, 로컬 DB에 `sql/34`~`38` 적용
 - [`claude.md`](claude.md) — 프로젝트 팀 규칙 (환경, 명명 규칙, 코드/보안 규칙)
