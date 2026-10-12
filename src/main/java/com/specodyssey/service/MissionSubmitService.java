@@ -171,10 +171,10 @@ public class MissionSubmitService {
         for (int i = 0; i < tiers.size(); i++) {
             LevelTierDto tier = tiers.get(i);
             if (total >= tier.getMinScore() && (tier.getMaxScore() == null || total <= tier.getMaxScore())) {
-                return new CurrentTier(tier.getTierName(), pointsForTierOrder(i));
+                return new CurrentTier(tier.getTitleName(), pointsForTierOrder(i));
             }
         }
-        return new CurrentTier(tiers.isEmpty() ? null : tiers.get(0).getTierName(), pointsForTierOrder(0));
+        return new CurrentTier(tiers.isEmpty() ? null : tiers.get(0).getTitleName(), pointsForTierOrder(0));
     }
 
     private int pointsForCurrentTier(Long userId) throws SQLException {

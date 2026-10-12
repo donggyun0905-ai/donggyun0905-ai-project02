@@ -54,7 +54,7 @@ class TierCelebration {
         if (tier == null || logoPath == null) {
             return;
         }
-        req.setAttribute("celebrateTierName", tier.getTierName());
+        req.setAttribute("celebrateTierName", tier.getTitleName());
         req.setAttribute("celebrateTierImage", logoPath);
     }
 }

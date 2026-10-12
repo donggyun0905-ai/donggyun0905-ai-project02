@@ -27,8 +27,8 @@
         <%-- 면접관 계정은 점수·등급이 없다 --%>
         <c:if test="${not empty currentTier and sessionScope.loginUser.userType != 'INTERVIEWER'}">
             <span class="tier-badge">
-                <img src="${ctx}${tierLogoPath}" alt="${currentTier.tierName}">
-                <strong>${currentTier.tierName}</strong> · ${totalScore}점
+                <img src="${ctx}${tierLogoPath}" alt="${currentTier.titleName}">
+                <strong>${currentTier.titleName}</strong> · ${totalScore}점
             </span>
         </c:if>
         <%-- 테스트 계정(USERS.is_test)에만 — 지난 70일 시뮬레이션 / 일시정지 / 초기화 (SimulationPanelFilter, SimulationServlet) --%>
@@ -50,7 +50,7 @@
                 <select class="sim-tier" id="simTierPick" aria-label="등급으로 목표 점수 정하기">
                     <option value="">등급</option>
                     <c:forEach var="t" items="${simTiers}">
-                        <c:if test="${t.minScore > 0}"><option value="${t.minScore}"><c:out value="${t.tierName}" /> ${t.minScore}</option></c:if>
+                        <c:if test="${t.minScore > 0}"><option value="${t.minScore}"><c:out value="${t.titleName}" /> ${t.minScore}</option></c:if>
                     </c:forEach>
                 </select>
                 <button type="button" class="sim-btn" data-action="start">시작</button>

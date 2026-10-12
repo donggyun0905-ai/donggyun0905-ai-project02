@@ -86,8 +86,8 @@ public class GlanceService {
         return new Glance(ddays,
                 next == null ? null : stepTypeLabel(next.getStepType()),
                 next == null ? null : stepText(next),
-                tier == null ? null : tier.getTierName(), tier == null ? null : tier.getTitleName(), totalScore,
-                nextTier == null ? null : nextTier.getTierName(), pointsLeft, percent);
+                tier == null ? null : tier.getTitleName(), tier == null ? null : tier.getTitleName(), totalScore,
+                nextTier == null ? null : nextTier.getTitleName(), pointsLeft, percent);
     }
 
     // 대시보드 "지금 할 일"과 같은 기준 — 지금 열린 티어에서 아직 안 끝낸 첫 단계
