@@ -82,10 +82,11 @@
                 <div class="card">
                     <h2>충족·부족 목록</h2>
                     <table style="margin-top:10px;">
-                        <tr><th>기술</th><th>상태</th></tr>
+                        <tr><th>기술</th><th>숙련도</th><th>상태</th></tr>
                         <c:forEach var="item" items="${items}">
                             <tr>
                                 <td><c:out value='${item.skillName}' /><c:if test="${item.estimated}"> <span class="pill">예시적 추정</span></c:if></td>
+                                <td class="muted" style="white-space:nowrap;"><c:out value="${item.levelLabel}" /></td>
                                 <c:choose>
                                     <c:when test="${item.met}"><td style="color:var(--teal);"><span class="ic ic-check" aria-hidden="true"></span> 충족</td></c:when>
                                     <c:otherwise><td style="color:var(--danger);"><span class="ic ic-x" aria-hidden="true"></span> 부족</td></c:otherwise>

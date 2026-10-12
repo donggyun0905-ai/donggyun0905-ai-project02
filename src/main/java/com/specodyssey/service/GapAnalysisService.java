@@ -29,6 +29,7 @@ import java.util.Set;
  *
  * 목표 직무의 요구 기술(JOB_REQUIRED_SKILL)과 사용자 보유 기술(USER_SKILLS)을 대조해
  * 기술별 MET/MISSING을 판정하고 GAP_ANALYSIS·GAP_ANALYSIS_ITEM에 저장한다.
+ * MET = 보유 기술 중 숙련도가 고급(ADVANCED)인 것 (2026-10-12).
  *
  * 매칭 방식(2026-09-30 갱신): skill_id가 이미 연결된 보유 스킬은 그대로 인정하고, 아직 skill_id가
  * 없는 수동 입력(raw_input)은 SkillMatcher(기본값 EmbeddingMatcher — TD-1 임베딩, 정확 일치/
@@ -37,6 +38,9 @@ import java.util.Set;
  * 매칭인지" 보여줄 수 있다.
  */
 public class GapAnalysisService {
+
+    /** 이 숙련도인 보유 기술만 요구 기술을 충족한 것으로 본다 */
+    static final String PROFICIENCY_FOR_MET = "ADVANCED";
 
     private final GapAnalysisDao gapAnalysisDao = new GapAnalysisDao();
     private final GapAnalysisItemDao gapAnalysisItemDao = new GapAnalysisItemDao();
@@ -65,6 +69,11 @@ public class GapAnalysisService {
         // 스킬은 "매칭 신뢰도"라는 개념 자체가 없는 확정 사실이라 null로 둔다(기존 설계 그대로).
         Map<Long, Double> matchedScoreBySkillId = new HashMap<>();
         for (UserSkillDto skill : userSkills) {
+            // 고급(ADVANCED)인 보유 기술만 충족으로 본다 (2026-10-12 변경 — 전에는 보유하기만 하면 충족).
+            // 입문·중급·미입력은 보유해도 MISSING이라 로드맵 사다리(전문가 단계에서 고급으로 오름)에 다시 담긴다.
+            if (!PROFICIENCY_FOR_MET.equals(skill.getProficiency())) {
+                continue;
+            }
             if (skill.getSkillId() != null) {
                 ownedSkillIds.add(skill.getSkillId());
             } else if (skill.getRawInput() != null) {
