@@ -7,9 +7,9 @@
 
 <c:if test="${not empty currentTier}">
     <div class="card row" style="gap:20px;">
-        <img src="${pageContext.request.contextPath}${tierLogoPath}" alt="${currentTier.tierName}" height="70">
+        <img src="${pageContext.request.contextPath}${tierLogoPath}" alt="${currentTier.titleName}" height="70">
         <p style="margin:0;">
-            현재 등급: <strong>${currentTier.tierName}</strong> (${currentTier.titleName})<br>
+            현재 등급: <strong>${currentTier.titleName}</strong><br>
             누적 점수: <strong>${totalScore}점</strong>
             <c:if test="${not empty currentTier.maxScore}">
                 / 다음 등급까지 ${currentTier.maxScore - totalScore + 1}점

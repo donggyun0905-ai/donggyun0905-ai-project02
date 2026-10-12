@@ -172,7 +172,7 @@ public class DashboardServlet extends HttpServlet {
             }
         }
         if (nextTier != null && currentTier != null) {
-            req.setAttribute("nextTierName", nextTier.getTierName());
+            req.setAttribute("nextTierName", nextTier.getTitleName());
             req.setAttribute("nextTierTitle", nextTier.getTitleName());
             req.setAttribute("pointsToNextTier", Math.max(0, nextTier.getMinScore() - totalScore));
             int span = nextTier.getMinScore() - currentTier.getMinScore();

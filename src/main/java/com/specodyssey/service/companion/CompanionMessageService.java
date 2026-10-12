@@ -280,10 +280,10 @@ public class CompanionMessageService {
             }
         }
         return new Tier(Math.max(1, Math.min(5, index)),
-                current == null ? null : current.getTierName(),
+                current == null ? null : current.getTitleName(),
                 current == null ? null : current.getTitleName(),
                 score,
-                next == null ? null : next.getTierName(),
+                next == null ? null : next.getTitleName(),
                 next == null ? 0 : Math.max(0, next.getMinScore() - score));
     }
 }
