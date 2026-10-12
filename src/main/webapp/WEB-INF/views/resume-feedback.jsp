@@ -47,6 +47,9 @@
 
     /* 첨삭 비교 */
     .rf-summary { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; margin-top: 10px; }
+    .rf-star { margin-top: 10px; background: #fffaf0; border: 1px solid #f0e2c0; border-left: 4px solid var(--gold); border-radius: var(--radius); padding: 10px 14px; }
+    .rf-star ul { margin: 6px 0 0; padding-left: 1.2em; }
+    .rf-star li { margin: 3px 0; line-height: 1.6; }
     .rf-keywords { margin-top: 10px; }
     .rf-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
     .rf-toolbar .progress { color: var(--ink-soft); font-size: 0.86rem; margin-right: auto; }
@@ -153,6 +156,20 @@
             </c:when>
             <c:otherwise>
                 <div class="rf-summary"><strong>총평</strong> <c:out value="${feedback.summary}" /></div>
+
+                <c:if test="${not empty feedback.starHints}">
+                    <div class="rf-star">
+                        <p style="margin:0;">
+                            <strong>이런 내용이 더해지면 좋겠어요</strong>
+                            <span class="muted" style="font-size:0.84rem;">— STAR 기법(상황·과제·행동·결과)으로 본 빠진 부분</span>
+                        </p>
+                        <ul>
+                            <c:forEach var="hint" items="${feedback.starHints}">
+                                <li><c:out value="${hint}" /></li>
+                            </c:forEach>
+                        </ul>
+                    </div>
+                </c:if>
 
                 <c:if test="${not empty feedback.keywords}">
                     <div class="rf-keywords">

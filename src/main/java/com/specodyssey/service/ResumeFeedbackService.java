@@ -40,6 +40,7 @@ public class ResumeFeedbackService {
     public static final int MIN_TEXT_LENGTH = 30;
     public static final int MAX_TEXT_LENGTH = 3000;
     static final int MAX_ITEMS = 5;
+    static final int MAX_STAR = 4; // STAR 네 요소 — 안내 문구 상한
     static final int MAX_FIELD_LENGTH = 400;
     private static final int MAX_KEYWORDS = 6;
 
@@ -75,8 +76,12 @@ public class ResumeFeedbackService {
         }
     }
 
-    /** LLM 응답 형식 (Gson이 채운다) */
-    record LlmResponse(String summary, List<LlmItem> items) {
+    /** LLM 응답 형식 (Gson이 채운다). star = STAR 기법으로 본, 본문에 더하면 좋을 내용 안내 */
+    record LlmResponse(String summary, List<LlmItem> items, List<String> star) {
+        // star가 없던 시절의 호출부·테스트와의 하위호환용. Gson은 3-인자 정규 생성자로 채운다.
+        LlmResponse(String summary, List<LlmItem> items) {
+            this(summary, items, null);
+        }
     }
 
     record LlmItem(String original, String suggestion, String reason) {
@@ -115,8 +120,11 @@ public class ResumeFeedbackService {
         public boolean isEstimated() { return estimated; }
     }
 
-    /** text = 첨삭받은 본문(줄바꿈을 \n으로 맞춘 것). Suggestion의 위치는 이 문자열 기준이다. */
-    public record Feedback(String text, String summary, List<Suggestion> items, List<Keyword> keywords) {
+    /**
+     * text = 첨삭받은 본문(줄바꿈을 \n으로 맞춘 것). Suggestion의 위치는 이 문자열 기준이다.
+     * starHints = 총평 아래에 보여줄, STAR 기법으로 본 "더하면 좋을 내용" 안내 (충분하면 빈 목록).
+     */
+    public record Feedback(String text, String summary, List<Suggestion> items, List<Keyword> keywords, List<String> starHints) {
         // JSP의 EL이 읽을 수 있게 getter를 같이 둔다 — Tomcat 10.1(BeanELResolver)은 getX()만, Tomcat 11(RecordELResolver)은 x()만 찾는다.
         public String getText() {
             return text;
@@ -125,6 +133,7 @@ public class ResumeFeedbackService {
         public String getSummary() { return summary; }
         public List<Suggestion> getItems() { return items; }
         public List<Keyword> getKeywords() { return keywords; }
+        public List<String> getStarHints() { return starHints; }
 
         public boolean isAnyEstimated() {
             return keywords.stream().anyMatch(Keyword::estimated);
@@ -165,7 +174,7 @@ public class ResumeFeedbackService {
         LlmResponse response = llm.completeJson(buildPrompt(docType, job.getJobName(), body), LlmResponse.class);
         List<SkillDto> skills = loadSkills();
         Feedback checked = sanitize(response, body, skills.stream().map(SkillDto::getSkillName).toList());
-        return new Feedback(body, checked.summary(), checked.items(), recommendKeywords(job.getId(), body, skills));
+        return new Feedback(body, checked.summary(), checked.items(), recommendKeywords(job.getId(), body, skills), checked.starHints());
     }
 
     // 기술명 날조 차단과 추천 키워드에 쓴다. DB가 안 되면 둘 다 건너뛰고 첨삭은 그대로 보여준다.
@@ -199,14 +208,20 @@ public class ResumeFeedbackService {
                    - reason: 왜 고치는지, 대괄호 자리에 무엇을 채우면 좋은지 한 문장.
                    추상적 표현(열심히, 많이 배웠다, 성장했다)을 "행동 → 결과" 구조로 바꾸는 것, 목표 직무와의 연결을 우선한다.
                 3. 맞춤법만 고치는 항목은 넣지 않는다.
+                4. star: STAR 기법(Situation 상황·배경, Task 맡은 과제나 목표, Action 한 행동, Result 결과·성과)으로 본문을 본다.
+                   네 요소 중 본문에서 빠졌거나 너무 약한 것을, 글이 짧거나 두루뭉술할수록 집어낸다. 최대 %d개.
+                   각 항목은 그 요소를 "~ 부분이 추가되면 좋겠어요!"처럼, 무엇을 더 쓰면 좋을지 알려주는 친절한 한국어 한 문장으로 쓴다.
+                   어떤 요소(상황·과제·행동·결과)에 대한 안내인지 문장 안에 드러낸다.
+                   이건 본문 문장을 고치라는 게 아니라, 지금 없는 내용을 새로 더하라는 안내다 (items와 역할이 다르다).
+                   네 요소가 이미 충분히 드러나면 빈 배열([])로 둔다. 본문에 없는 사실·경험·수치는 지어내지 않는다.
 
                 다음 JSON 객체 하나만 출력한다:
-                {"summary":"","items":[{"original":"","suggestion":"","reason":""}]}
+                {"summary":"","items":[{"original":"","suggestion":"","reason":""}],"star":[]}
 
                 <본문>
                 %s
                 </본문>
-                """.formatted(docType.getLabel(), jobName, MAX_ITEMS, text);
+                """.formatted(docType.getLabel(), jobName, MAX_ITEMS, MAX_STAR, text);
     }
 
     /**
@@ -249,7 +264,23 @@ public class ResumeFeedbackService {
             }
         }
         items.sort(Comparator.comparingInt(Suggestion::start));
-        return new Feedback(text, cut(response.summary().trim()), items, List.of());
+        return new Feedback(text, cut(response.summary().trim()), items, List.of(), sanitizeStar(response.star()));
+    }
+
+    /** STAR 안내를 거른다 — 빈 문장은 버리고, 길이와 개수를 제한한다. 충분하거나 없으면 빈 목록. */
+    static List<String> sanitizeStar(List<String> star) {
+        if (star == null) {
+            return List.of();
+        }
+        List<String> hints = new ArrayList<>();
+        for (String s : star) {
+            String hint = trim(s);
+            if (hint.isEmpty() || hints.size() >= MAX_STAR) {
+                continue;
+            }
+            hints.add(cut(hint));
+        }
+        return hints;
     }
 
     /**

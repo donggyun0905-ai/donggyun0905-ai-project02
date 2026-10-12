@@ -238,6 +238,46 @@ class ResumeFeedbackServiceTest {
     }
 
     @Test
+    void STAR_안내는_공백과_빈값을_버리고_최대_4개만_남긴다() throws ExternalApiException {
+        List<String> star = new ArrayList<>(List.of(
+                "결과(Result) 부분이 추가되면 좋겠어요!", "   ", "행동(Action)을 더 구체적으로 써 주세요.",
+                "상황(Situation) 배경이 더해지면 좋겠어요!", "과제(Task)가 무엇이었는지 보태 주세요.", "다섯 번째는 잘립니다."));
+        LlmResponse response = new LlmResponse("총평", List.of(), star);
+
+        Feedback feedback = ResumeFeedbackService.sanitize(response, TEXT);
+
+        assertEquals(List.of("결과(Result) 부분이 추가되면 좋겠어요!", "행동(Action)을 더 구체적으로 써 주세요.",
+                        "상황(Situation) 배경이 더해지면 좋겠어요!", "과제(Task)가 무엇이었는지 보태 주세요."),
+                feedback.starHints(), "빈 문자열은 버리고 앞에서부터 최대 4개만 남긴다");
+    }
+
+    @Test
+    void STAR_안내가_없으면_빈_목록() throws ExternalApiException {
+        assertTrue(ResumeFeedbackService.sanitize(new LlmResponse("총평", List.of(), null), TEXT).starHints().isEmpty());
+        assertTrue(ResumeFeedbackService.sanitize(new LlmResponse("총평", List.of(), List.of()), TEXT).starHints().isEmpty());
+    }
+
+    @Test
+    void 프롬프트는_STAR_안내를_빠진_부분을_더하는_방식으로_요청한다() {
+        String prompt = ResumeFeedbackService.buildPrompt(DocType.COVER_LETTER, "백엔드 개발자", TEXT);
+
+        assertTrue(prompt.contains("STAR"));
+        assertTrue(prompt.contains("\"star\":[]"), "출력 JSON에 star 필드가 들어 있어야 LLM이 돌려준다");
+        assertTrue(prompt.contains("없는 내용을 새로 더하라는 안내다"));
+    }
+
+    @Test
+    void review가_STAR_안내를_결과에_담는다() throws ExternalApiException {
+        StubLlmClient llm = new StubLlmClient().register(LlmResponse.class, """
+                {"summary":"경험은 좋습니다.","items":[],"star":["결과(Result) 부분이 추가되면 좋겠어요!"]}
+                """);
+
+        Feedback feedback = new ResumeFeedbackService(llm).review(DocType.COVER_LETTER, job(), TEXT);
+
+        assertEquals(List.of("결과(Result) 부분이 추가되면 좋겠어요!"), feedback.starHints());
+    }
+
+    @Test
     void 글_종류는_정해진_값만_받는다() {
         assertEquals(DocType.RESUME, DocType.from("RESUME"));
         assertNull(DocType.from("resume"));
