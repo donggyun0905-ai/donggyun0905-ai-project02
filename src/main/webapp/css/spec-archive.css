@@ -4,6 +4,12 @@
 .sa-head p { margin: 4px 0 0; }
 .sa-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin: 16px 0 10px; }
 .sa-tabs, .sa-sort { display: flex; gap: 6px; flex-wrap: wrap; }
+/* 전체 ↔ 내 북마크를 오갈 때 화면이 흔들리지 않게 — 정렬·검색 자리는 북마크에서도 비워 두고(보이지만 않게),
+   글이 적어도 목록 영역 높이를 지키고, 세로 스크롤바 자리를 늘 잡아 둔다 */
+.sa-tools { display: contents; }
+.sa-tools.is-off > * { visibility: hidden; }
+.sa-list-area { min-height: 70vh; }
+html { overflow-y: scroll; scrollbar-gutter: stable; }
 .sa-tabs a, .sa-sort a { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--card-bg); color: var(--ink); font-size: 0.88rem; }
 .sa-tabs a.active, .sa-sort a.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 .sa-lock { background: var(--card-bg); border: 1px dashed var(--gold); border-radius: var(--radius); padding: 10px 14px; font-size: 0.88rem; color: var(--ink-soft); }

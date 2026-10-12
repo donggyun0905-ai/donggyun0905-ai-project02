@@ -1,6 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<c:set var="pageTitle" value="자소서·이력서 첨삭 - 스펙 오디세이" scope="request" />
+<c:set var="pageTitle" value="자소서 첨삭 - 스펙 오디세이" scope="request" />
 <c:set var="mainFull" value="true" scope="request" />
 <jsp:include page="/WEB-INF/views/common/header.jsp" />
 
@@ -94,7 +94,7 @@
     @media (max-width: 600px) { .rf-fill { grid-template-columns: minmax(0, 1fr); } .rf-fill label { text-align: left; } }
 </style>
 
-<h1>자소서·이력서 첨삭</h1>
+<h1>자소서 첨삭</h1>
 <p class="muted">왼쪽에 글을 넣고 첨삭을 받으면, 오른쪽에서 고칠 곳을 <strong style="color:#82071e;">빼는 부분</strong>·<strong style="color:#116329;">넣는 부분</strong>으로 비교해 보고 바뀐 단어를 눌러 하나씩 적용할 수 있습니다. 대괄호 [ ] 자리는 직접 채우세요.</p>
 
 <div class="rf-layout">
@@ -116,20 +116,12 @@
                         </c:forEach>
                     </select>
                 </span>
-                <span style="flex:1;">
-                    <label for="docType">글 종류</label>
-                    <select id="docType" name="docType">
-                        <c:forEach var="type" items="${docTypes}">
-                            <option value="${type.name}" ${type.name == selectedDocType ? 'selected' : ''}>${type.label}</option>
-                        </c:forEach>
-                    </select>
-                </span>
             </div>
             <p style="margin:12px 0 0;"><label for="content">내용</label></p>
             <div class="rf-editor">
                 <div class="rf-backdrop" id="backdrop" aria-hidden="true"></div>
                 <textarea id="content" name="content" maxlength="${maxLength}" required
-                          placeholder="자기소개서 문항 답변이나 이력서 경력·프로젝트 설명을 붙여넣으세요."><c:out value="${content}" /></textarea>
+                          placeholder="자기소개서 문항 답변을 붙여넣으세요."><c:out value="${content}" /></textarea>
             </div>
             <div class="count">
                 <span class="rf-mark-legend">첨삭에서 적용한 부분</span>

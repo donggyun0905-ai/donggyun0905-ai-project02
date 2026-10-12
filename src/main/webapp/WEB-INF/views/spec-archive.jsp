@@ -4,7 +4,7 @@
 <c:set var="pageTitle" value="스펙 아카이브 - 스펙 오디세이" scope="request" />
 <c:set var="mainWide" value="true" scope="request" />
 <jsp:include page="/WEB-INF/views/common/header.jsp" />
-<link rel="stylesheet" href="${pageContext.request.contextPath}/css/spec-archive.css">
+<link rel="stylesheet" href="${pageContext.request.contextPath}/css/spec-archive.css?v=20261012">
 <c:set var="ctx" value="${pageContext.request.contextPath}" />
 
 <div class="sa-head">
@@ -22,14 +22,15 @@
 <c:if test="${not empty archiveError}"><p class="error-message" style="margin-top:14px;"><c:out value="${archiveError}" /></p></c:if>
 
 <div class="two-col" style="margin-top:4px;">
-<div class="primary">
+<div class="primary sa-list-area">
 
 <div class="sa-toolbar">
     <nav class="sa-tabs" aria-label="보기">
         <a href="${ctx}/spec-archive" class="${view == 'all' ? 'active' : ''}">전체</a>
         <a href="${ctx}/spec-archive?view=bookmarks" class="${view == 'bookmarks' ? 'active' : ''}"><span class="ic ic-bookmark" aria-hidden="true"></span> 내 북마크</a>
     </nav>
-    <c:if test="${view == 'all'}">
+    <%-- 내 북마크에서는 정렬·검색을 쓰지 않지만 자리는 그대로 둔다 — 전체 ↔ 내 북마크를 오갈 때 목록 위치가 흔들리지 않게 --%>
+    <div class="sa-tools ${view == 'all' ? '' : 'is-off'}" ${view == 'all' ? '' : 'inert aria-hidden="true"'}>
         <nav class="sa-sort" aria-label="정렬">
             <a href="${ctx}/spec-archive${empty keyword ? '' : '?q='.concat(keyword)}" class="${sort == 'latest' ? 'active' : ''}">최신순</a>
             <a href="${ctx}/spec-archive?sort=popular${empty keyword ? '' : '&q='.concat(keyword)}" class="${sort == 'popular' ? 'active' : ''}">하트순</a>
@@ -43,7 +44,7 @@
                 <a class="btn secondary" href="${ctx}/spec-archive">전체 보기</a>
             </c:if>
         </form>
-    </c:if>
+    </div>
 </div>
 
 <c:if test="${not empty keyword}">

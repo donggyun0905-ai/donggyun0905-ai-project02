@@ -1,5 +1,5 @@
 /*
- * 자소서·이력서 첨삭 비교 화면 (FR-91)
+ * 자소서 첨삭 비교 화면 (FR-91)
  *
  * 서버가 준 데이터(#feedback-data):
  *   { text: 첨삭받은 원문, items: [{ start, end, original, suggestion, reason }] }

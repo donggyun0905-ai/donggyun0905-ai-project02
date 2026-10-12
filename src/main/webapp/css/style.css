@@ -170,7 +170,7 @@ header .menu-btn { margin-bottom: 0; }
 
 main { grid-area: main; max-width: 860px; width: 100%; margin: 0 auto; padding: 32px 24px 56px; }
 main.wide { max-width: 1140px; }
-/* 좌우 위젯이 붙지 않는 화면(자소서·이력서 첨삭)은 본문을 화면 폭까지 넓게 쓴다 — 좌우 비교 상자를
+/* 좌우 위젯이 붙지 않는 화면(자소서 첨삭)은 본문을 화면 폭까지 넓게 쓴다 — 좌우 비교 상자를
    최대한 크게 보려고(사용자 요청, 2026-10-06). .wide보다 뒤에 둬서 둘 다 켜도 이 폭이 이긴다. */
 main.full { max-width: 1800px; padding-left: 20px; padding-right: 20px; }
 
