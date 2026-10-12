@@ -1,8 +1,9 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <c:set var="pageTitle" value="지원자 비교 - 스펙 오디세이" scope="request" />
-<c:set var="mainWide" value="true" scope="request" />
+<c:set var="mainFull" value="true" scope="request" />
 <jsp:include page="/WEB-INF/views/common/header.jsp" />
+<link rel="stylesheet" href="${pageContext.request.contextPath}/css/interviewer.css">
 <link rel="stylesheet" href="${pageContext.request.contextPath}/css/interviewer-compare.css">
 
 <p><a href="${pageContext.request.contextPath}/interviewer/shared">← 공유받은 이력</a></p>

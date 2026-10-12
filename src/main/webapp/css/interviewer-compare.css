@@ -1,5 +1,5 @@
 /* 면접관 "지원자 비교 > 나란히 보기" 표 (interviewer-compare.jsp)
-   칸 크기를 고정해 지원자가 많아도 칸이 찌그러지지 않게 하고, 넘치면 표 안에서 가로로 스크롤한다.
+   칸 크기를 고정해(지원자 칸 260px — 면접관 화면을 넓게 쓰면서 200에서 늘림, 2026-10-12) 지원자가 많아도 칸이 찌그러지지 않게 하고, 넘치면 표 안에서 가로로 스크롤한다.
    왼쪽 "항목" 열은 스크롤해도 제자리에 남는다. 칸보다 긴 글은 말줄임(…)으로 자르고, 마우스를 올리면 전체가 보인다(title). */
 
 .compare-scroll {
@@ -19,9 +19,9 @@
 
 .compare-table th,
 .compare-table td {
-    width: 200px;
-    min-width: 200px;
-    max-width: 200px;
+    width: 260px;
+    min-width: 260px;
+    max-width: 260px;
     height: 44px;
     box-sizing: border-box;
     white-space: nowrap;
