@@ -40,6 +40,7 @@ public class ResumeFeedbackService {
     public static final int MIN_TEXT_LENGTH = 30;
     public static final int MAX_TEXT_LENGTH = 3000;
     static final int MAX_ITEMS = 5;
+    static final int MAX_STAR = 4; // STAR 네 요소 — 안내 문구 상한
     static final int MAX_FIELD_LENGTH = 400;
     private static final int MAX_KEYWORDS = 6;
 
@@ -47,8 +48,12 @@ public class ResumeFeedbackService {
     // 응답이 짧은(1천 토큰 안팎) 작업이라 20b로 충분하다. .env의 RESUME_FEEDBACK_MODEL로 바꿀 수 있다.
     static final String DEFAULT_MODEL = "openai/gpt-oss-20b";
 
-    /** LLM 응답 형식 (Gson이 채운다) */
-    record LlmResponse(String summary, List<LlmItem> items) {
+    /** LLM 응답 형식 (Gson이 채운다). star = STAR 기법으로 본, 본문에 더하면 좋을 내용 안내 */
+    record LlmResponse(String summary, List<LlmItem> items, List<String> star) {
+        // star가 없던 시절의 호출부·테스트와의 하위호환용. Gson은 3-인자 정규 생성자로 채운다.
+        LlmResponse(String summary, List<LlmItem> items) {
+            this(summary, items, null);
+        }
     }
 
     record LlmItem(String original, String suggestion, String reason) {
@@ -87,8 +92,11 @@ public class ResumeFeedbackService {
         public boolean isEstimated() { return estimated; }
     }
 
-    /** text = 첨삭받은 본문(줄바꿈을 \n으로 맞춘 것). Suggestion의 위치는 이 문자열 기준이다. */
-    public record Feedback(String text, String summary, List<Suggestion> items, List<Keyword> keywords) {
+    /**
+     * text = 첨삭받은 본문(줄바꿈을 \n으로 맞춘 것). Suggestion의 위치는 이 문자열 기준이다.
+     * starHints = 총평 아래에 보여줄, STAR 기법으로 본 "더하면 좋을 내용" 안내 (충분하면 빈 목록).
+     */
+    public record Feedback(String text, String summary, List<Suggestion> items, List<Keyword> keywords, List<String> starHints) {
         // JSP의 EL이 읽을 수 있게 getter를 같이 둔다 — Tomcat 10.1(BeanELResolver)은 getX()만, Tomcat 11(RecordELResolver)은 x()만 찾는다.
         public String getText() {
             return text;
@@ -97,6 +105,7 @@ public class ResumeFeedbackService {
         public String getSummary() { return summary; }
         public List<Suggestion> getItems() { return items; }
         public List<Keyword> getKeywords() { return keywords; }
+        public List<String> getStarHints() { return starHints; }
 
         public boolean isAnyEstimated() {
             return keywords.stream().anyMatch(Keyword::estimated);
@@ -137,7 +146,7 @@ public class ResumeFeedbackService {
         LlmResponse response = llm.completeJson(buildPrompt(body), LlmResponse.class);
         List<SkillDto> skills = loadSkills();
         Feedback checked = sanitize(response, body, skills.stream().map(SkillDto::getSkillName).toList());
-        return new Feedback(body, checked.summary(), checked.items(), recommendKeywords(job.getId(), body, skills));
+        return new Feedback(body, checked.summary(), checked.items(), recommendKeywords(job.getId(), body, skills), checked.starHints());
     }
 
     // 기술명 날조 차단과 추천 키워드에 쓴다. DB가 안 되면 둘 다 건너뛰고 첨삭은 그대로 보여준다.
@@ -171,7 +180,8 @@ public class ResumeFeedbackService {
                   "summary": "string",
                   "items": [
                     { "original": "string", "suggestion": "string", "reason": "string" }
-                  ]
+                  ],
+                  "star": ["string"]
                 }
 
                 ## summary 규칙
@@ -216,6 +226,14 @@ public class ResumeFeedbackService {
                 - 맞춤법·띄어쓰기만 고치는 항목
                 - 본문에 없는 내용으로 채운 suggestion
 
+                ## star 규칙 (총평 아래에 따로 보여줄 안내 — items와 역할이 다르다)
+                STAR 기법(Situation 상황·배경, Task 맡은 과제나 목표, Action 한 행동, Result 결과·성과)으로 본문을 본다.
+                네 요소 중 본문에서 빠졌거나 너무 약한 것을, 글이 짧거나 두루뭉술할수록 집어낸다. 최대 %d개.
+                각 항목은 그 요소를 "~ 부분이 추가되면 좋겠어요!"처럼, 무엇을 더 쓰면 좋을지 알려주는 친절한 한국어 한 문장으로 쓴다.
+                어떤 요소(상황·과제·행동·결과)에 대한 안내인지 문장 안에 드러낸다.
+                이건 본문 문장을 고치라는 게 아니라, 지금 없는 내용을 새로 더하라는 안내다.
+                네 요소가 이미 충분히 드러나면 빈 배열([])로 둔다. 본문에 없는 사실·경험·수치는 지어내지 않는다.
+
                 ## 예시 (말투가 무례하고 사실이 거의 없는 글)
                 본문: "저는 성실한 사람입니다. 부족하지만 무조건 열심히 하겠습니다. 꼭 합격시켜 주세요."
                 출력:
@@ -237,6 +255,12 @@ public class ResumeFeedbackService {
                       "suggestion": "[경험한 일]에서 [꾸준히 한 행동]을 이어가 [결과]를 얻으며 성실함을 보여 주었습니다.",
                       "reason": "성실하다는 주장 대신 성실함이 드러난 실제 경험과 결과를 채워야 설득력이 생깁니다."
                     }
+                  ],
+                  "star": [
+                    "지원 직무와 맞는 [경험]이 언제·어디서 있었는지 상황(Situation)이 더해지면 좋겠어요!",
+                    "그 경험에서 맡은 역할이나 목표가 무엇이었는지 과제(Task) 부분을 보태 주세요!",
+                    "구체적으로 어떤 행동(Action)을 했는지 추가되면 좋겠어요!",
+                    "그 노력으로 무엇을 얻었는지 결과(Result)가 더해지면 좋겠어요!"
                   ]
                 }
                 위 예시는 형식 참고용이다. 문장을 베끼지 말고 실제 본문에 맞게 쓴다.
@@ -250,7 +274,7 @@ public class ResumeFeedbackService {
                 <본문>
                 %s
                 </본문>
-                """.formatted(MAX_ITEMS, text);
+                """.formatted(MAX_ITEMS, MAX_STAR, text);
     }
 
     /**
@@ -293,7 +317,23 @@ public class ResumeFeedbackService {
             }
         }
         items.sort(Comparator.comparingInt(Suggestion::start));
-        return new Feedback(text, cut(response.summary().trim()), items, List.of());
+        return new Feedback(text, cut(response.summary().trim()), items, List.of(), sanitizeStar(response.star()));
+    }
+
+    /** STAR 안내를 거른다 — 빈 문장은 버리고, 길이와 개수를 제한한다. 충분하거나 없으면 빈 목록. */
+    static List<String> sanitizeStar(List<String> star) {
+        if (star == null) {
+            return List.of();
+        }
+        List<String> hints = new ArrayList<>();
+        for (String s : star) {
+            String hint = trim(s);
+            if (hint.isEmpty() || hints.size() >= MAX_STAR) {
+                continue;
+            }
+            hints.add(cut(hint));
+        }
+        return hints;
     }
 
     /**
