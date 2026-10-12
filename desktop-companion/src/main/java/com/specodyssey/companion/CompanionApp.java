@@ -60,6 +60,9 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
     private final List<Message> urgent = new ArrayList<>();   // 인사·칭찬 — 바로
     private final List<Message> extras = new ArrayList<>();   // 연결 안내·업데이트 — 한가할 때
     private Updater.Release availableUpdate;
+    /** 마지막으로 새 버전을 확인한 시각 — 10분마다 다시 물어, 새로 올라온 버전은 곧 알리고 이미 최신이면 업데이트 표시를 지운다 */
+    private volatile long updateCheckedAt;
+    private static final long UPDATE_CHECK_MS = 10 * 60_000L;
     private boolean greetAfterConnect;
     private boolean dirty;
     // 하루 요약 · 트렌드 순환 (서버가 /messages에 같이 준다)
@@ -223,8 +226,9 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
         summaryText = snap.summary();
         siteUrl = snap.siteUrl();
         trends = snap.trends() == null ? List.of() : snap.trends();
-        if (availableUpdate == null && settings.isConnected()) {
-            worker.execute(this::checkUpdate); // 연결된 뒤 처음 받은 때 한 번 (그 뒤로는 하루 한 번)
+        if (settings.isConnected() && System.currentTimeMillis() - updateCheckedAt > UPDATE_CHECK_MS) {
+            updateCheckedAt = System.currentTimeMillis();
+            worker.execute(this::checkUpdate); // 연결된 뒤 바로 한 번, 그 뒤로 10분마다
         }
         settings.userName = snap.userName();
         if (snap.tier() != null) {
@@ -321,7 +325,17 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
         }
         try {
             Updater.Release r = updater.findNewer(settings.server, settings.token);
-            if (r != null) {
+            if (r == null) {
+                // 이미 최신 — 예전에 띄운 업데이트 표시(메뉴 항목·말풍선)를 지운다
+                SwingUtilities.invokeLater(() -> {
+                    availableUpdate = null;
+                    extras.removeIf(m -> m.key().startsWith("update:"));
+                    Message current = rules.current();
+                    if (current != null && current.key().startsWith("update:")) {
+                        closeBubble(current, false);
+                    }
+                });
+            } else {
                 SwingUtilities.invokeLater(() -> {
                     availableUpdate = r;
                     String key = "update:" + r.version();
@@ -568,6 +582,10 @@ public class CompanionApp implements CharacterWindow.Listener, BubbleWindow.List
             item(menu, "연결하기", () -> browse(botUrl()));
         }
         item(menu, "종료", this::exit);
+        menu.addSeparator();
+        // 지금 버전 — 새 버전이 있을 때만 위에 "업데이트" 항목이 생긴다
+        JMenuItem version = item(menu, "버전 " + Version.current() + (availableUpdate == null ? " · 최신" : " · 새 버전 있음"), () -> { });
+        version.setEnabled(false);
         Theme.style(menu);
         showMenu(menu, e);
     }

@@ -68,6 +68,10 @@ public class SettingsWindow extends JFrame {
         cancel.addActionListener(e -> setVisible(false));
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         buttons.setBackground(Theme.CARD);
+        JLabel version = new JLabel("버전 " + Version.current() + "   ");
+        version.setForeground(Theme.INK_SOFT);
+        version.setFont(Theme.font(Font.PLAIN, 12));
+        buttons.add(version);
         buttons.add(cancel);
         buttons.add(save);
 
