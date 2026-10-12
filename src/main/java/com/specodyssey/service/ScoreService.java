@@ -62,7 +62,10 @@ public class ScoreService {
         log.setRefId(refId);
         log.setPoints(points);
         log.setEarnedAt(AppClock.now());
-        scoreLogDao.insert(conn, log);
+        // 미션 완료 취소로 논리 삭제된 같은 기록이 있으면 되살리고, 없으면 새로 넣는다 (UNIQUE가 삭제된 행에도 걸림, 2026-10-12)
+        if (!scoreLogDao.reviveDeleted(conn, log)) {
+            scoreLogDao.insert(conn, log);
+        }
 
         UserScoreSummaryDto summary = userScoreSummaryDao.findByUserId(conn, userId, true);
         if (summary == null) {

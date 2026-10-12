@@ -51,6 +51,29 @@ public class UserDailyMissionDao {
     }
 
     // FR-53 스트릭·진행도 계산용 — 배정일 순
+    // 미션 새로 불러오기(2026-10-12) — 그날 아직 안 푼 미션만 논리 삭제한다. 푼 미션·실패한 미션은 그대로 둔다.
+    public int softDeleteUncompletedByDate(Connection conn, Long userId, java.time.LocalDate date) throws SQLException {
+        String sql = "UPDATE USER_DAILY_MISSION SET is_deleted = TRUE " +
+                "WHERE user_id = ? AND assigned_date = ? AND is_completed = FALSE AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            pstmt.setDate(2, java.sql.Date.valueOf(date));
+            return pstmt.executeUpdate();
+        }
+    }
+
+    // 미션 완료·실패 취소(2026-10-12) — 본인 미션을 안 푼 상태로 되돌린다. 제출 코드도 비운다. 바뀐 행 수(0이면 남의 미션·없음).
+    public int resetCompletion(Connection conn, Long userId, Long missionId) throws SQLException {
+        String sql = "UPDATE USER_DAILY_MISSION SET is_completed = FALSE, completed_at = NULL, is_correct = NULL, " +
+                "submitted_code = NULL, submitted_language = NULL, submitted_at = NULL " +
+                "WHERE id = ? AND user_id = ? AND is_completed = TRUE AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, missionId);
+            pstmt.setLong(2, userId);
+            return pstmt.executeUpdate();
+        }
+    }
+
     public List<UserDailyMissionDto> findByUserId(Long userId) throws SQLException {
         String sql = "SELECT " + COLUMNS + " FROM USER_DAILY_MISSION WHERE user_id = ? AND is_deleted = FALSE " +
                 "ORDER BY assigned_date DESC";
