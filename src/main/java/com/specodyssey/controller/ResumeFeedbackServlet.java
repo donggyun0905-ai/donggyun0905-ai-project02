@@ -6,7 +6,6 @@ import com.specodyssey.dao.UserDao;
 import com.specodyssey.dto.JobDto;
 import com.specodyssey.dto.UserDto;
 import com.specodyssey.service.ResumeFeedbackService;
-import com.specodyssey.service.ResumeFeedbackService.DocType;
 import com.specodyssey.service.ResumeFeedbackService.Feedback;
 import com.specodyssey.util.ExternalApiClient.ExternalApiException;
 import jakarta.servlet.ServletException;
@@ -24,7 +23,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * 자소서·이력서 첨삭 화면. 관련 요구사항: FR-91 · 92 · 112
+ * 자소서 첨삭 화면. 관련 요구사항: FR-91 · 92 · 112
  * GET: 입력 화면(목표 직무 기본값 = 프로필의 희망 직무). POST: 첨삭을 받아 같은 화면에 결과를 보여준다.
  * 결과는 비교 화면(js/resume-feedback.js)이 원문 위에 "삭제·추가"로 겹쳐 보여주고, 사용자가 골라 적용하면 입력 칸이 바뀐다.
  * 결과와 본문은 저장하지 않는다 — 화면을 벗어나면 사라진다.
@@ -47,7 +46,7 @@ public class ResumeFeedbackServlet extends HttpServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         try {
             UserDto user = userDao.findById(currentUserId(req));
-            prepareForm(req, user == null ? null : user.getDesiredJobId(), DocType.COVER_LETTER, "");
+            prepareForm(req, user == null ? null : user.getDesiredJobId(), "");
         } catch (SQLException e) {
             throw new ServletException("첨삭 화면을 불러오는 중 오류가 발생했습니다.", e);
         }
@@ -57,21 +56,20 @@ public class ResumeFeedbackServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         String text = ResumeFeedbackService.normalizeNewlines(req.getParameter("content"));
-        DocType docType = DocType.from(req.getParameter("docType"));
         Long jobId = parseLong(req.getParameter("jobId"));
 
         try {
-            prepareForm(req, jobId, docType == null ? DocType.COVER_LETTER : docType, text);
+            prepareForm(req, jobId, text);
             JobDto job = jobId == null ? null : jobDao.findById(jobId);
 
-            String error = validate(docType, job, text);
+            String error = validate(job, text);
             if (error == null) {
                 error = checkInterval(req.getSession());
             }
             if (error != null) {
                 req.setAttribute("errorMessage", error);
             } else {
-                Feedback feedback = feedbackService.review(docType, job, text);
+                Feedback feedback = feedbackService.review(job, text);
                 req.setAttribute("feedback", feedback);
                 req.setAttribute("feedbackJob", job);
                 // 비교 화면 스크립트가 읽는 데이터. Gson 기본 설정은 < > & ' = 를 \\u003c 등으로 바꿔 써서
@@ -88,20 +86,15 @@ public class ResumeFeedbackServlet extends HttpServlet {
         req.getRequestDispatcher(VIEW).forward(req, resp);
     }
 
-    private void prepareForm(HttpServletRequest req, Long selectedJobId, DocType docType, String text) throws SQLException {
+    private void prepareForm(HttpServletRequest req, Long selectedJobId, String text) throws SQLException {
         List<JobDto> jobs = jobDao.findAll();
         req.setAttribute("jobs", jobs);
         req.setAttribute("selectedJobId", selectedJobId);
-        req.setAttribute("docTypes", DocType.values());
-        req.setAttribute("selectedDocType", docType.name());
         req.setAttribute("content", text);
         req.setAttribute("maxLength", ResumeFeedbackService.MAX_TEXT_LENGTH);
     }
 
-    private static String validate(DocType docType, JobDto job, String text) {
-        if (docType == null) {
-            return "글 종류를 골라 주세요.";
-        }
+    private static String validate(JobDto job, String text) {
         if (job == null) {
             return "목표 직무를 골라 주세요.";
         }

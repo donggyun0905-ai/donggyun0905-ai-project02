@@ -268,7 +268,7 @@
                     <div class="lp-screen-view">
                         <div class="lp-m-head"><span><span class="ic ic-menu" aria-hidden="true"></span> 목록</span>스펙 오디세이</div>
                         <div class="lp-m-body">
-                            <div class="lp-m-title">자소서·이력서 첨삭</div>
+                            <div class="lp-m-title">자소서 첨삭</div>
                             <div class="lp-m-card">
                                 <h4>첨삭 결과<span class="lp-m-pill">AI 제안 · 참고용</span></h4>
                                 <div class="lp-m-fb lp-stag">
