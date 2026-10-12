@@ -1308,8 +1308,7 @@
     "priority": "[권장]",
     "area": "2-11. 예외 처리 / 빈 상태 / 온보딩",
     "controllers": [
-      "DashboardServlet.java",
-      "ProfileServlet.java"
+      "DashboardServlet.java"
     ],
     "services": [
       "NextStepService.java",
@@ -1320,8 +1319,7 @@
     ],
     "views": [
       "dashboard.jsp",
-      "next-steps.jspf",
-      "profile.jsp"
+      "next-steps.jspf"
     ],
     "tests": [
       "NextStepServiceTest.java",

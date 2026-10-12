@@ -22,9 +22,6 @@
     <p class="error-message"><c:out value='${errorMessage}' /></p>
 </c:if>
 
-<%-- FR-114 — 어디까지 채웠고 다음에 무엇을 할지 --%>
-<%@ include file="/WEB-INF/views/common/next-steps.jspf" %>
-
 <%@ include file="/WEB-INF/views/profile/_basic.jspf" %>
 
 <%@ include file="/WEB-INF/views/profile/_education.jspf" %>
@@ -65,5 +62,7 @@
     input.input-bad { border-color: var(--danger); }
 </style>
 <script src="${pageContext.request.contextPath}/js/profile-input-check.js" defer></script>
+<%-- 저장하고 돌아왔을 때 보던 자리로 되돌리고 결과를 알려 준다 (2026-10-12) --%>
+<script src="${pageContext.request.contextPath}/js/profile-save.js" defer></script>
 
 <jsp:include page="/WEB-INF/views/common/footer.jsp" />
