@@ -47,7 +47,6 @@ public class InsightService {
     private static final Map<String, String> TIER_LABELS = new LinkedHashMap<>();
 
     static {
-        LEVEL_LABELS.put("ENTRY", "입문");
         LEVEL_LABELS.put("BASIC", "기초");
         LEVEL_LABELS.put("INTERMEDIATE", "중급");
         LEVEL_LABELS.put("ADVANCED", "심화");
