@@ -144,7 +144,7 @@ class InsightServiceTest {
                 new GapCellRow("클라우드", null, true),
                 new GapCellRow(null, "BASIC", false)));
 
-        assertEquals(List.of("기초", "중급", "심화", "미지정"), view.levels());
+        assertEquals(List.of("기초", "중급", "고급", "미지정"), view.levels());
         assertEquals(4, view.missingTotal());
         assertEquals("클라우드 · 중급", view.weakest());
 
@@ -158,7 +158,7 @@ class InsightServiceTest {
     @Test
     void 히트맵_수준값이_모두_있으면_미지정_열은_없다() {
         HeatmapView view = InsightService.buildHeatmap(List.of(new GapCellRow("언어", "BASIC", false)));
-        assertEquals(List.of("기초", "중급", "심화"), view.levels());
+        assertEquals(List.of("기초", "중급", "고급"), view.levels());
         assertEquals(0, view.missingTotal());
         assertNull(view.weakest());
         assertTrue(InsightService.buildHeatmap(Collections.emptyList()).isEmpty());

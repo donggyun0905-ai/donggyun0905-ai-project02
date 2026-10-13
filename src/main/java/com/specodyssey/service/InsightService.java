@@ -40,6 +40,11 @@ public class InsightService {
     static final int TREND_TOP_SKILLS = 8;
 
     // JOB_REQUIRED_SKILL.required_level → 화면 열 순서. 값이 없는 행은 "미지정" 열로 모은다.
+    //
+    // 로드맵 티어(ENTRY·CORE·ADVANCED·EXPERT)와 이름이 겹치지 않게 ADVANCED를 "고급"으로 적는다
+    // (2026-10-13). 둘은 다른 자다 — 요구 수준은 "직무가 바라는 깊이"(공고에서 수집),
+    // 티어는 "학습자가 증명한 깊이"다. 같은 화면에 "심화"가 두 뜻으로 나오면 읽는 사람이 헷갈린다.
+    // 언젠가 둘을 같은 4단계로 통일하면 이 표도 함께 없어진다 — 지금은 이름만 떼어 놓는다.
     private static final Map<String, String> LEVEL_LABELS = new LinkedHashMap<>();
     private static final String LEVEL_UNKNOWN = "미지정";
 
@@ -49,7 +54,7 @@ public class InsightService {
     static {
         LEVEL_LABELS.put("BASIC", "기초");
         LEVEL_LABELS.put("INTERMEDIATE", "중급");
-        LEVEL_LABELS.put("ADVANCED", "심화");
+        LEVEL_LABELS.put("ADVANCED", "고급");
 
         TIER_LABELS.put("ENTRY", "입문");
         TIER_LABELS.put("CORE", "핵심");
