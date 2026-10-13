@@ -144,13 +144,13 @@ class InsightServiceTest {
                 new GapCellRow("클라우드", null, true),
                 new GapCellRow(null, "BASIC", false)));
 
-        assertEquals(List.of("기초", "중급", "심화", "미지정"), view.levels());
+        assertEquals(List.of("입문", "기초", "중급", "심화", "미지정"), view.levels());
         assertEquals(4, view.missingTotal());
         assertEquals("클라우드 · 중급", view.weakest());
 
         HeatRow cloud = view.rows().stream().filter(r -> r.category().equals("클라우드")).findFirst().orElseThrow();
-        assertEquals(2, cloud.cells().get(1).missing());
-        assertEquals(3, cloud.cells().get(1).shade(), "가장 많이 부족한 칸이 가장 진하다");
+        assertEquals(2, cloud.cells().get(2).missing(), "중급 열은 이제 세 번째(입문·기초·중급)");
+        assertEquals(3, cloud.cells().get(2).shade(), "가장 많이 부족한 칸이 가장 진하다");
         assertEquals(0, cloud.cells().get(0).total(), "요구하지 않는 칸");
         assertTrue(view.rows().stream().anyMatch(r -> r.category().equals("기타")), "분야 없는 기술은 기타로");
     }
@@ -158,7 +158,7 @@ class InsightServiceTest {
     @Test
     void 히트맵_수준값이_모두_있으면_미지정_열은_없다() {
         HeatmapView view = InsightService.buildHeatmap(List.of(new GapCellRow("언어", "BASIC", false)));
-        assertEquals(List.of("기초", "중급", "심화"), view.levels());
+        assertEquals(List.of("입문", "기초", "중급", "심화"), view.levels());
         assertEquals(0, view.missingTotal());
         assertNull(view.weakest());
         assertTrue(InsightService.buildHeatmap(Collections.emptyList()).isEmpty());
