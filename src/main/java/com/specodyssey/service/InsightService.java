@@ -194,25 +194,29 @@ public class InsightService {
             return new HeatmapView(Collections.emptyList(), Collections.emptyList(), 0, null, false);
         }
 
-        // 열은 입문·기초·중급·심화 4단계로 고정한다.
         List<String> levelKeys = new ArrayList<>(LEVEL_LABELS.keySet());
-
-        // 분야 → 수준 → {부족, 전체}. 수준값이 없거나 모르는 요구 기술은 집계에서 제외한다(미지정 열 없음).
-        Map<String, Map<String, int[]>> counts = new TreeMap<>();
+        boolean hasUnknown = false;
         for (GapCellRow row : rows) {
             if (!LEVEL_LABELS.containsKey(row.requiredLevel())) {
-                continue;
+                hasUnknown = true;
+                break;
             }
+        }
+        if (hasUnknown) {
+            levelKeys.add(LEVEL_UNKNOWN);
+        }
+
+        // 분야 → 수준 → {부족, 전체}
+        Map<String, Map<String, int[]>> counts = new TreeMap<>();
+        for (GapCellRow row : rows) {
             String category = isBlank(row.category()) ? "기타" : row.category();
+            String level = LEVEL_LABELS.containsKey(row.requiredLevel()) ? row.requiredLevel() : LEVEL_UNKNOWN;
             int[] cell = counts.computeIfAbsent(category, k -> new LinkedHashMap<>())
-                    .computeIfAbsent(row.requiredLevel(), k -> new int[2]);
+                    .computeIfAbsent(level, k -> new int[2]);
             if (row.missing()) {
                 cell[0]++;
             }
             cell[1]++;
-        }
-        if (counts.isEmpty()) {
-            return new HeatmapView(Collections.emptyList(), Collections.emptyList(), 0, null, false);
         }
 
         int maxMissing = 0;
