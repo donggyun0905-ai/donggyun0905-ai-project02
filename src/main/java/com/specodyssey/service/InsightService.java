@@ -39,17 +39,17 @@ public class InsightService {
     static final int TREND_MONTHS = 4;
     static final int TREND_TOP_SKILLS = 8;
 
-    // JOB_REQUIRED_SKILL.required_level → 화면 열 순서. 값이 없는 행은 "미지정" 열로 모은다.
+    // JOB_REQUIRED_SKILL.required_level → 화면 열 순서. 값이 없는 행은 "심화" 열로 모은다.
     private static final Map<String, String> LEVEL_LABELS = new LinkedHashMap<>();
-    private static final String LEVEL_UNKNOWN = "미지정";
+    private static final String LEVEL_UNKNOWN = "심화";
 
     // JOB_BENCHMARK_SPEC.tier → 화면 표시명
     private static final Map<String, String> TIER_LABELS = new LinkedHashMap<>();
 
     static {
-        LEVEL_LABELS.put("BASIC", "기초");
-        LEVEL_LABELS.put("INTERMEDIATE", "중급");
-        LEVEL_LABELS.put("ADVANCED", "심화");
+        LEVEL_LABELS.put("BASIC", "입문");
+        LEVEL_LABELS.put("INTERMEDIATE", "기초");
+        LEVEL_LABELS.put("ADVANCED", "중급");
 
         TIER_LABELS.put("ENTRY", "입문");
         TIER_LABELS.put("CORE", "핵심");
