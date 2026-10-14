@@ -24,6 +24,13 @@ html { overflow-y: scroll; scrollbar-gutter: stable; }
 .sa-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 0.82rem; color: var(--ink-soft); }
 .sa-stats { display: flex; gap: 10px; margin-left: auto; }
 .sa-tier { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: rgba(201,162,75,0.25); color: #8a6a2c; }
+/* 작성자가 로드맵에서 전문가 단계까지 끝낸 기술 — "Java 전문가" (2026-10-14).
+   글쓰기를 등급으로 막는 대신 무엇을 증명했는지 보여 준다. 등급 배지(.sa-tier)와
+   구분되게 청록 계열로 두고, 숫자 배지(+2)는 더 옅게 해서 기술 이름이 먼저 읽히게 한다. */
+.sa-expert { display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 1px 8px;
+    border-radius: 999px; background: rgba(31,122,108,0.14); color: var(--teal, #1f7a6c);
+    border: 1px solid rgba(31,122,108,0.3); }
+.sa-expert-more { background: none; border-color: var(--line, #d8d2c8); color: var(--ink-soft, #5c6b77); font-weight: 500; }
 .sa-empty { text-align: center; padding: 40px 16px; color: var(--ink-soft); }
 .sa-pager { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 16px; }
 

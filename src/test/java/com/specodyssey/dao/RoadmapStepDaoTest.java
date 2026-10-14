@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.sql.Connection;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -106,4 +107,56 @@ class RoadmapStepDaoTest {
             }
         }
     }
+
+    @Test
+    void 전문가_단계를_끝낸_기술만_모아_온다() throws Exception {
+        // 스펙 아카이브가 글마다 작성자 옆에 "Java 전문가"를 붙이는 데 쓴다 (2026-10-14).
+        // 글 목록에 작성자가 여럿이라 한 번에 가져온다 — 한 사람씩 물으면 N+1이 된다.
+        Long skillA;
+        Long skillB;
+        List<Long> stepIds = new java.util.ArrayList<>();
+        try (Connection conn = DBUtil.getConnection()) {
+            skillA = TestFixtures.insertSkill(conn, "테스트기술_전문가_" + System.nanoTime());
+            skillB = TestFixtures.insertSkill(conn, "테스트기술_미완_" + System.nanoTime());
+            stepIds.add(dao.insert(conn, skillStep(2, "EXPERT", skillA, true)));   // 완료한 전문가
+            stepIds.add(dao.insert(conn, skillStep(3, "EXPERT", skillB, false)));  // 아직 안 끝낸 전문가
+            stepIds.add(dao.insert(conn, skillStep(4, "CORE", skillA, true)));     // 완료했지만 아래 티어
+        }
+        try {
+            Map<Long, List<String>> byUser = dao.findExpertSkillNamesByUserIds(List.of(userId));
+            List<String> names = byUser.getOrDefault(userId, List.of());
+
+            assertEquals(1, names.size(), "끝낸 전문가 단계만 — 미완료와 아래 티어는 빠진다");
+            assertTrue(names.get(0).startsWith("테스트기술_전문가_"));
+
+            assertTrue(dao.findExpertSkillNamesByUserIds(List.of()).isEmpty(), "빈 목록이면 질의하지 않는다");
+            assertTrue(dao.findExpertSkillNamesByUserIds(null).isEmpty());
+            assertTrue(dao.findExpertSkillNamesByUserIds(List.of(-1L)).isEmpty(),
+                    "전문가 단계가 없는 사람은 키 자체가 없다");
+        } finally {
+            try (Connection conn = DBUtil.getConnection()) {
+                for (Long id : stepIds) {
+                    TestFixtures.hardDelete(conn, "ROADMAP_STEP", id);
+                }
+                TestFixtures.hardDelete(conn, "SKILL", skillA);
+                TestFixtures.hardDelete(conn, "SKILL", skillB);
+            }
+        }
+    }
+
+    private static RoadmapStepDto skillStep(int order, String tier, Long skillId, boolean completed) {
+        RoadmapStepDto step = new RoadmapStepDto();
+        step.setRoadmapId(roadmapId);
+        step.setStepOrder(order);
+        step.setStepType("SKILL");
+        step.setTier(tier);
+        step.setRelatedSkillId(skillId);
+        step.setReason("테스트");
+        step.setCompleted(completed);
+        if (completed) {
+            step.setCompletedAt(LocalDateTime.now());
+        }
+        return step;
+    }
+
 }

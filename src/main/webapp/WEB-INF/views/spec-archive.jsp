@@ -12,10 +12,8 @@
         <h1>스펙 아카이브</h1>
         <p class="muted">${writerTitles} 티어 선배들이 남긴 취업 준비 팁 모음입니다. 하트로 응원하고, 북마크로 모아 두세요.</p>
     </div>
-    <c:choose>
-        <c:when test="${canWrite}"><a class="btn" href="${ctx}/spec-archive/write"><span class="ic ic-pencil" aria-hidden="true"></span> 팁 쓰기</a></c:when>
-        <c:otherwise><div class="sa-lock"><span class="ic ic-lock" aria-hidden="true"></span> 글쓰기는 <strong>${writerTitles}</strong> 티어부터 열립니다. 읽기·댓글·하트·북마크는 누구나 할 수 있어요.</div></c:otherwise>
-    </c:choose>
+    <%-- 글쓰기는 누구나 (2026-10-14). 등급으로 막는 대신 작성자가 무엇을 증명했는지 보여 준다 --%>
+    <a class="btn" href="${ctx}/spec-archive/write"><span class="ic ic-pencil" aria-hidden="true"></span> 팁 쓰기</a>
 </div>
 
 <c:if test="${not empty archiveMessage}"><p class="sa-flash" style="margin-top:14px;"><c:out value="${archiveMessage}" /></p></c:if>
@@ -59,7 +57,7 @@
         <div class="card sa-empty">
             <c:choose>
                 <c:when test="${view == 'bookmarks'}">아직 북마크한 글이 없습니다. 마음에 드는 팁에서 북마크를 눌러 보세요.</c:when>
-                <c:otherwise>아직 올라온 팁이 없습니다.<c:if test="${canWrite}"> 첫 번째 팁을 남겨 주세요!</c:if></c:otherwise>
+                <c:otherwise>아직 올라온 팁이 없습니다. 첫 번째 팁을 남겨 주세요!</c:otherwise>
             </c:choose>
         </div>
     </c:when>
@@ -72,6 +70,11 @@
                     <div class="sa-meta">
                         <span><c:out value="${post.authorName}" /></span>
                         <c:if test="${not empty post.authorTitle}"><span class="sa-tier"><c:out value="${post.authorTitle}" /></span></c:if>
+                        <%-- 로드맵에서 전문가 단계까지 끝낸 기술 — 목록은 자리가 좁아 2개까지만 (2026-10-14) --%>
+                        <c:forEach var="skill" items="${post.authorExpertSkills}" varStatus="s">
+                            <c:if test="${s.index < 2}"><span class="sa-expert"><c:out value="${skill}" /> 전문가</span></c:if>
+                        </c:forEach>
+                        <c:if test="${fn:length(post.authorExpertSkills) > 2}"><span class="sa-expert sa-expert-more">+${fn:length(post.authorExpertSkills) - 2}</span></c:if>
                         <span>${post.publishedAt.toLocalDate()}</span>
                         <span class="sa-stats">
                             <span title="하트"><span class="ic ic-heart" aria-hidden="true"></span> ${post.likeCount}</span>

@@ -28,6 +28,10 @@
     <div class="sa-meta" style="margin-top:8px;">
         <strong><c:out value="${post.authorName}" /></strong>
         <c:if test="${not empty post.authorTitle}"><span class="sa-tier"><c:out value="${post.authorTitle}" /></span></c:if>
+        <%-- 로드맵에서 전문가 단계까지 끝낸 기술 (2026-10-14). 상세 화면은 자리가 있어 전부 보여 준다 --%>
+        <c:forEach var="skill" items="${post.authorExpertSkills}">
+            <span class="sa-expert" title="로드맵에서 전문가 단계까지 끝낸 기술"><c:out value="${skill}" /> 전문가</span>
+        </c:forEach>
         <span>${post.publishedAt.toLocalDate()}</span>
         <span><span class="ic ic-eye" aria-hidden="true"></span> ${post.viewCount}</span>
     </div>

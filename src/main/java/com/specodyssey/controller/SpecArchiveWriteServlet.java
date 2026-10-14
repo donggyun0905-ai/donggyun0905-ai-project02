@@ -49,7 +49,7 @@ public class SpecArchiveWriteServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        prepare(req, SpecArchiveServlet.currentUserId(req));
+        prepare(req);
         req.getRequestDispatcher(VIEW).forward(req, resp);
     }
 
@@ -63,7 +63,7 @@ public class SpecArchiveWriteServlet extends HttpServlet {
             parts = req.getParts(); // 용량 초과는 여기서 드러난다
         } catch (IllegalStateException e) {
             req.setAttribute("errorMessage", "사진은 글 하나에 모두 합쳐 10MB까지 올릴 수 있습니다.");
-            prepare(req, userId);
+            prepare(req);
             req.getRequestDispatcher(VIEW).forward(req, resp);
             return;
         }
@@ -103,17 +103,11 @@ public class SpecArchiveWriteServlet extends HttpServlet {
         req.setAttribute("errorMessage", message + (hadImages ? " 사진은 다시 넣어 주세요." : ""));
         req.setAttribute("title", req.getParameter("title"));
         req.setAttribute("content", ArchiveContentCodec.withoutUploadTokens(content));
-        prepare(req, userId);
+        prepare(req);
         req.getRequestDispatcher(VIEW).forward(req, resp);
     }
 
-    private void prepare(HttpServletRequest req, Long userId) throws ServletException {
-        try {
-            req.setAttribute("canWrite", archiveService.canWrite(userId));
-            req.setAttribute("writerTitles", String.join("·", archiveService.writerTierTitles()));
-        } catch (SQLException e) {
-            throw new ServletException("글쓰기 화면을 불러오는 중 오류가 발생했습니다.", e);
-        }
+    private void prepare(HttpServletRequest req) {
         req.setAttribute("titleMax", SpecArchiveRules.TITLE_MAX);
         req.setAttribute("contentMax", SpecArchiveRules.CONTENT_MAX);
         req.setAttribute("maxImageMb", SpecArchiveRules.MAX_IMAGE_BYTES / (1024 * 1024));

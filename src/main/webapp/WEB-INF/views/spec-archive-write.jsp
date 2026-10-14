@@ -10,15 +10,7 @@
 <p><a href="${ctx}/spec-archive">← 스펙 아카이브</a></p>
 <h1>팁 쓰기</h1>
 
-<c:choose>
-    <c:when test="${not canWrite}">
-        <div class="card sa-empty" style="margin-top:16px;">
-            <span class="ic ic-lock" aria-hidden="true"></span> 글쓰기는 <strong>${writerTitles}</strong> 티어부터 할 수 있습니다.<br>
-            미션과 로드맵으로 점수를 쌓아 티어를 올려 보세요. 읽기·댓글·하트·북마크는 지금도 할 수 있어요.
-        </div>
-    </c:when>
-    <c:otherwise>
-        <c:if test="${not empty errorMessage}"><p class="error-message"><c:out value="${errorMessage}" /></p></c:if>
+<c:if test="${not empty errorMessage}"><p class="error-message"><c:out value="${errorMessage}" /></p></c:if>
 
         <%-- 편집기: js/spec-archive-editor.js. 보낼 때 본문(사진 자리에 [[upload:K]])과 사진 파일(image_K)을 채운다 --%>
         <form id="writeForm" class="card sa-form" action="${ctx}/spec-archive/write" method="post" enctype="multipart/form-data" autocomplete="off"
@@ -64,8 +56,6 @@
                 <a class="btn secondary" href="${ctx}/spec-archive">취소</a>
             </div>
         </form>
-    </c:otherwise>
-</c:choose>
 
 <%-- highlight.js 11.9.0 (BSD-3, js/vendor/highlight/LICENSE) — 코드 블록 색 입히기 --%>
 <script src="${ctx}/js/vendor/highlight/highlight.min.js"></script>

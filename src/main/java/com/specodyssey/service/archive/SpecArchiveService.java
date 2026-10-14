@@ -6,14 +6,10 @@ import com.specodyssey.dao.TechArticleDao;
 import com.specodyssey.dao.TechArticleDao.CountColumn;
 import com.specodyssey.dao.TechArticleReactionDao;
 import com.specodyssey.dao.TechArticleReactionDao.Kind;
-import com.specodyssey.dao.UserScoreSummaryDao;
-import com.specodyssey.dto.LevelTierDto;
 import com.specodyssey.dto.TechArticleAttachmentDto;
 import com.specodyssey.dto.TechArticleCommentDto;
 import com.specodyssey.dto.TechArticleDto;
-import com.specodyssey.dto.UserScoreSummaryDto;
 import com.specodyssey.service.NotificationService;
-import com.specodyssey.service.ScoreService;
 import com.specodyssey.util.TransactionUtil;
 
 import java.sql.SQLException;
@@ -23,6 +19,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.Map;
 
 /**
@@ -35,15 +32,13 @@ import java.util.Map;
 public class SpecArchiveService {
 
     public static final int PAGE_SIZE = 10;
-    private static final int WRITER_TIER_COUNT = 2;
     private static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
 
     private final TechArticleDao articleDao = new TechArticleDao();
+    private final com.specodyssey.dao.RoadmapStepDao roadmapStepDao = new com.specodyssey.dao.RoadmapStepDao();
     private final TechArticleCommentDao commentDao = new TechArticleCommentDao();
     private final TechArticleAttachmentDao attachmentDao = new TechArticleAttachmentDao();
     private final TechArticleReactionDao reactionDao = new TechArticleReactionDao();
-    private final UserScoreSummaryDao summaryDao = new UserScoreSummaryDao();
-    private final ScoreService scoreService = new ScoreService();
     private final NotificationService notificationService = new NotificationService();
 
     // ---------------------------------------------------------------- 화면용 값 (JSP EL은 getter로 읽는다)
@@ -90,36 +85,18 @@ public class SpecArchiveService {
      * 글쓰기 가능한 티어인지 — 총점으로 티어를 정한다 (헤더 배지와 같은 ScoreService.getTierForScore 방식).
      * USER_SCORE_SUMMARY.current_tier_id는 티어 표를 다시 넣거나 점수를 직접 고치면 비거나 어긋날 수 있어서 믿지 않는다.
      */
+    /**
+     * 글쓰기는 누구나 할 수 있다 (2026-10-14).
+     *
+     * 예전에는 상위 두 등급(개척자·오디세이아)만 쓸 수 있었다. 문을 잠그는 대신
+     * 무엇을 증명했는지 보여 주는 쪽으로 바꿨다 — 글마다 작성자의 등급과
+     * 전문가 단계를 끝낸 기술("Java 전문가")이 함께 나온다. 읽는 사람이 판단하면 된다.
+     *
+     * 메서드는 남겨 둔다. 화면 여러 곳이 이 값을 묻고 있고, 나중에 다시 조건을
+     * 걸 일이 생기면 여기 한 곳만 고치면 된다.
+     */
     public boolean canWrite(Long userId) throws SQLException {
-        UserScoreSummaryDto summary = summaryDao.findByUserId(userId);
-        int score = summary == null || summary.getTotalScore() == null ? 0 : summary.getTotalScore();
-        List<LevelTierDto> tiers = scoreService.getAllTiers(); // min_score 오름차순
-        LevelTierDto tier = tierForScore(tiers, score);
-        return tier != null && topTiers(tiers).stream().anyMatch(t -> t.getId().equals(tier.getId()));
-    }
-
-    /** 점수가 들어가는 티어 (ScoreService.getTierForScore와 같은 규칙). 없으면 null. */
-    static LevelTierDto tierForScore(List<LevelTierDto> tiers, int score) {
-        for (LevelTierDto t : tiers) {
-            if (score >= t.getMinScore() && (t.getMaxScore() == null || score <= t.getMaxScore())) {
-                return t;
-            }
-        }
-        return null;
-    }
-
-    /** 글쓰기 가능한 티어 칭호 (낮은 것부터) — 안내 문구용. 예: [개척자, 오디세이아] */
-    public List<String> writerTierTitles() throws SQLException {
-        return writerTiers().stream().map(LevelTierDto::getTitleName).toList();
-    }
-
-    private List<LevelTierDto> writerTiers() throws SQLException {
-        return topTiers(scoreService.getAllTiers());
-    }
-
-    /** min_score 오름차순 티어 목록에서 위의 2개 */
-    static List<LevelTierDto> topTiers(List<LevelTierDto> tiers) {
-        return tiers.subList(Math.max(0, tiers.size() - WRITER_TIER_COUNT), tiers.size());
+        return true;
     }
 
     // ---------------------------------------------------------------- 목록·상세
@@ -156,8 +133,26 @@ public class SpecArchiveService {
                 p, totalPages, total);
     }
 
-    private static List<TechArticleDto> withPreview(List<TechArticleDto> posts) {
+    private List<TechArticleDto> withPreview(List<TechArticleDto> posts) throws SQLException {
         posts.forEach(post -> post.setPreviewText(ArchiveContentCodec.plainPreview(post.getContent(), PREVIEW_CHARS)));
+        return withAuthorExpertSkills(posts);
+    }
+
+    /**
+     * 글마다 작성자가 전문가 단계까지 끝낸 기술을 붙인다 — 화면에 "Java 전문가"로 나온다 (2026-10-14).
+     * 글쓰기를 등급으로 막는 대신 무엇을 증명했는지 보여 주기로 했다.
+     * 목록 한 쪽의 작성자를 한 번에 물어본다 — 글마다 따로 물으면 N+1이 된다.
+     */
+    private List<TechArticleDto> withAuthorExpertSkills(List<TechArticleDto> posts) throws SQLException {
+        if (posts.isEmpty()) {
+            return posts;
+        }
+        Set<Long> userIds = posts.stream().map(TechArticleDto::getUserId)
+                .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+        Map<Long, List<String>> byUser = roadmapStepDao.findExpertSkillNamesByUserIds(userIds);
+        for (TechArticleDto post : posts) {
+            post.setAuthorExpertSkills(byUser.getOrDefault(post.getUserId(), List.of()));
+        }
         return posts;
     }
 
@@ -170,6 +165,7 @@ public class SpecArchiveService {
         if (post == null) {
             return null;
         }
+        withAuthorExpertSkills(List.of(post));   // 작성자 옆 "Java 전문가" 표시 (2026-10-14)
         boolean mine = post.getUserId().equals(viewerId);
         if (!mine) {
             boolean counted = TransactionUtil.runInTransaction(conn -> {
@@ -224,9 +220,6 @@ public class SpecArchiveService {
      * @throws SecurityException        글쓰기 권한이 없는 티어
      */
     public Long create(Long userId, String title, String rawContent, Map<Integer, UploadedImage> uploads) throws SQLException {
-        if (!canWrite(userId)) {
-            throw new SecurityException("글쓰기는 " + String.join("·", writerTierTitles()) + " 티어부터 할 수 있습니다.");
-        }
         String t = SpecArchiveRules.checkTitle(title);
         ArchiveContentCodec.Encoded encoded = ArchiveContentCodec.encode(rawContent, uploads.keySet());
         SpecArchiveRules.checkContent(encoded);

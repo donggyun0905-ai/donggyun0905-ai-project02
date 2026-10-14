@@ -7,6 +7,10 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Collections;
+import java.util.Collection;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.sql.Types;
@@ -200,6 +204,42 @@ public class RoadmapStepDao {
 
     // 재생성할 때 "같은 기술의 같은 단계(티어)"를 이전에 이미 끝냈는지 확인한다 — 기술 하나가 입문→핵심→
     // 심화→전문가를 차례로 거치는 구조라서, 입문 노트만 끝낸 기술의 프로젝트 단계까지 완료로 승계하면 안 된다.
+    /**
+     * 여러 사람이 "전문가 단계까지 끝낸" 기술 이름 — 사용자 id → 기술 이름 목록 (2026-10-14).
+     *
+     * 스펙 아카이브가 글마다 작성자 옆에 "Java 전문가"를 붙이는 데 쓴다. 글 목록 한 쪽에
+     * 작성자가 여럿이라 한 사람씩 물으면 N+1이 된다 — 한 번에 가져온다.
+     * 비어 있는 사용자는 키 자체가 없다(호출부가 getOrDefault 로 받는다).
+     */
+    public Map<Long, List<String>> findExpertSkillNamesByUserIds(Collection<Long> userIds) throws SQLException {
+        Map<Long, List<String>> result = new HashMap<>();
+        if (userIds == null || userIds.isEmpty()) {
+            return result;
+        }
+        String placeholders = String.join(",", Collections.nCopies(userIds.size(), "?"));
+        String sql = "SELECT DISTINCT r.user_id, s.skill_name FROM ROADMAP_STEP rs "
+                + "JOIN ROADMAP r ON r.id = rs.roadmap_id "
+                + "JOIN SKILL s ON s.id = rs.related_skill_id "
+                + "WHERE r.user_id IN (" + placeholders + ") "
+                + "AND rs.tier = 'EXPERT' AND rs.step_type = 'SKILL' "
+                + "AND rs.is_completed = TRUE AND rs.is_deleted = FALSE AND s.is_deleted = FALSE "
+                + "ORDER BY s.skill_name";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            int index = 1;
+            for (Long userId : userIds) {
+                pstmt.setLong(index++, userId);
+            }
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    result.computeIfAbsent(rs.getLong("user_id"), k -> new ArrayList<>())
+                            .add(rs.getString("skill_name"));
+                }
+            }
+        }
+        return result;
+    }
+
     public int countCompletedByUserSkillAndTier(Connection conn, Long userId, Long skillId, String tier)
             throws SQLException {
         String sql = "SELECT COUNT(*) FROM ROADMAP_STEP rs JOIN ROADMAP r ON rs.roadmap_id = r.id " +

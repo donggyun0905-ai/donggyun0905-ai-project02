@@ -39,8 +39,6 @@ public class SpecArchiveServlet extends HttpServlet {
                     ? archiveService.listBookmarks(userId, page)
                     : archiveService.search(keyword, sort, page));
             req.setAttribute("keyword", keyword == null ? "" : keyword.trim());
-            req.setAttribute("canWrite", archiveService.canWrite(userId));
-            req.setAttribute("writerTitles", String.join("·", archiveService.writerTierTitles()));
         } catch (SQLException e) {
             throw new ServletException("스펙 아카이브를 불러오는 중 오류가 발생했습니다.", e);
         }

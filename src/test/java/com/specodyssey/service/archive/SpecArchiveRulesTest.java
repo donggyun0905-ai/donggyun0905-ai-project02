@@ -108,27 +108,13 @@ class SpecArchiveRulesTest {
 
     // ---------------------------------------------------------------- 글쓰기 권한 티어 (점수 기준)
 
-    private static com.specodyssey.dto.LevelTierDto tier(long id, int min, Integer max, String title) {
-        com.specodyssey.dto.LevelTierDto t = new com.specodyssey.dto.LevelTierDto();
-        t.setId(id);
-        t.setMinScore(min);
-        t.setMaxScore(max);
-        t.setTitleName(title);
-        return t;
-    }
-
     @Test
-    void 점수로_티어를_정하고_위의_두_티어만_글쓰기() {
-        List<com.specodyssey.dto.LevelTierDto> tiers = List.of(
-                tier(53, 0, 499, "첫걸음"), tier(54, 500, 1499, "방랑자"), tier(55, 1500, 2999, "항해자"),
-                tier(56, 3000, 4999, "개척자"), tier(57, 5000, null, "오디세이아"));
-
-        assertEquals(List.of("개척자", "오디세이아"),
-                SpecArchiveService.topTiers(tiers).stream().map(com.specodyssey.dto.LevelTierDto::getTitleName).toList());
-        assertEquals("항해자", SpecArchiveService.tierForScore(tiers, 2999).getTitleName());
-        assertEquals("개척자", SpecArchiveService.tierForScore(tiers, 3000).getTitleName());
-        assertEquals("오디세이아", SpecArchiveService.tierForScore(tiers, 99999).getTitleName(), "max_score NULL = 끝 없음");
-        assertEquals("첫걸음", SpecArchiveService.tierForScore(tiers, 0).getTitleName());
+    void 글쓰기는_등급과_무관하게_누구나_할_수_있다() throws Exception {
+        // 2026-10-14 이전에는 상위 두 등급(개척자·오디세이아)만 쓸 수 있었다. 문을 잠그는 대신
+        // 글마다 작성자의 등급과 전문가 단계를 끝낸 기술("Java 전문가")을 보여 주는 쪽으로 바꿨다.
+        // 읽는 사람이 판단하면 된다.
+        assertTrue(new SpecArchiveService().canWrite(1L));
+        assertTrue(new SpecArchiveService().canWrite(999_999L), "점수가 0인 사람도 쓸 수 있다");
     }
 
     // ---------------------------------------------------------------- 댓글 줄기 (인스타그램식)

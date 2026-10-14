@@ -1,9 +1,15 @@
 package com.specodyssey.dto;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.time.format.DateTimeFormatter;
 
-/** TECH_ARTICLE 한 행. authorName·authorTitle은 조회할 때 USERS·LEVEL_TIER에서 JOIN해 채우는 표시용 값이다. */
+/**
+ * TECH_ARTICLE 한 행. authorName·authorTitle은 조회할 때 USERS·LEVEL_TIER에서 JOIN해 채우는 표시용 값이다.
+ * authorExpertSkills도 같은 표시용 값으로, 그 사람이 로드맵에서 전문가 단계까지 끝낸 기술 이름들이다
+ * (2026-10-14). 글쓰기를 등급으로 막는 대신 "무엇을 증명했는지"를 보여 주기로 했다.
+ */
 public class TechArticleDto {
 
     // JSTL의 fmt:formatDate는 java.util.Date만 받는다 — 화면에 쓸 문구는 여기서 만든다
@@ -30,6 +36,8 @@ public class TechArticleDto {
 
     private String authorName;
     private String authorTitle;
+    /** 로드맵 전문가 단계를 끝낸 기술 이름 — 화면에 "Java 전문가"처럼 붙는다. 비어 있을 수 있다. */
+    private List<String> authorExpertSkills = new ArrayList<>();
     private String previewText; // 목록용 — 첨부 표시를 지운 본문 앞부분 (서비스가 채운다)
 
     public Long getId() {
@@ -190,6 +198,14 @@ public class TechArticleDto {
 
     public void setAuthorTitle(String authorTitle) {
         this.authorTitle = authorTitle;
+    }
+
+    public List<String> getAuthorExpertSkills() {
+        return authorExpertSkills;
+    }
+
+    public void setAuthorExpertSkills(List<String> authorExpertSkills) {
+        this.authorExpertSkills = authorExpertSkills == null ? new ArrayList<>() : authorExpertSkills;
     }
 
     public String getPreviewText() {
