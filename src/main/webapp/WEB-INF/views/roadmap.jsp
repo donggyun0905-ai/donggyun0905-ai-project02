@@ -220,10 +220,15 @@
                                     <c:when test="${step.stepType == 'PROJECT'}">
 <%@ include file="/WEB-INF/views/roadmap/_step-action-project.jspf" %>
                                     </c:when>
-                                    <%-- ENTRY(공부노트)/EXPERT(기술 설명 글) SKILL 단계 — 규칙 기반 자동 판정(2026-09-30 팀 결정).
+                                    <%-- ENTRY(공부노트) SKILL 단계 — PDF 를 받아 규칙 기반 자동 판정(2026-09-30 팀 결정).
                                          미통과(NEEDS_REVISION)면 review_note를 보여주고 다시 제출할 수 있게 한다. --%>
-                                    <c:when test="${step.stepType == 'SKILL' && (step.tier == 'ENTRY' || step.tier == 'EXPERT')}">
+                                    <c:when test="${step.stepType == 'SKILL' && step.tier == 'ENTRY'}">
 <%@ include file="/WEB-INF/views/roadmap/_step-action-skill-note.jspf" %>
+                                    </c:when>
+                                    <%-- EXPERT(기술 설명 글) SKILL 단계 — 스펙 아카이브에 글을 올리면 완료 (2026-10-14).
+                                         PDF 제출을 대신한다. 글이 공개되므로 "남에게 설명할 수 있다"가 실제로 확인된다. --%>
+                                    <c:when test="${step.stepType == 'SKILL' && step.tier == 'EXPERT'}">
+<%@ include file="/WEB-INF/views/roadmap/_step-action-expert-article.jspf" %>
                                     </c:when>
                                     <%-- CORE/ADVANCED SKILL 단계 — 프로젝트 등록 또는 기존 프로젝트 업그레이드 + 증빙 파일로
                                          자동 확인(2026-09-30 팀 결정). userProjects는 RoadmapServlet에서 미리 담아준다.

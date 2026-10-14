@@ -7,8 +7,24 @@
 <link rel="stylesheet" href="${pageContext.request.contextPath}/css/spec-archive.css">
 <c:set var="ctx" value="${pageContext.request.contextPath}" />
 
-<p><a href="${ctx}/spec-archive">← 스펙 아카이브</a></p>
-<h1>팁 쓰기</h1>
+<%-- 로드맵 전문가 단계에서 들어오면(?stepId=N) 돌아갈 곳과 제목이 바뀐다 (2026-10-14) --%>
+<c:choose>
+    <c:when test="${not empty expertStepId}">
+        <p><a href="${ctx}/roadmap">← 내 로드맵</a></p>
+        <h1>기술 설명 글 쓰기</h1>
+        <div class="banner" style="margin-bottom:14px;">
+            <span>
+                <strong><c:out value="${expertSkillName}" /></strong> 전문가 단계예요.
+                이 글을 올리면 단계가 완료되고, 스펙 아카이브에 공개됩니다.
+                사진·다이어그램·코드 블록을 넣을 수 있어요.
+            </span>
+        </div>
+    </c:when>
+    <c:otherwise>
+        <p><a href="${ctx}/spec-archive">← 스펙 아카이브</a></p>
+        <h1>팁 쓰기</h1>
+    </c:otherwise>
+</c:choose>
 
 <c:if test="${not empty errorMessage}"><p class="error-message"><c:out value="${errorMessage}" /></p></c:if>
 
@@ -16,6 +32,8 @@
         <form id="writeForm" class="card sa-form" action="${ctx}/spec-archive/write" method="post" enctype="multipart/form-data" autocomplete="off"
               data-content-max="${contentMax}" data-max-image-mb="${maxImageMb}" data-max-total-mb="${maxTotalMb}">
             <input type="hidden" name="_csrf" value="${csrfToken}">
+            <%-- 전문가 단계에서 들어왔으면 그 단계 번호를 들고 간다. 저장할 때 서비스가 다시 확인한다 --%>
+            <c:if test="${not empty expertStepId}"><input type="hidden" name="stepId" value="${expertStepId}"></c:if>
             <%-- 노션처럼 쓰는 화면이 곧 올라갈 모습이다 — 제목 · 본문 블록(글/사진/영상) --%>
             <div class="ed-page">
                 <input type="text" id="title" name="title" class="ed-title" maxlength="${titleMax}" required
@@ -52,8 +70,8 @@
             </div>
 
             <div class="row">
-                <button type="submit" id="submitButton">올리기</button>
-                <a class="btn secondary" href="${ctx}/spec-archive">취소</a>
+                <button type="submit" id="submitButton">${not empty expertStepId ? '올리고 단계 완료' : '올리기'}</button>
+                <a class="btn secondary" href="${not empty expertStepId ? ctx.concat('/roadmap') : ctx.concat('/spec-archive')}">취소</a>
             </div>
         </form>
 

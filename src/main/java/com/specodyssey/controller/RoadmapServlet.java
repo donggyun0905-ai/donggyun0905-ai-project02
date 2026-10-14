@@ -320,7 +320,8 @@ public class RoadmapServlet extends HttpServlet {
         return true;
     }
 
-    // ENTRY(공부노트)/EXPERT(기술 설명 글) SKILL 단계 제출 — PDF 1개를 받아 PdfTextUtil로 텍스트를
+    // ENTRY(공부노트) SKILL 단계와 ARTICLE_UPDATE(기술 글 보강) 제출 — PDF 1개를 받아 PdfTextUtil로 텍스트를
+    // (EXPERT 는 2026-10-14부터 스펙 아카이브에서 글로 낸다 — SpecArchiveWriteServlet)
     // 꺼낸 뒤 서비스에 넘긴다. 통과/미통과 여부는 서비스가 ROADMAP_STEP.review_status/review_note에
     // 저장해두므로, 여기서는 그냥 리다이렉트만 해도 다음 GET에서 roadmap.jsp가 최신 판정 결과를
     // 그대로 보여준다. PDFBox가 텍스트와 파일 저장에 각각 스트림을 소비하므로 한 번만 읽어 바이트

@@ -1,0 +1,27 @@
+<%-- EXPERT(전문가) SKILL 단계 — 스펙 아카이브에 기술 설명 글을 올리면 완료된다 (2026-10-14).
+
+     예전에는 PDF 를 받아 글자 수·기술명 횟수·링크 유무로 자동 판정했다. 본인 말고 아무도 못 봤고,
+     ERD·다이어그램을 넣어도 판정은 추출된 텍스트만 봤다. "남에게 설명할 수 있다"가 이 단계의 뜻이라
+     글이 공개되는 쪽이 맞다 — 아카이브 편집기에서 사진·ERD·코드 블록·영상을 그대로 넣는다.
+
+     글자 수 기준은 두지 않는다. 쓰는 행위가 증빙이고, 공개되므로 읽는 사람이 판단한다. --%>
+<c:if test="${step.reviewStatus == 'NEEDS_REVISION'}">
+    <p class="error-message" style="font-size:0.85rem; margin:6px 0;"><span class="ic ic-file-text" aria-hidden="true"></span> <c:out value='${step.reviewNote}' /></p>
+</c:if>
+<p class="muted" style="font-size:0.85rem; margin:6px 0;">
+    배운 걸 글로 정리해 <strong>스펙 아카이브</strong>에 올리면 이 단계가 끝나요.
+    사진·다이어그램·코드 블록을 넣을 수 있어요.
+</p>
+<a class="btn" href="${pageContext.request.contextPath}/spec-archive/write?stepId=${step.id}">
+    <span class="ic ic-pencil" aria-hidden="true"></span> 기술 설명 글 쓰기
+</a>
+<c:if test="${testShortcut}">
+<%-- [TEST] 파일 없이 통과 — 다른 단계와 같은 테스트용 지름길. 실제 운영 배포 전에는 지울 것. --%>
+    <form action="${pageContext.request.contextPath}/roadmap" method="post" class="inline-form">
+        <input type="hidden" name="_csrf" value="${csrfToken}">
+        <input type="hidden" name="action" value="complete">
+        <input type="hidden" name="stepId" value="${step.id}">
+        <input type="hidden" name="completed" value="true">
+        <button type="submit" class="link-button">[TEST] 글 없이 통과</button>
+    </form>
+</c:if>

@@ -124,6 +124,21 @@ public class RoadmapService {
     }
 
     // 제출 완료 → RoadmapSubmissionService
+    /**
+     * EXPERT 단계 — 스펙 아카이브에 글을 쓰는 것이 증빙이다 (2026-10-14).
+     * 글 저장과 단계 완료가 한 트랜잭션. 만들어진 글 id 를 돌려준다.
+     */
+    public Long submitExpertArticle(Long userId, Long stepId, String title, String rawContent,
+            java.util.Map<Integer, com.specodyssey.service.archive.SpecArchiveService.UploadedImage> uploads)
+            throws SQLException {
+        return submissions.submitExpertArticle(userId, stepId, title, rawContent, uploads);
+    }
+
+    /** 글쓰기 화면이 "이 단계로 들어온 게 맞나"를 확인할 때 쓴다. 아니면 null. */
+    public RoadmapSubmissionService.ExpertStep findExpertStepToWrite(Long userId, Long stepId) throws SQLException {
+        return submissions.findExpertStepToWrite(userId, stepId);
+    }
+
     public SkillProofGrader.GradeResult submitSkillNote(Long userId, Long stepId, String extractedText, DocumentDto proofFile) throws SQLException {
         return submissions.submitSkillNote(userId, stepId, extractedText, proofFile);
     }

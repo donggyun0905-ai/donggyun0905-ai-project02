@@ -20,6 +20,14 @@ import java.util.List;
 public class TechArticleDao {
 
     public static final String SOURCE_ARCHIVE_TIP = "ARCHIVE_TIP";
+
+    /**
+     * 로드맵 전문가 단계의 증빙으로 쓴 글 (2026-10-14).
+     * 예전에는 전문가 단계를 PDF 로 냈다 — 본인 말고 아무도 못 보고, 그림이 들어가면 판정이
+     * 텍스트만 읽어 엉뚱해졌다. "남에게 설명할 수 있다"가 단계의 뜻인데 아무도 안 읽었다.
+     * 지금은 아카이브에 직접 쓰고, 그 글이 곧 증빙이자 공개된 글이다.
+     */
+    public static final String SOURCE_ROADMAP_EXPERT = "ROADMAP_EXPERT";
     public static final String STATUS_PUBLISHED = "PUBLISHED";
     public static final String STATUS_HIDDEN = "HIDDEN";
 
@@ -66,8 +74,26 @@ public class TechArticleDao {
             SELECT_WITH_AUTHOR.replace("SELECT " + A_COLUMNS,
                     "SELECT " + A_COLUMNS + ", MATCH(a.title, a.content) AGAINST(? IN BOOLEAN MODE) AS relevance");
 
+    // 아카이브 목록·검색·상세에 보이는 글 — 자유 글과 전문가 단계 글 둘 다 (2026-10-14).
+    // 전문가 단계 글을 빼면 로드맵으로 쓴 글이 어디에도 안 보인다.
     private static final String ARCHIVE_VISIBLE =
-            "a.source_type = '" + SOURCE_ARCHIVE_TIP + "' AND a.status = '" + STATUS_PUBLISHED + "' AND a.is_deleted = FALSE ";
+            "a.source_type IN ('" + SOURCE_ARCHIVE_TIP + "', '" + SOURCE_ROADMAP_EXPERT + "') "
+            + "AND a.status = '" + STATUS_PUBLISHED + "' AND a.is_deleted = FALSE ";
+
+    /**
+     * 그 로드맵 단계로 이미 올린 글의 id — 없으면 null (2026-10-14).
+     * roadmap_step_id 에 UNIQUE 가 걸려 있어, 완료를 취소하고 다시 쓰면 두 번째 INSERT 가 깨진다.
+     * 깨지기 전에 미리 보고 안내한다.
+     */
+    public Long findIdByRoadmapStepId(Connection conn, Long stepId) throws SQLException {
+        String sql = "SELECT id FROM TECH_ARTICLE WHERE roadmap_step_id = ? AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, stepId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? rs.getLong(1) : null;
+            }
+        }
+    }
 
     public Long insert(Connection conn, TechArticleDto article) throws SQLException {
         String sql = "INSERT INTO TECH_ARTICLE (user_id, skill_id, roadmap_step_id, source_type, title, content, status, published_at) " +

@@ -12,6 +12,7 @@ import com.specodyssey.dto.TechArticleDto;
 import com.specodyssey.service.NotificationService;
 import com.specodyssey.util.TransactionUtil;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -224,11 +225,30 @@ public class SpecArchiveService {
         ArchiveContentCodec.Encoded encoded = ArchiveContentCodec.encode(rawContent, uploads.keySet());
         SpecArchiveRules.checkContent(encoded);
 
-        return TransactionUtil.runInTransaction(conn -> {
+        return TransactionUtil.runInTransaction(conn ->
+                insertArticle(conn, userId, TechArticleDao.SOURCE_ARCHIVE_TIP, null, null, t, encoded, uploads));
+    }
+
+    /**
+     * 글 한 편과 첨부를 넣는다 — 트랜잭션은 호출부가 연다 (2026-10-14).
+     *
+     * 자유 글(create)과 로드맵 전문가 단계 글이 같은 저장 과정을 쓴다. 전문가 단계 글은
+     * 글 저장과 단계 완료가 한 트랜잭션이어야 해서(둘 중 하나만 되면 안 된다) 커넥션을 받는다.
+     *
+     * @param sourceType ARCHIVE_TIP(자유 글) 또는 ROADMAP_EXPERT(전문가 단계 증빙)
+     * @param skillId    전문가 단계 글이면 그 기술. 자유 글은 null
+     * @param stepId     전문가 단계 글이면 그 단계. 자유 글은 null
+     */
+    public Long insertArticle(Connection conn, Long userId, String sourceType, Long skillId, Long stepId,
+            String title, ArchiveContentCodec.Encoded encoded, Map<Integer, UploadedImage> uploads)
+            throws SQLException {
+        {
             TechArticleDto article = new TechArticleDto();
             article.setUserId(userId);
-            article.setSourceType(TechArticleDao.SOURCE_ARCHIVE_TIP);
-            article.setTitle(t);
+            article.setSourceType(sourceType);
+            article.setSkillId(skillId);
+            article.setRoadmapStepId(stepId);
+            article.setTitle(title);
             article.setContent(encoded.content());
             article.setStatus(TechArticleDao.STATUS_PUBLISHED); // 자동 게시 + 사후 관리 (신고 → HIDDEN)
             article.setPublishedAt(LocalDateTime.now(ZONE));
@@ -258,7 +278,7 @@ public class SpecArchiveService {
                 attachmentDao.insert(conn, row);
             }
             return articleId;
-        });
+        }
     }
 
     /** 작성자 본인 글 삭제. 지웠으면 true. */

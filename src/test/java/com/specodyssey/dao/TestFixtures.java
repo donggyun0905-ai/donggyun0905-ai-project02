@@ -55,6 +55,10 @@ public final class TestFixtures {
     public static void hardDelete(Connection conn, String table, long id) throws SQLException {
         if ("USERS".equalsIgnoreCase(table)) {
             hardDeleteByColumn(conn, "SPEC_SCORE_HISTORY", "user_id", id);
+            // 점수를 한 번이라도 적립하면 ScoreService가 USER_SCORE_SUMMARY 한 줄을 만든다 —
+            // 테스트가 직접 만든 게 아니라 빠뜨리기 쉽고, 역시 FK(RESTRICT)로 USERS 삭제를 막는다
+            // (2026-10-14, 네 번째 같은 실패). 같은 이유로 여기 한 곳에 둔다.
+            hardDeleteByColumn(conn, "USER_SCORE_SUMMARY", "user_id", id);
         }
         try (PreparedStatement p = conn.prepareStatement("DELETE FROM " + table + " WHERE id = ?")) {
             p.setLong(1, id);

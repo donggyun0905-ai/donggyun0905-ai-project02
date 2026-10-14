@@ -26,6 +26,9 @@ public class RoadmapSubmissionService {
     private final ScoreService scoreService = new ScoreService();
     private final StepPointCalculator stepPoints = new StepPointCalculator();
     private final RoadmapCompletionService completion = new RoadmapCompletionService();
+    private final com.specodyssey.dao.TechArticleDao articleDao = new com.specodyssey.dao.TechArticleDao();
+    private final com.specodyssey.service.archive.SpecArchiveService archiveService =
+            new com.specodyssey.service.archive.SpecArchiveService();
 
     // PROJECT 단계 완료 — 프로젝트 정보 + 문서 체크리스트(README·실행 화면 필수) + 기술 활용 설명서를 받는다
     // (개발일지 4-4). SKILL/CERT와 달리 자동으로 채울 수 있는 값이 없어 completeStep과는 별도 진입점으로 뒀다.
@@ -64,7 +67,82 @@ public class RoadmapSubmissionService {
         });
     }
 
-    // SKILL 단계 학습 검증(2026-09-30 팀 결정, 규칙 기반) — ENTRY(공부노트)/EXPERT(기술 설명 글)
+    // ENTRY(공부노트) SKILL 단계 학습 검증(2026-09-30 팀 결정, 규칙 기반).
+    // EXPERT 는 2026-10-14부터 스펙 아카이브 글로 낸다 — submitExpertArticle 쪽이다.
+    /** 전문가 단계 글쓰기로 들어올 수 있는 단계인지 — 화면 안내용. 기술 이름을 함께 준다. */
+    public record ExpertStep(Long stepId, Long skillId, String skillName) { }
+
+    /**
+     * "내 것이고 · 전문가 단계이고 · 아직 안 끝난" 단계면 그 정보를, 아니면 null.
+     * 글쓰기 화면이 안내를 띄울지 정하는 데만 쓴다 — 실제 완료 처리는 submitExpertArticle 이 다시 확인한다.
+     */
+    public ExpertStep findExpertStepToWrite(Long userId, Long stepId) throws SQLException {
+        return TransactionUtil.runInTransaction(conn -> {
+            RoadmapStepDto step = roadmapStepDao.findByIdForUser(conn, stepId, userId);
+            if (step == null || !"SKILL".equals(step.getStepType())
+                    || !TIER_EXPERT.equals(step.getTier()) || step.isCompleted()) {
+                return null;
+            }
+            SkillDto skill = step.getRelatedSkillId() == null ? null : skillDao.findById(step.getRelatedSkillId());
+            return new ExpertStep(stepId, step.getRelatedSkillId(), skill == null ? "" : skill.getSkillName());
+        });
+    }
+
+    /**
+     * EXPERT 단계 완료 — 스펙 아카이브에 글을 쓰는 것이 곧 증빙이다 (2026-10-14).
+     *
+     * 예전에는 PDF 를 받아 글자 수·기술명 횟수·링크 유무로 자동 판정했다. 세 가지가 문제였다.
+     *   - 본인 말고 아무도 못 본다. "남에게 설명할 수 있다"가 단계의 뜻인데 아무도 안 읽었다.
+     *   - 판정이 추출한 텍스트만 본다. ERD·다이어그램을 아무리 넣어도 글자 수가 모자라면 미통과고,
+     *     그림 한 장 없이 800자만 채우면 통과였다.
+     *   - 글 쓰고 → PDF 로 내보내고 → 올리기. 한 단계가 더 있었다.
+     * 지금은 아카이브 편집기에서 바로 쓴다 — 사진·ERD·코드 블록·유튜브가 그대로 들어간다.
+     *
+     * 글자 수 기준 같은 건 두지 않는다(팀 결정). 쓰는 행위 자체가 증빙이고, 글이 공개되므로
+     * 읽는 사람이 판단한다. 아카이브 자체 규칙(제목 필수, 본문 최대 길이)은 그대로 적용된다.
+     *
+     * 글 저장과 단계 완료는 한 트랜잭션이다 — 둘 중 하나만 되면 글만 있고 단계는 미완이거나
+     * 그 반대가 된다.
+     *
+     * @return 만들어진 글 id — 호출부가 그 글로 보낸다
+     */
+    public Long submitExpertArticle(Long userId, Long stepId, String title, String rawContent,
+            java.util.Map<Integer, com.specodyssey.service.archive.SpecArchiveService.UploadedImage> uploads) throws SQLException {
+        String checkedTitle = com.specodyssey.service.archive.SpecArchiveRules.checkTitle(title);
+        var encoded = com.specodyssey.service.archive.ArchiveContentCodec.encode(rawContent, uploads.keySet());
+        com.specodyssey.service.archive.SpecArchiveRules.checkContent(encoded);
+
+        return TransactionUtil.runInTransaction(conn -> {
+            RoadmapStepDto step = roadmapStepDao.findByIdForUser(conn, stepId, userId);
+            if (step == null) {
+                throw new IllegalArgumentException("본인의 로드맵 단계만 제출할 수 있습니다.");
+            }
+            if (!"SKILL".equals(step.getStepType()) || !TIER_EXPERT.equals(step.getTier())) {
+                throw new IllegalArgumentException("전문가 단계가 아닙니다.");
+            }
+            if (step.isCompleted()) {
+                throw new IllegalArgumentException("이미 완료된 단계입니다.");
+            }
+
+            // 완료를 취소했다가 다시 쓰는 경우 — roadmap_step_id 에 UNIQUE 가 걸려 있어 그냥 넣으면 깨진다.
+            // 이미 쓴 글이 있으면 새로 만들지 않고 그 글로 단계만 다시 완료한다. 쓴 글을 덮어쓰거나
+            // 두 벌로 만들지 않는 쪽이 맞다 — 고치고 싶으면 아카이브에서 그 글을 고치면 된다.
+            Long existing = articleDao.findIdByRoadmapStepId(conn, stepId);
+            Long articleId = existing != null ? existing
+                    : archiveService.insertArticle(conn, userId,
+                            com.specodyssey.dao.TechArticleDao.SOURCE_ROADMAP_EXPERT,
+                            step.getRelatedSkillId(), stepId, checkedTitle, encoded, uploads);
+
+            // 판정 없이 바로 통과 — 글을 쓴 것이 증빙이다. review_note 에는 어디서 왔는지만 남긴다.
+            roadmapStepDao.updateProof(conn, stepId, userId, PROOF_TEACHING_POST, encoded.content(), null,
+                    SkillProofGrader.PASSED, "스펙 아카이브에 기술 설명 글을 올려 완료", true, LocalDateTime.now());
+            scoreService.awardWithinTransaction(conn, userId, SIGNAL_TYPE_ROADMAP, stepId,
+                    stepPoints.pointsFor(conn, userId, step));
+            completion.syncProfileOnComplete(conn, userId, roadmapStepDao.findById(conn, stepId));
+            return articleId;
+        });
+    }
+
     // 단계에 제출한 PDF(호출부가 이미 디스크에 저장하고, PdfTextUtil로 텍스트까지 뽑아서 넘겨준다)를
     // SkillProofGrader로 자동 판정한다. 통과하면 completeStep과 동일하게 점수 적립 + 프로필 반영까지
     // 한 트랜잭션으로 묶는다. 미통과(NEEDS_REVISION)면 완료 처리는 안 하고 판정 근거만 저장해서
@@ -77,9 +155,10 @@ public class RoadmapSubmissionService {
             if (step == null) {
                 throw new IllegalArgumentException("본인의 로드맵 단계만 제출할 수 있습니다.");
             }
-            if (!"SKILL".equals(step.getStepType())
-                    || !(TIER_ENTRY.equals(step.getTier()) || TIER_EXPERT.equals(step.getTier()))) {
-                throw new IllegalArgumentException("공부노트/기술 글 제출 대상이 아닌 단계입니다.");
+            // EXPERT 는 2026-10-14부터 스펙 아카이브 글로 낸다(submitExpertArticle) — 여기로 오면 안 된다.
+            // 열어 두면 예전 화면이나 직접 POST 로 글 없이 전문가 단계가 완료된다.
+            if (!"SKILL".equals(step.getStepType()) || !TIER_ENTRY.equals(step.getTier())) {
+                throw new IllegalArgumentException("공부노트 제출 대상이 아닌 단계입니다.");
             }
             if (step.isCompleted()) {
                 throw new IllegalArgumentException("이미 완료된 단계입니다.");
@@ -87,14 +166,10 @@ public class RoadmapSubmissionService {
 
             SkillDto skill = step.getRelatedSkillId() == null ? null : skillDao.findById(step.getRelatedSkillId());
             String skillName = skill == null ? "" : skill.getSkillName();
-            boolean isExpert = TIER_EXPERT.equals(step.getTier());
-            String proofType = isExpert ? PROOF_TEACHING_POST : PROOF_NOTE;
-            SkillProofGrader.GradeResult result = isExpert
-                    ? SkillProofGrader.gradeExpertArticle(extractedText, skillName)
-                    : SkillProofGrader.gradeEntryNote(extractedText, skillName);
+            SkillProofGrader.GradeResult result = SkillProofGrader.gradeEntryNote(extractedText, skillName);
 
             boolean passed = result.passed();
-            roadmapStepDao.updateProof(conn, stepId, userId, proofType, extractedText, null,
+            roadmapStepDao.updateProof(conn, stepId, userId, PROOF_NOTE, extractedText, null,
                     result.status(), result.note(), passed, passed ? LocalDateTime.now() : null);
 
             proofFile.setUserId(userId);

@@ -46,11 +46,41 @@ public class SpecArchiveWriteServlet extends HttpServlet {
     private static final Pattern IMAGE_PART = Pattern.compile("image_(\\d{1,4})");
 
     private final SpecArchiveService archiveService = new SpecArchiveService();
+    private final com.specodyssey.service.RoadmapService roadmapService = new com.specodyssey.service.RoadmapService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         prepare(req);
+        // 로드맵 전문가 단계에서 들어오면 ?stepId=N — 글을 올리는 순간 그 단계가 완료된다 (2026-10-14)
+        try {
+            putStepContext(req, SpecArchiveServlet.currentUserId(req), req.getParameter("stepId"));
+        } catch (SQLException e) {
+            throw new ServletException("로드맵 단계를 불러오지 못했습니다.", e);
+        }
         req.getRequestDispatcher(VIEW).forward(req, resp);
+    }
+
+    /**
+     * ?stepId=N 으로 들어왔으면 그 단계가 "내 것이고 · 전문가 단계이고 · 아직 안 끝났는지" 확인해
+     * 화면에 안내를 띄운다. 아니면 조용히 자유 글쓰기로 둔다 — 남의 단계 번호를 넣어 봐야
+     * 아무 일도 일어나지 않고, 실제 완료 처리는 저장할 때 서비스가 다시 확인한다.
+     */
+    private void putStepContext(HttpServletRequest req, Long userId, String rawStepId) throws SQLException {
+        if (rawStepId == null || rawStepId.isBlank()) {
+            return;
+        }
+        Long stepId;
+        try {
+            stepId = Long.valueOf(rawStepId.trim());
+        } catch (NumberFormatException e) {
+            return;
+        }
+        var step = roadmapService.findExpertStepToWrite(userId, stepId);
+        if (step == null) {
+            return;
+        }
+        req.setAttribute("expertStepId", stepId);
+        req.setAttribute("expertSkillName", step.skillName());
     }
 
     @Override
@@ -83,8 +113,19 @@ public class SpecArchiveWriteServlet extends HttpServlet {
                 }
             }
             // 본문에서 빠진 사진(편집 중 지운 것 등)은 서비스가 저장하지 않는다
-            Long articleId = archiveService.create(userId, req.getParameter("title"), content, uploads);
-            req.getSession().setAttribute(SpecArchiveServlet.MESSAGE_KEY, "글을 올렸습니다.");
+            String rawStepId = req.getParameter("stepId");
+            Long articleId;
+            String message;
+            if (rawStepId != null && !rawStepId.isBlank()) {
+                // 전문가 단계 증빙 — 글 저장과 단계 완료가 한 트랜잭션이다
+                articleId = roadmapService.submitExpertArticle(userId, Long.valueOf(rawStepId.trim()),
+                        req.getParameter("title"), content, uploads);
+                message = "글을 올리고 전문가 단계를 완료했습니다.";
+            } else {
+                articleId = archiveService.create(userId, req.getParameter("title"), content, uploads);
+                message = "글을 올렸습니다.";
+            }
+            req.getSession().setAttribute(SpecArchiveServlet.MESSAGE_KEY, message);
             resp.sendRedirect(req.getContextPath() + "/spec-archive/post?id=" + articleId);
         } catch (IllegalArgumentException | SecurityException e) {
             showFormAgain(req, resp, userId, e.getMessage(), content, !uploads.isEmpty());
@@ -103,6 +144,7 @@ public class SpecArchiveWriteServlet extends HttpServlet {
         req.setAttribute("errorMessage", message + (hadImages ? " 사진은 다시 넣어 주세요." : ""));
         req.setAttribute("title", req.getParameter("title"));
         req.setAttribute("content", ArchiveContentCodec.withoutUploadTokens(content));
+        req.setAttribute("expertStepId", req.getParameter("stepId"));   // 오류로 다시 그려도 단계 연결을 잃지 않는다
         prepare(req);
         req.getRequestDispatcher(VIEW).forward(req, resp);
     }
