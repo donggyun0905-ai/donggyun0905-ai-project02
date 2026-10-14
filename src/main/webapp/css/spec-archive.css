@@ -30,6 +30,22 @@ html { overflow-y: scroll; scrollbar-gutter: stable; }
 .sa-expert { display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 1px 8px;
     border-radius: 999px; background: rgba(31,122,108,0.14); color: var(--teal, #1f7a6c);
     border: 1px solid rgba(31,122,108,0.3); }
+/* 기술 유형 거르개 — 목록 위 한 줄 (2026-10-14). 유형이 많아 좁은 화면에서는 가로로 민다. */
+.sa-cats { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 4px; }
+.sa-cats a { font-size: 0.82rem; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--line, #d8d2c8);
+    color: var(--ink-soft, #5c6b77); text-decoration: none; white-space: nowrap; }
+.sa-cats a:hover { background: var(--page-bg, #f6f4ef); }
+.sa-cats a.active { background: var(--ink, #152029); border-color: var(--ink, #152029); color: #fff; font-weight: 600; }
+.sa-cats a span { opacity: 0.6; font-size: 0.76rem; margin-left: 2px; }
+
+/* 글이 어떤 기술에 대한 것인지 — 목록 카드의 첫 칩 */
+.sa-skill { display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 1px 8px; border-radius: 999px;
+    background: var(--page-bg, #f1eee8); color: var(--ink-soft, #5c6b77); border: 1px solid var(--line, #d8d2c8); }
+
+/* 글쓰기 — 기술 고르기 */
+.sa-skill-pick { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 2px 0 10px; font-size: 0.88rem; }
+.sa-skill-pick select { width: auto; max-width: 280px; }
+
 .sa-expert-more { background: none; border-color: var(--line, #d8d2c8); color: var(--ink-soft, #5c6b77); font-weight: 500; }
 .sa-empty { text-align: center; padding: 40px 16px; color: var(--ink-soft); }
 .sa-pager { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 16px; }

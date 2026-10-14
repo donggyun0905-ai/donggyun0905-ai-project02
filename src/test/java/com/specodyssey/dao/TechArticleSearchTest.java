@@ -70,7 +70,7 @@ class TechArticleSearchTest {
     }
 
     private List<String> titles(String keyword) throws Exception {
-        return dao.searchArchive(keyword, TechArticleDao.Sort.LATEST, 0, 50).stream()
+        return dao.searchArchive(keyword, TechArticleDao.Sort.LATEST, null, 0, 50).stream()
                 .map(TechArticleDto::getTitle)
                 .filter(t -> t.contains(tag))
                 .collect(Collectors.toList());
@@ -114,7 +114,7 @@ class TechArticleSearchTest {
         // ngram 토큰이 2글자라 한 글자는 인덱스에 없다 — 그때는 LIKE로 떨어진다
         assertNull(TechArticleDao.toBooleanQuery("파"), "한 글자는 FULLTEXT 검색식을 만들 수 없다");
 
-        List<TechArticleDto> found = dao.searchArchive("파", TechArticleDao.Sort.LATEST, 0, 100);
+        List<TechArticleDto> found = dao.searchArchive("파", TechArticleDao.Sort.LATEST, null, 0, 100);
 
         assertTrue(found.stream().anyMatch(a -> a.getTitle().contains(tag) && a.getTitle().startsWith("파이썬")),
                 "한 글자만 검색이 안 되면 더 이상하다");
@@ -122,10 +122,10 @@ class TechArticleSearchTest {
 
     @Test
     void 검색어와_건수가_맞는다() throws Exception {
-        int total = dao.countSearchArchive("스프링 " + tag);
+        int total = dao.countSearchArchive("스프링 " + tag, null);
 
         assertEquals(1, total, "목록과 쪽 수 계산이 같은 조건을 봐야 한다");
-        assertEquals(0, dao.countSearchArchive("없는낱말" + tag));
+        assertEquals(0, dao.countSearchArchive("없는낱말" + tag, null));
     }
 
     // ---------------------------------------------------------------- 검색식 만들기

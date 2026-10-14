@@ -104,25 +104,38 @@ public class SpecArchiveService {
 
     private static final int PREVIEW_CHARS = 90;
 
-    public ListPage list(TechArticleDao.Sort sort, int page) throws SQLException {
-        int total = articleDao.countArchive();
+    public ListPage list(TechArticleDao.Sort sort, String category, int page) throws SQLException {
+        int total = articleDao.countArchive(category);
         int totalPages = Math.max(1, (total + PAGE_SIZE - 1) / PAGE_SIZE);
         int p = Math.min(Math.max(page, 1), totalPages);
-        return new ListPage(withPreview(articleDao.findArchivePage(sort, (p - 1) * PAGE_SIZE, PAGE_SIZE)), p, totalPages, total);
+        return new ListPage(withPreview(articleDao.findArchivePage(sort, category, (p - 1) * PAGE_SIZE, PAGE_SIZE)),
+                p, totalPages, total);
+    }
+
+    /** 유형 하나 — 이름과 글 수. 글이 한 편도 없는 유형은 목록에 넣지 않는다. */
+    public record CategoryCount(String name, int count) { }
+
+    /**
+     * 목록 위에 깔 유형 거르개 (2026-10-14).
+     * 글이 있는 유형만 글 수가 많은 순으로 준다 — 열두 개를 다 늘어놓으면 대부분 0이라 자리만 먹는다.
+     * 기술을 고르지 않은 글은 "기타"로 모인다.
+     */
+    public List<CategoryCount> categories() throws SQLException {
+        return articleDao.countArchiveByCategory();
     }
 
     /**
      * 키워드 검색 (2026-10-08) — 제목·본문을 FULLTEXT(ngram)로 찾는다.
      * 검색어가 비면 평소 목록과 같다 — 빈 검색을 "결과 없음"으로 보여 주면 글이 사라진 것처럼 보인다.
      */
-    public ListPage search(String keyword, TechArticleDao.Sort sort, int page) throws SQLException {
+    public ListPage search(String keyword, TechArticleDao.Sort sort, String category, int page) throws SQLException {
         if (keyword == null || keyword.isBlank()) {
-            return list(sort, page);
+            return list(sort, category, page);
         }
-        int total = articleDao.countSearchArchive(keyword);
+        int total = articleDao.countSearchArchive(keyword, category);
         int totalPages = Math.max(1, (total + PAGE_SIZE - 1) / PAGE_SIZE);
         int p = Math.min(Math.max(1, page), totalPages);
-        return new ListPage(withPreview(articleDao.searchArchive(keyword, sort, (p - 1) * PAGE_SIZE, PAGE_SIZE)),
+        return new ListPage(withPreview(articleDao.searchArchive(keyword, sort, category, (p - 1) * PAGE_SIZE, PAGE_SIZE)),
                 p, totalPages, total);
     }
 
@@ -217,16 +230,19 @@ public class SpecArchiveService {
      * 새 글. 본문 속 [[upload:K]]를 올린 사진으로, 유튜브·이미지 링크를 첨부로 바꿔(ArchiveContentCodec)
      * 글과 첨부를 한 트랜잭션으로 넣는다. 첨부 개수 제한은 없다(용량은 서블릿이 본다). 새 글 id를 돌려준다.
      * 본문에서 가리키지 않은 업로드 사진(편집 중 지운 것 등)은 저장하지 않는다.
+     * skillId 는 "무슨 기술에 대한 글인지" — 유형별로 거르는 데 쓴다 (2026-10-14).
+     * 고르지 않아도 된다(null). 그 글은 목록에서 "기타"로 모인다.
+     *
      * @throws IllegalArgumentException 입력이 규칙에 맞지 않음 (메시지를 화면에 보여준다)
-     * @throws SecurityException        글쓰기 권한이 없는 티어
      */
-    public Long create(Long userId, String title, String rawContent, Map<Integer, UploadedImage> uploads) throws SQLException {
+    public Long create(Long userId, Long skillId, String title, String rawContent,
+            Map<Integer, UploadedImage> uploads) throws SQLException {
         String t = SpecArchiveRules.checkTitle(title);
         ArchiveContentCodec.Encoded encoded = ArchiveContentCodec.encode(rawContent, uploads.keySet());
         SpecArchiveRules.checkContent(encoded);
 
         return TransactionUtil.runInTransaction(conn ->
-                insertArticle(conn, userId, TechArticleDao.SOURCE_ARCHIVE_TIP, null, null, t, encoded, uploads));
+                insertArticle(conn, userId, TechArticleDao.SOURCE_ARCHIVE_TIP, skillId, null, t, encoded, uploads));
     }
 
     /**

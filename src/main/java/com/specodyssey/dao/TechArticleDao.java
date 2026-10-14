@@ -62,9 +62,13 @@ public class TechArticleDao {
             "a.created_at, a.updated_at, a.is_deleted";
 
     private static final String SELECT_WITH_AUTHOR =
-            "SELECT " + A_COLUMNS + ", COALESCE(NULLIF(u.name, ''), u.login_id) AS author_name, t.title_name AS author_title " +
+            "SELECT " + A_COLUMNS + ", COALESCE(NULLIF(u.name, ''), u.login_id) AS author_name, t.title_name AS author_title, " +
+            // 어떤 기술에 대한 글인지 — 목록의 유형 칩과 유형별 거르기에 쓴다 (2026-10-14).
+            // 자유 글은 기술을 안 고를 수 있어 LEFT JOIN 이고, 그때 둘 다 NULL 이다.
+            "sk.skill_name AS skill_name, sk.category AS skill_category " +
             "FROM TECH_ARTICLE a " +
             "JOIN USERS u ON u.id = a.user_id " +
+            "LEFT JOIN SKILL sk ON sk.id = a.skill_id AND sk.is_deleted = FALSE " +
             "LEFT JOIN USER_SCORE_SUMMARY s ON s.user_id = a.user_id AND s.is_deleted = FALSE " +
             "LEFT JOIN LEVEL_TIER t ON t.is_deleted = FALSE AND COALESCE(s.total_score, 0) >= t.min_score " +
             "AND (t.max_score IS NULL OR COALESCE(s.total_score, 0) <= t.max_score) ";
@@ -76,6 +80,24 @@ public class TechArticleDao {
 
     // 아카이브 목록·검색·상세에 보이는 글 — 자유 글과 전문가 단계 글 둘 다 (2026-10-14).
     // 전문가 단계 글을 빼면 로드맵으로 쓴 글이 어디에도 안 보인다.
+    /**
+     * 유형(SKILL.category)으로 거르는 조각 — 고르지 않았으면 빈 문자열 (2026-10-14).
+     * "기타"는 기술을 고르지 않은 글이다(skill_id IS NULL). 그 밖에는 유형 이름이 정확히 같은 것.
+     */
+    static String categoryClause(String category) {
+        if (category == null || category.isBlank()) {
+            return "";
+        }
+        return CATEGORY_NONE.equals(category) ? "AND a.skill_id IS NULL " : "AND sk.category = ? ";
+    }
+
+    /** 기술을 고르지 않은 글을 모으는 유형 이름 */
+    public static final String CATEGORY_NONE = "기타";
+
+    /** COUNT 용 FROM — 유형 조건(categoryClause)이 sk 를 보므로 목록과 같은 조인이 필요하다 */
+    private static final String COUNT_FROM =
+            "SELECT COUNT(*) FROM TECH_ARTICLE a LEFT JOIN SKILL sk ON sk.id = a.skill_id AND sk.is_deleted = FALSE WHERE ";
+
     private static final String ARCHIVE_VISIBLE =
             "a.source_type IN ('" + SOURCE_ARCHIVE_TIP + "', '" + SOURCE_ROADMAP_EXPERT + "') "
             + "AND a.status = '" + STATUS_PUBLISHED + "' AND a.is_deleted = FALSE ";
@@ -126,12 +148,14 @@ public class TechArticleDao {
         }
     }
 
-    public List<TechArticleDto> findArchivePage(Sort sort, int offset, int limit) throws SQLException {
-        String sql = SELECT_WITH_AUTHOR + "WHERE " + ARCHIVE_VISIBLE + "ORDER BY " + sort.orderBy + " LIMIT ? OFFSET ?";
+    public List<TechArticleDto> findArchivePage(Sort sort, String category, int offset, int limit) throws SQLException {
+        String sql = SELECT_WITH_AUTHOR + "WHERE " + ARCHIVE_VISIBLE + categoryClause(category)
+                + "ORDER BY " + sort.orderBy + " LIMIT ? OFFSET ?";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, limit);
-            pstmt.setInt(2, offset);
+            int i = bindCategory(pstmt, 1, category);
+            pstmt.setInt(i++, limit);
+            pstmt.setInt(i, offset);
             return mapRows(pstmt);
         }
     }
@@ -153,41 +177,54 @@ public class TechArticleDao {
      * 한 글자 검색만 LIKE로 떨어진다 — ngram 토큰이 2글자라 인덱스에 한 글자 토큰이 없다.
      * 그 경우도 "못 찾습니다"로 끝내지 않으려고 폴백을 둔다(검색은 되는데 한 글자만 안 되면 더 이상하다).
      */
-    public List<TechArticleDto> searchArchive(String keyword, Sort sort, int offset, int limit) throws SQLException {
+    public List<TechArticleDto> searchArchive(String keyword, Sort sort, String category, int offset, int limit) throws SQLException {
         String query = toBooleanQuery(keyword);
         if (query == null) {
-            return searchArchiveWithLike(keyword, sort, offset, limit);
+            return searchArchiveWithLike(keyword, sort, category, offset, limit);
         }
         // 관련도 순이 기본이지만, 사용자가 정렬을 고르면 그쪽을 먼저 본다
         String order = sort == null ? "relevance DESC, a.id DESC" : sort.orderBy + ", relevance DESC";
         String sql = SELECT_WITH_AUTHOR_RELEVANCE
-                + "WHERE " + ARCHIVE_VISIBLE + "AND MATCH(a.title, a.content) AGAINST(? IN BOOLEAN MODE) "
+                + "WHERE " + ARCHIVE_VISIBLE + categoryClause(category)
+                + "AND MATCH(a.title, a.content) AGAINST(? IN BOOLEAN MODE) "
                 + "ORDER BY " + order + " LIMIT ? OFFSET ?";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            // SELECT 절의 relevance 가 ? 하나를 먼저 쓰고, 그다음이 유형, 그다음이 WHERE 의 MATCH 다
             pstmt.setString(1, query);
-            pstmt.setString(2, query);
-            pstmt.setInt(3, limit);
-            pstmt.setInt(4, offset);
+            int i = bindCategory(pstmt, 2, category);
+            pstmt.setString(i++, query);
+            pstmt.setInt(i++, limit);
+            pstmt.setInt(i, offset);
             return mapRows(pstmt);
         }
     }
 
-    public int countSearchArchive(String keyword) throws SQLException {
+    /** 유형 조건이 있으면 값을 끼우고 다음 자리 번호를 돌려준다. "기타"는 값이 없는 조건이라 그냥 넘어간다. */
+    private static int bindCategory(PreparedStatement pstmt, int index, String category) throws SQLException {
+        if (category == null || category.isBlank() || CATEGORY_NONE.equals(category)) {
+            return index;
+        }
+        pstmt.setString(index, category);
+        return index + 1;
+    }
+
+    public int countSearchArchive(String keyword, String category) throws SQLException {
         String query = toBooleanQuery(keyword);
         String sql = query == null
-                ? "SELECT COUNT(*) FROM TECH_ARTICLE a WHERE " + ARCHIVE_VISIBLE
+                ? COUNT_FROM + ARCHIVE_VISIBLE + categoryClause(category)
                         + "AND (a.title LIKE ? OR a.content LIKE ?)"
-                : "SELECT COUNT(*) FROM TECH_ARTICLE a WHERE " + ARCHIVE_VISIBLE
+                : COUNT_FROM + ARCHIVE_VISIBLE + categoryClause(category)
                         + "AND MATCH(a.title, a.content) AGAINST(? IN BOOLEAN MODE)";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            int i = bindCategory(pstmt, 1, category);
             if (query == null) {
                 String like = "%" + keyword.trim() + "%";
-                pstmt.setString(1, like);
-                pstmt.setString(2, like);
+                pstmt.setString(i++, like);
+                pstmt.setString(i, like);
             } else {
-                pstmt.setString(1, query);
+                pstmt.setString(i, query);
             }
             try (ResultSet rs = pstmt.executeQuery()) {
                 return rs.next() ? rs.getInt(1) : 0;
@@ -196,18 +233,19 @@ public class TechArticleDao {
     }
 
     /** 한 글자 검색 전용 폴백 — 인덱스를 못 타지만 "한 글자는 검색이 안 된다"보다는 낫다 */
-    private List<TechArticleDto> searchArchiveWithLike(String keyword, Sort sort, int offset, int limit)
-            throws SQLException {
+    private List<TechArticleDto> searchArchiveWithLike(String keyword, Sort sort, String category,
+            int offset, int limit) throws SQLException {
         String order = sort == null ? "a.id DESC" : sort.orderBy;
-        String sql = SELECT_WITH_AUTHOR + "WHERE " + ARCHIVE_VISIBLE
+        String sql = SELECT_WITH_AUTHOR + "WHERE " + ARCHIVE_VISIBLE + categoryClause(category)
                 + "AND (a.title LIKE ? OR a.content LIKE ?) ORDER BY " + order + " LIMIT ? OFFSET ?";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             String like = "%" + keyword.trim() + "%";
-            pstmt.setString(1, like);
-            pstmt.setString(2, like);
-            pstmt.setInt(3, limit);
-            pstmt.setInt(4, offset);
+            int i = bindCategory(pstmt, 1, category);
+            pstmt.setString(i++, like);
+            pstmt.setString(i++, like);
+            pstmt.setInt(i++, limit);
+            pstmt.setInt(i, offset);
             return mapRows(pstmt);
         }
     }
@@ -236,13 +274,36 @@ public class TechArticleDao {
         return query.isEmpty() ? null : query.toString().trim();
     }
 
-    public int countArchive() throws SQLException {
-        String sql = "SELECT COUNT(*) FROM TECH_ARTICLE a WHERE " + ARCHIVE_VISIBLE;
+    public int countArchive(String category) throws SQLException {
+        String sql = COUNT_FROM + ARCHIVE_VISIBLE + categoryClause(category);
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            bindCategory(pstmt, 1, category);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        }
+    }
+
+    /**
+     * 유형별 글 수 — 글이 있는 유형만, 많은 순 (2026-10-14).
+     * 기술을 고르지 않은 글은 "기타"로 모은다. 한 번에 세서 유형마다 질의하지 않는다.
+     */
+    public List<com.specodyssey.service.archive.SpecArchiveService.CategoryCount> countArchiveByCategory()
+            throws SQLException {
+        String sql = "SELECT COALESCE(sk.category, '" + CATEGORY_NONE + "') AS cat, COUNT(*) AS n "
+                + "FROM TECH_ARTICLE a LEFT JOIN SKILL sk ON sk.id = a.skill_id AND sk.is_deleted = FALSE "
+                + "WHERE " + ARCHIVE_VISIBLE + "GROUP BY cat ORDER BY n DESC, cat";
+        List<com.specodyssey.service.archive.SpecArchiveService.CategoryCount> list = new ArrayList<>();
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {
-            return rs.next() ? rs.getInt(1) : 0;
+            while (rs.next()) {
+                list.add(new com.specodyssey.service.archive.SpecArchiveService.CategoryCount(
+                        rs.getString("cat"), rs.getInt("n")));
+            }
         }
+        return list;
     }
 
     /** 내가 북마크한 아카이브 글 — 북마크한 순서(최근 먼저) */
@@ -350,6 +411,17 @@ public class TechArticleDao {
         }
     }
 
+    /** 질의마다 SELECT 열이 달라서, 없는 열을 읽다 터지지 않게 먼저 본다 */
+    private static boolean hasColumn(ResultSet rs, String label) throws SQLException {
+        java.sql.ResultSetMetaData meta = rs.getMetaData();
+        for (int i = 1; i <= meta.getColumnCount(); i++) {
+            if (label.equalsIgnoreCase(meta.getColumnLabel(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private List<TechArticleDto> mapRows(PreparedStatement pstmt) throws SQLException {
         try (ResultSet rs = pstmt.executeQuery()) {
             List<TechArticleDto> list = new ArrayList<>();
@@ -366,6 +438,12 @@ public class TechArticleDao {
         a.setUserId(rs.getLong("user_id"));
         long skillId = rs.getLong("skill_id");
         a.setSkillId(rs.wasNull() ? null : skillId);
+        // SKILL LEFT JOIN 으로 온 표시용 값 — 기술을 안 고른 글은 둘 다 null (2026-10-14).
+        // 조인이 없는 질의(관리자 목록 등)도 있어 열이 있을 때만 읽는다.
+        if (hasColumn(rs, "skill_name")) {
+            a.setSkillName(rs.getString("skill_name"));
+            a.setSkillCategory(rs.getString("skill_category"));
+        }
         long stepId = rs.getLong("roadmap_step_id");
         a.setRoadmapStepId(rs.wasNull() ? null : stepId);
         a.setSourceType(rs.getString("source_type"));

@@ -122,7 +122,8 @@ public class SpecArchiveWriteServlet extends HttpServlet {
                         req.getParameter("title"), content, uploads);
                 message = "글을 올리고 전문가 단계를 완료했습니다.";
             } else {
-                articleId = archiveService.create(userId, req.getParameter("title"), content, uploads);
+                articleId = archiveService.create(userId, parseSkillId(req.getParameter("skillId")),
+                        req.getParameter("title"), content, uploads);
                 message = "글을 올렸습니다.";
             }
             req.getSession().setAttribute(SpecArchiveServlet.MESSAGE_KEY, message);
@@ -149,12 +150,27 @@ public class SpecArchiveWriteServlet extends HttpServlet {
         req.getRequestDispatcher(VIEW).forward(req, resp);
     }
 
+    private static Long parseSkillId(String raw) {
+        try {
+            return raw == null || raw.isBlank() ? null : Long.valueOf(raw.trim());
+        } catch (NumberFormatException e) {
+            return null;   // 고르지 않은 것으로 본다 — 유형만 비고 글은 올라간다
+        }
+    }
+
     private void prepare(HttpServletRequest req) {
         req.setAttribute("titleMax", SpecArchiveRules.TITLE_MAX);
         req.setAttribute("contentMax", SpecArchiveRules.CONTENT_MAX);
         req.setAttribute("maxImageMb", SpecArchiveRules.MAX_IMAGE_BYTES / (1024 * 1024));
         req.setAttribute("maxTotalMb", SpecArchiveRules.MAX_TOTAL_UPLOAD_BYTES / (1024 * 1024));
         req.setAttribute("codeLanguages", SpecArchiveRules.CODE_LANGUAGES); // 코드 블록 언어 선택 목록
+        // 무슨 기술에 대한 글인지 — 유형별 거르기에 쓴다 (2026-10-14). 안 골라도 된다.
+        try {
+            req.setAttribute("allSkills", new com.specodyssey.dao.SkillDao().findAll());
+        } catch (SQLException e) {
+            LOG.log(Level.WARNING, "기술 목록을 불러오지 못했습니다 — 유형 선택 없이 글은 쓸 수 있다", e);
+        }
+        req.setAttribute("skillId", req.getParameter("skillId"));
     }
 
     private UploadedImage readImage(Part part) throws IOException {

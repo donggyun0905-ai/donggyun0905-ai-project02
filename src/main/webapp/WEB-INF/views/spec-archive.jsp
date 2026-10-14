@@ -36,12 +36,33 @@
         <%-- 제목·본문 검색 (FULLTEXT ngram, 2026-10-08). GET이라 결과 주소를 공유·새로고침할 수 있다 --%>
         <form method="get" action="${ctx}/spec-archive" class="row" style="gap:6px; margin-top:8px;">
             <c:if test="${sort == 'popular'}"><input type="hidden" name="sort" value="popular"></c:if>
+            <c:if test="${not empty category}"><input type="hidden" name="category" value="<c:out value='${category}' />"></c:if>
             <input type="search" name="q" value="<c:out value='${keyword}' />" placeholder="제목·본문 검색" style="flex:1;">
             <button type="submit" class="secondary">검색</button>
             <c:if test="${not empty keyword}">
                 <a class="btn secondary" href="${ctx}/spec-archive">전체 보기</a>
             </c:if>
         </form>
+        <%-- 기술 유형으로 거르기 (2026-10-14). 글이 있는 유형만, 많은 순으로 나온다.
+             기술을 고르지 않고 쓴 글은 "기타"로 모인다. 정렬·검색어는 그대로 들고 간다. --%>
+        <c:if test="${not empty categories}">
+            <nav class="sa-cats" aria-label="기술 유형">
+                <%-- 유형 이름에 공백이 있다("프로그래밍 언어") — c:url + c:param 이 주소에 맞게 바꿔 준다 --%>
+                <c:url var="allUrl" value="/spec-archive">
+                    <c:if test="${sort == 'popular'}"><c:param name="sort" value="popular" /></c:if>
+                    <c:if test="${not empty keyword}"><c:param name="q" value="${keyword}" /></c:if>
+                </c:url>
+                <a href="<c:out value='${allUrl}' />" class="${empty category ? 'active' : ''}">전체</a>
+                <c:forEach var="cat" items="${categories}">
+                    <c:url var="catUrl" value="/spec-archive">
+                        <c:if test="${sort == 'popular'}"><c:param name="sort" value="popular" /></c:if>
+                        <c:if test="${not empty keyword}"><c:param name="q" value="${keyword}" /></c:if>
+                        <c:param name="category" value="${cat.name}" />
+                    </c:url>
+                    <a href="<c:out value='${catUrl}' />" class="${category == cat.name ? 'active' : ''}"><c:out value="${cat.name}" /> <span>${cat.count}</span></a>
+                </c:forEach>
+            </nav>
+        </c:if>
     </div>
 </div>
 
@@ -68,6 +89,7 @@
                     <h3><c:out value="${post.title}" /></h3>
                     <p class="sa-preview"><c:out value="${post.previewText}" /></p>
                     <div class="sa-meta">
+                        <c:if test="${not empty post.skillName}"><span class="sa-skill"><c:out value="${post.skillName}" /></span></c:if>
                         <span><c:out value="${post.authorName}" /></span>
                         <c:if test="${not empty post.authorTitle}"><span class="sa-tier"><c:out value="${post.authorTitle}" /></span></c:if>
                         <%-- 로드맵에서 전문가 단계까지 끝낸 기술 — 목록은 자리가 좁아 2개까지만 (2026-10-14) --%>
@@ -88,7 +110,10 @@
         </div>
 
         <c:if test="${listPage.totalPages > 1}">
-            <c:set var="base" value="${ctx}/spec-archive?${view == 'bookmarks' ? 'view=bookmarks&' : (sort == 'popular' ? 'sort=popular&' : '')}${empty keyword ? '' : 'q='.concat(keyword).concat('&')}" />
+            <%-- 유형 이름의 공백·한글을 주소에 맞게 바꾼다 (c:url 로 한 번 만들어 꼬리만 뗀다) --%>
+            <c:url var="catOnly" value="/x"><c:param name="category" value="${category}" /></c:url>
+            <c:set var="encodedCategory" value="${fn:substringAfter(catOnly, 'category=')}" />
+            <c:set var="base" value="${ctx}/spec-archive?${view == 'bookmarks' ? 'view=bookmarks&' : (sort == 'popular' ? 'sort=popular&' : '')}${empty keyword ? '' : 'q='.concat(keyword).concat('&')}${empty category ? '' : 'category='.concat(encodedCategory).concat('&')}" />
             <div class="sa-pager">
                 <c:if test="${listPage.hasPrev}"><a class="btn secondary" href="${base}page=${listPage.page - 1}">이전</a></c:if>
                 <span class="muted">${listPage.page} / ${listPage.totalPages}</span>

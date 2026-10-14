@@ -38,6 +38,10 @@ public class TechArticleDto {
     private String authorTitle;
     /** 로드맵 전문가 단계를 끝낸 기술 이름 — 화면에 "Java 전문가"처럼 붙는다. 비어 있을 수 있다. */
     private List<String> authorExpertSkills = new ArrayList<>();
+    /** 무슨 기술에 대한 글인지 — SKILL 조인으로 채우는 표시용 값. 기술을 안 고른 글은 null */
+    private String skillName;
+    /** 그 기술의 유형(SKILL.category) — 목록의 유형 칩과 유형별 거르기에 쓴다 */
+    private String skillCategory;
     private String previewText; // 목록용 — 첨부 표시를 지운 본문 앞부분 (서비스가 채운다)
 
     public Long getId() {
@@ -206,6 +210,22 @@ public class TechArticleDto {
 
     public void setAuthorExpertSkills(List<String> authorExpertSkills) {
         this.authorExpertSkills = authorExpertSkills == null ? new ArrayList<>() : authorExpertSkills;
+    }
+
+    public String getSkillName() {
+        return skillName;
+    }
+
+    public void setSkillName(String skillName) {
+        this.skillName = skillName;
+    }
+
+    public String getSkillCategory() {
+        return skillCategory;
+    }
+
+    public void setSkillCategory(String skillCategory) {
+        this.skillCategory = skillCategory;
     }
 
     public String getPreviewText() {

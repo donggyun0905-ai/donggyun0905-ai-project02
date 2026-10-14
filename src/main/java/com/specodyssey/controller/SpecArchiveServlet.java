@@ -33,12 +33,16 @@ public class SpecArchiveServlet extends HttpServlet {
         TechArticleDao.Sort sort = "popular".equals(req.getParameter("sort")) ? TechArticleDao.Sort.POPULAR : TechArticleDao.Sort.LATEST;
         int page = parsePage(req.getParameter("page"));
 
+        // 기술 유형으로 거르기 (2026-10-14). 내 북마크에서는 쓰지 않는다 — 담아 둔 걸 다 보여 주는 화면이다.
+        String category = bookmarks ? null : trimToNull(req.getParameter("category"));
         try {
             String keyword = req.getParameter("q");
             req.setAttribute("listPage", bookmarks
                     ? archiveService.listBookmarks(userId, page)
-                    : archiveService.search(keyword, sort, page));
+                    : archiveService.search(keyword, sort, category, page));
             req.setAttribute("keyword", keyword == null ? "" : keyword.trim());
+            req.setAttribute("categories", archiveService.categories());
+            req.setAttribute("category", category == null ? "" : category);
         } catch (SQLException e) {
             throw new ServletException("스펙 아카이브를 불러오는 중 오류가 발생했습니다.", e);
         }
@@ -46,6 +50,10 @@ public class SpecArchiveServlet extends HttpServlet {
         req.setAttribute("sort", sort == TechArticleDao.Sort.POPULAR ? "popular" : "latest");
         moveFlash(req);
         req.getRequestDispatcher("/WEB-INF/views/spec-archive.jsp").forward(req, resp);
+    }
+
+    private static String trimToNull(String raw) {
+        return raw == null || raw.isBlank() ? null : raw.trim();
     }
 
     /** 세션에 한 번 담아둔 결과 문구를 이번 화면으로 옮긴다 (새로고침하면 사라진다) */

@@ -39,6 +39,19 @@
                 <input type="text" id="title" name="title" class="ed-title" maxlength="${titleMax}" required
                        value="<c:out value='${title}' />" placeholder="제목" aria-label="제목">
                 <div class="sa-count" data-count-for="title" data-max="${titleMax}"></div>
+                <%-- 무슨 기술에 대한 글인지 — 목록에서 유형별로 거르는 데 쓴다 (2026-10-14).
+                     전문가 단계로 들어왔으면 그 단계의 기술로 이미 정해져 있어 묻지 않는다. --%>
+                <c:if test="${empty expertStepId}">
+                    <p class="sa-skill-pick">
+                        <label for="skillId">어떤 기술에 대한 글인가요? <span class="muted">(선택)</span></label>
+                        <select id="skillId" name="skillId">
+                            <option value="">고르지 않음</option>
+                            <c:forEach var="sk" items="${allSkills}">
+                                <option value="${sk.id}" ${skillId == sk.id ? 'selected' : ''}><c:out value="${sk.skillName}" /></option>
+                            </c:forEach>
+                        </select>
+                    </p>
+                </c:if>
 
                 <div class="ed-toolbar">
                     <button type="button" class="secondary" id="pickImages"><span class="ic ic-camera" aria-hidden="true"></span> 사진 넣기</button>
