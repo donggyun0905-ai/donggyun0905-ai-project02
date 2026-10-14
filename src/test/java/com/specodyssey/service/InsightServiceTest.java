@@ -136,17 +136,18 @@ class InsightServiceTest {
 
     @Test
     void 히트맵은_분야와_수준별로_부족_수를_센다() {
+        // 수준 값은 로드맵 티어와 같은 4단계다 (2026-10-14, sql/40)
         HeatmapView view = InsightService.buildHeatmap(Arrays.asList(
-                new GapCellRow("데이터베이스", "BASIC", false),
-                new GapCellRow("데이터베이스", "ADVANCED", true),
-                new GapCellRow("클라우드", "INTERMEDIATE", true),
-                new GapCellRow("클라우드", "INTERMEDIATE", true),
+                new GapCellRow("데이터베이스", "ENTRY", false),
+                new GapCellRow("데이터베이스", "EXPERT", true),
+                new GapCellRow("클라우드", "CORE", true),
+                new GapCellRow("클라우드", "CORE", true),
                 new GapCellRow("클라우드", null, true),
-                new GapCellRow(null, "BASIC", false)));
+                new GapCellRow(null, "ENTRY", false)));
 
-        assertEquals(List.of("입문", "기초", "중급", "심화"), view.levels());
+        assertEquals(List.of("입문", "핵심", "심화", "전문가", "미지정"), view.levels());
         assertEquals(4, view.missingTotal());
-        assertEquals("클라우드 · 기초", view.weakest());
+        assertEquals("클라우드 · 핵심", view.weakest());
 
         HeatRow cloud = view.rows().stream().filter(r -> r.category().equals("클라우드")).findFirst().orElseThrow();
         assertEquals(2, cloud.cells().get(1).missing());
@@ -157,11 +158,27 @@ class InsightServiceTest {
 
     @Test
     void 히트맵_수준값이_모두_있으면_미지정_열은_없다() {
-        HeatmapView view = InsightService.buildHeatmap(List.of(new GapCellRow("언어", "BASIC", false)));
-        assertEquals(List.of("입문", "기초", "중급"), view.levels());
+        HeatmapView view = InsightService.buildHeatmap(List.of(new GapCellRow("언어", "ENTRY", false)));
+        assertEquals(List.of("입문", "핵심", "심화", "전문가"), view.levels());
         assertEquals(0, view.missingTotal());
         assertNull(view.weakest());
         assertTrue(InsightService.buildHeatmap(Collections.emptyList()).isEmpty());
+    }
+
+    @Test
+    void 히트맵_수준은_네_칸이_늘_나오고_옛_값은_미지정으로_간다() {
+        // 네 칸은 요구하는 기술이 없어도 늘 보여 준다 — 비어 있다는 것 자체가 정보다.
+        // 옛 어휘(BASIC/INTERMEDIATE)가 남아 있으면 "심화"라고 둘러대지 않고 미지정으로 모은다 —
+        // 데이터가 없는 것과 깊이를 요구하는 것은 다르다.
+        HeatmapView view = InsightService.buildHeatmap(List.of(
+                new GapCellRow("언어", "EXPERT", true),
+                new GapCellRow("언어", "BASIC", true)));
+
+        assertEquals(List.of("입문", "핵심", "심화", "전문가", "미지정"), view.levels());
+        HeatRow row = view.rows().get(0);
+        assertEquals(0, row.cells().get(0).total(), "입문을 요구하는 기술이 없어도 칸은 있다");
+        assertEquals(1, row.cells().get(3).missing(), "전문가 칸");
+        assertEquals(1, row.cells().get(4).missing(), "못 읽는 값은 미지정으로");
     }
 
     @Test

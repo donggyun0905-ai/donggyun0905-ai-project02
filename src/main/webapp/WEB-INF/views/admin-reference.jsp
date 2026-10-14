@@ -269,7 +269,15 @@
                     <option value="REQUIRED">필수</option>
                     <option value="PREFERRED">우대</option>
                 </select>
-                <input type="text" name="requiredLevel" placeholder="수준(선택)" style="width:120px;">
+                <%-- 요구 수준은 로드맵 티어와 같은 4단계다 (2026-10-14). 자유 입력이던 때
+                     한글("심화")이 그대로 저장돼 히트맵이 못 읽는 값이 생겼다 — 선택지로 막는다. --%>
+                <select name="requiredLevel" style="width:140px;">
+                    <option value="">수준 선택</option>
+                    <option value="ENTRY">입문 — 읽고 정리</option>
+                    <option value="CORE">핵심 — 프로젝트에 사용</option>
+                    <option value="ADVANCED">심화 — 깊이 다룸</option>
+                    <option value="EXPERT">전문가 — 설명 가능</option>
+                </select>
                 <button type="submit">추가</button>
             </form>
         </div>
@@ -295,7 +303,13 @@
                                     <option value="REQUIRED" ${req.importance == 'REQUIRED' ? 'selected' : ''}>필수</option>
                                     <option value="PREFERRED" ${req.importance == 'PREFERRED' ? 'selected' : ''}>우대</option>
                                 </select>
-                                <input type="text" name="requiredLevel" value="${req.requiredLevel}" style="width:120px;">
+                                <select name="requiredLevel" style="width:140px;">
+                                    <option value="" ${empty req.requiredLevel ? 'selected' : ''}>수준 선택</option>
+                                    <option value="ENTRY" ${req.requiredLevel == 'ENTRY' ? 'selected' : ''}>입문</option>
+                                    <option value="CORE" ${req.requiredLevel == 'CORE' ? 'selected' : ''}>핵심</option>
+                                    <option value="ADVANCED" ${req.requiredLevel == 'ADVANCED' ? 'selected' : ''}>심화</option>
+                                    <option value="EXPERT" ${req.requiredLevel == 'EXPERT' ? 'selected' : ''}>전문가</option>
+                                </select>
                                 <span class="muted"><c:out value="${req.source}" /></span>
                                 <button type="submit" class="secondary">저장</button>
                             </form>

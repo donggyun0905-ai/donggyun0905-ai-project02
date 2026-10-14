@@ -449,7 +449,7 @@ JOB_ALIAS와 같은 발상 — 사용자가 표준 명칭(SKILL.skill_name, 대�
 | `job_id` | BIGINT | FK | → JOB |
 | `skill_id` | BIGINT | FK | → SKILL |
 | `importance` | VARCHAR(10) |  | REQUIRED(필수) / PREFERRED(우대) |
-| `required_level` | VARCHAR(20) |  | 요구 수준 |
+| `required_level` | VARCHAR(20) |  | 요구 수준 — `ENTRY`/`CORE`/`ADVANCED`/`EXPERT`. 로드맵 티어(`ROADMAP_STEP.tier`)와 **같은 4단계 어휘**다(2026-10-14, sql/40). 직무가 바라는 깊이와 학습자가 증명한 깊이를 같은 자로 재려고 통일했다 |
 | `source` | VARCHAR(20) |  | WORKNET / LLM / MANUAL |
 | `is_estimated` | BOOLEAN |  | 추정치 여부 → 화면에 "예시적 추정" 표기 |
 | `collected_at` | DATETIME |  | 수집 시각 |

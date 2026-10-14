@@ -119,19 +119,37 @@ class AdminReferenceServiceTest {
         // 다음 실행에서 findFirst()가 오래된 행을 집었다).
         jobId = jobDao.findByName(jobName).getId();
 
-        service.addRequiredSkill(jobId, skillId, "PREFERRED", "기초");
+        // 요구 수준은 로드맵 티어와 같은 네 값만 받는다 (2026-10-14)
+        service.addRequiredSkill(jobId, skillId, "PREFERRED", "entry");
         List<JobRequiredSkillDto> list = jobRequiredSkillDao.findByJobId(jobId);
         assertEquals(1, list.size());
         requirementId = list.get(0).getId();
         assertEquals("PREFERRED", list.get(0).getImportance());
+        assertEquals("ENTRY", list.get(0).getRequiredLevel(), "소문자로 와도 대문자로 저장한다");
 
-        service.updateRequiredSkill(requirementId, "REQUIRED", "심화");
+        service.updateRequiredSkill(requirementId, "REQUIRED", "EXPERT");
         JobRequiredSkillDto updated = jobRequiredSkillDao.findByJobId(jobId).get(0);
         assertEquals("REQUIRED", updated.getImportance());
-        assertEquals("심화", updated.getRequiredLevel());
+        assertEquals("EXPERT", updated.getRequiredLevel());
 
         service.deleteRequiredSkill(requirementId);
         assertTrue(jobRequiredSkillDao.findByJobId(jobId).isEmpty());
         // deleteRequiredSkill도 논리 삭제라 행은 남아있다 — tearDown이 물리 삭제할 수 있게 그대로 둔다.
     }
+
+    @Test
+    void 요구_수준은_네_값만_받는다() throws Exception {
+        // 화면은 선택지로 막지만 POST 를 직접 보내면 뚫린다. 예전에 자유 입력이던 때
+        // 한글("심화")이 그대로 저장돼 히트맵이 못 읽는 값이 생겼다.
+        assertEquals("ADVANCED", AdminReferenceService.checkRequiredLevel("ADVANCED"));
+        assertEquals("CORE", AdminReferenceService.checkRequiredLevel("  core  "), "공백·소문자 정리");
+        assertNull(AdminReferenceService.checkRequiredLevel(null), "비워 두는 것은 허용 — 아직 안 정했다는 뜻");
+        assertNull(AdminReferenceService.checkRequiredLevel("   "));
+
+        for (String bad : new String[] {"심화", "BASIC", "INTERMEDIATE", "아무거나"}) {
+            assertThrows(IllegalArgumentException.class,
+                    () -> AdminReferenceService.checkRequiredLevel(bad), bad);
+        }
+    }
+
 }

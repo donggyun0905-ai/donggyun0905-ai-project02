@@ -39,18 +39,24 @@ public class InsightService {
     static final int TREND_MONTHS = 4;
     static final int TREND_TOP_SKILLS = 8;
 
-    // JOB_REQUIRED_SKILL.required_level → 화면 열 순서. 값이 없는 행은 "심화" 열로 모은다.
-    private static final Map<String, String> LEVEL_LABELS = new LinkedHashMap<>();
-    private static final String LEVEL_UNKNOWN = "심화";
-
-    // JOB_BENCHMARK_SPEC.tier → 화면 표시명
+    // 기술을 "어디까지 해야 하는가"를 재는 자는 하나다 (2026-10-14).
+    // JOB_REQUIRED_SKILL.required_level(직무가 바라는 깊이)과 ROADMAP_STEP.tier·
+    // JOB_BENCHMARK_SPEC.tier(학습자가 증명한 깊이)가 같은 4단계를 쓴다. 그래서 표도 하나다.
+    //
+    // 예전에는 요구 수준이 BASIC·INTERMEDIATE·ADVANCED 3단계로 따로 놀았다. 둘 다 ADVANCED 를
+    // 쓰는데 뜻이 달라서, 히트맵의 "심화"와 로드맵의 "심화"가 같은 것으로 읽혔다. sql/40 에서
+    // 값을 옮겼다 — 우대는 입문, 필수는 깊이에 따라 핵심·심화·전문가.
+    //
+    // 각 단계의 뜻은 제출물이 정한다 —
+    //   입문 공부노트 PDF · 핵심 프로젝트 등록 · 심화 기존 프로젝트 업그레이드 · 전문가 기술 설명 글
     private static final Map<String, String> TIER_LABELS = new LinkedHashMap<>();
 
-    static {
-        LEVEL_LABELS.put("BASIC", "입문");
-        LEVEL_LABELS.put("INTERMEDIATE", "기초");
-        LEVEL_LABELS.put("ADVANCED", "중급");
+    // 네 값 중 어느 것도 아닌 행이 섞였을 때만 쓰는 열. sql/40 뒤로는 비어 있어야 정상이고,
+    // 관리자 화면이 선택지로 바뀌어 새로 생기지도 않는다. 그래도 "모른다"를 "심화"라고
+    // 둘러대지는 않는다 — 데이터가 없는 것과 깊이를 요구하는 것은 다르다.
+    private static final String LEVEL_UNKNOWN = "미지정";
 
+    static {
         TIER_LABELS.put("ENTRY", "입문");
         TIER_LABELS.put("CORE", "핵심");
         TIER_LABELS.put("ADVANCED", "심화");
@@ -193,10 +199,10 @@ public class InsightService {
             return new HeatmapView(Collections.emptyList(), Collections.emptyList(), 0, null, false);
         }
 
-        List<String> levelKeys = new ArrayList<>(LEVEL_LABELS.keySet());
+        List<String> levelKeys = new ArrayList<>(TIER_LABELS.keySet());
         boolean hasUnknown = false;
         for (GapCellRow row : rows) {
-            if (!LEVEL_LABELS.containsKey(row.requiredLevel())) {
+            if (!TIER_LABELS.containsKey(row.requiredLevel())) {
                 hasUnknown = true;
                 break;
             }
@@ -209,7 +215,7 @@ public class InsightService {
         Map<String, Map<String, int[]>> counts = new TreeMap<>();
         for (GapCellRow row : rows) {
             String category = isBlank(row.category()) ? "기타" : row.category();
-            String level = LEVEL_LABELS.containsKey(row.requiredLevel()) ? row.requiredLevel() : LEVEL_UNKNOWN;
+            String level = TIER_LABELS.containsKey(row.requiredLevel()) ? row.requiredLevel() : LEVEL_UNKNOWN;
             int[] cell = counts.computeIfAbsent(category, k -> new LinkedHashMap<>())
                     .computeIfAbsent(level, k -> new int[2]);
             if (row.missing()) {
@@ -281,7 +287,7 @@ public class InsightService {
     }
 
     private static String labelOf(String level) {
-        return LEVEL_LABELS.getOrDefault(level, LEVEL_UNKNOWN);
+        return TIER_LABELS.getOrDefault(level, LEVEL_UNKNOWN);
     }
 
     // "202609" → "9월"

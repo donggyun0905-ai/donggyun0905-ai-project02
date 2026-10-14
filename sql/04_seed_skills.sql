@@ -181,415 +181,420 @@ INSERT INTO SKILL (skill_name, category) VALUES
 -- =========================================================
 -- JOB_REQUIRED_SKILL — 직무별 요구 기술 (18개 직무 × 10~15개, 총 202건)
 -- importance: REQUIRED(필수) / PREFERRED(우대)
--- required_level: BASIC / INTERMEDIATE / ADVANCED
+-- required_level: ENTRY / CORE / ADVANCED / EXPERT — 로드맵 티어와 같은 4단계 어휘 (2026-10-14)
+--   입문(ENTRY)    읽고 정리하면 된다        · 우대(PREFERRED) 기술
+--   핵심(CORE)     프로젝트에 써 봐야 한다     · 필수이고 기초
+--   심화(ADVANCED) 깊이 다뤄 봐야 한다       · 필수이고 실무에서 매일 쓴다
+--   전문가(EXPERT)  남에게 설명할 수 있어야 한다 · 그 직무의 정체성 기술 (직무마다 1~2개)
+--   옛 3단계(BASIC/INTERMEDIATE/ADVANCED)에서 옮겨 온 값이다 — sql/40 참고.
 -- =========================================================
 INSERT INTO JOB_REQUIRED_SKILL
     (job_id, skill_id, importance, required_level, source, is_estimated, collected_at)
 SELECT j.id, s.id, x.importance, x.required_level, 'MANUAL', TRUE, NULL
 FROM (
-    SELECT '백엔드 개발자' AS job_name, 'Java' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '백엔드 개발자' AS job_name, 'Java' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '백엔드 개발자' AS job_name, 'Spring Boot' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '백엔드 개발자' AS job_name, 'Spring Boot' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT '백엔드 개발자' AS job_name, 'Python' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '백엔드 개발자' AS job_name, 'Python' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '백엔드 개발자' AS job_name, 'MySQL' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '백엔드 개발자' AS job_name, 'MySQL' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '백엔드 개발자' AS job_name, 'PostgreSQL' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '백엔드 개발자' AS job_name, 'PostgreSQL' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '백엔드 개발자' AS job_name, 'Redis' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '백엔드 개발자' AS job_name, 'Redis' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '백엔드 개발자' AS job_name, 'REST API' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '백엔드 개발자' AS job_name, 'REST API' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '백엔드 개발자' AS job_name, 'Docker' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT '백엔드 개발자' AS job_name, 'Docker' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT '백엔드 개발자' AS job_name, 'Git' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT '백엔드 개발자' AS job_name, 'Git' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT '백엔드 개발자' AS job_name, 'Microservices Architecture' AS skill_name, 'PREFERRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '백엔드 개발자' AS job_name, 'Microservices Architecture' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '백엔드 개발자' AS job_name, 'Kubernetes' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '백엔드 개발자' AS job_name, 'Kubernetes' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '백엔드 개발자' AS job_name, 'SQL' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '백엔드 개발자' AS job_name, 'SQL' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '서버 개발자' AS job_name, 'Java' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '서버 개발자' AS job_name, 'Java' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '서버 개발자' AS job_name, 'Spring' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '서버 개발자' AS job_name, 'Spring' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '서버 개발자' AS job_name, 'C++' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '서버 개발자' AS job_name, 'C++' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '서버 개발자' AS job_name, 'Linux' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '서버 개발자' AS job_name, 'Linux' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT '서버 개발자' AS job_name, 'TCP/IP' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT '서버 개발자' AS job_name, 'TCP/IP' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT '서버 개발자' AS job_name, 'MySQL' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT '서버 개발자' AS job_name, 'MySQL' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT '서버 개발자' AS job_name, 'Redis' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '서버 개발자' AS job_name, 'Redis' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '서버 개발자' AS job_name, 'Git' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT '서버 개발자' AS job_name, 'Git' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT '서버 개발자' AS job_name, 'REST API' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT '서버 개발자' AS job_name, 'REST API' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT '서버 개발자' AS job_name, 'Nginx' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '서버 개발자' AS job_name, 'Nginx' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '서버 개발자' AS job_name, 'Docker' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '서버 개발자' AS job_name, 'Docker' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '서버 개발자' AS job_name, 'Bash' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '서버 개발자' AS job_name, 'Bash' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'API 개발자' AS job_name, 'Java' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT 'API 개발자' AS job_name, 'Java' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT 'API 개발자' AS job_name, 'Spring Boot' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT 'API 개발자' AS job_name, 'Spring Boot' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT 'API 개발자' AS job_name, 'Node.js' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT 'API 개발자' AS job_name, 'Node.js' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'API 개발자' AS job_name, 'Express.js' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT 'API 개발자' AS job_name, 'Express.js' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'API 개발자' AS job_name, 'REST API' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
+    SELECT 'API 개발자' AS job_name, 'REST API' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT 'API 개발자' AS job_name, 'GraphQL' AS skill_name, 'PREFERRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT 'API 개발자' AS job_name, 'GraphQL' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'API 개발자' AS job_name, 'gRPC' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT 'API 개발자' AS job_name, 'gRPC' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'API 개발자' AS job_name, 'MySQL' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT 'API 개발자' AS job_name, 'MySQL' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT 'API 개발자' AS job_name, 'Redis' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT 'API 개발자' AS job_name, 'Redis' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'API 개발자' AS job_name, 'Docker' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT 'API 개발자' AS job_name, 'Docker' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT 'API 개발자' AS job_name, 'Git' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT 'API 개발자' AS job_name, 'Git' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT 'API 개발자' AS job_name, 'Postman' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT 'API 개발자' AS job_name, 'Postman' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '프론트엔드 개발자' AS job_name, 'JavaScript' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
+    SELECT '프론트엔드 개발자' AS job_name, 'JavaScript' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT '프론트엔드 개발자' AS job_name, 'TypeScript' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '프론트엔드 개발자' AS job_name, 'TypeScript' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '프론트엔드 개발자' AS job_name, 'React' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '프론트엔드 개발자' AS job_name, 'React' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '프론트엔드 개발자' AS job_name, 'Vue.js' AS skill_name, 'PREFERRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '프론트엔드 개발자' AS job_name, 'Vue.js' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '프론트엔드 개발자' AS job_name, 'HTML5' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '프론트엔드 개발자' AS job_name, 'HTML5' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '프론트엔드 개발자' AS job_name, 'CSS3' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '프론트엔드 개발자' AS job_name, 'CSS3' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '프론트엔드 개발자' AS job_name, 'Sass' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '프론트엔드 개발자' AS job_name, 'Sass' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '프론트엔드 개발자' AS job_name, 'Tailwind CSS' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '프론트엔드 개발자' AS job_name, 'Tailwind CSS' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '프론트엔드 개발자' AS job_name, 'Webpack' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '프론트엔드 개발자' AS job_name, 'Webpack' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '프론트엔드 개발자' AS job_name, 'Vite' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '프론트엔드 개발자' AS job_name, 'Vite' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '프론트엔드 개발자' AS job_name, 'Git' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT '프론트엔드 개발자' AS job_name, 'Git' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT '프론트엔드 개발자' AS job_name, 'REST API' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT '프론트엔드 개발자' AS job_name, 'REST API' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT '웹퍼블리셔' AS job_name, 'HTML5' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
+    SELECT '웹퍼블리셔' AS job_name, 'HTML5' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT '웹퍼블리셔' AS job_name, 'CSS3' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
+    SELECT '웹퍼블리셔' AS job_name, 'CSS3' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT '웹퍼블리셔' AS job_name, 'Sass' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '웹퍼블리셔' AS job_name, 'Sass' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '웹퍼블리셔' AS job_name, 'JavaScript' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '웹퍼블리셔' AS job_name, 'JavaScript' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '웹퍼블리셔' AS job_name, 'jQuery' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '웹퍼블리셔' AS job_name, 'jQuery' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '웹퍼블리셔' AS job_name, 'Figma' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT '웹퍼블리셔' AS job_name, 'Figma' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT '웹퍼블리셔' AS job_name, 'Adobe XD' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '웹퍼블리셔' AS job_name, 'Adobe XD' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '웹퍼블리셔' AS job_name, 'Zeplin' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '웹퍼블리셔' AS job_name, 'Zeplin' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '웹퍼블리셔' AS job_name, 'Webpack' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '웹퍼블리셔' AS job_name, 'Webpack' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '웹퍼블리셔' AS job_name, 'Git' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT '웹퍼블리셔' AS job_name, 'Git' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT '웹퍼블리셔' AS job_name, 'Design System' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '웹퍼블리셔' AS job_name, 'Design System' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'UI 개발자' AS job_name, 'HTML5' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
+    SELECT 'UI 개발자' AS job_name, 'HTML5' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT 'UI 개발자' AS job_name, 'CSS3' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
+    SELECT 'UI 개발자' AS job_name, 'CSS3' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT 'UI 개발자' AS job_name, 'JavaScript' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT 'UI 개발자' AS job_name, 'JavaScript' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT 'UI 개발자' AS job_name, 'TypeScript' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT 'UI 개발자' AS job_name, 'TypeScript' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'UI 개발자' AS job_name, 'React' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT 'UI 개발자' AS job_name, 'React' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT 'UI 개발자' AS job_name, 'Vue.js' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT 'UI 개발자' AS job_name, 'Vue.js' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'UI 개발자' AS job_name, 'Figma' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT 'UI 개발자' AS job_name, 'Figma' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT 'UI 개발자' AS job_name, 'Sass' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT 'UI 개발자' AS job_name, 'Sass' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'UI 개발자' AS job_name, 'Tailwind CSS' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT 'UI 개발자' AS job_name, 'Tailwind CSS' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'UI 개발자' AS job_name, 'Design System' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT 'UI 개발자' AS job_name, 'Design System' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT 'UI 개발자' AS job_name, 'Git' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT 'UI 개발자' AS job_name, 'Git' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT '데이터 엔지니어' AS job_name, 'Python' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '데이터 엔지니어' AS job_name, 'Python' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '데이터 엔지니어' AS job_name, 'SQL' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
+    SELECT '데이터 엔지니어' AS job_name, 'SQL' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT '데이터 엔지니어' AS job_name, 'Apache Spark' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '데이터 엔지니어' AS job_name, 'Apache Spark' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '데이터 엔지니어' AS job_name, 'Apache Kafka' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '데이터 엔지니어' AS job_name, 'Apache Kafka' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '데이터 엔지니어' AS job_name, 'Apache Airflow' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '데이터 엔지니어' AS job_name, 'Apache Airflow' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '데이터 엔지니어' AS job_name, 'Hadoop' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '데이터 엔지니어' AS job_name, 'Hadoop' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '데이터 엔지니어' AS job_name, 'Hive' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '데이터 엔지니어' AS job_name, 'Hive' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '데이터 엔지니어' AS job_name, 'Amazon Redshift' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '데이터 엔지니어' AS job_name, 'Amazon Redshift' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '데이터 엔지니어' AS job_name, 'Google BigQuery' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '데이터 엔지니어' AS job_name, 'Google BigQuery' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '데이터 엔지니어' AS job_name, 'dbt' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '데이터 엔지니어' AS job_name, 'dbt' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '데이터 엔지니어' AS job_name, 'Docker' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT '데이터 엔지니어' AS job_name, 'Docker' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT '데이터 엔지니어' AS job_name, 'AWS' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '데이터 엔지니어' AS job_name, 'AWS' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '데이터 엔지니어' AS job_name, 'Git' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT '데이터 엔지니어' AS job_name, 'Git' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT '데이터 분석가' AS job_name, 'SQL' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
+    SELECT '데이터 분석가' AS job_name, 'SQL' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT '데이터 분석가' AS job_name, 'Python' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '데이터 분석가' AS job_name, 'Python' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '데이터 분석가' AS job_name, 'R' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '데이터 분석가' AS job_name, 'R' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '데이터 분석가' AS job_name, 'Pandas' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '데이터 분석가' AS job_name, 'Pandas' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '데이터 분석가' AS job_name, 'Matplotlib' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '데이터 분석가' AS job_name, 'Matplotlib' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '데이터 분석가' AS job_name, 'Google BigQuery' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '데이터 분석가' AS job_name, 'Google BigQuery' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '데이터 분석가' AS job_name, 'Amazon Redshift' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '데이터 분석가' AS job_name, 'Amazon Redshift' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '데이터 분석가' AS job_name, 'Jupyter Notebook' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT '데이터 분석가' AS job_name, 'Jupyter Notebook' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT '데이터 분석가' AS job_name, 'Git' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '데이터 분석가' AS job_name, 'Git' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '데이터 분석가' AS job_name, 'Snowflake' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '데이터 분석가' AS job_name, 'Snowflake' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '데이터 사이언티스트' AS job_name, 'Python' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
+    SELECT '데이터 사이언티스트' AS job_name, 'Python' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT '데이터 사이언티스트' AS job_name, 'R' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '데이터 사이언티스트' AS job_name, 'R' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '데이터 사이언티스트' AS job_name, 'SQL' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '데이터 사이언티스트' AS job_name, 'SQL' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '데이터 사이언티스트' AS job_name, 'Pandas' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '데이터 사이언티스트' AS job_name, 'Pandas' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '데이터 사이언티스트' AS job_name, 'NumPy' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '데이터 사이언티스트' AS job_name, 'NumPy' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '데이터 사이언티스트' AS job_name, 'scikit-learn' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '데이터 사이언티스트' AS job_name, 'scikit-learn' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '데이터 사이언티스트' AS job_name, 'TensorFlow' AS skill_name, 'PREFERRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '데이터 사이언티스트' AS job_name, 'TensorFlow' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '데이터 사이언티스트' AS job_name, 'PyTorch' AS skill_name, 'PREFERRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '데이터 사이언티스트' AS job_name, 'PyTorch' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '데이터 사이언티스트' AS job_name, 'Jupyter Notebook' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT '데이터 사이언티스트' AS job_name, 'Jupyter Notebook' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT '데이터 사이언티스트' AS job_name, 'Matplotlib' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '데이터 사이언티스트' AS job_name, 'Matplotlib' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '데이터 사이언티스트' AS job_name, 'XGBoost' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '데이터 사이언티스트' AS job_name, 'XGBoost' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '데이터 사이언티스트' AS job_name, 'MLflow' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '데이터 사이언티스트' AS job_name, 'MLflow' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'DevOps 엔지니어' AS job_name, 'Docker' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
+    SELECT 'DevOps 엔지니어' AS job_name, 'Docker' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT 'DevOps 엔지니어' AS job_name, 'Kubernetes' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
+    SELECT 'DevOps 엔지니어' AS job_name, 'Kubernetes' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT 'DevOps 엔지니어' AS job_name, 'Terraform' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT 'DevOps 엔지니어' AS job_name, 'Terraform' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT 'DevOps 엔지니어' AS job_name, 'Ansible' AS skill_name, 'PREFERRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT 'DevOps 엔지니어' AS job_name, 'Ansible' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'DevOps 엔지니어' AS job_name, 'Jenkins' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT 'DevOps 엔지니어' AS job_name, 'Jenkins' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT 'DevOps 엔지니어' AS job_name, 'GitLab CI/CD' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT 'DevOps 엔지니어' AS job_name, 'GitLab CI/CD' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'DevOps 엔지니어' AS job_name, 'GitHub Actions' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT 'DevOps 엔지니어' AS job_name, 'GitHub Actions' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'DevOps 엔지니어' AS job_name, 'AWS' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT 'DevOps 엔지니어' AS job_name, 'AWS' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT 'DevOps 엔지니어' AS job_name, 'Prometheus' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT 'DevOps 엔지니어' AS job_name, 'Prometheus' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'DevOps 엔지니어' AS job_name, 'Grafana' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT 'DevOps 엔지니어' AS job_name, 'Grafana' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'DevOps 엔지니어' AS job_name, 'Linux' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT 'DevOps 엔지니어' AS job_name, 'Linux' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT 'DevOps 엔지니어' AS job_name, 'Helm' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT 'DevOps 엔지니어' AS job_name, 'Helm' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'DevOps 엔지니어' AS job_name, 'CI/CD' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT 'DevOps 엔지니어' AS job_name, 'CI/CD' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '클라우드 엔지니어' AS job_name, 'AWS' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
+    SELECT '클라우드 엔지니어' AS job_name, 'AWS' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT '클라우드 엔지니어' AS job_name, 'Google Cloud Platform' AS skill_name, 'PREFERRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '클라우드 엔지니어' AS job_name, 'Google Cloud Platform' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '클라우드 엔지니어' AS job_name, 'Microsoft Azure' AS skill_name, 'PREFERRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '클라우드 엔지니어' AS job_name, 'Microsoft Azure' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '클라우드 엔지니어' AS job_name, 'Terraform' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '클라우드 엔지니어' AS job_name, 'Terraform' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '클라우드 엔지니어' AS job_name, 'CloudFormation' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '클라우드 엔지니어' AS job_name, 'CloudFormation' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '클라우드 엔지니어' AS job_name, 'Docker' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT '클라우드 엔지니어' AS job_name, 'Docker' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT '클라우드 엔지니어' AS job_name, 'Kubernetes' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '클라우드 엔지니어' AS job_name, 'Kubernetes' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '클라우드 엔지니어' AS job_name, 'Linux' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '클라우드 엔지니어' AS job_name, 'Linux' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '클라우드 엔지니어' AS job_name, 'Load Balancing' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '클라우드 엔지니어' AS job_name, 'Load Balancing' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '클라우드 엔지니어' AS job_name, 'IAM' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT '클라우드 엔지니어' AS job_name, 'IAM' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT '클라우드 엔지니어' AS job_name, 'Vault' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '클라우드 엔지니어' AS job_name, 'Vault' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '시스템 엔지니어' AS job_name, 'Linux' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
+    SELECT '시스템 엔지니어' AS job_name, 'Linux' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT '시스템 엔지니어' AS job_name, 'Windows Server' AS skill_name, 'PREFERRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '시스템 엔지니어' AS job_name, 'Windows Server' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '시스템 엔지니어' AS job_name, 'VMware' AS skill_name, 'PREFERRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '시스템 엔지니어' AS job_name, 'VMware' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '시스템 엔지니어' AS job_name, 'Bash' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '시스템 엔지니어' AS job_name, 'Bash' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '시스템 엔지니어' AS job_name, 'PowerShell' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '시스템 엔지니어' AS job_name, 'PowerShell' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '시스템 엔지니어' AS job_name, 'Zabbix' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '시스템 엔지니어' AS job_name, 'Zabbix' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '시스템 엔지니어' AS job_name, 'Nginx' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '시스템 엔지니어' AS job_name, 'Nginx' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '시스템 엔지니어' AS job_name, 'Apache HTTP Server' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '시스템 엔지니어' AS job_name, 'Apache HTTP Server' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '시스템 엔지니어' AS job_name, 'TCP/IP' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '시스템 엔지니어' AS job_name, 'TCP/IP' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '시스템 엔지니어' AS job_name, 'AWS' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '시스템 엔지니어' AS job_name, 'AWS' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '시스템 엔지니어' AS job_name, 'Ansible' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '시스템 엔지니어' AS job_name, 'Ansible' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '정보보안 담당자' AS job_name, 'SIEM' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '정보보안 담당자' AS job_name, 'SIEM' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '정보보안 담당자' AS job_name, 'IAM' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '정보보안 담당자' AS job_name, 'IAM' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT '정보보안 담당자' AS job_name, 'OAuth 2.0' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '정보보안 담당자' AS job_name, 'OAuth 2.0' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '정보보안 담당자' AS job_name, 'PKI' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '정보보안 담당자' AS job_name, 'PKI' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '정보보안 담당자' AS job_name, 'Nmap' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '정보보안 담당자' AS job_name, 'Nmap' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '정보보안 담당자' AS job_name, 'Wireshark' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '정보보안 담당자' AS job_name, 'Wireshark' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '정보보안 담당자' AS job_name, 'Linux' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT '정보보안 담당자' AS job_name, 'Linux' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT '정보보안 담당자' AS job_name, 'Vault' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '정보보안 담당자' AS job_name, 'Vault' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '정보보안 담당자' AS job_name, 'Nessus' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '정보보안 담당자' AS job_name, 'Nessus' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '정보보안 담당자' AS job_name, 'Bash' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '정보보안 담당자' AS job_name, 'Bash' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '보안 엔지니어' AS job_name, 'Wireshark' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '보안 엔지니어' AS job_name, 'Wireshark' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '보안 엔지니어' AS job_name, 'Metasploit' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '보안 엔지니어' AS job_name, 'Metasploit' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '보안 엔지니어' AS job_name, 'Burp Suite' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '보안 엔지니어' AS job_name, 'Burp Suite' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '보안 엔지니어' AS job_name, 'Nessus' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '보안 엔지니어' AS job_name, 'Nessus' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '보안 엔지니어' AS job_name, 'OAuth 2.0' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '보안 엔지니어' AS job_name, 'OAuth 2.0' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '보안 엔지니어' AS job_name, 'PKI' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '보안 엔지니어' AS job_name, 'PKI' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '보안 엔지니어' AS job_name, 'SIEM' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '보안 엔지니어' AS job_name, 'SIEM' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT '보안 엔지니어' AS job_name, 'IAM' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '보안 엔지니어' AS job_name, 'IAM' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '보안 엔지니어' AS job_name, 'Nmap' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT '보안 엔지니어' AS job_name, 'Nmap' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT '보안 엔지니어' AS job_name, 'Kali Linux' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '보안 엔지니어' AS job_name, 'Kali Linux' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '보안 엔지니어' AS job_name, 'Linux' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '보안 엔지니어' AS job_name, 'Linux' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '보안 엔지니어' AS job_name, 'Vault' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '보안 엔지니어' AS job_name, 'Vault' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '모의해킹 전문가' AS job_name, 'Metasploit' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
+    SELECT '모의해킹 전문가' AS job_name, 'Metasploit' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT '모의해킹 전문가' AS job_name, 'Burp Suite' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
+    SELECT '모의해킹 전문가' AS job_name, 'Burp Suite' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT '모의해킹 전문가' AS job_name, 'Nmap' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '모의해킹 전문가' AS job_name, 'Nmap' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '모의해킹 전문가' AS job_name, 'Kali Linux' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '모의해킹 전문가' AS job_name, 'Kali Linux' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '모의해킹 전문가' AS job_name, 'Wireshark' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '모의해킹 전문가' AS job_name, 'Wireshark' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '모의해킹 전문가' AS job_name, 'Nessus' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '모의해킹 전문가' AS job_name, 'Nessus' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '모의해킹 전문가' AS job_name, 'Snort' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '모의해킹 전문가' AS job_name, 'Snort' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '모의해킹 전문가' AS job_name, 'Linux' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '모의해킹 전문가' AS job_name, 'Linux' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '모의해킹 전문가' AS job_name, 'Bash' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '모의해킹 전문가' AS job_name, 'Bash' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '모의해킹 전문가' AS job_name, 'Python' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '모의해킹 전문가' AS job_name, 'Python' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'IT 기획자' AS job_name, 'Jira' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT 'IT 기획자' AS job_name, 'Jira' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT 'IT 기획자' AS job_name, 'Confluence' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT 'IT 기획자' AS job_name, 'Confluence' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT 'IT 기획자' AS job_name, 'Figma' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT 'IT 기획자' AS job_name, 'Figma' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'IT 기획자' AS job_name, 'SQL' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT 'IT 기획자' AS job_name, 'SQL' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'IT 기획자' AS job_name, 'Agile/Scrum' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT 'IT 기획자' AS job_name, 'Agile/Scrum' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT 'IT 기획자' AS job_name, 'Wireframing' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT 'IT 기획자' AS job_name, 'Wireframing' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'IT 기획자' AS job_name, 'Prototyping' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT 'IT 기획자' AS job_name, 'Prototyping' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'IT 기획자' AS job_name, 'REST API' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT 'IT 기획자' AS job_name, 'REST API' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'IT 기획자' AS job_name, 'Git' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT 'IT 기획자' AS job_name, 'Git' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT 'IT 기획자' AS job_name, 'UI/UX Design' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT 'IT 기획자' AS job_name, 'UI/UX Design' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '서비스 기획자' AS job_name, 'Figma' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '서비스 기획자' AS job_name, 'Figma' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '서비스 기획자' AS job_name, 'Jira' AS skill_name, 'REQUIRED' AS importance, 'BASIC' AS required_level
+    SELECT '서비스 기획자' AS job_name, 'Jira' AS skill_name, 'REQUIRED' AS importance, 'CORE' AS required_level
     UNION ALL
-    SELECT '서비스 기획자' AS job_name, 'Confluence' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '서비스 기획자' AS job_name, 'Confluence' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '서비스 기획자' AS job_name, 'Wireframing' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '서비스 기획자' AS job_name, 'Wireframing' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '서비스 기획자' AS job_name, 'Prototyping' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '서비스 기획자' AS job_name, 'Prototyping' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '서비스 기획자' AS job_name, 'UI/UX Design' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '서비스 기획자' AS job_name, 'UI/UX Design' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT '서비스 기획자' AS job_name, 'Agile/Scrum' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '서비스 기획자' AS job_name, 'Agile/Scrum' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '서비스 기획자' AS job_name, 'SQL' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '서비스 기획자' AS job_name, 'SQL' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '서비스 기획자' AS job_name, 'Design System' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '서비스 기획자' AS job_name, 'Design System' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '서비스 기획자' AS job_name, 'Adobe XD' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '서비스 기획자' AS job_name, 'Adobe XD' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '프로젝트 매니저(PM)' AS job_name, 'Jira' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
+    SELECT '프로젝트 매니저(PM)' AS job_name, 'Jira' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT '프로젝트 매니저(PM)' AS job_name, 'Confluence' AS skill_name, 'REQUIRED' AS importance, 'INTERMEDIATE' AS required_level
+    SELECT '프로젝트 매니저(PM)' AS job_name, 'Confluence' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
     UNION ALL
-    SELECT '프로젝트 매니저(PM)' AS job_name, 'Agile/Scrum' AS skill_name, 'REQUIRED' AS importance, 'ADVANCED' AS required_level
+    SELECT '프로젝트 매니저(PM)' AS job_name, 'Agile/Scrum' AS skill_name, 'REQUIRED' AS importance, 'EXPERT' AS required_level
     UNION ALL
-    SELECT '프로젝트 매니저(PM)' AS job_name, 'Git' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '프로젝트 매니저(PM)' AS job_name, 'Git' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '프로젝트 매니저(PM)' AS job_name, 'CI/CD' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '프로젝트 매니저(PM)' AS job_name, 'CI/CD' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '프로젝트 매니저(PM)' AS job_name, 'SQL' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '프로젝트 매니저(PM)' AS job_name, 'SQL' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '프로젝트 매니저(PM)' AS job_name, 'REST API' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '프로젝트 매니저(PM)' AS job_name, 'REST API' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '프로젝트 매니저(PM)' AS job_name, 'Design Patterns' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '프로젝트 매니저(PM)' AS job_name, 'Design Patterns' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '프로젝트 매니저(PM)' AS job_name, 'Unit Testing' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '프로젝트 매니저(PM)' AS job_name, 'Unit Testing' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
     UNION ALL
-    SELECT '프로젝트 매니저(PM)' AS job_name, 'TDD' AS skill_name, 'PREFERRED' AS importance, 'BASIC' AS required_level
+    SELECT '프로젝트 매니저(PM)' AS job_name, 'TDD' AS skill_name, 'PREFERRED' AS importance, 'ENTRY' AS required_level
 ) x
 JOIN JOB j ON j.job_name = x.job_name
 JOIN SKILL s ON s.skill_name = x.skill_name;

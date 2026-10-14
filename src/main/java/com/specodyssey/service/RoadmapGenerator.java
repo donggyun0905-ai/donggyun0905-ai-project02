@@ -257,13 +257,28 @@ public class RoadmapGenerator {
         return selected;
     }
 
-    // GAP_ANALYSIS_ITEM 중 MISSING만 골라 JOB_REQUIRED_SKILL.importance 기준 점수 내림차순 정렬.
+    // GAP_ANALYSIS_ITEM 중 MISSING만 골라 "직무가 얼마나 깊이 요구하는가" 순으로 줄 세운다.
+    //
+    // 1순위 요구 수준(JOB_REQUIRED_SKILL.required_level) — 전문가 > 심화 > 핵심 > 입문.
+    //        2026-10-14에 이 자가 로드맵 티어와 같은 4단계가 되면서 순위에 쓸 수 있게 됐다.
+    //        그 전에는 BASIC·INTERMEDIATE·ADVANCED 3단계로 따로 놀아 중요도만 봤다.
+    // 2순위 중요도(importance) — 필수 > 우대. 같은 수준 안에서 갈린다.
+    //
+    // 지금 데이터는 우대가 모두 입문이라 수준만으로도 필수가 앞선다(sql/40). 그래도 관리자가
+    // "필수인데 입문"을 넣을 수 있어 중요도를 보조 기준으로 남긴다.
+    //
+    // 단계 수는 줄이지 않는다 — 기술마다 입문→전문가 네 단계를 그대로 만든다. 요구 수준에서
+    // 끊는 것은 기존 사용자의 로드맵 모양이 달라지는 변경이라 따로 다룬다.
     List<GapAnalysisItemDto> rankMissingSkills(GapAnalysisDto analysis) throws SQLException {
         Map<Long, String> importanceBySkillId = importanceMap(analysis.getJobId());
+        Map<Long, String> levelBySkillId = requiredLevelMap(analysis.getJobId());
+        Comparator<GapAnalysisItemDto> byDepth = Comparator
+                .comparingInt((GapAnalysisItemDto item) -> depthOf(levelBySkillId.get(item.getSkillId())))
+                .thenComparingInt(item -> scoreOf(importanceBySkillId.get(item.getSkillId())))
+                .reversed();
         return gapAnalysisItemDao.findByGapAnalysisId(analysis.getId()).stream()
                 .filter(item -> "MISSING".equals(item.getStatus()))
-                .sorted(Comparator.comparingInt(
-                        (GapAnalysisItemDto item) -> scoreOf(importanceBySkillId.get(item.getSkillId()))).reversed())
+                .sorted(byDepth)
                 .collect(Collectors.toList());
     }
 
@@ -273,6 +288,27 @@ public class RoadmapGenerator {
             map.put(req.getSkillId(), req.getImportance());
         }
         return map;
+    }
+
+    Map<Long, String> requiredLevelMap(Long jobId) throws SQLException {
+        Map<Long, String> map = new HashMap<>();
+        for (JobRequiredSkillDto req : jobRequiredSkillDao.findByJobId(jobId)) {
+            map.put(req.getSkillId(), req.getRequiredLevel());
+        }
+        return map;
+    }
+
+    // 요구 수준의 깊이. 값이 없거나 모르는 값이면 0 — 맨 뒤로 간다(없는 것을 깊다고 보지 않는다).
+    //
+    // null 을 먼저 거르는 이유: SKILL_TIER_ORDER 는 List.of 로 만든 불변 목록이라
+    // indexOf(null) 이 NullPointerException 을 던진다. 직무 요구 기술에 없는 기술
+    // (예: 프로필에서 들어온 것)은 수준이 null 로 오므로 실제로 걸린다.
+    static int depthOf(String requiredLevel) {
+        if (requiredLevel == null) {
+            return 0;
+        }
+        int index = SKILL_TIER_ORDER.indexOf(requiredLevel);
+        return index < 0 ? 0 : index + 1;
     }
 
     private int scoreOf(String importance) {

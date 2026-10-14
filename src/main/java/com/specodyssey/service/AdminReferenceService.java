@@ -102,6 +102,27 @@ public class AdminReferenceService {
         return jobRequiredSkillDao.findByJobId(jobId);
     }
 
+    /**
+     * 요구 수준으로 쓸 수 있는 값 — 로드맵 티어와 같은 4단계다 (2026-10-14).
+     * 화면은 선택지로 막지만 POST 를 직접 보내면 뚫리므로 여기서 한 번 더 본다.
+     * 예전에 자유 입력이던 때 한글("심화")이 그대로 저장돼 히트맵이 못 읽는 값이 생겼다.
+     * 비워 두는 것(null)은 허용한다 — "아직 정하지 않았다"는 뜻이고 화면이 미지정으로 묶는다.
+     */
+    static final java.util.Set<String> REQUIRED_LEVELS =
+            java.util.Set.of("ENTRY", "CORE", "ADVANCED", "EXPERT");
+
+    static String checkRequiredLevel(String requiredLevel) {
+        if (requiredLevel == null || requiredLevel.isBlank()) {
+            return null;
+        }
+        String value = requiredLevel.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!REQUIRED_LEVELS.contains(value)) {
+            throw new IllegalArgumentException(
+                    "요구 수준은 입문(ENTRY) · 핵심(CORE) · 심화(ADVANCED) · 전문가(EXPERT) 중 하나여야 합니다.");
+        }
+        return value;
+    }
+
     public void addRequiredSkill(Long jobId, Long skillId, String importance, String requiredLevel)
             throws SQLException {
         if (jobId == null || skillId == null) {
@@ -111,14 +132,14 @@ public class AdminReferenceService {
         item.setJobId(jobId);
         item.setSkillId(skillId);
         item.setImportance(importance);
-        item.setRequiredLevel(requiredLevel);
+        item.setRequiredLevel(checkRequiredLevel(requiredLevel));
         item.setSource("MANUAL");
         item.setEstimated(false);
         jobRequiredSkillDao.insert(item);
     }
 
     public void updateRequiredSkill(Long id, String importance, String requiredLevel) throws SQLException {
-        jobRequiredSkillDao.update(id, importance, requiredLevel);
+        jobRequiredSkillDao.update(id, importance, checkRequiredLevel(requiredLevel));
     }
 
     public void deleteRequiredSkill(Long id) throws SQLException {
