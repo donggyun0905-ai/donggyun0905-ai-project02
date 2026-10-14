@@ -1,8 +1,9 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <c:set var="pageTitle" value="공유받은 이력 - 스펙 오디세이" scope="request" />
-<c:set var="mainWide" value="true" scope="request" />
+<c:set var="mainFull" value="true" scope="request" />
 <jsp:include page="/WEB-INF/views/common/header.jsp" />
+<link rel="stylesheet" href="${pageContext.request.contextPath}/css/interviewer.css">
 
 <h1>공유받은 이력</h1>
 <p class="muted">지원자가 보내 준 공유 링크를 담아 두는 곳입니다. 지원자가 공개한 항목만 보이고, 지원자가 공유를 멈추거나 링크가 만료되면 더 이상 열리지 않습니다.</p>
@@ -42,7 +43,7 @@
             <p class="muted" style="margin-top:10px;">아직 담은 지원자가 없습니다. 지원자에게 받은 공유 링크를 위에 붙여 넣어 보세요.</p>
         </c:when>
         <c:otherwise>
-            <ul class="item-list" style="margin-top:10px;">
+            <ul class="item-list iv-applicants" style="margin-top:10px;">
                 <c:forEach var="applicant" items="${compare.applicants}">
                     <li>
                         <div class="spread">

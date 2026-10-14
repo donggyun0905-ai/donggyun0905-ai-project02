@@ -87,12 +87,14 @@ class GapAnalysisServiceTest {
             owned1.setUserId(userId);
             owned1.setSkillId(metBySkillIdSkillId);
             owned1.setRawInput("아무 이름");
+            owned1.setProficiency("ADVANCED");
             userSkillDao.insert(conn, owned1);
 
             // 2) skill_id는 없지만(수동 입력) 이름이 대소문자만 다르게 일치하는 보유 스킬
             UserSkillDto owned2 = new UserSkillDto();
             owned2.setUserId(userId);
             owned2.setRawInput(metByRawInputSkillName.toUpperCase());
+            owned2.setProficiency("ADVANCED");
             userSkillDao.insert(conn, owned2);
         }
     }
@@ -196,6 +198,7 @@ class GapAnalysisServiceTest {
             UserSkillDto typoOwned = new UserSkillDto();
             typoOwned.setUserId(userId);
             typoOwned.setRawInput(typoName);
+            typoOwned.setProficiency("ADVANCED");
             userSkillDao.insert(conn, typoOwned);
         }
 
@@ -208,6 +211,26 @@ class GapAnalysisServiceTest {
         assertEquals("MET", matchedItem.getStatus());
         assertNotNull(matchedItem.getSimilarityScore());
         assertTrue(matchedItem.getSimilarityScore().doubleValue() < 1.0);
+    }
+
+    // 2026-10-12 — 고급(ADVANCED)인 보유 기술만 충족. 보유해도 중급·미입력이면 MISSING.
+    @Test
+    void 고급이_아닌_보유_기술은_MISSING이다() throws Exception {
+        try (Connection conn = DBUtil.getConnection()) {
+            UserSkillDto intermediate = new UserSkillDto();
+            intermediate.setUserId(userId);
+            intermediate.setSkillId(missingSkillId);
+            intermediate.setRawInput(missingSkillName);
+            intermediate.setProficiency("INTERMEDIATE");
+            userSkillDao.insert(conn, intermediate);
+        }
+
+        Long analysisId = gapAnalysisService.analyze(userId, jobId);
+        Map<Long, String> bySkillId = gapAnalysisService.getItems(analysisId).stream()
+                .collect(Collectors.toMap(GapAnalysisItemDto::getSkillId, GapAnalysisItemDto::getStatus));
+
+        assertEquals("MISSING", bySkillId.get(missingSkillId));
+        assertEquals("MET", bySkillId.get(metBySkillIdSkillId));
     }
 
     @Test

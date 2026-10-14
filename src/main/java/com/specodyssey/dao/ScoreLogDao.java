@@ -47,6 +47,35 @@ public class ScoreLogDao {
         }
     }
 
+    // 미션 완료 취소(2026-10-12)로 논리 삭제된 같은 이벤트 기록이 있으면 되살린다 — (user_id, signal_type, ref_id) UNIQUE가
+    // 삭제된 행에도 걸려 있어 새로 INSERT하면 중복 오류가 난다. 되살렸으면 true, 삭제된 행이 없으면 false.
+    // 삭제된 행이 없을 때 UPDATE를 바로 날리면 UNIQUE 인덱스에 간격 잠금이 걸려 동시 적립의 INSERT와 교착이 난다 —
+    // 잠금 없는 조회로 먼저 확인하고, 있을 때만 그 행(id)을 고친다.
+    public boolean reviveDeleted(Connection conn, ScoreLogDto log) throws SQLException {
+        String findSql = "SELECT id FROM SCORE_LOG WHERE user_id = ? AND signal_type = ? AND ref_id = ? AND is_deleted = TRUE";
+        Long deletedId = null;
+        try (PreparedStatement pstmt = conn.prepareStatement(findSql)) {
+            pstmt.setLong(1, log.getUserId());
+            pstmt.setString(2, log.getSignalType());
+            pstmt.setLong(3, log.getRefId());
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    deletedId = rs.getLong(1);
+                }
+            }
+        }
+        if (deletedId == null) {
+            return false;
+        }
+        String sql = "UPDATE SCORE_LOG SET is_deleted = FALSE, points = ?, earned_at = ? WHERE id = ? AND is_deleted = TRUE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, log.getPoints());
+            pstmt.setTimestamp(2, toTimestamp(log.getEarnedAt()));
+            pstmt.setLong(3, deletedId);
+            return pstmt.executeUpdate() == 1;
+        }
+    }
+
     // 같은 이벤트(user_id, signal_type, ref_id)로 이미 적립했는지 확인 — 완료 체크를 껐다 켜도
     // 중복 적립되지 않게 ScoreService가 insert 전에 이걸로 먼저 가드한다.
     public boolean existsByUserSignalRef(Connection conn, Long userId, String signalType, Long refId)
@@ -61,6 +90,32 @@ public class ScoreLogDao {
                 return rs.next();
             }
         }
+    }
+
+    // 미션 완료 취소(2026-10-12) — 그 적립 기록을 논리 삭제하고 빠진 점수를 돌려준다(없으면 0).
+    // 논리 삭제하면 existsByUserSignalRef가 못 찾으므로, 다시 풀면 한 번 더 적립된다.
+    public int softDeleteByUserSignalRef(Connection conn, Long userId, String signalType, Long refId)
+            throws SQLException {
+        String sumSql = "SELECT COALESCE(SUM(points), 0) FROM SCORE_LOG WHERE user_id = ? AND signal_type = ? " +
+                "AND ref_id = ? AND is_deleted = FALSE";
+        int points;
+        try (PreparedStatement pstmt = conn.prepareStatement(sumSql)) {
+            pstmt.setLong(1, userId);
+            pstmt.setString(2, signalType);
+            pstmt.setLong(3, refId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                points = rs.next() ? rs.getInt(1) : 0;
+            }
+        }
+        String sql = "UPDATE SCORE_LOG SET is_deleted = TRUE WHERE user_id = ? AND signal_type = ? AND ref_id = ? " +
+                "AND is_deleted = FALSE";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            pstmt.setString(2, signalType);
+            pstmt.setLong(3, refId);
+            pstmt.executeUpdate();
+        }
+        return points;
     }
 
     public List<ScoreLogDto> findByUserId(Long userId) throws SQLException {

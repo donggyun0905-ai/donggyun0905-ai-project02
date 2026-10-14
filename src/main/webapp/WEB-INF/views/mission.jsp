@@ -53,7 +53,19 @@
             <%-- 데이터(dailyMissions)는 MissionProblemFilter가 사용자 등급·목표 직무에 맞춰 배정해 실어 준다 (FR-51·52).
                  지문은 저장하지 않는 링크 추천형이라 풀이는 원본 사이트에서 한다.
                  "정답 입력하기"는 MissionSubmitServlet(/mission/submit), "실패"는 MissionFailServlet(/mission/fail)로 간다. --%>
-            <div class="spread"><h2>오늘의 문제 3개</h2><span class="muted"><c:out value="${empty dailyMissionDone ? 0 : dailyMissionDone}" /> / 3 완료</span></div>
+            <div class="spread"><h2>오늘의 문제 3개</h2>
+                <span class="row" style="gap:10px; align-items:center;">
+                    <span class="muted"><c:out value="${empty dailyMissionDone ? 0 : dailyMissionDone}" /> / 3 완료</span>
+                    <%-- 안 푼 문제만 지금 등급 난이도로 다시 뽑는다 (MissionRefreshServlet, 2026-10-12) --%>
+                    <c:if test="${not empty dailyMissions and (empty dailyMissionDone or dailyMissionDone < 3)}">
+                        <form method="post" action="<c:url value='/mission/refresh' />" style="display:inline; margin:0;"
+                              onsubmit="return confirm('아직 안 푼 문제를 새 문제로 바꿀까요? 푼 문제는 그대로 둡니다.');">
+                            <input type="hidden" name="_csrf" value="${csrfToken}">
+                            <button type="submit" class="secondary">미션 새로 불러오기</button>
+                        </form>
+                    </c:if>
+                </span>
+            </div>
             <c:choose>
                 <c:when test="${empty dailyMissions}">
                     <p class="muted" style="margin-top:12px;">아직 추천할 문제가 없습니다.</p>
@@ -78,12 +90,25 @@
                                 <div class="row">
                                     <a class="btn" href="<c:out value='${m.externalUrl}' />" target="_blank" rel="noopener noreferrer">풀러 가기</a>
                                     <a class="btn secondary" href="<c:url value='/mission/submit'><c:param name='missionId' value='${m.missionId}' /></c:url>">정답 입력하기</a>
-                                    <form method="post" action="<c:url value='/mission/fail' />" style="display:inline;"
-                                          onsubmit="return confirm('이 문제를 실패로 처리할까요?');">
-                                        <input type="hidden" name="_csrf" value="${csrfToken}">
-                                        <input type="hidden" name="missionId" value="<c:out value='${m.missionId}' />">
-                                        <button type="submit" class="secondary">실패</button>
-                                    </form>
+                                    <c:choose>
+                                        <%-- 끝낸 미션은 취소로 안 푼 상태로 되돌린다 — 받은 점수·오늘 연속 기록도 함께 되돌림 (MissionUndoServlet, 2026-10-12) --%>
+                                        <c:when test="${m.completed}">
+                                            <form method="post" action="<c:url value='/mission/undo' />" style="display:inline;"
+                                                  onsubmit="return confirm('${failed ? '실패를 취소할까요?' : '완료를 취소할까요? 이 문제로 받은 점수도 빠집니다.'}');">
+                                                <input type="hidden" name="_csrf" value="${csrfToken}">
+                                                <input type="hidden" name="missionId" value="<c:out value='${m.missionId}' />">
+                                                <button type="submit" class="secondary">${failed ? '실패 취소' : '완료 취소'}</button>
+                                            </form>
+                                        </c:when>
+                                        <c:otherwise>
+                                            <form method="post" action="<c:url value='/mission/fail' />" style="display:inline;"
+                                                  onsubmit="return confirm('이 문제를 실패로 처리할까요?');">
+                                                <input type="hidden" name="_csrf" value="${csrfToken}">
+                                                <input type="hidden" name="missionId" value="<c:out value='${m.missionId}' />">
+                                                <button type="submit" class="secondary">실패</button>
+                                            </form>
+                                        </c:otherwise>
+                                    </c:choose>
                                 </div>
                             </li>
                         </c:forEach>
