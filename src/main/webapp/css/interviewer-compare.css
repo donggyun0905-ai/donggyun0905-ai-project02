@@ -48,5 +48,5 @@
     background: var(--card-bg);
     border-right: 1px solid var(--border);
 }
-.compare-table th:first-child { background: #e9eef4; }
+.compare-table th:first-child { background: #f1e4c8; }
 .compare-table tr:last-child td { border-bottom: none; }

@@ -51,9 +51,9 @@
 <style>
     .input-check { display: none; }
     .input-check.on { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 2px; padding: 7px 10px;
-        border-radius: 6px; border-left: 3px solid var(--ink-soft); background: var(--card-bg); font-size: 0.85rem; color: var(--ink-soft); }
+        border-radius: 6px; background: var(--card-bg); font-size: 0.85rem; color: var(--ink-soft); }
     .input-check.is-ok { border-left-color: var(--teal); color: var(--teal); background: var(--teal-bg); }
-    .input-check.is-suggest { border-left-color: var(--gold); color: var(--ink); background: #eef3f8; }
+    .input-check.is-suggest { border-left-color: var(--gold); color: var(--ink); background: #f6e9cf; }
     .input-check.is-unknown { border-left-color: var(--locked); }
     .input-check.is-gibberish { border-left-color: var(--danger); color: var(--danger); background: var(--danger-bg); }
     .input-check-pick { padding: 3px 10px; border-radius: 999px; border: 1px solid var(--gold); background: #fff;

@@ -178,7 +178,7 @@
                     </tr>
                 </c:forEach>
                 <c:if test="${not empty compare.criteria}">
-                    <tr style="background:#e9eef4;">
+                    <tr style="background:#f1e4c8;">
                         <td><strong>적합도 점수</strong></td>
                         <c:forEach var="applicant" items="${compare.applicants}">
                             <c:choose>

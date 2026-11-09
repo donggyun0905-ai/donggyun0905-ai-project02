@@ -47,7 +47,7 @@
 
     /* 첨삭 비교 */
     .rf-summary { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; margin-top: 10px; }
-    .rf-star { margin-top: 10px; background: #f8fafc; border: 1px solid #e7edf3; border-left: 4px solid var(--gold); border-radius: var(--radius); padding: 10px 14px; }
+    .rf-star { margin-top: 10px; background: #fffaf0; border: 1px solid #f0e2c0; border-radius: var(--radius); padding: 10px 14px; }
     .rf-star ul { margin: 6px 0 0; padding-left: 1.2em; }
     .rf-star li { margin: 3px 0; line-height: 1.6; }
     .rf-keywords { margin-top: 10px; }
@@ -60,10 +60,10 @@
     .rf-legend .l-click::before { border: 1px dashed var(--add-line); }
     .rf-doc { border: 1px solid var(--border); border-radius: var(--radius); background: #fff; padding: 12px 14px; margin-top: 8px;
               white-space: pre-wrap; overflow-wrap: anywhere; word-break: keep-all; line-height: 1.8; font-size: 0.95rem; }
-    .rf-hunk { margin: 8px 0; border: 1px solid var(--border); border-left-width: 4px; border-radius: 6px; overflow: hidden; white-space: normal; }
-    .rf-hunk.none { border-left-color: var(--gold); }
-    .rf-hunk.some { border-left-color: #8fd19e; }
-    .rf-hunk.all { border-left-color: var(--add-line); }
+    .rf-hunk { margin: 8px 0; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; white-space: normal; }
+    .rf-hunk.none { border-color: var(--gold); }
+    .rf-hunk.some { border-color: #8fd19e; }
+    .rf-hunk.all { border-color: var(--add-line); }
     .rf-line { display: flex; gap: 8px; padding: 4px 10px; white-space: pre-wrap; }
     .rf-line .sign { font-family: Consolas, monospace; font-weight: 700; flex-shrink: 0; width: 1ch; }
     .rf-line.del { background: var(--del-bg); color: var(--del-fg); }
@@ -92,7 +92,7 @@
     .rf-fill-title { grid-column: 1 / -1; font-size: 0.8rem; font-weight: 600; color: var(--ink-soft); }
     .rf-fill label { font-size: 0.86rem; color: var(--ink); text-align: right; }
     .rf-fill input { width: 100%; box-sizing: border-box; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px;
-                     font: inherit; font-size: 0.9rem; background: #ffffff; }
+                     font: inherit; font-size: 0.9rem; background: #fffdf5; }
     .rf-fill input:focus { outline: none; border-color: var(--add-line); box-shadow: 0 0 0 3px rgba(45, 164, 78, 0.15); background: #fff; }
     @media (max-width: 600px) { .rf-fill { grid-template-columns: minmax(0, 1fr); } .rf-fill label { text-align: left; } }
 </style>

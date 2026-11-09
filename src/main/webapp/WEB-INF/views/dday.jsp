@@ -19,7 +19,7 @@
 
         <%-- D-day까지 무엇부터 할지 — 남은 일수를 용량, 단계 소요 일수를 무게, 점수를 가치로 본 0/1 배낭 (2026-10-08) --%>
         <c:if test="${not empty ddayPlan and not empty ddayPlan.picked}">
-            <div class="card" style="border-left:4px solid var(--teal);">
+            <div class="card">
                 <div class="spread">
                     <h2 style="margin:0;">이 기간에 뭐부터 할까</h2>
                     <span class="muted" style="font-size:0.84rem;"><c:out value="${planTarget.title}" />까지 ${ddayPlan.availableDays}일</span>

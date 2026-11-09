@@ -1,6 +1,6 @@
 <h2 style="margin-top:24px; margin-bottom:10px;">이력서 · 자소서 <span class="muted" style="font-weight:normal; font-size:0.85rem;">(선택)</span></h2>
 <%-- 팀 회의에서 정한 안내 문구(2026-10-01): 이력서·자소서를 선택으로 올려 두면 면접관이 한 화면에서 한눈에 볼 수 있다는 점을 알린다. --%>
-<div class="card" style="background:var(--card-bg, #fff); border-left:4px solid var(--teal, #2E7D6B);">
+<div class="card" style="background:var(--card-bg, #fff);">
     <p style="margin:0 0 6px;"><strong><span class="ic ic-bulb" aria-hidden="true"></span> 이력서와 자소서를 올려 두면 면접관이 한눈에 볼 수 있어 편해요</strong></p>
     <p class="muted" style="margin:0; font-size:0.88rem; line-height:1.6;">
         공유 링크를 만들 때 <strong>이력서 파일</strong>·<strong>자소서 파일</strong>을 함께 골라 두면, 면접관은 링크 하나로 내 기본 이력과 기술 스택부터 이력서·자소서까지

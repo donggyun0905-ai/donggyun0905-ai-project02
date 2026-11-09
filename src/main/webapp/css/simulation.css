@@ -17,7 +17,7 @@
     border-radius: 8px;
     padding: 4px 6px 4px 10px;
     font-size: 0.78rem;
-    color: #f1f4f8;
+    color: #f3ead9;
     white-space: nowrap;
 }
 
@@ -67,7 +67,7 @@
 
 .sim-btn {
     background: rgba(255, 255, 255, 0.12);
-    color: #f1f4f8;
+    color: #f3ead9;
     border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 6px;
     padding: 3px 8px;
@@ -86,8 +86,8 @@
     position: absolute;
     top: calc(100% + 4px);
     right: 0;
-    background: rgba(31, 41, 51, 0.92);
-    color: #f1f4f8;
+    background: rgba(58, 47, 36, 0.92);
+    color: #f3ead9;
     border: 1px solid rgba(201, 162, 75, 0.6);
     border-radius: 999px;
     padding: 3px 10px;

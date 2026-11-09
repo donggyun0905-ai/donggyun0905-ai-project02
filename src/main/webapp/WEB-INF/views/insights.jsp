@@ -24,7 +24,6 @@
     .insight-empty { margin-top:10px; padding:14px 16px; border:1px dashed var(--border); border-radius:8px; text-align:center; }
     .insight-empty .icon { font-size:1.6rem; }
     .insight-empty p { margin:6px 0 10px; }
-    .insight-notice { border-left:4px solid var(--primary); }
     .insight-notice ul { margin:8px 0 0; padding-left:18px; }
     .insight-notice li { margin:4px 0; }
     /* 약점 히트맵 — 수준 머리글·칸은 가운데, 분야 열만 왼쪽. 칸마다 세로줄 (2026-10-08) */
@@ -204,9 +203,9 @@
                                 <c:forEach var="cell" items="${row.cells}">
                                     <c:choose>
                                         <c:when test="${cell.total == 0}"><td class="muted">·</td></c:when>
-                                        <c:when test="${cell.shade == 3}"><td style="background:#1e5aa8; color:#fff;">${cell.missing}/${cell.total}</td></c:when>
-                                        <c:when test="${cell.shade == 2}"><td style="background:#8fb3e0;">${cell.missing}/${cell.total}</td></c:when>
-                                        <c:when test="${cell.shade == 1}"><td style="background:#dce8f6;">${cell.missing}/${cell.total}</td></c:when>
+                                        <c:when test="${cell.shade == 3}"><td style="background:#b3702f; color:#fff;">${cell.missing}/${cell.total}</td></c:when>
+                                        <c:when test="${cell.shade == 2}"><td style="background:#dba24d;">${cell.missing}/${cell.total}</td></c:when>
+                                        <c:when test="${cell.shade == 1}"><td style="background:#f0d9a0;">${cell.missing}/${cell.total}</td></c:when>
                                         <c:otherwise><td>${cell.missing}/${cell.total}</td></c:otherwise>
                                     </c:choose>
                                 </c:forEach>
