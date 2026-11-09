@@ -107,7 +107,7 @@
     .bot-lead { font-size: 1.05rem; margin: 6px 0; }
     .bot-hero .companion-card { margin: 14px 0 0; box-shadow: none; background: #fbf3e2; }
     .bot-sub { margin: 16px 0 6px; font-size: 0.95rem; }
-    .companion-ask { margin-top: 12px; padding: 12px 14px; border-radius: 8px; border-left: 3px solid var(--gold); background: #f6e9cf; }
+    .companion-ask { margin-top: 12px; padding: 12px 14px; border-radius: 8px; background: #f6e9cf; }
     .companion-ask p { margin: 0 0 8px; }
     .companion-status { margin: 10px 0 0; font-size: 0.88rem; color: var(--ink-soft); min-height: 1em; }
     .companion-this-pc { margin-left: 6px; font-size: 0.72rem; font-weight: 700; color: #fff; background: var(--teal);
