@@ -32,7 +32,7 @@
         padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--ink);
         font-size: 0.92rem; font-weight: 600; cursor: pointer; }
     .signup-type input { width: auto; margin: 0; }
-    .signup-type label:has(input:checked) { border-color: var(--primary); background: var(--card-bg); box-shadow: 0 0 0 3px rgba(139,79,42,0.12); }
+    .signup-type label:has(input:checked) { border-color: var(--primary); background: var(--card-bg); box-shadow: 0 0 0 3px rgba(30,90,168,0.12); }
 
     .wizard-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; }
     .wizard-arrow { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px;

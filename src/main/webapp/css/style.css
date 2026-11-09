@@ -1,31 +1,31 @@
 /*
  * 스펙 오디세이 공용 스타일시트.
- * 팀 화면설계 PDF(개발자료/화면 설계/spec-odyssey-screens.pdf)의 팔레트를 그대로 반영했다.
+ * 색은 아래 :root 변수로 모아 두었다 (밝은 회색 바탕 + 남색 헤더 + 파란 주 버튼).
  * 프레임워크 없이 순수 CSS만 쓴다 (CLAUDE.md: 프론트엔드 프레임워크 미사용).
  */
 
 :root {
-    --ink: #3a2f24;
-    --ink-soft: #8a7a63;
-    --page-bg: #e8d3ab;
-    --card-bg: #fdf8ec;
-    --border: #e4d4b0;
+    --ink: #1f2933;
+    --ink-soft: #66727f;
+    --page-bg: #eef2f6;
+    --card-bg: #ffffff;
+    --border: #dfe5ec;
 
-    --header-bg: #6b5c4f;
+    --header-bg: #1f3a5f;
 
-    --primary: #8b4f2a;
-    --primary-hover: #6f3e20;
+    --primary: #1e5aa8;
+    --primary-hover: #174a8c;
 
     --gold: #c9a24b;
     --teal: #1f7a6c;
     --teal-bg: #e6f2ef;
     --danger: #c0432a;
     --danger-bg: #fbe6e0;
-    --locked: #b8a88a;
+    --locked: #a3adb8;
 
     --radius: 10px;
     --header-h: 71px;
-    --shadow: 0 2px 8px rgba(58, 47, 36, 0.12);
+    --shadow: 0 2px 8px rgba(31, 41, 51, 0.12);
 }
 
 * { box-sizing: border-box; }
@@ -48,7 +48,7 @@ body {
     line-height: 1.6;
 }
 
-h1, h2, h3 { font-family: Georgia, 'Noto Serif KR', serif; color: var(--ink); margin: 0; }
+h1, h2, h3 { font-family: inherit; color: var(--ink); margin: 0; }
 h1 { font-size: 1.7rem; margin-bottom: 0.3rem; }
 h2 { font-size: 1.2rem; color: var(--ink); }
 
@@ -60,7 +60,7 @@ a:hover { text-decoration: underline; }
 header {
     grid-area: header;
     background: var(--header-bg);
-    color: #f3ead9;
+    color: #f1f4f8;
     padding: 14px 28px;
     display: flex;
     align-items: center;
@@ -81,7 +81,7 @@ header .brand {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-family: Georgia, 'Noto Serif KR', serif;
+    font-family: inherit;
     font-size: 1.15rem;
     font-weight: 700;
     color: #fff;
@@ -90,7 +90,7 @@ header .brand img { height: 26px; display: block; }
 
 .menu-btn {
     background: rgba(255,255,255,0.12);
-    color: #f3ead9;
+    color: #f1f4f8;
     border: 1px solid rgba(255,255,255,0.25);
     border-radius: 6px;
     padding: 6px 12px;
@@ -120,7 +120,7 @@ header .menu-btn { margin-bottom: 0; }
 .nav-drawer {
     grid-area: 1 / 1 / -1 / -1;
     position: fixed; inset: 0;
-    background: rgba(58,47,36,0.35);
+    background: rgba(31,41,51,0.35);
     display: none;
     z-index: 60;
 }
@@ -203,7 +203,7 @@ footer.site-footer {
 }
 
 .banner {
-    background: #f6e9cf; border: 1px solid var(--gold);
+    background: #eef3f8; border: 1px solid var(--gold);
     border-radius: var(--radius); padding: 10px 18px;
     font-size: 0.88rem; margin-bottom: 18px;
     display: flex; align-items: center; gap: 10px; justify-content: space-between;
@@ -319,7 +319,7 @@ input[type="search"], input[type="tel"], select, textarea {
 }
 input:focus, select:focus, textarea:focus {
     outline: none; border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(139,79,42,0.15);
+    box-shadow: 0 0 0 3px rgba(30,90,168,0.15);
 }
 textarea { min-height: 5rem; resize: vertical; }
 
@@ -346,11 +346,11 @@ button.link-button:hover { background: none; text-decoration: underline; }
 
 .chip { display: inline-block; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.02em; padding: 2px 9px; border-radius: 999px; margin-right: 5px; text-transform: uppercase; }
 .chip-gold { background: rgba(201,162,75,0.25); color: #8a6a2c; }
-.chip-locked { background: rgba(184,168,138,0.25); color: var(--locked); }
+.chip-locked { background: rgba(163,173,184,0.25); color: var(--locked); }
 .chip-teal { background: rgba(31,122,108,0.15); color: var(--teal); }
 .chip-danger { background: var(--danger-bg); color: var(--danger); }
 
-.progress-track { background: #e2ceac; border-radius: 999px; height: 9px; overflow: hidden; margin: 6px 0 14px; }
+.progress-track { background: #e3e8ee; border-radius: 999px; height: 9px; overflow: hidden; margin: 6px 0 14px; }
 .progress-fill { background: var(--gold); height: 100%; }
 .progress-fill.teal { background: var(--teal); }
 
@@ -361,7 +361,7 @@ button.link-button:hover { background: none; text-decoration: underline; }
 details > summary { cursor: pointer; color: var(--teal); font-weight: 600; }
 
 table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
-table th { text-align: left; background: #f1e4c8; padding: 8px 10px; font-size: 0.78rem; color: var(--ink-soft); }
+table th { text-align: left; background: #e9eef4; padding: 8px 10px; font-size: 0.78rem; color: var(--ink-soft); }
 table td { padding: 9px 10px; border-bottom: 1px solid var(--border); }
 
 .pill { display: inline-block; background: #fff; border: 1px solid var(--border); border-radius: 999px; padding: 3px 12px; font-size: 0.8rem; }
@@ -389,7 +389,7 @@ table td { padding: 9px 10px; border-bottom: 1px solid var(--border); }
 }
 
 /* 버튼 — 호버 시 살짝 떠오르고, 누르는 순간(active) 다시 눌리는 느낌 */
-button:hover, .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(58,47,36,0.18); }
+button:hover, .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(31,41,51,0.18); }
 button:active, .btn:active { transform: translateY(0); box-shadow: none; }
 button.link-button:hover, button.link-button:active { transform: none; box-shadow: none; }
 
@@ -399,15 +399,15 @@ button.link-button:hover, button.link-button:active { transform: none; box-shado
 .tier-badge:hover { border-color: var(--gold); background: rgba(255,255,255,0.2); }
 
 /* 카드 — 살짝 떠오르는 그림자로 "누를 수 있을 것 같은" 느낌 */
-.card:hover { box-shadow: 0 4px 14px rgba(58,47,36,0.16); }
+.card:hover { box-shadow: 0 4px 14px rgba(31,41,51,0.16); }
 .journey-card:not(.is-past):not(.is-locked):hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(58,47,36,0.18);
+    box-shadow: 0 6px 16px rgba(31,41,51,0.18);
 }
 .journey-marker:hover { transform: scale(1.08); }
 
 /* 목록·드로어 메뉴 — 호버 시 테두리 강조 또는 살짝 밀림 */
-.item-list > li:hover { border-color: var(--primary); box-shadow: 0 3px 10px rgba(58,47,36,0.12); }
+.item-list > li:hover { border-color: var(--primary); box-shadow: 0 3px 10px rgba(31,41,51,0.12); }
 .nav-drawer-panel a:hover { transform: translateX(2px); }
 
 details > summary:hover { color: var(--primary-hover); }
@@ -453,14 +453,14 @@ input[type="url"] {
     padding-left: 34px;
     background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a7a63' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'/%3E%3C/svg%3E") no-repeat 11px center / 15px 15px;
 }
-input::placeholder, textarea::placeholder { color: #b7a98f; }
+input::placeholder, textarea::placeholder { color: #9aa5b1; }
 input:hover:not(:focus):not([type="checkbox"]):not([type="radio"]), select:hover:not(:focus), textarea:hover:not(:focus) {
-    border-color: #d3bf95;
+    border-color: #c8d2dd;
 }
 
 /* 파일 올리기 — 점선 상자 + "파일 선택" 버튼을 보조 버튼 모양으로 */
 input[type="file"] {
-    padding: 8px; border: 1.5px dashed #d3bf95; background: #fffdf7; color: var(--ink-soft);
+    padding: 8px; border: 1.5px dashed #c8d2dd; background: #ffffff; color: var(--ink-soft);
     font-size: 0.85rem; cursor: pointer;
 }
 input[type="file"]:hover { border-color: var(--primary); background: #fff; }

@@ -16,10 +16,10 @@
         margin: 2px 10px 6px; padding: 9px 12px;
         border-radius: 8px;
         border: 1px solid var(--gold);
-        background: #f6e9cf;
+        background: #eef3f8;
         font-weight: 600;
     }
-    .nav-drawer-panel a.companion-nav:hover { background: #f0dcb8; }
+    .nav-drawer-panel a.companion-nav:hover { background: #e4ebf3; }
     .companion-nav-new {
         margin-left: auto;
         background: var(--danger); color: #fff;

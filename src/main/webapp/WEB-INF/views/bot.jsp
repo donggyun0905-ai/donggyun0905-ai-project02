@@ -102,12 +102,12 @@
 <style>
     /* 오셍이들 화면 전용 (2026-10-08) */
     .bot-hero { display: flex; gap: 24px; align-items: flex-start; }
-    .bot-hero-img { width: 200px; height: auto; flex-shrink: 0; filter: drop-shadow(0 6px 10px rgba(58,47,36,0.18)); }
+    .bot-hero-img { width: 200px; height: auto; flex-shrink: 0; filter: drop-shadow(0 6px 10px rgba(31,41,51,0.18)); }
     .bot-hero-body { flex: 1; min-width: 0; }
     .bot-lead { font-size: 1.05rem; margin: 6px 0; }
-    .bot-hero .companion-card { margin: 14px 0 0; box-shadow: none; background: #fbf3e2; }
+    .bot-hero .companion-card { margin: 14px 0 0; box-shadow: none; background: #f5f8fb; }
     .bot-sub { margin: 16px 0 6px; font-size: 0.95rem; }
-    .companion-ask { margin-top: 12px; padding: 12px 14px; border-radius: 8px; border-left: 3px solid var(--gold); background: #f6e9cf; }
+    .companion-ask { margin-top: 12px; padding: 12px 14px; border-radius: 8px; border-left: 3px solid var(--gold); background: #eef3f8; }
     .companion-ask p { margin: 0 0 8px; }
     .companion-status { margin: 10px 0 0; font-size: 0.88rem; color: var(--ink-soft); min-height: 1em; }
     .companion-this-pc { margin-left: 6px; font-size: 0.72rem; font-weight: 700; color: #fff; background: var(--teal);
@@ -120,7 +120,7 @@
     .bot-tier { margin: 0; text-align: center; border: 1px solid var(--border); border-radius: 12px; padding: 10px 8px; background: var(--card-bg); }
     .bot-tier img { width: 100%; max-width: 150px; height: auto; }
     .bot-tier figcaption { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
-    .bot-tier.mine { border: 2px solid var(--gold); background: #fbf3e2; }
+    .bot-tier.mine { border: 2px solid var(--gold); background: #f5f8fb; }
     .bot-mine { align-self: center; margin-top: 4px; font-size: 0.72rem; font-weight: 700; color: #fff; background: var(--gold);
                 border-radius: 999px; padding: 1px 8px; }
     .bot-steps { margin: 10px 0 12px; padding-left: 20px; }

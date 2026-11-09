@@ -204,9 +204,9 @@
                                 <c:forEach var="cell" items="${row.cells}">
                                     <c:choose>
                                         <c:when test="${cell.total == 0}"><td class="muted">·</td></c:when>
-                                        <c:when test="${cell.shade == 3}"><td style="background:#b3702f; color:#fff;">${cell.missing}/${cell.total}</td></c:when>
-                                        <c:when test="${cell.shade == 2}"><td style="background:#dba24d;">${cell.missing}/${cell.total}</td></c:when>
-                                        <c:when test="${cell.shade == 1}"><td style="background:#f0d9a0;">${cell.missing}/${cell.total}</td></c:when>
+                                        <c:when test="${cell.shade == 3}"><td style="background:#1e5aa8; color:#fff;">${cell.missing}/${cell.total}</td></c:when>
+                                        <c:when test="${cell.shade == 2}"><td style="background:#8fb3e0;">${cell.missing}/${cell.total}</td></c:when>
+                                        <c:when test="${cell.shade == 1}"><td style="background:#dce8f6;">${cell.missing}/${cell.total}</td></c:when>
                                         <c:otherwise><td>${cell.missing}/${cell.total}</td></c:otherwise>
                                     </c:choose>
                                 </c:forEach>
